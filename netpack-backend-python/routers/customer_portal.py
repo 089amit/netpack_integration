@@ -23,7 +23,7 @@ from services.auth_service import (
     decode_token,
 )
 from services.hawb_service import generate_tracking_number
-from services.email_service import send_enquiry_booking_notification
+from services.email_service import send_enquiry_booking_notification, send_user_welcome_email
 
 router = APIRouter(prefix="/api/customer", tags=["Customer Portal"])
 
@@ -201,7 +201,11 @@ def customer_login(payload: CustomerLoginRequest, db: Session = Depends(get_db))
 
 
 @router.post("/auth/signup")
-def customer_signup(payload: CustomerSignupRequest, db: Session = Depends(get_db)):
+def customer_signup(
+    payload: CustomerSignupRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     clean_email = payload.email.strip().lower()
     existing = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
     if existing:
@@ -232,7 +236,7 @@ def customer_signup(payload: CustomerSignupRequest, db: Session = Depends(get_db
     db.commit()
     db.refresh(customer)
 
-    # Welcome notification
+    # Welcome notification in portal
     welcome_notif = Notification(
         title="Welcome to NetPack Logistics!",
         body=f"Namaste {customer.name}, welcome aboard. You can now book express shipments, request doorstep pickups, and track your global cargo in real-time.",
@@ -242,6 +246,16 @@ def customer_signup(payload: CustomerSignupRequest, db: Session = Depends(get_db
     )
     db.add(welcome_notif)
     db.commit()
+
+    # Dispatch welcome email to customer
+    send_user_welcome_email(
+        to_email=customer.email,
+        full_name=customer.name,
+        role_name="CUSTOMER",
+        password=payload.password,
+        background_tasks=background_tasks
+    )
+
 
     token_payload = {
         "customerId": customer.id,

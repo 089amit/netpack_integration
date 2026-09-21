@@ -1,5 +1,6 @@
 import math
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Query
+import random
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any
 from database import get_db
@@ -20,6 +21,10 @@ from services.auth_service import (
     create_access_token,
     decode_token,
     get_current_admin
+)
+from services.email_service import (
+    send_user_welcome_email,
+    send_forgot_password_email
 )
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -102,15 +107,37 @@ def validate_mobile_token(payload: TokenValidationRequest, db: Session = Depends
     return validate_token(payload, None, db)
 
 @router.post("/forgot-password")
-def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+@router.post("/forgot-password/")
+@router.post("/forgotPassword")
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.email.ilike(payload.email.strip())).first()
     if not user:
         return {"message": "If the email exists, a password reset link has been sent."}
-    return {"message": "Password reset email sent successfully"}
+
+    # Generate 6-digit verification code
+    reset_code = f"{random.randint(100000, 999999)}"
+    send_forgot_password_email(
+        to_email=user.email,
+        full_name=user.fullName or "User",
+        reset_code=reset_code,
+        background_tasks=background_tasks
+    )
+    return {"message": "Password reset email sent successfully", "success": True}
 
 @router.post("/signUp")
-def sign_up(payload: SignUpRequest, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == payload.email).first()
+@router.post("/signUp/")
+@router.post("/signup")
+@router.post("/signup/")
+def sign_up(
+    payload: SignUpRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    existing = db.query(User).filter(User.email.ilike(payload.email.strip())).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -121,7 +148,7 @@ def sign_up(payload: SignUpRequest, db: Session = Depends(get_db)):
 
     hashed_pw = get_password_hash(payload.password)
     user = User(
-        email=payload.email,
+        email=payload.email.strip(),
         password=hashed_pw,
         fullName=payload.fullName or payload.email.split("@")[0],
         phoneNumber=payload.phoneNumber,
@@ -131,6 +158,15 @@ def sign_up(payload: SignUpRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # Dispatch welcome & account confirmation email
+    send_user_welcome_email(
+        to_email=user.email,
+        full_name=user.fullName,
+        role_name="CUSTOMER",
+        password=payload.password,
+        background_tasks=background_tasks
+    )
 
     return {"message": "User created successfully", "userId": user.id}
 
@@ -215,8 +251,16 @@ def get_admin_by_id(id: int, db: Session = Depends(get_db), admin: User = Depend
     }
 
 @router.post("/create")
-def create_admin_user(payload: UserCreateRequest, db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
-    existing = db.query(User).filter(User.email == payload.email).first()
+@router.post("/create/")
+@router.post("/users")
+@router.post("/users/")
+def create_admin_user(
+    payload: UserCreateRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    existing = db.query(User).filter(User.email.ilike(payload.email.strip())).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already exists")
 
@@ -246,7 +290,7 @@ def create_admin_user(payload: UserCreateRequest, db: Session = Depends(get_db),
     password_to_hash = payload.password or "Netpack@123"
     hashed_pw = get_password_hash(password_to_hash)
     u = User(
-        email=payload.email,
+        email=payload.email.strip(),
         username=payload.username.strip() if payload.username else None,
         password=hashed_pw,
         fullName=payload.fullName or payload.email.split("@")[0],
@@ -289,9 +333,22 @@ def create_admin_user(payload: UserCreateRequest, db: Session = Depends(get_db),
         print(f"[Warning] Failed syncing user to customer: {err}")
         db.rollback()
 
+    # Dispatch welcome email with login credentials
+    role_str = payload.role or (u.role.name if u.role else "STAFF")
+    send_user_welcome_email(
+        to_email=u.email,
+        full_name=u.fullName,
+        role_name=role_str,
+        password=password_to_hash,
+        background_tasks=background_tasks
+    )
+
     return {"message": "User created successfully", "user": {"id": u.id, "email": u.email, "username": u.username}}
 
 @router.put("/users/{id}")
+@router.put("/users/{id}/")
+@router.patch("/users/{id}")
+@router.patch("/users/{id}/")
 def update_admin(id: int, payload: UserUpdateRequest, db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
     u = db.query(User).filter(User.id == id).first()
     if not u:

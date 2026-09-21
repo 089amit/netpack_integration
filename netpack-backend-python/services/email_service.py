@@ -290,3 +290,142 @@ def test_smtp_connection(target_email: str) -> dict:
     </div>
     """
     return send_email_sync(target_email, subject, html)
+
+
+def build_user_welcome_html(
+    full_name: str,
+    email: str,
+    role_name: str,
+    password: Optional[str] = None,
+    login_url: str = ""
+) -> str:
+    """Branded responsive email for newly created accounts and signups."""
+    pw_block = ""
+    if password:
+        pw_block = f"""
+        <div style="background-color: #f1f5f9; border-left: 4px solid #0284c7; padding: 14px 18px; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">Your Login Credentials</p>
+          <p style="margin: 0 0 4px 0; font-size: 14px; color: #0f172a;"><strong>Email:</strong> {email}</p>
+          <p style="margin: 0; font-size: 14px; color: #0f172a;"><strong>Temporary Password:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 15px; font-weight: bold; color: #0f172a;">{password}</code></p>
+        </div>
+        <p style="font-size: 13px; color: #64748b; margin-top: -10px;">For security, we recommend changing your password after your first login.</p>
+        """
+
+    portal_name = "Rider Mobile PWA" if role_name.upper() == "PICKUP" else "Staff & Operations Portal"
+
+    return f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
+<div style="max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+  <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 24px 30px; text-align: left;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 20px; letter-spacing: -0.5px;">NetPack Logistics</h1>
+    <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 13px;">Enterprise Freight & Logistics Management</p>
+  </div>
+  <div style="padding: 28px 30px;">
+    <h2 style="color: #0f172a; margin-top: 0; font-size: 18px;">Welcome to NetPack, {full_name}!</h2>
+    <p style="font-size: 14px; line-height: 1.6; color: #475569;">
+      Your account has been successfully created with the role of <strong>{role_name.upper()}</strong>.
+      You can now access the {portal_name} to manage shipments, bookings, and operations.
+    </p>
+    {pw_block}
+    <div style="margin: 26px 0 20px 0; text-align: center;">
+      <a href="{login_url}" style="background-color: #0284c7; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Log in to {portal_name} &rarr;</a>
+    </div>
+  </div>
+  <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; font-size: 12px; color: #64748b; text-align: center;">
+    <p style="margin: 0;">NetPack Logistics Cargo Terminal, Kathmandu, Nepal</p>
+    <p style="margin: 4px 0 0 0;">Need help? Email <a href="mailto:info@netpacklogistic.com" style="color: #0284c7;">info@netpacklogistic.com</a></p>
+  </div>
+</div>
+</body>
+</html>"""
+
+
+def send_user_welcome_email(
+    to_email: str,
+    full_name: str,
+    role_name: str = "STAFF",
+    password: Optional[str] = None,
+    background_tasks: Optional[BackgroundTasks] = None
+):
+    """Dispatches welcome & credentials email to newly registered or admin-created user."""
+    frontend_base = getattr(config, "FRONTEND_URL", "http://localhost:8000") or "http://localhost:8000"
+    if role_name.upper() == "PICKUP":
+        login_url = f"{frontend_base.rstrip('/')}/pickup-pwa"
+    elif role_name.upper() == "CUSTOMER":
+        login_url = f"{frontend_base.rstrip('/')}/pwa"
+    else:
+        login_url = f"{frontend_base.rstrip('/')}/sign-in"
+
+    subject = f"[NetPack Logistics] Welcome to NetPack — Your Account Details"
+    html = build_user_welcome_html(
+        full_name=full_name,
+        email=to_email,
+        role_name=role_name,
+        password=password,
+        login_url=login_url
+    )
+    send_email(
+        to_emails=to_email,
+        subject=subject,
+        html_content=html,
+        background_tasks=background_tasks
+    )
+    logger.info(f"[EmailService] Dispatched welcome email to: {to_email}")
+
+
+def build_forgot_password_html(full_name: str, reset_code: str, reset_url: str = "") -> str:
+    """Password reset instructions and verification code email."""
+    return f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
+<div style="max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+  <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 19px;">NetPack Logistics</h1>
+    <p style="color: #94a3b8; margin: 3px 0 0 0; font-size: 12px;">Security & Account Recovery</p>
+  </div>
+  <div style="padding: 26px 28px;">
+    <h2 style="color: #0f172a; margin-top: 0; font-size: 17px;">Password Reset Request</h2>
+    <p style="font-size: 14px; line-height: 1.6; color: #475569;">
+      Hello {full_name}, we received a request to reset your password for your NetPack Logistics account.
+    </p>
+    <div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 16px; margin: 20px 0; text-align: center;">
+      <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Your Security Verification Code</p>
+      <p style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 4px; color: #0284c7;">{reset_code}</p>
+    </div>
+    <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
+      This verification code is valid for <strong>15 minutes</strong>. If you did not request this code, you can safely ignore this email — your account remains secure.
+    </p>
+    <div style="margin: 24px 0 16px 0; text-align: center;">
+      <a href="{reset_url}" style="background-color: #0284c7; color: #ffffff; text-decoration: none; padding: 11px 24px; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Reset Password &rarr;</a>
+    </div>
+  </div>
+  <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; font-size: 12px; color: #64748b; text-align: center;">
+    <p style="margin: 0;">NetPack Logistics Security Team &bull; info@netpacklogistic.com</p>
+  </div>
+</div>
+</body>
+</html>"""
+
+
+def send_forgot_password_email(
+    to_email: str,
+    full_name: str,
+    reset_code: str,
+    background_tasks: Optional[BackgroundTasks] = None
+):
+    """Dispatches password reset verification email."""
+    frontend_base = getattr(config, "FRONTEND_URL", "http://localhost:8000") or "http://localhost:8000"
+    reset_url = f"{frontend_base.rstrip('/')}/otp?email={to_email}"
+    subject = f"[NetPack Logistics] Password Reset Verification Code: {reset_code}"
+    html = build_forgot_password_html(full_name=full_name, reset_code=reset_code, reset_url=reset_url)
+    send_email(
+        to_emails=to_email,
+        subject=subject,
+        html_content=html,
+        background_tasks=background_tasks
+    )
+    logger.info(f"[EmailService] Dispatched password reset email to: {to_email}")
+
