@@ -88,9 +88,13 @@ def send_email_sync(
                 "Authorization": f"Bearer {config.RESEND_API_KEY.strip()}",
                 "Content-Type": "application/json"
             }
-            # If domain is verified use sender_email, otherwise default to onboarding@resend.dev
-            from_field = f"{sender_name} <{sender_email}>"
-            if not config.SMTP_FROM_EMAIL or "resend.dev" in config.RESEND_API_KEY:
+            # If custom verified domain is provided in RESEND_FROM_EMAIL, use it; otherwise use onboarding@resend.dev
+            custom_from = getattr(config, "RESEND_FROM_EMAIL", "") or ""
+            if custom_from and "@" in custom_from and "@gmail" not in custom_from.lower():
+                from_field = f"{sender_name} <{custom_from}>"
+            elif sender_email and "@" in sender_email and not any(p in sender_email.lower() for p in ("@gmail.", "@yahoo.", "@hotmail.", "@outlook.")):
+                from_field = f"{sender_name} <{sender_email}>"
+            else:
                 from_field = f"{sender_name} <onboarding@resend.dev>"
 
             payload = {
@@ -99,6 +103,8 @@ def send_email_sync(
                 "subject": subject,
                 "html": html_content
             }
+            if sender_email and "@" in sender_email:
+                payload["reply_to"] = sender_email
             if text_content:
                 payload["text"] = text_content
 
