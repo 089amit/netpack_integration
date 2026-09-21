@@ -1,6 +1,8 @@
 import smtplib
 import ssl
+import socket
 import logging
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Optional, Union
@@ -9,9 +11,26 @@ import config
 
 logger = logging.getLogger("netpack.email")
 
+# 🌐 Force IPv4 address resolution for SMTP/Mail to prevent [Errno 101] Network is unreachable in cloud Docker containers
+_orig_getaddrinfo = socket.getaddrinfo
+
+def _ipv4_forced_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    if family == 0 and isinstance(host, str) and ("smtp" in host or "mail" in host or "gmail" in host or "google" in host):
+        try:
+            return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+        except Exception:
+            pass
+    return _orig_getaddrinfo(host, port, family, type, proto, flags)
+
+socket.getaddrinfo = _ipv4_forced_getaddrinfo
+
+
 def is_smtp_configured() -> bool:
-    """Returns True if minimum SMTP parameters are set in environment."""
+    """Returns True if minimum SMTP or HTTPS email parameters are set in environment."""
+    if config.RESEND_API_KEY or config.BREVO_API_KEY:
+        return True
     return bool(config.SMTP_HOST and config.SMTP_USER and config.SMTP_PASSWORD)
+
 
 def send_email_sync(
     to_emails: Union[str, List[str]],
@@ -61,9 +80,67 @@ def send_email_sync(
     part2 = MIMEText(html_content, "html", "utf-8")
     message.attach(part2)
 
-    # Try configured port/mode first, then automatically fall back to the alternate port (465 SSL vs 587 TLS)
+    # 1. First priority: Check if Resend HTTPS API Key is configured (runs over port 443 - NEVER blocked by Railway)
+    if config.RESEND_API_KEY:
+        try:
+            resend_url = "https://api.resend.com/emails"
+            headers = {
+                "Authorization": f"Bearer {config.RESEND_API_KEY.strip()}",
+                "Content-Type": "application/json"
+            }
+            # If domain is verified use sender_email, otherwise default to onboarding@resend.dev
+            from_field = f"{sender_name} <{sender_email}>"
+            if not config.SMTP_FROM_EMAIL or "resend.dev" in config.RESEND_API_KEY:
+                from_field = f"{sender_name} <onboarding@resend.dev>"
+
+            payload = {
+                "from": from_field,
+                "to": clean_recipients,
+                "subject": subject,
+                "html": html_content
+            }
+            if text_content:
+                payload["text"] = text_content
+
+            r = requests.post(resend_url, json=payload, headers=headers, timeout=12)
+            if r.status_code in (200, 201):
+                logger.info(f"[EmailService Resend HTTPS SUCCESS] Sent '{subject}' to {clean_recipients}")
+                return {"success": True, "provider": "Resend (HTTPS Port 443)", "recipients": clean_recipients}
+            else:
+                logger.warning(f"[EmailService Resend Warning] Status {r.status_code}: {r.text}. Falling back to SMTP...")
+        except Exception as resend_err:
+            logger.warning(f"[EmailService Resend Error] {resend_err}. Falling back to SMTP...")
+
+    # 2. Second priority: Check if Brevo HTTPS API Key is configured (runs over port 443)
+    if config.BREVO_API_KEY:
+        try:
+            brevo_url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "api-key": config.BREVO_API_KEY.strip(),
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "sender": {"name": sender_name, "email": sender_email},
+                "to": [{"email": e} for e in clean_recipients],
+                "subject": subject,
+                "htmlContent": html_content
+            }
+            if text_content:
+                payload["textContent"] = text_content
+
+            r = requests.post(brevo_url, json=payload, headers=headers, timeout=12)
+            if r.status_code in (200, 201):
+                logger.info(f"[EmailService Brevo HTTPS SUCCESS] Sent '{subject}' to {clean_recipients}")
+                return {"success": True, "provider": "Brevo (HTTPS Port 443)", "recipients": clean_recipients}
+            else:
+                logger.warning(f"[EmailService Brevo Warning] Status {r.status_code}: {r.text}. Falling back to SMTP...")
+        except Exception as brevo_err:
+            logger.warning(f"[EmailService Brevo Error] {brevo_err}. Falling back to SMTP...")
+
+    # 3. Third priority: Raw SMTP with automatic dual-port and forced IPv4 resolution
     host = config.SMTP_HOST
     pref_port = int(config.SMTP_PORT or 587)
+
     pref_ssl = bool(config.SMTP_USE_SSL) or pref_port == 465
 
     attempts = []
