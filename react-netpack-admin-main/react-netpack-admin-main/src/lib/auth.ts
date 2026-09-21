@@ -10,11 +10,15 @@ const VALIDATION_CACHE_KEY = 'token_validation_cache'
 const AUTH_ADMIN_ROLE = 'role'
 // const VALIDATION_CACHE_DURATION = 5 * 60 * 1000 // 5 minutes in milliseconds
 
-// Check if current page is an auth page or public customer PWA (no validation needed)
+// Check if current page is an auth page or public customer/rider PWA (no validation needed)
 const isAuthPage = (): boolean => {
+  if (typeof window === 'undefined') return true
   const path = window.location.pathname
   return (
+    path === '/' ||
+    path.startsWith('/landing') ||
     path.startsWith('/pwa') ||
+    path.startsWith('/pickup-pwa') ||
     path.includes('/sign-in') ||
     path.includes('/sign-up') ||
     path.includes('/forgot-password') ||
@@ -181,7 +185,6 @@ export const validateTokenSync = (): boolean => {
 
   const token = getToken()
   if (!token) {
-    logout()
     return false
   }
 
@@ -205,19 +208,29 @@ export const logout = (): void => {
   removeToken()
   removeFullName()
   clearValidationCache()
-  // Clear any other auth-related data
+  // Clear only admin auth-related keys without wiping customer/rider tokens or themes
   localStorage.removeItem('user')
-  localStorage.clear()
-  sessionStorage.clear()
+  localStorage.removeItem('admin')
+  localStorage.removeItem('userEmail')
+  localStorage.removeItem('fullName')
+  localStorage.removeItem('userRole')
+  localStorage.removeItem('role')
+  localStorage.removeItem('userId')
+  sessionStorage.removeItem('token')
+  sessionStorage.removeItem('admin')
 
-  // Only redirect if not already on auth page
+  // Only redirect if currently on an authenticated admin page
   if (!isAuthPage()) {
     window.location.href = '/sign-in'
   }
 }
 
 export const isAuthenticated = (): boolean => {
-  return validateTokenSync()
+  const token = getToken()
+  if (!token) return false
+  if (isTokenExpired(token)) return false
+  if (!validateTokenStructure(token)) return false
+  return true
 }
 
 export const getToken = (): string | null => {

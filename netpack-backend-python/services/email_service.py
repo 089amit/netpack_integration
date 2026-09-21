@@ -61,33 +61,51 @@ def send_email_sync(
     part2 = MIMEText(html_content, "html", "utf-8")
     message.attach(part2)
 
-    try:
-        host = config.SMTP_HOST
-        port = int(config.SMTP_PORT or 587)
-        use_ssl = bool(config.SMTP_USE_SSL)
-        use_tls = bool(config.SMTP_USE_TLS)
+    # Try configured port/mode first, then automatically fall back to the alternate port (465 SSL vs 587 TLS)
+    host = config.SMTP_HOST
+    pref_port = int(config.SMTP_PORT or 587)
+    pref_ssl = bool(config.SMTP_USE_SSL) or pref_port == 465
 
-        if use_ssl or port == 465:
-            context = ssl.create_default_context()
-            with smtplib.SMTP_SSL(host, port, context=context, timeout=15) as server:
-                server.login(config.SMTP_USER, config.SMTP_PASSWORD)
-                server.sendmail(sender_email, clean_recipients, message.as_string())
-        else:
-            with smtplib.SMTP(host, port, timeout=15) as server:
-                server.ehlo()
-                if use_tls or port == 587:
+    attempts = []
+    if pref_ssl:
+        attempts.append({"port": pref_port, "ssl": True})
+        if pref_port != 587:
+            attempts.append({"port": 587, "ssl": False})
+    else:
+        attempts.append({"port": pref_port, "ssl": False})
+        if pref_port != 465:
+            attempts.append({"port": 465, "ssl": True})
+
+    last_err = None
+    for attempt in attempts:
+        curr_port = attempt["port"]
+        curr_ssl = attempt["ssl"]
+        try:
+            if curr_ssl:
+                context = ssl.create_default_context()
+                with smtplib.SMTP_SSL(host, curr_port, context=context, timeout=15) as server:
+                    if config.SMTP_USER and config.SMTP_PASSWORD:
+                        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+                    server.sendmail(sender_email, clean_recipients, message.as_string())
+            else:
+                with smtplib.SMTP(host, curr_port, timeout=15) as server:
+                    server.ehlo()
                     context = ssl.create_default_context()
                     server.starttls(context=context)
                     server.ehlo()
-                if config.SMTP_USER and config.SMTP_PASSWORD:
-                    server.login(config.SMTP_USER, config.SMTP_PASSWORD)
-                server.sendmail(sender_email, clean_recipients, message.as_string())
+                    if config.SMTP_USER and config.SMTP_PASSWORD:
+                        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+                    server.sendmail(sender_email, clean_recipients, message.as_string())
 
-        logger.info(f"[EmailService SUCCESS] Sent '{subject}' to {clean_recipients}")
-        return {"success": True, "recipients": clean_recipients}
-    except Exception as err:
-        logger.error(f"[EmailService ERROR] Failed sending to {clean_recipients}: {err}")
-        return {"success": False, "error": str(err), "recipients": clean_recipients}
+            logger.info(f"[EmailService SUCCESS] Sent '{subject}' to {clean_recipients} via port {curr_port} (SSL={curr_ssl})")
+            return {"success": True, "recipients": clean_recipients, "port": curr_port}
+        except Exception as err:
+            last_err = err
+            logger.warning(f"[EmailService Attempt Failed] Port {curr_port} (SSL={curr_ssl}): {err}. Trying alternate configuration...")
+
+    logger.error(f"[EmailService ERROR] Failed sending to {clean_recipients}: {last_err}")
+    return {"success": False, "error": str(last_err), "recipients": clean_recipients}
+
 
 def send_email(
     to_emails: Union[str, List[str]],
