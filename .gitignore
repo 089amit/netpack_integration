@@ -1,0 +1,62 @@
+# ─── Environment & Secrets ──────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.*.local
+*.env
+
+# ─── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+env/
+.venv/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+*.log
+
+# ─── Node / Frontend ─────────────────────────────────────────────────────────
+node_modules/
+dist/
+*.local
+
+# ─── Vite / Build Artifacts ─────────────────────────────────────────────────
+react-netpack-admin-main/react-netpack-admin-main/dist/
+react-netpack-admin-main/react-netpack-admin-main/node_modules/
+
+# ─── Uploads / User Files ────────────────────────────────────────────────────
+netpack-backend-python/uploads/
+uploads/
+
+# ─── Database Files ──────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ─── IDE & OS ────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Railway / Docker Logs ───────────────────────────────────────────────────
+*.log
+logs/

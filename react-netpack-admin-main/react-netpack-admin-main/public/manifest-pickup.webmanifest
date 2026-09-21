@@ -1,0 +1,43 @@
+{
+  "name": "NetPack Logistics Rider & Pickup App",
+  "short_name": "NetPack Rider",
+  "description": "Field pickup dispatch, instant audio push alerts, and verified warehouse weighing for NetPack Logistics riders.",
+  "start_url": "/pickup-pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090d16",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "/alzlogo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/alzlogo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Pending Pickups",
+      "url": "/pickup-pwa?filter=pending",
+      "icons": [{ "src": "/images/favicon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Completed Today",
+      "url": "/pickup-pwa?filter=picked_up",
+      "icons": [{ "src": "/images/favicon.png", "sizes": "192x192" }]
+    }
+  ]
+}
