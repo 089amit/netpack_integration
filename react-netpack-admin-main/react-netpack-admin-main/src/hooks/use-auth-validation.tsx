@@ -5,7 +5,10 @@ import { validateToken, validateTokenSync, logout } from '@/lib/auth'
 const isAuthPage = (): boolean => {
   const path = window.location.pathname
   return (
-    path.startsWith('/pwa') ||
+    path === '/' ||                        // Public landing / home page
+    path.startsWith('/pwa') ||             // Customer PWA
+    path.startsWith('/pickup-pwa') ||      // Rider PWA
+    path.startsWith('/landing') ||         // Landing alias
     path.includes('/sign-in') ||
     path.includes('/sign-up') ||
     path.includes('/forgot-password') ||
