@@ -36,6 +36,7 @@ def seed_database():
         if not admin_user:
             admin_user = User(
                 email=admin_email,
+                username="admin",
                 password=get_password_hash("Admin@123"),
                 fullName="System Administrator",
                 phoneNumber="+977-9800000000",
@@ -47,6 +48,25 @@ def seed_database():
             print(f"[OK] Default Admin created: {admin_email} / Admin@123")
         else:
             print(f"[OK] Admin user already exists: {admin_email}")
+
+        # 2b. Seed Default Field Pickup Rider
+        rider_email = "driver@netpack.com"
+        rider_user = db.query(User).filter(User.email == rider_email).first()
+        if not rider_user:
+            rider_user = User(
+                email=rider_email,
+                username="rider-01",
+                password=get_password_hash("Driver@123"),
+                fullName="Ram Shrestha",
+                phoneNumber="9841234567",
+                roleId=created_roles["PICKUP"].id,
+                isActive=True
+            )
+            db.add(rider_user)
+            db.commit()
+            print(f"[OK] Default Rider created: {rider_email} / Driver@123 (ID: rider-01)")
+        else:
+            print(f"[OK] Rider user already exists: {rider_email}")
 
         # 3. Seed Charges
         if not db.query(TIACharge).first():

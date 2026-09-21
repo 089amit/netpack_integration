@@ -10,6 +10,14 @@ import models # Ensure all models are registered
 Base.metadata.create_all(bind=engine)
 run_auto_migrations(engine)
 
+# Automatically seed baseline roles, default admin, rider, and shipping zones if absent
+try:
+    from seed import seed_database
+    seed_database()
+except Exception as _seed_err:
+    print(f"[Startup Warning] Automatic database seed check: {_seed_err}")
+
+
 app = FastAPI(
     title="NetPack Logistics API (Python)",
     description="Enterprise Logistics & Airway Bill Integration API built with FastAPI and SQLite",
