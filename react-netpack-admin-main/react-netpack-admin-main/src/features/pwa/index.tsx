@@ -477,14 +477,6 @@ const IconCamera = ({ size = 16, className = '' }: { size?: number; className?: 
   </svg>
 )
 
-const IconDownload = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="7 10 12 15 17 10"/>
-    <line x1="12" y1="15" x2="12" y2="3"/>
-  </svg>
-)
-
 const IconSun = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
     <circle cx="12" cy="12" r="5"/>
@@ -537,14 +529,12 @@ function Header({
   unreadCount,
   onBellClick,
   onSignOut,
-  onInstall,
   onToggleTheme,
 }: {
   userName?: string
   unreadCount: number
   onBellClick: () => void
   onSignOut: () => void
-  onInstall?: () => void
   onToggleTheme?: () => void
 }) {
   return (
@@ -560,25 +550,16 @@ function Header({
       </div>
 
       <div className="flex items-center gap-1.5">
-        {onInstall && (
-          <button
-            onClick={onInstall}
-            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all"
-            title="Install App on Phone"
-          >
-            <IconDownload size={17} />
-          </button>
-        )}
         <button
           onClick={onToggleTheme}
-          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white flex items-center justify-center transition-all"
+          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer"
           title="Toggle Theme"
         >
           <IconSun size={17} />
         </button>
         <button
           onClick={onBellClick}
-          className="relative w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white flex items-center justify-center transition-all"
+          className="relative w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer"
           title="Notifications"
         >
           <IconBell size={17} />
@@ -588,7 +569,7 @@ function Header({
         </button>
         <button
           onClick={onSignOut}
-          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-500/20 active:scale-95 text-white/80 hover:text-red-400 flex items-center justify-center transition-all"
+          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-500/20 active:scale-95 text-white/80 hover:text-red-400 flex items-center justify-center transition-all cursor-pointer"
           title="Sign Out"
         >
           <IconLogout size={17} />
@@ -2098,6 +2079,7 @@ function ProfileScreen({
   shipmentCount,
   deliveredCount,
   onSignOut,
+  onInstall,
 }: {
   userName?: string
   userEmail?: string
@@ -2106,6 +2088,7 @@ function ProfileScreen({
   shipmentCount: number
   deliveredCount: number
   onSignOut: () => void
+  onInstall?: () => void
 }) {
   const { theme, setTheme } = useTheme()
   const currentMode = (theme as ThemeMode) || 'light'
@@ -2192,6 +2175,22 @@ function ProfileScreen({
             ))}
           </div>
         </div>
+
+        {/* Install NetPack App */}
+        {onInstall && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[13px] font-semibold text-[#0D1B2A]">Install App on Device</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Add NetPack directly to your home screen</p>
+            </div>
+            <button
+              onClick={onInstall}
+              className="px-3.5 py-1.5 rounded-xl bg-[#0D1B2A] text-white text-[12px] font-semibold active:scale-95 transition-all shadow-xs cursor-pointer"
+            >
+              Install
+            </button>
+          </div>
+        )}
 
         {/* Activity Summary */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs">
@@ -2353,7 +2352,6 @@ export default function CustomerPWA() {
           unreadCount={2}
           onBellClick={() => setScreen('notifications')}
           onSignOut={handleSignOut}
-          onInstall={handleInstallClick}
           onToggleTheme={toggleTheme}
         />
 
@@ -2407,6 +2405,7 @@ export default function CustomerPWA() {
               shipmentCount={shipments.length}
               deliveredCount={deliveredCount}
               onSignOut={handleSignOut}
+              onInstall={handleInstallClick}
             />
           )}
         </main>
