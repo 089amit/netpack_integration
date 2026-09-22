@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import config
@@ -121,6 +121,17 @@ if FRONTEND_DIST:
             return FileResponse(target_file)
 
         # Fallback to index.html for client-side routing (/pickup-pwa, /tracking/NP..., /shipment, etc.)
+        if full_path.startswith("pickup-pwa"):
+            index_path = FRONTEND_DIST / "index.html"
+            try:
+                html_content = index_path.read_text(encoding="utf-8")
+                html_content = html_content.replace('/manifest.webmanifest', '/manifest-pickup.webmanifest')
+                html_content = html_content.replace('/images/netpack-icon-192.png', '/images/netpack-rider-icon-192.png')
+                html_content = html_content.replace('<title>Netpack Admin</title>', '<title>Netpack Rider</title>')
+                return HTMLResponse(content=html_content)
+            except Exception:
+                return FileResponse(index_path)
+
         return FileResponse(FRONTEND_DIST / "index.html")
 else:
     @app.get("/", tags=["Health"])

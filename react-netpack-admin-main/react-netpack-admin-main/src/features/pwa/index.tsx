@@ -33,7 +33,6 @@ import {
   Moon,
   Laptop,
   Download,
-  Smartphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -271,7 +270,6 @@ export default function CustomerPWA() {
 
   // PWA Install state
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-  const [installModalOpen, setInstallModalOpen] = useState(false)
 
   useEffect(() => {
     const handlePrompt = (e: Event) => {
@@ -295,8 +293,9 @@ export default function CustomerPWA() {
       } catch (err) {
         console.warn('Install prompt error:', err)
       }
+    } else {
+      toast.info('To install: tap your browser menu (⋮) and choose "Install app"')
     }
-    setInstallModalOpen(true)
   }
 
   // Google Signup Modal state
@@ -3119,66 +3118,6 @@ export default function CustomerPWA() {
         </div>
       )}
 
-      {/* ── INSTALL APP GUIDANCE DIALOG ────────────────────────────────────────── */}
-      <Dialog open={installModalOpen} onOpenChange={setInstallModalOpen}>
-        <DialogContent className='sm:max-w-md bg-card text-card-foreground border-border'>
-          <DialogHeader className='text-center sm:text-left'>
-            <div className='flex items-center gap-3 mb-2'>
-              <img
-                src='/images/netpack-icon-192.png'
-                alt='Netpack'
-                className='h-12 w-12 rounded-2xl border border-border bg-white p-0.5 shadow-sm object-contain'
-              />
-              <div>
-                <DialogTitle className='text-base font-bold'>
-                  Install Netpack on Your Phone
-                </DialogTitle>
-                <DialogDescription className='text-xs text-muted-foreground'>
-                  Direct phone app installation with offline support and instant 1-tap access.
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className='space-y-3 py-1 text-xs'>
-            {/* Android Instructions */}
-            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
-              <div className='flex items-center gap-2 font-bold text-foreground'>
-                <Smartphone className='h-4 w-4 text-emerald-500' />
-                <span>On Android (Chrome / Brave / Samsung)</span>
-              </div>
-              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
-                <li>Tap the <strong>three dots menu (⋮)</strong> at top-right of your browser.</li>
-                <li>Tap <strong>&quot;Install app&quot;</strong> or <strong>&quot;Add to Home screen&quot;</strong>.</li>
-                <li>Confirm by tapping <strong>Install</strong>.</li>
-              </ol>
-            </div>
-
-            {/* iOS Instructions */}
-            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
-              <div className='flex items-center gap-2 font-bold text-foreground'>
-                <Smartphone className='h-4 w-4 text-blue-500' />
-                <span>On iPhone / iPad (Safari)</span>
-              </div>
-              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
-                <li>Tap the <strong>Share button (⎋)</strong> at the bottom of the screen.</li>
-                <li>Scroll down and select <strong>&quot;Add to Home Screen&quot; (+)</strong>.</li>
-                <li>Tap <strong>Add</strong> in the top-right corner.</li>
-              </ol>
-            </div>
-          </div>
-
-          <div className='flex justify-end pt-3 border-t border-border/60'>
-            <Button
-              type='button'
-              onClick={() => setInstallModalOpen(false)}
-              className='h-9 px-4 rounded-xl text-xs font-semibold'
-            >
-              Got it
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

@@ -37,13 +37,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+
 import { toast } from 'sonner'
 import { isAuthenticated } from '@/lib/auth'
 import { SERVER_URL } from '@/constants/endpoint'
@@ -178,29 +172,26 @@ export default function LandingPage() {
     return () => window.removeEventListener('beforeinstallprompt', handlePrompt)
   }, [])
 
-  // Install Modal State
-  const [installModalOpen, setInstallModalOpen] = useState(false)
-  const [installModalTarget, setInstallModalTarget] = useState<'customer' | 'rider'>('customer')
-
   const handleInstallClick = async (target: 'customer' | 'rider' = 'customer') => {
-    setInstallModalTarget(target)
+    if (target === 'rider') {
+      window.location.href = '/pickup-pwa?install=1'
+      return
+    }
 
-    if (target === 'customer' && deferredPrompt) {
+    if (deferredPrompt) {
       try {
         deferredPrompt.prompt()
         const { outcome } = await deferredPrompt.userChoice
         if (outcome === 'accepted') {
-          toast.success('Netpack App installed to home screen!')
+          toast.success('Netpack App installed to your phone!')
         }
         setDeferredPrompt(null)
-        return
       } catch (err) {
         console.warn('Install prompt error:', err)
       }
+    } else {
+      toast.info('To install: tap your browser menu (⋮) and choose "Install app"')
     }
-
-    // Open guidance & direct install modal
-    setInstallModalOpen(true)
   }
 
   const handleTrack = async (e?: React.FormEvent) => {
@@ -1630,91 +1621,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
-      {/* ── INSTALL APP GUIDANCE DIALOG ────────────────────────────────────────── */}
-      <Dialog open={installModalOpen} onOpenChange={setInstallModalOpen}>
-        <DialogContent className='sm:max-w-md bg-card text-card-foreground border-border'>
-          <DialogHeader className='text-center sm:text-left'>
-            <div className='flex items-center gap-3 mb-2'>
-              <img
-                src={installModalTarget === 'rider' ? '/images/netpack-rider-icon-192.png' : '/images/netpack-icon-192.png'}
-                alt='App Icon'
-                className='h-12 w-12 rounded-2xl border border-border bg-white p-0.5 shadow-sm object-contain'
-              />
-              <div>
-                <DialogTitle className='text-base font-bold'>
-                  Install {installModalTarget === 'rider' ? 'Netpack Rider' : 'Netpack'} on Your Phone
-                </DialogTitle>
-                <DialogDescription className='text-xs text-muted-foreground'>
-                  Direct phone app installation with offline support and instant 1-tap access.
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className='space-y-3 py-1 text-xs'>
-            {installModalTarget === 'rider' && (
-              <a
-                href='/pickup-pwa?install=1'
-                className='w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer'
-              >
-                <Download className='h-4 w-4' />
-                <span>Trigger Netpack Rider Phone Install</span>
-                <ArrowRight className='h-3.5 w-3.5' />
-              </a>
-            )}
-
-            {/* Android Instructions */}
-            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
-              <div className='flex items-center gap-2 font-bold text-foreground'>
-                <Smartphone className='h-4 w-4 text-emerald-500' />
-                <span>On Android (Chrome / Brave / Samsung)</span>
-              </div>
-              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
-                <li>Tap the <strong>three dots menu (⋮)</strong> at top-right of your browser.</li>
-                <li>Tap <strong>&quot;Install app&quot;</strong> or <strong>&quot;Add to Home screen&quot;</strong>.</li>
-                <li>Confirm by tapping <strong>Install</strong>.</li>
-              </ol>
-            </div>
-
-            {/* iOS Instructions */}
-            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
-              <div className='flex items-center gap-2 font-bold text-foreground'>
-                <Smartphone className='h-4 w-4 text-blue-500' />
-                <span>On iPhone / iPad (Safari)</span>
-              </div>
-              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
-                <li>Tap the <strong>Share button (⎋)</strong> at the bottom of the screen.</li>
-                <li>Scroll down and select <strong>&quot;Add to Home Screen&quot; (+)</strong>.</li>
-                <li>Tap <strong>Add</strong> in the top-right corner.</li>
-              </ol>
-            </div>
-          </div>
-
-          <div className='flex items-center justify-between gap-3 pt-3 border-t border-border/60'>
-            {installModalTarget === 'customer' ? (
-              <a
-                href='/pwa'
-                className='inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline'
-              >
-                <span>Launch Web Version</span>
-                <ArrowRight className='h-3.5 w-3.5' />
-              </a>
-            ) : (
-              <span className='text-[11px] text-muted-foreground'>
-                Field Operations Only
-              </span>
-            )}
-            <Button
-              type='button'
-              onClick={() => setInstallModalOpen(false)}
-              className='h-9 px-4 rounded-xl text-xs font-semibold'
-            >
-              Got it
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

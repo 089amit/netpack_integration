@@ -30,7 +30,6 @@ import {
   EyeOff,
   Bike,
   LogOut,
-  Smartphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -152,7 +151,6 @@ export default function PickupRiderPWA() {
   const [newPickupAlert, setNewPickupAlert] = useState<any | null>(null)
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null)
   const [installPrompt, setInstallPrompt] = useState<any>(null)
-  const [installModalOpen, setInstallModalOpen] = useState(false)
 
   // Rider Authentication State
   const [riderToken, setRiderToken] = useState<string | null>(() => {
@@ -219,6 +217,15 @@ export default function PickupRiderPWA() {
     const handler = (e: any) => {
       e.preventDefault()
       setInstallPrompt(e)
+      if (typeof window !== 'undefined' && window.location.search.includes('install')) {
+        setTimeout(() => {
+          try {
+            e.prompt()
+          } catch (err) {
+            console.warn('Auto prompt failed:', err)
+          }
+        }, 150)
+      }
     }
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
@@ -229,10 +236,10 @@ export default function PickupRiderPWA() {
 
   // Auto trigger install if ?install query parameter present
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.search.includes('install')) {
+    if (typeof window !== 'undefined' && window.location.search.includes('install') && installPrompt) {
       const timer = setTimeout(() => {
         handleInstallClick()
-      }, 600)
+      }, 300)
       return () => clearTimeout(timer)
     }
   }, [installPrompt])
@@ -250,8 +257,9 @@ export default function PickupRiderPWA() {
       } catch (err) {
         console.warn('Install prompt error:', err)
       }
+    } else {
+      toast.info('To install: tap your browser menu (⋮) and choose "Install app"')
     }
-    setInstallModalOpen(true)
   }
 
   // ─── Register Service Worker ──────────────────────────────────────────────
@@ -1789,66 +1797,6 @@ export default function PickupRiderPWA() {
         </DialogContent>
       </Dialog>
 
-      {/* ── INSTALL APP GUIDANCE DIALOG ────────────────────────────────────────── */}
-      <Dialog open={installModalOpen} onOpenChange={setInstallModalOpen}>
-        <DialogContent className='sm:max-w-md bg-card text-card-foreground border-border'>
-          <DialogHeader className='text-center sm:text-left'>
-            <div className='flex items-center gap-3 mb-2'>
-              <img
-                src='/images/netpack-rider-icon-192.png'
-                alt='Netpack Rider'
-                className='h-12 w-12 rounded-2xl border border-border bg-white p-0.5 shadow-sm object-contain'
-              />
-              <div>
-                <DialogTitle className='text-base font-bold'>
-                  Install Netpack Rider on Your Phone
-                </DialogTitle>
-                <DialogDescription className='text-xs text-muted-foreground'>
-                  Direct rider dispatch app installation with turn-by-turn navigation &amp; audio alerts.
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className='space-y-3 py-1 text-xs'>
-            {/* Android Instructions */}
-            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
-              <div className='flex items-center gap-2 font-bold text-foreground'>
-                <Smartphone className='h-4 w-4 text-emerald-500' />
-                <span>On Android (Chrome / Brave / Samsung)</span>
-              </div>
-              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
-                <li>Tap the <strong>three dots menu (⋮)</strong> at top-right of your browser.</li>
-                <li>Tap <strong>&quot;Install app&quot;</strong> or <strong>&quot;Add to Home screen&quot;</strong>.</li>
-                <li>Confirm by tapping <strong>Install</strong>.</li>
-              </ol>
-            </div>
-
-            {/* iOS Instructions */}
-            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
-              <div className='flex items-center gap-2 font-bold text-foreground'>
-                <Smartphone className='h-4 w-4 text-blue-500' />
-                <span>On iPhone / iPad (Safari)</span>
-              </div>
-              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
-                <li>Tap the <strong>Share button (⎋)</strong> at the bottom of the screen.</li>
-                <li>Scroll down and select <strong>&quot;Add to Home Screen&quot; (+)</strong>.</li>
-                <li>Tap <strong>Add</strong> in the top-right corner.</li>
-              </ol>
-            </div>
-          </div>
-
-          <div className='flex justify-end pt-3 border-t border-border/60'>
-            <Button
-              type='button'
-              onClick={() => setInstallModalOpen(false)}
-              className='h-9 px-4 rounded-xl text-xs font-semibold'
-            >
-              Got it
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
