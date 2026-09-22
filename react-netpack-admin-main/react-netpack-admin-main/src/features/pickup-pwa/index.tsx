@@ -30,8 +30,6 @@ import {
   EyeOff,
   Bike,
   LogOut,
-  KeyRound,
-  ShieldCheck,
   Smartphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -225,6 +223,19 @@ export default function PickupRiderPWA() {
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
+
+  // Check standalone mode
+  const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone)
+
+  // Auto trigger install if ?install query parameter present
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('install')) {
+      const timer = setTimeout(() => {
+        handleInstallClick()
+      }, 600)
+      return () => clearTimeout(timer)
+    }
+  }, [installPrompt])
 
   const handleInstallClick = async () => {
     if (installPrompt) {
@@ -771,6 +782,24 @@ export default function PickupRiderPWA() {
           </div>
         </header>
 
+        {/* Mobile Install Promotion Banner (if not installed in standalone) */}
+        {!isStandalone && (
+          <div className='bg-primary/10 border-b border-primary/20 px-4 py-2.5 text-xs text-primary flex items-center justify-between gap-2 shadow-xs'>
+            <div className='flex items-center gap-2 min-w-0'>
+              <Download className='h-4 w-4 shrink-0 text-primary animate-bounce' />
+              <span className='font-medium truncate'>Install Netpack Rider as an app on your phone</span>
+            </div>
+            <Button
+              size='sm'
+              variant='default'
+              className='h-7 text-[11px] px-3 font-semibold shrink-0 shadow-xs'
+              onClick={handleInstallClick}
+            >
+              Install App
+            </Button>
+          </div>
+        )}
+
         {/* Main Login Card */}
         <main className='flex-1 flex items-center justify-center p-4 sm:p-6'>
           <div className='max-w-md w-full space-y-4 animate-in fade-in-50 duration-200'>
@@ -855,30 +884,7 @@ export default function PickupRiderPWA() {
                     )}
                   </Button>
                 </form>
-
-                {/* Demo Helper Pill */}
-                <div className='pt-2 border-t text-center'>
-                  <p className='text-[11px] text-muted-foreground mb-2'>Quick Testing Credentials:</p>
-                  <button
-                    type='button'
-                    onClick={() => {
-                      setLoginIdentifier('driver@netpack.com')
-                      setLoginPassword('Driver@123')
-                      toast.info('Demo rider credentials filled!')
-                    }}
-                    className='w-full py-2 px-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 text-primary text-[11px] font-mono hover:bg-primary/10 transition-colors flex items-center justify-center gap-1.5'
-                  >
-                    <KeyRound className='h-3.5 w-3.5' />
-                    <span>Fill Demo Rider: driver@netpack.com / Driver@123</span>
-                  </button>
-                </div>
               </CardContent>
-              <CardFooter className='pt-0 pb-4 text-center justify-center'>
-                <p className='text-[10px] text-muted-foreground flex items-center gap-1'>
-                  <ShieldCheck className='h-3.5 w-3.5 text-emerald-500 shrink-0' />
-                  <span>Rider IDs & passwords are managed in <strong>Admin → Users</strong>.</span>
-                </p>
-              </CardFooter>
             </Card>
           </div>
         </main>
@@ -1017,6 +1023,24 @@ export default function PickupRiderPWA() {
           </div>
         </div>
       </header>
+
+      {/* Mobile Install Promotion Banner (if not running in standalone mode) */}
+      {!isStandalone && (
+        <div className='bg-primary/10 border-b border-primary/20 px-3.5 py-2 text-xs text-primary flex items-center justify-between gap-2 shadow-xs'>
+          <div className='flex items-center gap-2 min-w-0'>
+            <Download className='h-3.5 w-3.5 shrink-0 text-primary' />
+            <span className='font-medium truncate'>Install Netpack Rider App on your device</span>
+          </div>
+          <Button
+            size='sm'
+            variant='default'
+            className='h-6 text-[10px] px-2.5 font-semibold shrink-0 shadow-xs'
+            onClick={handleInstallClick}
+          >
+            Install
+          </Button>
+        </div>
+      )}
 
       {/* ─── Main Content Container ────────────────────────────────────────── */}
       <main className='max-w-2xl mx-auto w-full px-3 pt-3 space-y-3'>

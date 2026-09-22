@@ -196,3 +196,8 @@ export const POLICIES_ENDPOINTS = {
   DELETE: (id: number | string) => `${BASE_URL}/policies/${id}`,
 }
 
+export const WEBSITE_CONTENT_ENDPOINTS = {
+  GET: `${BASE_URL}/website-content`,
+  UPDATE: `${BASE_URL}/website-content`,
+}
+

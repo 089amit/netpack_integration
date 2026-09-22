@@ -8,6 +8,7 @@ from models.shipment import Shipment, ShipmentPickUpLocation, TransitPoint, Trac
 from models.rate import Rate, TIACharge, CustomCharge, PackingCharge
 from models.policy import TermsAndPolicy
 from models.customs_consignee import CustomsConsignee, CustomsSetting
+from models.website_content import WebsiteContent
 
 __all__ = [
     "Base",
@@ -40,4 +41,5 @@ __all__ = [
     "TermsAndPolicy",
     "CustomsConsignee",
     "CustomsSetting",
+    "WebsiteContent",
 ]

@@ -1,8 +1,13 @@
-// NetPack Logistics - Pickup Rider Service Worker
-// Handles Push Notifications, Background Sync, and App Shell Lifecycle
+// Netpack Logistics - Pickup Rider Service Worker
+// Handles Push Notifications, Background Sync, PWA Installation, and Network Lifecycle
 
-const CACHE_NAME = 'netpack-rider-v1'
-const PRECACHE_URLS = ['/pickup-pwa', '/manifest-pickup.webmanifest', '/alzlogo.png']
+const CACHE_NAME = 'netpack-rider-v2'
+const PRECACHE_URLS = [
+  '/pickup-pwa',
+  '/manifest-pickup.webmanifest',
+  '/images/netpack-rider-icon-192.png',
+  '/images/netpack-rider-icon-512.png',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -28,6 +33,38 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
+// Fetch event listener required by Chrome for PWA installation criteria
+self.addEventListener('fetch', (event) => {
+  // Pass through non-GET and API requests directly
+  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
+    return
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone()
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache).catch(() => {})
+          })
+        }
+        return networkResponse
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse
+          }
+          if (event.request.mode === 'navigate') {
+            return caches.match('/pickup-pwa')
+          }
+          return new Response('Offline', { status: 503, statusText: 'Offline' })
+        })
+      })
+  )
+})
+
 // Listen for Web Push events
 self.addEventListener('push', (event) => {
   let data = {
@@ -49,8 +86,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body || `${data.sender || 'Customer'} - ${data.address || 'Kathmandu'}`,
-    icon: '/alzlogo.png',
-    badge: '/images/favicon.png',
+    icon: '/images/netpack-rider-icon-192.png',
+    badge: '/images/netpack-rider-icon-192.png',
     vibrate: [300, 100, 300, 100, 300],
     tag: data.trackingNumber || 'new-pickup-alert',
     renotify: true,
@@ -79,7 +116,6 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If a tab is already open to pickup-pwa, focus it
       for (const client of windowClients) {
         if (client.url.includes('/pickup-pwa') && 'focus' in client) {
           client.postMessage({
@@ -89,7 +125,6 @@ self.addEventListener('notificationclick', (event) => {
           return client.focus()
         }
       }
-      // Otherwise open a new window
       if (clients.openWindow) {
         return clients.openWindow(targetUrl)
       }
@@ -102,8 +137,8 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     const { title, options } = event.data
     self.registration.showNotification(title, {
-      icon: '/alzlogo.png',
-      badge: '/images/favicon.png',
+      icon: '/images/netpack-rider-icon-192.png',
+      badge: '/images/netpack-rider-icon-192.png',
       vibrate: [250, 100, 250],
       ...options,
     })

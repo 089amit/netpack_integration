@@ -56,7 +56,8 @@ from routers import (
     tracking,
     custom_manifest,
     pickup,
-    customer_portal
+    customer_portal,
+    website_content
 )
 
 app.include_router(admin.router)
@@ -78,6 +79,7 @@ app.include_router(notifications.router)
 app.include_router(email_sender.router)
 app.include_router(tracking.router)
 app.include_router(custom_manifest.router)
+app.include_router(website_content.router)
 
 # Custom hook router for future Python project integrations
 @app.get("/api/integrations/status", tags=["Integrations"])

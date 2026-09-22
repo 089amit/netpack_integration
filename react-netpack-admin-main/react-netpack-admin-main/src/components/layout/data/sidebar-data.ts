@@ -4,6 +4,7 @@ import {
   IconUsers,
   IconFileText,
   IconTruckDelivery,
+  IconWorld,
 } from '@tabler/icons-react'
 // import RateCalculatorPage from '@/ratecalc/index.tsx'
 import { Command } from 'lucide-react'
@@ -97,6 +98,11 @@ export const sidebarData: SidebarData = {
           title: 'Terms & Policies',
           url: '/terms-and-policies',
           icon: IconFileText,
+        },
+        {
+          title: 'Website Content',
+          url: '/website-content',
+          icon: IconWorld,
         },
       ],
     },

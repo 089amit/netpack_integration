@@ -117,6 +117,53 @@ export default function LandingPage() {
   const [contactMessage, setContactMessage] = useState('')
   const [contactSubmitting, setContactSubmitting] = useState(false)
 
+  // Dynamic CMS Website Content (Customizable from Admin -> Website Content)
+  const [siteContent, setSiteContent] = useState({
+    heroTitle: 'Fast & Reliable Courier Services in Teku, Kathmandu',
+    heroSubtitle:
+      'Your trusted partner for secure package delivery across Nepal. Professional logistics solutions with real-time tracking and guaranteed delivery.',
+    heroBadge: 'Teku, Kathmandu Headquarters',
+    contactPhone: '015339942',
+    contactEmail: 'admin@netpacklogistic.com',
+    contactAddress: 'Teku Road, Ward No. 15, Kathmandu, Nepal',
+    businessHours: '10:00 am - 5:00 pm (Sun - Fri)',
+    tickerItems: [
+      'Air Cargo Route: KTM ➔ DXB (Daily Direct)',
+      'Kathmandu Valley Pickup: Active (20-30 min dispatch)',
+      'TIA Customs Clearance: Operational',
+      'Coverage: 75+ Hubs Across Nepal & Worldwide',
+    ],
+  })
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/website-content`)
+      .then((res) => {
+        if (!res.ok) throw new Error('CMS content fetch failed')
+        return res.json()
+      })
+      .then((data) => {
+        if (data && data.heroTitle) {
+          setSiteContent((prev) => ({
+            ...prev,
+            heroTitle: data.heroTitle || prev.heroTitle,
+            heroSubtitle: data.heroSubtitle || prev.heroSubtitle,
+            heroBadge: data.heroBadge || prev.heroBadge,
+            contactPhone: data.contactPhone || prev.contactPhone,
+            contactEmail: data.contactEmail || prev.contactEmail,
+            contactAddress: data.contactAddress || prev.contactAddress,
+            businessHours: data.businessHours || prev.businessHours,
+            tickerItems:
+              Array.isArray(data.tickerItems) && data.tickerItems.length > 0
+                ? data.tickerItems
+                : prev.tickerItems,
+          }))
+        }
+      })
+      .catch((err) => {
+        console.debug('Using default landing page CMS content:', err)
+      })
+  }, [])
+
   const trackingBoxRef = useRef<HTMLDivElement>(null)
 
   // Auth check & PWA install listener
@@ -348,13 +395,13 @@ export default function LandingPage() {
             {/* Contact Info & Action Buttons */}
             <div className='flex items-center gap-3'>
               <div className='hidden xl:flex items-center gap-5 text-xs text-gray-600 dark:text-gray-400'>
-                <a href='tel:015339942' className='flex items-center gap-1.5 hover:text-blue-600 transition-colors'>
+                <a href={`tel:${siteContent.contactPhone}`} className='flex items-center gap-1.5 hover:text-blue-600 transition-colors'>
                   <Phone className='h-3.5 w-3.5 text-blue-600' />
-                  <span className='font-semibold text-slate-800 dark:text-slate-200'>015339942</span>
+                  <span className='font-semibold text-slate-800 dark:text-slate-200'>{siteContent.contactPhone}</span>
                 </a>
-                <a href='mailto:admin@netpacklogistic.com' className='flex items-center gap-1.5 hover:text-blue-600 transition-colors'>
+                <a href={`mailto:${siteContent.contactEmail}`} className='flex items-center gap-1.5 hover:text-blue-600 transition-colors'>
                   <Mail className='h-3.5 w-3.5 text-blue-600' />
-                  <span>admin@netpacklogistic.com</span>
+                  <span>{siteContent.contactEmail}</span>
                 </a>
               </div>
 
@@ -457,35 +504,53 @@ export default function LandingPage() {
         )}
       </header>
 
-      {/* ── AUTOMATED LIVE LOGISTICS STATUS TICKER ─────────────────────────── */}
-      <div className='bg-slate-900 text-slate-200 border-b border-slate-800 text-xs py-2 px-4 overflow-hidden relative shadow-inner'>
-        <div className='container mx-auto flex items-center justify-between gap-4'>
-          <div className='flex items-center gap-2 shrink-0 font-bold text-sky-400 text-[11px] uppercase tracking-wider'>
-            <span className='relative flex h-2.5 w-2.5'>
+      {/* ── AUTOMATED LIVE LOGISTICS STATUS TICKER (MOVING MARQUEE) ─────────── */}
+      <div className='bg-slate-900 text-slate-200 border-b border-slate-800 text-xs py-2 px-3 sm:px-4 overflow-hidden relative shadow-inner'>
+        <div className='flex items-center gap-3'>
+          {/* Static badge on the left */}
+          <div className='flex items-center gap-1.5 shrink-0 font-bold text-sky-400 text-[11px] uppercase tracking-wider bg-slate-900 pr-2 z-10'>
+            <span className='relative flex h-2 w-2'>
               <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75' />
-              <span className='relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500' />
+              <span className='relative inline-flex rounded-full h-2 w-2 bg-emerald-500' />
             </span>
-            <span>Live Dispatch Status:</span>
+            <span className='hidden sm:inline'>Live Dispatch:</span>
+            <span className='sm:hidden'>Live:</span>
           </div>
-          <div className='flex items-center gap-6 md:gap-8 overflow-x-auto no-scrollbar whitespace-nowrap text-xs text-slate-300'>
-            <div className='flex items-center gap-2'>
-              <Plane className='h-3.5 w-3.5 text-blue-400 shrink-0' />
-              <span>Air Cargo Route: <strong>KTM ➔ DXB (Daily Direct)</strong></span>
-            </div>
-            <span className='text-slate-600'>•</span>
-            <div className='flex items-center gap-2'>
-              <Truck className='h-3.5 w-3.5 text-emerald-400 shrink-0' />
-              <span>Kathmandu Valley Pickup: <strong>Active (20-30 min dispatch)</strong></span>
-            </div>
-            <span className='text-slate-600'>•</span>
-            <div className='flex items-center gap-2'>
-              <Shield className='h-3.5 w-3.5 text-amber-400 shrink-0' />
-              <span>TIA Customs Clearance: <strong>Operational</strong></span>
-            </div>
-            <span className='text-slate-600'>•</span>
-            <div className='flex items-center gap-2'>
-              <Globe className='h-3.5 w-3.5 text-sky-400 shrink-0' />
-              <span>Coverage: <strong>75+ Hubs Across Nepal &amp; Worldwide</strong></span>
+
+          {/* Continuous Moving Marquee */}
+          <div className='overflow-hidden flex-1 relative'>
+            <div className='animate-marquee flex items-center gap-6 whitespace-nowrap text-xs text-slate-300'>
+              {/* Loop 1 */}
+              <div className='flex items-center gap-6 shrink-0'>
+                {siteContent.tickerItems.map((item, idx) => (
+                  <React.Fragment key={`loop1-${idx}`}>
+                    <div className='flex items-center gap-1.5'>
+                      {idx % 4 === 0 && <Plane className='h-3.5 w-3.5 text-blue-400 shrink-0' />}
+                      {idx % 4 === 1 && <Truck className='h-3.5 w-3.5 text-emerald-400 shrink-0' />}
+                      {idx % 4 === 2 && <Shield className='h-3.5 w-3.5 text-amber-400 shrink-0' />}
+                      {idx % 4 === 3 && <Globe className='h-3.5 w-3.5 text-sky-400 shrink-0' />}
+                      <span>{item}</span>
+                    </div>
+                    <span className='text-slate-600'>•</span>
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {/* Loop 2 (Duplicate for infinite seamless scroll) */}
+              <div className='flex items-center gap-6 shrink-0' aria-hidden='true'>
+                {siteContent.tickerItems.map((item, idx) => (
+                  <React.Fragment key={`loop2-${idx}`}>
+                    <div className='flex items-center gap-1.5'>
+                      {idx % 4 === 0 && <Plane className='h-3.5 w-3.5 text-blue-400 shrink-0' />}
+                      {idx % 4 === 1 && <Truck className='h-3.5 w-3.5 text-emerald-400 shrink-0' />}
+                      {idx % 4 === 2 && <Shield className='h-3.5 w-3.5 text-amber-400 shrink-0' />}
+                      {idx % 4 === 3 && <Globe className='h-3.5 w-3.5 text-sky-400 shrink-0' />}
+                      <span>{item}</span>
+                    </div>
+                    <span className='text-slate-600'>•</span>
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -500,13 +565,13 @@ export default function LandingPage() {
               <div className='space-y-4'>
                 <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/80 dark:bg-blue-950/80 border border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300 text-xs font-semibold uppercase tracking-wider'>
                   <Sparkles className='h-3.5 w-3.5 text-blue-600' />
-                  <span>Teku, Kathmandu Headquarters</span>
+                  <span>{siteContent.heroBadge}</span>
                 </div>
                 <h1 className='text-4xl lg:text-6xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight'>
-                  Fast &amp; Reliable <span className='text-blue-600'>Courier Services</span> in Teku, Kathmandu
+                  {siteContent.heroTitle}
                 </h1>
                 <p className='text-lg lg:text-xl text-slate-600 dark:text-slate-300 leading-relaxed font-normal'>
-                  Your trusted partner for secure package delivery across Nepal. Professional logistics solutions with real-time tracking and guaranteed delivery.
+                  {siteContent.heroSubtitle}
                 </p>
               </div>
 
@@ -1248,9 +1313,8 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Main Office</h4>
-                    <p className='text-xs text-slate-500 leading-relaxed'>
-                      Teku Road, Ward No. 15<br />
-                      Kathmandu, Nepal 44600
+                    <p className='text-xs text-slate-500 leading-relaxed whitespace-pre-line'>
+                      {siteContent.contactAddress}
                     </p>
                   </div>
                 </div>
@@ -1261,7 +1325,9 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Phone</h4>
-                    <p className='text-xs text-slate-500'>015339942</p>
+                    <a href={`tel:${siteContent.contactPhone}`} className='text-xs text-slate-500 hover:text-blue-600 transition-colors'>
+                      {siteContent.contactPhone}
+                    </a>
                   </div>
                 </div>
 
@@ -1271,11 +1337,9 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Email</h4>
-                    <p className='text-xs text-slate-500 leading-relaxed'>
-                      admin@netpacklogistic.com<br />
-                      operations@netpacklogistic.com<br />
-                      csd@netpacklogistic.com
-                    </p>
+                    <a href={`mailto:${siteContent.contactEmail}`} className='text-xs text-slate-500 hover:text-blue-600 transition-colors'>
+                      {siteContent.contactEmail}
+                    </a>
                   </div>
                 </div>
 
@@ -1285,7 +1349,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Business Hours</h4>
-                    <p className='text-xs text-slate-500'>10:00 am - 5:00 pm (Sun - Fri)</p>
+                    <p className='text-xs text-slate-500'>{siteContent.businessHours}</p>
                   </div>
                 </div>
               </div>
@@ -1464,14 +1528,13 @@ export default function LandingPage() {
                   <ArrowRight className='h-4 w-4 ml-auto' />
                 </a>
 
-                <button
-                  type='button'
-                  onClick={() => handleInstallClick('rider')}
+                <a
+                  href='/pickup-pwa?install=1'
                   className='inline-flex items-center justify-center gap-2 border border-slate-700 bg-slate-800/80 hover:bg-slate-800 active:scale-95 text-slate-200 font-semibold text-xs px-5 py-3 rounded-xl transition-all cursor-pointer'
                 >
                   <Download className='h-4 w-4 text-sky-400' />
                   <span>Install Rider App on Phone</span>
-                </button>
+                </a>
 
                 <p className='text-[11px] text-slate-400 text-center'>
                   Works offline &bull; Directly installable to phone home screen
@@ -1537,15 +1600,19 @@ export default function LandingPage() {
               <div className='space-y-2.5'>
                 <p className='flex items-start gap-2'>
                   <MapPin className='h-4 w-4 text-blue-500 shrink-0 mt-0.5' />
-                  <span>Teku Road, Ward No. 15, Kathmandu, Nepal</span>
+                  <span>{siteContent.contactAddress}</span>
                 </p>
                 <p className='flex items-center gap-2'>
                   <Phone className='h-4 w-4 text-blue-500 shrink-0' />
-                  <span>015339942</span>
+                  <a href={`tel:${siteContent.contactPhone}`} className='hover:text-white transition-colors'>
+                    {siteContent.contactPhone}
+                  </a>
                 </p>
                 <p className='flex items-center gap-2'>
                   <Mail className='h-4 w-4 text-blue-500 shrink-0' />
-                  <span>admin@netpacklogistic.com</span>
+                  <a href={`mailto:${siteContent.contactEmail}`} className='hover:text-white transition-colors'>
+                    {siteContent.contactEmail}
+                  </a>
                 </p>
               </div>
             </div>

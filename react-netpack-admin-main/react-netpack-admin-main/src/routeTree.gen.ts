@@ -28,6 +28,7 @@ import { Route as authSignInImport } from './routes/(auth)/sign-in'
 import { Route as authOtpImport } from './routes/(auth)/otp'
 import { Route as authForgotPasswordImport } from './routes/(auth)/forgot-password'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings/route'
+import { Route as AuthenticatedWebsiteContentIndexImport } from './routes/_authenticated/website-content/index'
 import { Route as AuthenticatedUsersIndexImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedTermsAndPoliciesIndexImport } from './routes/_authenticated/terms-and-policies/index'
 import { Route as AuthenticatedTasksIndexImport } from './routes/_authenticated/tasks/index'
@@ -153,6 +154,13 @@ const AuthenticatedSettingsRouteRoute = AuthenticatedSettingsRouteImport.update(
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any,
 )
+
+const AuthenticatedWebsiteContentIndexRoute =
+  AuthenticatedWebsiteContentIndexImport.update({
+    id: '/website-content/',
+    path: '/website-content/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 const AuthenticatedUsersIndexRoute = AuthenticatedUsersIndexImport.update({
   id: '/users/',
@@ -552,6 +560,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUsersIndexImport
       parentRoute: typeof AuthenticatedRouteImport
     }
+    '/_authenticated/website-content/': {
+      id: '/_authenticated/website-content/'
+      path: '/website-content'
+      fullPath: '/website-content'
+      preLoaderRoute: typeof AuthenticatedWebsiteContentIndexImport
+      parentRoute: typeof AuthenticatedRouteImport
+    }
   }
 }
 
@@ -598,6 +613,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
   AuthenticatedTermsAndPoliciesIndexRoute: typeof AuthenticatedTermsAndPoliciesIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
+  AuthenticatedWebsiteContentIndexRoute: typeof AuthenticatedWebsiteContentIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -620,6 +636,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTermsAndPoliciesIndexRoute:
     AuthenticatedTermsAndPoliciesIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
+  AuthenticatedWebsiteContentIndexRoute: AuthenticatedWebsiteContentIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -663,6 +680,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/terms-and-policies': typeof AuthenticatedTermsAndPoliciesIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/website-content': typeof AuthenticatedWebsiteContentIndexRoute
 }
 
 export interface FileRoutesByTo {
@@ -702,6 +720,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/terms-and-policies': typeof AuthenticatedTermsAndPoliciesIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/website-content': typeof AuthenticatedWebsiteContentIndexRoute
 }
 
 export interface FileRoutesById {
@@ -743,6 +762,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/terms-and-policies/': typeof AuthenticatedTermsAndPoliciesIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
+  '/_authenticated/website-content/': typeof AuthenticatedWebsiteContentIndexRoute
 }
 
 export interface FileRouteTypes {
@@ -785,6 +805,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/terms-and-policies'
     | '/users'
+    | '/website-content'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -823,6 +844,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/terms-and-policies'
     | '/users'
+    | '/website-content'
   id:
     | '__root__'
     | '/'
@@ -862,6 +884,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks/'
     | '/_authenticated/terms-and-policies/'
     | '/_authenticated/users/'
+    | '/_authenticated/website-content/'
   fileRoutesById: FileRoutesById
 }
 
@@ -950,7 +973,8 @@ export const routeTree = rootRoute
         "/_authenticated/shipment/",
         "/_authenticated/tasks/",
         "/_authenticated/terms-and-policies/",
-        "/_authenticated/users/"
+        "/_authenticated/users/",
+        "/_authenticated/website-content/"
       ]
     },
     "/landing": {
@@ -1085,6 +1109,10 @@ export const routeTree = rootRoute
     },
     "/_authenticated/users/": {
       "filePath": "_authenticated/users/index.tsx",
+      "parent": "/_authenticated"
+    },
+    "/_authenticated/website-content/": {
+      "filePath": "_authenticated/website-content/index.tsx",
       "parent": "/_authenticated"
     }
   }
