@@ -183,12 +183,14 @@ export default function LandingPage() {
   const [installModalTarget, setInstallModalTarget] = useState<'customer' | 'rider'>('customer')
 
   const handleInstallClick = async (target: 'customer' | 'rider' = 'customer') => {
-    if (deferredPrompt) {
+    setInstallModalTarget(target)
+
+    if (target === 'customer' && deferredPrompt) {
       try {
         deferredPrompt.prompt()
         const { outcome } = await deferredPrompt.userChoice
         if (outcome === 'accepted') {
-          toast.success(`${target === 'rider' ? 'Netpack Rider' : 'Netpack'} App installed!`)
+          toast.success('Netpack App installed to home screen!')
         }
         setDeferredPrompt(null)
         return
@@ -196,8 +198,8 @@ export default function LandingPage() {
         console.warn('Install prompt error:', err)
       }
     }
-    // If deferredPrompt is unavailable (iOS Safari, or user on mobile browser where menu action is needed)
-    setInstallModalTarget(target)
+
+    // Open guidance & direct install modal
     setInstallModalOpen(true)
   }
 
@@ -1519,25 +1521,17 @@ export default function LandingPage() {
 
               {/* Action Buttons */}
               <div className='lg:col-span-4 flex flex-col gap-3.5'>
-                <a
-                  href='/pickup-pwa'
+                <button
+                  type='button'
+                  onClick={() => handleInstallClick('rider')}
                   className='inline-flex items-center justify-center gap-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-sm px-6 py-3.5 rounded-xl shadow-lg hover:shadow-blue-600/30 transition-all cursor-pointer'
                 >
-                  <Truck className='h-4 w-4' />
-                  <span>Launch Rider App</span>
-                  <ArrowRight className='h-4 w-4 ml-auto' />
-                </a>
-
-                <a
-                  href='/pickup-pwa?install=1'
-                  className='inline-flex items-center justify-center gap-2 border border-slate-700 bg-slate-800/80 hover:bg-slate-800 active:scale-95 text-slate-200 font-semibold text-xs px-5 py-3 rounded-xl transition-all cursor-pointer'
-                >
-                  <Download className='h-4 w-4 text-sky-400' />
-                  <span>Install Rider App on Phone</span>
-                </a>
+                  <Download className='h-4 w-4' />
+                  <span>Install Rider App</span>
+                </button>
 
                 <p className='text-[11px] text-slate-400 text-center'>
-                  Works offline &bull; Directly installable to phone home screen
+                  Works offline &bull; Dedicated phone app for field executives
                 </p>
               </div>
             </div>
@@ -1590,7 +1584,15 @@ export default function LandingPage() {
                 <li><a href='#about' className='hover:text-white transition-colors'>About Us</a></li>
                 <li><a href='#contact' className='hover:text-white transition-colors'>Contact</a></li>
                 <li><a href='/pwa' className='hover:text-white transition-colors'>Customer App</a></li>
-                <li><a href='/pickup-pwa' className='hover:text-white transition-colors'>Rider Dispatch App</a></li>
+                <li>
+                  <button
+                    type='button'
+                    onClick={() => handleInstallClick('rider')}
+                    className='hover:text-white transition-colors text-left text-xs cursor-pointer'
+                  >
+                    Install Rider App
+                  </button>
+                </li>
                 <li><a href='/sign-in' className='hover:text-white transition-colors'>Staff Portal Login</a></li>
               </ul>
             </div>
@@ -1651,6 +1653,17 @@ export default function LandingPage() {
           </DialogHeader>
 
           <div className='space-y-3 py-1 text-xs'>
+            {installModalTarget === 'rider' && (
+              <a
+                href='/pickup-pwa?install=1'
+                className='w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer'
+              >
+                <Download className='h-4 w-4' />
+                <span>Trigger Netpack Rider Phone Install</span>
+                <ArrowRight className='h-3.5 w-3.5' />
+              </a>
+            )}
+
             {/* Android Instructions */}
             <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
               <div className='flex items-center gap-2 font-bold text-foreground'>
@@ -1679,13 +1692,19 @@ export default function LandingPage() {
           </div>
 
           <div className='flex items-center justify-between gap-3 pt-3 border-t border-border/60'>
-            <a
-              href={installModalTarget === 'rider' ? '/pickup-pwa' : '/pwa'}
-              className='inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline'
-            >
-              <span>Launch Web Version</span>
-              <ArrowRight className='h-3.5 w-3.5' />
-            </a>
+            {installModalTarget === 'customer' ? (
+              <a
+                href='/pwa'
+                className='inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline'
+              >
+                <span>Launch Web Version</span>
+                <ArrowRight className='h-3.5 w-3.5' />
+              </a>
+            ) : (
+              <span className='text-[11px] text-muted-foreground'>
+                Field Operations Only
+              </span>
+            )}
             <Button
               type='button'
               onClick={() => setInstallModalOpen(false)}
