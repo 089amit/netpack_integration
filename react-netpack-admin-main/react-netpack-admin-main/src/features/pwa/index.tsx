@@ -1,75 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
-import {
-  Package,
-  PackageSearch,
-  Truck,
-  Warehouse,
-  PackageOpen,
-  CheckCircle2,
-  Plane,
-  Boxes,
-  Bell,
-  User,
-  PlusCircle,
-  Copy,
-  Check,
-  LogOut,
-  MapPin,
-  ArrowRight,
-  ArrowLeft,
-  Sparkles,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  RefreshCw,
-  Scale,
-  X,
-  Clock,
-  AlertTriangle,
-  Camera,
-  Edit2,
-  Sun,
-  Moon,
-  Laptop,
-  Download,
-  Search,
-  Receipt,
-  Calculator,
-} from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
-import { ThemeSwitch } from '@/components/theme-switch'
 import { useTheme } from '@/context/theme-context'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 
-// ─── Constants ──────────────────────────────────────────────────────────────
-
-const COMMODITY_SUGGESTIONS = [
-  'Handicrafts & Souvenirs',
-  'Pashmina & Woolen Garments',
-  'Documents / Business Papers',
-  'Himalayan Tea & Spices',
-  'Personal Effects & Gifts',
-  'Organic Herbal Products',
-]
-
-const TIME_SLOT_OPTIONS = [
-  'Morning (10:00 AM - 01:00 PM)',
-  'Afternoon (01:00 PM - 04:00 PM)',
-  'Evening (04:00 PM - 07:00 PM)',
-]
+// ─── API Base URL ─────────────────────────────────────────────────────────────
 
 const API_BASE = (() => {
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
@@ -84,7 +17,6 @@ const API_BASE = (() => {
   return 'http://localhost:8000'
 })()
 
-
 function formatDateTime(isoStr?: string | null): string {
   if (!isoStr) return ''
   try {
@@ -93,154 +25,2216 @@ function formatDateTime(isoStr?: string | null): string {
     return d.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-      hour12: false,
+      hour12: true,
     })
   } catch {
     return isoStr
   }
 }
 
-function getProgressPercent(status: string): number {
-  const s = (status || '').toUpperCase()
-  if (s.includes('DELIVERED')) return 100
-  if (s.includes('OUT_FOR_DELIVERY')) return 90
-  if (s.includes('CARRIER_SCANNED') || s.includes('CARRIER')) return 78
-  if (s.includes('ARRIVED_AT_HUB') || s.includes('HUB') || s.includes('CUSTOMS')) return 60
-  if (s.includes('TRANSIT')) return 45
-  if (s.includes('SHIPMENT_CREATED')) return 30
-  if (s.includes('PICKED_UP') || s.includes('PICKUP')) return 18
-  return 8
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Screen = 'home' | 'shipments' | 'book' | 'notifications' | 'profile' | 'rateenquiry' | 'tracking'
+type ShipmentTab = 'all' | 'inprogress' | 'delivered'
+type BookStep = 1 | 2 | 3
+type ThemeMode = 'light' | 'dark' | 'system'
+
+interface Shipment {
+  id: string
+  tracking: string
+  destination: string
+  country: string
+  commodity: string
+  weight: string
+  status: 'in_progress' | 'delivered' | 'pending'
+  date: string
+  eta?: string
+  receiverName?: string
+  receiverCity?: string
+  weightProofImages?: string[]
+  weightProofImageUrl?: string
 }
 
-function getStatusConfig(status: string) {
-  const s = (status || '').toUpperCase()
-
-  if (s.includes('DELIVERED')) {
-    return {
-      label: 'Delivered',
-      heroTitle: 'Delivered',
-      badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
-      iconClass: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 border-emerald-500',
-      dotClass: 'bg-emerald-500 border-emerald-500',
-      icon: <CheckCircle2 className='h-4 w-4' />,
-    }
-  }
-  if (s.includes('OUT_FOR_DELIVERY')) {
-    return {
-      label: 'Out for Delivery',
-      heroTitle: 'Out for delivery',
-      badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800',
-      iconClass: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/80 border-amber-500',
-      dotClass: 'bg-amber-500 border-amber-500',
-      icon: <Truck className='h-4 w-4' />,
-    }
-  }
-  if (s.includes('CARRIER_SCANNED') || s.includes('CARRIER')) {
-    return {
-      label: 'Carrier Scanned',
-      heroTitle: 'Carrier Scanned',
-      badgeClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800',
-      iconClass: 'text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-950/80 border-indigo-500',
-      dotClass: 'bg-indigo-500 border-indigo-500',
-      icon: <Truck className='h-4 w-4' />,
-    }
-  }
-  if (s.includes('ARRIVED_AT_HUB') || s.includes('HUB') || s.includes('CUSTOMS')) {
-    return {
-      label: 'Arrived at Hub',
-      heroTitle: 'Arrived at hub',
-      badgeClass: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-800',
-      iconClass: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/80 border-blue-500',
-      dotClass: 'bg-blue-500 border-blue-500',
-      icon: <Warehouse className='h-4 w-4' />,
-    }
-  }
-  if (s.includes('TRANSIT')) {
-    return {
-      label: 'In Transit',
-      heroTitle: 'In transit',
-      badgeClass: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-sky-300 dark:border-sky-800',
-      iconClass: 'text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-950/80 border-sky-500',
-      dotClass: 'bg-sky-500 border-sky-500',
-      icon: <Plane className='h-4 w-4' />,
-    }
-  }
-  if (s.includes('SHIPMENT_CREATED')) {
-    return {
-      label: 'Shipment Created',
-      heroTitle: 'Shipment Created',
-      badgeClass: 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300 border-violet-300 dark:border-violet-800',
-      iconClass: 'text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-950/80 border-violet-500',
-      dotClass: 'bg-violet-500 border-violet-500',
-      icon: <PackageOpen className='h-4 w-4' />,
-    }
-  }
-  if (s.includes('PICKED_UP') || s.includes('PICKUP')) {
-    return {
-      label: 'Picked Up',
-      heroTitle: 'Picked Up by NetPack Courier',
-      badgeClass: 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border-teal-300 dark:border-teal-800',
-      iconClass: 'text-teal-600 dark:text-teal-400 bg-teal-100 dark:bg-teal-950/80 border-teal-500',
-      dotClass: 'bg-teal-500 border-teal-500',
-      icon: <Truck className='h-4 w-4' />,
-    }
-  }
-  if (s.includes('ENQUIRY_GENERATED') || s.includes('PENDING')) {
-    return {
-      label: 'Enquiry Generated',
-      heroTitle: 'Enquiry Registered',
-      badgeClass: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700',
-      iconClass: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-400',
-      dotClass: 'bg-slate-400 border-slate-400',
-      icon: <PackageSearch className='h-4 w-4' />,
-    }
-  }
-  if (s.includes('EXCEPTION') || s.includes('CANCELLED')) {
-    return {
-      label: 'Exception',
-      heroTitle: 'Exception',
-      badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-800',
-      iconClass: 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/80 border-rose-500',
-      dotClass: 'bg-rose-500 border-rose-500',
-      icon: <AlertTriangle className='h-4 w-4' />,
-    }
-  }
-  return {
-    label: s.replace(/_/g, ' '),
-    heroTitle: s.replace(/_/g, ' '),
-    badgeClass: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-300',
-    iconClass: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-400',
-    dotClass: 'bg-slate-400 border-slate-400',
-    icon: <Clock className='h-4 w-4' />,
-  }
+interface NotificationItem {
+  id: string
+  title: string
+  body: string
+  time: string
+  read: boolean
+  type: 'welcome' | 'update' | 'delivered' | 'alert'
 }
 
-function getShortMilestoneLabel(label: string) {
-  if (label.includes('Enquiry')) return 'Enquiry'
-  if (label.includes('Picked Up') || label.includes('Pickup')) return 'Picked Up'
-  if (label.includes('Packed')) return 'Packed'
-  if (label.includes('Created')) return 'Created'
-  if (label.includes('In Transit') || label.includes('Transit')) return 'In Transit'
-  if (label.includes('Hub')) return 'At Hub'
-  if (label.includes('Carrier') || label.includes('Delivery')) return 'Carrier'
-  if (label.includes('Delivered')) return 'Delivered'
-  return label.split(' ')[0]
+interface CheckpointItem {
+  activity: string
+  location: string
+  time: string
+  source?: string
 }
+
+interface TrackingDetails {
+  tracking: string
+  receiverName: string
+  carrier: string
+  carrierTracking: string
+  carrierUrl: string
+  status: 'in_progress' | 'delivered' | 'pending'
+  statusLabel: string
+  heroTitle: string
+  heroSubtitle: string
+  stageIndex: number
+  weight: string
+  volumetricWeight: string
+  chargeableWeight: string
+  origin: string
+  destination: string
+  commodity: string
+  boxes: Array<{
+    boxNumber: number
+    dimensions: string
+    weight: string
+    items: Array<{ item: string; pieces: number }>
+  }>
+  checkpoints: CheckpointItem[]
+}
+
+// ─── Initial Mock Data & Fallbacks ─────────────────────────────────────────────
+
+const initialShipments: Shipment[] = [
+  {
+    id: '1',
+    tracking: 'NP-20240922-001',
+    destination: 'London, UK',
+    country: 'GB',
+    commodity: 'Pashmina & Woolen Garments',
+    weight: '4.2 kg',
+    status: 'in_progress',
+    date: 'Sep 18, 2024',
+    eta: 'Sep 26, 2024',
+    receiverName: 'Sarah Jenkins',
+    receiverCity: 'London',
+  },
+  {
+    id: '2',
+    tracking: 'NP-20240910-088',
+    destination: 'New York, USA',
+    country: 'US',
+    commodity: 'Handicrafts & Souvenirs',
+    weight: '2.8 kg',
+    status: 'delivered',
+    date: 'Sep 10, 2024',
+    receiverName: 'Michael Chang',
+    receiverCity: 'New York',
+  },
+  {
+    id: '3',
+    tracking: 'NP-20240905-047',
+    destination: 'Tokyo, Japan',
+    country: 'JP',
+    commodity: 'Himalayan Tea & Spices',
+    weight: '1.5 kg',
+    status: 'delivered',
+    date: 'Sep 5, 2024',
+    receiverName: 'Kenji Sato',
+    receiverCity: 'Tokyo',
+  },
+]
+
+const initialNotifications: NotificationItem[] = [
+  {
+    id: '1',
+    title: 'Shipment Out for Delivery',
+    body: 'NP-20240922-001 is out for final delivery in London. Expected today between 2–6 PM.',
+    time: 'Today, 09:14 AM',
+    read: false,
+    type: 'update',
+  },
+  {
+    id: '2',
+    title: 'Cleared UK Customs',
+    body: 'Your shipment NP-20240922-001 has cleared UK customs and is heading to the delivery hub.',
+    time: 'Sep 21, 04:30 PM',
+    read: false,
+    type: 'update',
+  },
+  {
+    id: '3',
+    title: 'Shipment NP-20240910-088 Delivered',
+    body: 'Your consignment has been successfully delivered in New York. Thank you for choosing NetPack!',
+    time: 'Sep 17, 11:00 AM',
+    read: true,
+    type: 'delivered',
+  },
+  {
+    id: '4',
+    title: 'Welcome to NetPack Logistics!',
+    body: 'Book international express consignments and request doorstep rider pickup across Kathmandu.',
+    time: 'Sep 22, 08:35 AM',
+    read: true,
+    type: 'welcome',
+  },
+]
+
+const mockTrackingMap: Record<string, TrackingDetails> = {
+  'NP-20240922-001': {
+    tracking: 'NP-20240922-001',
+    receiverName: 'Sarah Jenkins',
+    carrier: 'DHL Express',
+    carrierTracking: '9400111899562849102834',
+    carrierUrl: 'https://www.dhl.com/en/express/tracking.html',
+    status: 'in_progress',
+    statusLabel: 'In Transit (Air Cargo)',
+    heroTitle: 'Departed KTM Airport',
+    heroSubtitle: 'Air Cargo Departed Tribhuvan Int\'l Airport (KTM) • Flight RA-205',
+    stageIndex: 3,
+    weight: '4.2 kg',
+    volumetricWeight: '3.8 kg',
+    chargeableWeight: '4.2 kg',
+    origin: 'Kathmandu (KTM)',
+    destination: 'London (LHR), UK',
+    commodity: 'Pashmina & Woolen Garments',
+    boxes: [
+      {
+        boxNumber: 1,
+        dimensions: '42 × 30 × 25 cm',
+        weight: '4.2 kg',
+        items: [
+          { item: 'Cashmere Pashmina Shawls', pieces: 8 },
+          { item: 'Woolen Mufflers (Handwoven)', pieces: 4 },
+        ],
+      },
+    ],
+    checkpoints: [
+      {
+        activity: 'Air Cargo Departed Tribhuvan Int\'l Airport',
+        location: 'TIA Airport, Kathmandu',
+        time: 'Today, 11:45 AM',
+        source: 'Airline Scanned',
+      },
+      {
+        activity: 'Export Customs Cleared & Transferred to Ramp',
+        location: 'Customs Cargo Complex, Kathmandu',
+        time: 'Sep 21, 04:30 PM',
+        source: 'Operator Note',
+      },
+      {
+        activity: 'Warehouse Security Inspection & Weighing Complete',
+        location: 'NetPack Teku Hub, Kathmandu',
+        time: 'Sep 20, 10:15 AM',
+      },
+      {
+        activity: 'Cargo Picked Up From Shipper',
+        location: 'Thamel, Kathmandu',
+        time: 'Sep 18, 02:15 PM',
+        source: 'Courier Pickup',
+      },
+    ],
+  },
+  'NP-20240910-088': {
+    tracking: 'NP-20240910-088',
+    receiverName: 'Michael Chang',
+    carrier: 'FedEx Express',
+    carrierTracking: '789234019283',
+    carrierUrl: 'https://www.fedex.com/fedextrack/',
+    status: 'delivered',
+    statusLabel: 'Delivered',
+    heroTitle: 'Delivered to Consignee',
+    heroSubtitle: 'Signed by: M. Chang • Manhattan, New York, USA',
+    stageIndex: 6,
+    weight: '2.8 kg',
+    volumetricWeight: '2.5 kg',
+    chargeableWeight: '2.8 kg',
+    origin: 'Kathmandu (KTM)',
+    destination: 'New York (JFK), USA',
+    commodity: 'Handicrafts & Souvenirs',
+    boxes: [
+      {
+        boxNumber: 1,
+        dimensions: '35 × 25 × 20 cm',
+        weight: '2.8 kg',
+        items: [
+          { item: 'Carved Wooden Buddha Statues', pieces: 2 },
+          { item: 'Tibetan Prayer Flags', pieces: 5 },
+        ],
+      },
+    ],
+    checkpoints: [
+      {
+        activity: 'Package Delivered & Signed by Consignee',
+        location: 'New York, USA',
+        time: 'Sep 17, 11:00 AM',
+        source: 'Courier Delivery',
+      },
+      {
+        activity: 'Out for Final Delivery',
+        location: 'FedEx JFK Sorting Facility, NY',
+        time: 'Sep 17, 08:30 AM',
+        source: 'FedEx Express',
+      },
+      {
+        activity: 'Import Customs Cleared',
+        location: 'JFK Airport, New York',
+        time: 'Sep 16, 03:20 PM',
+      },
+      {
+        activity: 'Arrived at Destination Airport',
+        location: 'JFK Airport, New York',
+        time: 'Sep 15, 06:45 PM',
+        source: 'Airline Scanned',
+      },
+      {
+        activity: 'Departed Kathmandu (TIA)',
+        location: 'Kathmandu Airport',
+        time: 'Sep 11, 10:30 PM',
+      },
+      {
+        activity: 'Shipment Origin Intake & Verified',
+        location: 'NetPack Teku Hub, Kathmandu',
+        time: 'Sep 10, 01:15 PM',
+      },
+    ],
+  },
+  'NP-20240905-047': {
+    tracking: 'NP-20240905-047',
+    receiverName: 'Kenji Sato',
+    carrier: 'DHL Express',
+    carrierTracking: '88123901920',
+    carrierUrl: 'https://www.dhl.com/en/express/tracking.html',
+    status: 'delivered',
+    statusLabel: 'Delivered',
+    heroTitle: 'Delivered in Tokyo',
+    heroSubtitle: 'Delivered to Reception • Shinjuku, Tokyo, Japan',
+    stageIndex: 6,
+    weight: '1.5 kg',
+    volumetricWeight: '1.2 kg',
+    chargeableWeight: '1.5 kg',
+    origin: 'Kathmandu (KTM)',
+    destination: 'Tokyo (NRT), Japan',
+    commodity: 'Himalayan Tea & Spices',
+    boxes: [
+      {
+        boxNumber: 1,
+        dimensions: '28 × 20 × 15 cm',
+        weight: '1.5 kg',
+        items: [
+          { item: 'Organic Ilam Orthodox Tea', pieces: 6 },
+          { item: 'Himalayan Cardamom Packs', pieces: 2 },
+        ],
+      },
+    ],
+    checkpoints: [
+      {
+        activity: 'Delivered to Receptionist',
+        location: 'Shinjuku, Tokyo, Japan',
+        time: 'Sep 5, 02:40 PM',
+        source: 'DHL Courier',
+      },
+      {
+        activity: 'Arrived at DHL Tokyo Express Hub',
+        location: 'Tokyo, Japan',
+        time: 'Sep 4, 11:15 PM',
+      },
+      {
+        activity: 'Dispatched from Kathmandu Gateway',
+        location: 'TIA, Kathmandu',
+        time: 'Sep 2, 09:00 PM',
+        source: 'Airline Scanned',
+      },
+    ],
+  },
+}
+
+// ─── Icons ────────────────────────────────────────────────────────────────────
+
+const IconBox = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+    <line x1="12" y1="22.08" x2="12" y2="12"/>
+  </svg>
+)
+
+const IconBell = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+)
+
+const IconUser = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </svg>
+)
+
+const IconPlus = ({ size = 22, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <line x1="12" y1="5" x2="12" y2="19"/>
+    <line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+)
+
+const IconArrowRight = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <line x1="5" y1="12" x2="19" y2="12"/>
+    <polyline points="12 5 19 12 12 19"/>
+  </svg>
+)
+
+const IconRefresh = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polyline points="23 4 23 10 17 10"/>
+    <polyline points="1 20 1 14 7 14"/>
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+  </svg>
+)
+
+const IconMapPin = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+    <circle cx="12" cy="10" r="3"/>
+  </svg>
+)
+
+const IconTruck = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="1" y="3" width="15" height="13"/>
+    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+    <circle cx="5.5" cy="18.5" r="2.5"/>
+    <circle cx="18.5" cy="18.5" r="2.5"/>
+  </svg>
+)
+
+const IconCheck = ({ size = 14, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+)
+
+const IconStar = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+  </svg>
+)
+
+const IconChevronDown = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+)
+
+const IconChevronUp = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polyline points="18 15 12 9 6 15"/>
+  </svg>
+)
+
+const IconPlane = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.3c.4-.2.6-.6.5-1.1z" />
+  </svg>
+)
+
+
+const IconCopy = ({ size = 15, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+  </svg>
+)
+
+const IconExternalLink = ({ size = 15, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+    <polyline points="15 3 21 3 21 9"/>
+    <line x1="10" y1="14" x2="21" y2="3"/>
+  </svg>
+)
+
+const IconScale = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+    <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+    <path d="M7 21h10"/>
+    <path d="M12 3v18"/>
+    <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+  </svg>
+)
+
+const IconSearch = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="11" cy="11" r="8"/>
+    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+  </svg>
+)
+
+const IconCamera = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+    <circle cx="12" cy="13" r="4"/>
+  </svg>
+)
+
+const IconDownload = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+)
+
+const IconSun = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/>
+    <line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/>
+    <line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>
+)
+
+const IconLogout = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+    <polyline points="16 17 21 12 16 7"/>
+    <line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+)
+
+const IconReceiptDollar = ({ size = 22, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M4 2v20l3-2 2 2 2-2 2 2 2-2 3 2V2l-3 2-2-2-2 2-2-2-2 2L4 2z"/>
+    <line x1="12" y1="6" x2="12" y2="8"/>
+    <line x1="12" y1="16" x2="12" y2="18"/>
+    <path d="M9 10h4.5a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3H15"/>
+  </svg>
+)
+
+const IconClock = ({ size = 14, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
+  </svg>
+)
+
+const IconHome = ({ size = 22, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
+    <polyline points="9 21 9 12 15 12 15 21"/>
+  </svg>
+)
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+
+function Header({
+  userName,
+  unreadCount,
+  onBellClick,
+  onSignOut,
+  onInstall,
+  onToggleTheme,
+}: {
+  userName?: string
+  unreadCount: number
+  onBellClick: () => void
+  onSignOut: () => void
+  onInstall?: () => void
+  onToggleTheme?: () => void
+}) {
+  return (
+    <header className="sticky top-0 z-30 bg-[#0D1B2A] px-4 pt-3 pb-3 flex items-center gap-3 shadow-md">
+      {/* Wave greeting */}
+      <div className="text-2xl leading-none select-none">👋</div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-white/60 text-[11px] leading-tight">Welcome back</p>
+        <span style={{ fontFamily: 'Jost, sans-serif' }} className="text-white font-700 text-base leading-tight tracking-tight truncate block">
+          Hi, {userName || 'Customer'}!
+        </span>
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        {onInstall && (
+          <button
+            onClick={onInstall}
+            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all"
+            title="Install App on Phone"
+          >
+            <IconDownload size={17} />
+          </button>
+        )}
+        <button
+          onClick={onToggleTheme}
+          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white flex items-center justify-center transition-all"
+          title="Toggle Theme"
+        >
+          <IconSun size={17} />
+        </button>
+        <button
+          onClick={onBellClick}
+          className="relative w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white flex items-center justify-center transition-all"
+          title="Notifications"
+        >
+          <IconBell size={17} />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-blue-400 rounded-full ring-2 ring-[#0D1B2A] animate-pulse" />
+          )}
+        </button>
+        <button
+          onClick={onSignOut}
+          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-500/20 active:scale-95 text-white/80 hover:text-red-400 flex items-center justify-center transition-all"
+          title="Sign Out"
+        >
+          <IconLogout size={17} />
+        </button>
+      </div>
+    </header>
+  )
+}
+
+// ─── Bottom Navigation ────────────────────────────────────────────────────────
+
+function BottomNav({ screen, setScreen }: { screen: Screen; setScreen: (s: Screen) => void }) {
+  const homeActive = screen === 'home' || screen === 'shipments' || screen === 'rateenquiry' || screen === 'tracking'
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white dark:bg-[#0D1B2A] border-t border-gray-200 dark:border-gray-800 max-w-[430px] mx-auto shadow-lg">
+      <div className="flex items-center px-6 py-2">
+        {/* Home */}
+        <button
+          onClick={() => setScreen('home')}
+          className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 transition-colors ${homeActive ? 'text-[#2563EB] font-bold' : 'text-gray-400'}`}
+        >
+          <IconHome size={22} />
+          <span className="text-[10px] tracking-wide">Home</span>
+        </button>
+
+        {/* Book FAB */}
+        <div className="flex-1 flex flex-col items-center py-0.5 -mt-5">
+          <button
+            onClick={() => setScreen('book')}
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-95 ${
+              screen === 'book' ? 'bg-[#2563EB] shadow-blue-500/40 ring-4 ring-blue-200' : 'bg-[#0D1B2A] shadow-slate-900/30'
+            }`}
+          >
+            <IconPlus size={26} className="text-white" />
+          </button>
+          <span className={`text-[10px] font-semibold mt-1 tracking-wide ${screen === 'book' ? 'text-[#2563EB]' : 'text-gray-400'}`}>
+            Book
+          </span>
+        </div>
+
+        {/* Profile */}
+        <button
+          onClick={() => setScreen('profile')}
+          className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 transition-colors ${screen === 'profile' ? 'text-[#2563EB] font-bold' : 'text-gray-400'}`}
+        >
+          <IconUser size={22} />
+          <span className="text-[10px] tracking-wide">Profile</span>
+        </button>
+      </div>
+    </nav>
+  )
+}
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: Shipment['status'] }) {
+  if (status === 'in_progress') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+        In Transit
+      </span>
+    )
+  }
+  if (status === 'delivered') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+        <IconCheck size={10} />
+        Delivered
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+      Pending
+    </span>
+  )
+}
+
+// ─── Shipment Card ────────────────────────────────────────────────────────────
+
+function ShipmentCard({ s, onClick }: { s: Shipment; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-xs p-4 flex gap-3 active:scale-[0.99] hover:border-blue-200 transition-all cursor-pointer"
+    >
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${s.status === 'in_progress' ? 'bg-blue-50' : 'bg-emerald-50'}`}>
+        {s.status === 'in_progress' ? <IconTruck size={18} className="text-blue-500 animate-float" /> : <IconCheck size={16} className="text-emerald-500" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p style={{ fontFamily: 'Jost, sans-serif' }} className="font-600 text-[#0D1B2A] text-sm leading-tight">
+              {s.destination}
+            </p>
+            <p className="text-[11px] text-gray-400 mt-0.5 font-mono tracking-wide">{s.tracking}</p>
+          </div>
+          <StatusBadge status={s.status} />
+        </div>
+        <p className="text-[12px] text-gray-500 mt-1.5 truncate">
+          {s.commodity} · {s.weight}
+        </p>
+        {s.eta && <p className="text-[11px] text-blue-500 mt-1 font-medium">ETA {s.eta}</p>}
+      </div>
+    </button>
+  )
+}
+
+// ─── Home Screen ──────────────────────────────────────────────────────────────
+
+function HomeScreen({
+  shipments,
+  onViewAll,
+  onBook,
+  onRateEnquiry,
+  onTrack,
+}: {
+  shipments: Shipment[]
+  onViewAll: () => void
+  onBook: () => void
+  onRateEnquiry: () => void
+  onTrack: (trackingNumber: string) => void
+}) {
+  const pending = shipments.filter(s => s.status === 'pending').length
+  const inTransit = shipments.filter(s => s.status === 'in_progress').length
+  const recent = shipments.slice(0, 3)
+
+  return (
+    <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
+      {/* Stat Cards */}
+      <div className="px-4 pt-5 pb-2 grid grid-cols-2 gap-3">
+        {/* Total Pending */}
+        <div
+          onClick={onViewAll}
+          className="relative overflow-hidden rounded-2xl p-4 min-h-[120px] flex flex-col justify-between shadow-sm active:scale-[0.98] transition-transform cursor-pointer"
+          style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 60%, #F97316 100%)' }}
+        >
+          <div className="absolute -right-4 -bottom-4 opacity-20 pointer-events-none">
+            <svg width={80} height={80} viewBox="0 0 24 24" fill="white">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
+              <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" fill="white" />
+            </svg>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-white/25 backdrop-blur-xs flex items-center justify-center">
+            <IconClock size={18} className="text-white" />
+          </div>
+          <div>
+            <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-white font-800 text-4xl leading-none">
+              {pending || (shipments.length > 0 ? 1 : 0)}
+            </p>
+            <p className="text-white/90 text-[13px] font-medium mt-1">Total Pending</p>
+          </div>
+        </div>
+
+        {/* In Transit */}
+        <div
+          onClick={onViewAll}
+          className="relative overflow-hidden rounded-2xl p-4 min-h-[120px] flex flex-col justify-between shadow-sm active:scale-[0.98] transition-transform cursor-pointer"
+          style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #9333EA 60%, #A855F7 100%)' }}
+        >
+          <div className="absolute -right-4 -bottom-4 opacity-20 pointer-events-none">
+            <IconTruck size={80} className="text-white animate-float" />
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-white/25 backdrop-blur-xs flex items-center justify-center">
+            <IconTruck size={18} className="text-white" />
+          </div>
+          <div>
+            <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-white font-800 text-4xl leading-none">
+              {inTransit || (shipments.length > 0 ? 1 : 0)}
+            </p>
+            <p className="text-white/90 text-[13px] font-medium mt-1">In Transit</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Tracking Search Bar */}
+      <div className="px-4 pt-2 pb-1">
+        <div className="bg-white rounded-2xl border border-gray-200/90 shadow-2xs p-2.5 flex items-center gap-2">
+          <IconSearch size={18} className="text-gray-400 shrink-0 ml-1.5" />
+          <input
+            type="text"
+            id="home-quick-track-input"
+            placeholder="Track consignment (e.g., NP-20240922-001)..."
+            className="flex-1 text-xs sm:text-sm bg-transparent outline-none text-[#0D1B2A] placeholder-gray-400 font-mono"
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const val = (e.target as HTMLInputElement).value.trim()
+                if (val) onTrack(val)
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const el = document.getElementById('home-quick-track-input') as HTMLInputElement
+              if (el && el.value.trim()) onTrack(el.value.trim())
+            }}
+            style={{ fontFamily: 'Jost, sans-serif' }}
+            className="bg-[#0D1B2A] text-white text-xs font-600 px-3.5 py-2 rounded-xl active:scale-95 transition-transform cursor-pointer"
+          >
+            Track
+          </button>
+        </div>
+      </div>
+
+      {/* Recent Consignments */}
+      <div className="px-4 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-base font-700 text-[#0D1B2A] tracking-tight">
+            Recent Consignments
+          </h2>
+          <button onClick={onViewAll} className="text-[13px] font-semibold text-[#2563EB] cursor-pointer">
+            View All
+          </button>
+        </div>
+
+        {recent.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 flex flex-col items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center">
+              <IconBox size={22} className="text-gray-300" />
+            </div>
+            <p className="text-gray-400 text-sm text-center">No consignments yet.</p>
+            <button
+              onClick={onBook}
+              style={{ fontFamily: 'Jost, sans-serif' }}
+              className="bg-[#0D1B2A] text-white font-600 text-sm px-5 py-2.5 rounded-xl cursor-pointer"
+            >
+              Book a Consignment
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {recent.map(s => (
+              <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Services */}
+      <div className="px-4 pt-5 pb-2">
+        <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-base font-700 text-[#0D1B2A] tracking-tight mb-3">
+          Services
+        </h2>
+        <button
+          onClick={onRateEnquiry}
+          className="w-full bg-white rounded-2xl border border-gray-100 shadow-xs p-4 flex items-center gap-4 active:scale-[0.99] transition-transform text-left cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <IconReceiptDollar size={22} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p style={{ fontFamily: 'Jost, sans-serif' }} className="font-700 text-[#0D1B2A] text-sm">
+              Rate Enquiry
+            </p>
+            <p className="text-[12px] text-gray-500 mt-0.5 truncate">
+              Calculate estimated air cargo rates before placing an order.
+            </p>
+          </div>
+          <IconArrowRight size={16} className="text-gray-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all shrink-0" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Shipments Screen (My Consignments View) ──────────────────────────────────
+
+function ShipmentsScreen({
+  shipments,
+  onBook,
+  onBack,
+  onTrack,
+  onRefresh,
+}: {
+  shipments: Shipment[]
+  onBook: () => void
+  onBack: () => void
+  onTrack: (trackingNumber: string) => void
+  onRefresh: () => void
+}) {
+  const [tab, setTab] = useState<ShipmentTab>('all')
+  const [refreshing, setRefreshing] = useState(false)
+
+  const filtered = shipments.filter(s => {
+    if (tab === 'all') return true
+    if (tab === 'inprogress') return s.status === 'in_progress'
+    if (tab === 'delivered') return s.status === 'delivered'
+    return true
+  })
+
+  const handleRefreshClick = () => {
+    setRefreshing(true)
+    onRefresh()
+    setTimeout(() => setRefreshing(false), 1000)
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
+      {/* Page Header */}
+      <div className="px-4 pt-5 pb-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center shrink-0 active:scale-95 transition-transform cursor-pointer"
+            >
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <div>
+              <h1 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-700 text-[#0D1B2A] tracking-tight">
+                My Consignments
+              </h1>
+              <p className="text-gray-500 text-xs mt-0.5">Review active bookings and cargo history.</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRefreshClick}
+            className="flex items-center gap-1.5 text-[12px] text-gray-500 font-medium bg-white border border-gray-200 rounded-xl px-3 py-1.5 active:scale-95 transition-all cursor-pointer"
+          >
+            <IconRefresh size={14} className={refreshing ? 'animate-spin text-blue-600' : ''} />
+            Refresh
+          </button>
+        </div>
+
+        {/* Stats Strip */}
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          {[
+            { label: 'Total', value: shipments.length, color: 'text-[#0D1B2A]', bg: 'bg-white' },
+            { label: 'In Transit', value: shipments.filter(s => s.status === 'in_progress').length, color: 'text-amber-600', bg: 'bg-amber-50' },
+            { label: 'Delivered', value: shipments.filter(s => s.status === 'delivered').length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          ].map(stat => (
+            <div key={stat.label} className={`${stat.bg} rounded-xl border border-gray-100 px-3 py-2 text-center`}>
+              <p style={{ fontFamily: 'Jost, sans-serif' }} className={`${stat.color} text-2xl font-700 leading-none`}>
+                {stat.value}
+              </p>
+              <p className="text-gray-400 text-[11px] mt-0.5">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="px-4 mb-3">
+        <div className="flex bg-white border border-gray-200 rounded-xl p-1 gap-0.5 shadow-2xs">
+          {([['all', 'All'], ['inprogress', 'In Progress'], ['delivered', 'Delivered']] as [ShipmentTab, string][]).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex-1 text-[12px] font-semibold py-2 rounded-lg transition-all cursor-pointer ${
+                tab === key ? 'bg-[#0D1B2A] text-white shadow-xs' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* List */}
+      <div className="px-4 flex flex-col gap-2.5">
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-10 flex flex-col items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center">
+              <IconBox size={28} className="text-gray-300" />
+            </div>
+            <div className="text-center">
+              <p className="text-gray-400 text-sm">No consignments found under this view.</p>
+            </div>
+            <button
+              onClick={onBook}
+              style={{ fontFamily: 'Jost, sans-serif' }}
+              className="bg-[#0D1B2A] text-white font-600 text-sm px-6 py-2.5 rounded-xl active:opacity-90 transition-opacity cursor-pointer"
+            >
+              Book a Consignment
+            </button>
+          </div>
+        ) : (
+          filtered.map(s => <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} />)
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Rate Enquiry Screen ──────────────────────────────────────────────────────
+
+const COUNTRIES = ['United Kingdom', 'United States', 'Australia', 'Canada', 'Germany', 'Japan', 'Singapore', 'UAE']
+
+function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
+  const [destCountry, setDestCountry] = useState('')
+  const [weight, setWeight] = useState('')
+  const [commodity, setCommodity] = useState('')
+  const [result, setResult] = useState<null | { rate: string; transit: string; service: string }>(null)
+
+  const handleCalc = () => {
+    const w = parseFloat(weight) || 1
+    const base = 15 + w * 8.5
+    setResult({
+      rate: `NPR ${(base * 135).toFixed(0)} – NPR ${(base * 145).toFixed(0)}`,
+      transit: '7–12 business days',
+      service: 'International Air Cargo Express',
+    })
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
+      <div className="px-4 pt-5 pb-4 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
+        >
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <div>
+          <h1 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-700 text-[#0D1B2A] tracking-tight">
+            Rate Enquiry
+          </h1>
+          <p className="text-gray-500 text-xs mt-0.5">Instant estimated shipping calculator.</p>
+        </div>
+      </div>
+
+      <div className="px-4 space-y-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4 shadow-xs">
+          {/* Destination */}
+          <div>
+            <FieldLabel required>Destination Country</FieldLabel>
+            <div className="relative">
+              <select
+                value={destCountry}
+                onChange={e => {
+                  setDestCountry(e.target.value)
+                  setResult(null)
+                }}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none"
+              >
+                <option value="">Select a country</option>
+                {COUNTRIES.map(c => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+              <IconChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Commodity */}
+          <div>
+            <FieldLabel required>Commodity Type</FieldLabel>
+            <div className="relative">
+              <select
+                value={commodity}
+                onChange={e => {
+                  setCommodity(e.target.value)
+                  setResult(null)
+                }}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none"
+              >
+                <option value="">Select commodity</option>
+                {COMMODITY_CHIPS.map(c => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+              <IconChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Weight */}
+          <div>
+            <FieldLabel required>Approximate Weight (kg)</FieldLabel>
+            <TextInput
+              placeholder="e.g., 3.5"
+              value={weight}
+              onChange={v => {
+                setWeight(v)
+                setResult(null)
+              }}
+              type="number"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleCalc}
+          disabled={!destCountry || !weight || !commodity}
+          style={{ fontFamily: 'Jost, sans-serif' }}
+          className="w-full bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 active:opacity-90 shadow-md shadow-blue-200 transition-all cursor-pointer"
+        >
+          <IconReceiptDollar size={18} />
+          Calculate Rate
+        </button>
+
+        {result && (
+          <div className="bg-white rounded-2xl border border-emerald-100 overflow-hidden shadow-xs animate-in fade-in-50 duration-200">
+            <div className="bg-emerald-500 px-4 py-3 flex items-center gap-2">
+              <IconCheck size={16} className="text-white" />
+              <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-white font-600 text-sm">
+                Estimated Quotation
+              </p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                <span className="text-[12px] text-gray-500">Destination</span>
+                <span className="text-[13px] font-semibold text-[#0D1B2A]">{destCountry}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                <span className="text-[12px] text-gray-500">Commodity</span>
+                <span className="text-[13px] font-semibold text-[#0D1B2A] text-right max-w-[55%] truncate">{commodity}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                <span className="text-[12px] text-gray-500">Weight</span>
+                <span className="text-[13px] font-semibold text-[#0D1B2A]">{weight} kg</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                <span className="text-[12px] text-gray-500">Service</span>
+                <span className="text-[13px] font-semibold text-[#0D1B2A]">{result.service}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                <span className="text-[12px] text-gray-500">Transit Time</span>
+                <span className="text-[13px] font-semibold text-amber-600">{result.transit}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-[13px] font-semibold text-gray-700">Estimated Cost</span>
+                <span style={{ fontFamily: 'Jost, sans-serif' }} className="text-base font-700 text-emerald-600">
+                  {result.rate}
+                </span>
+              </div>
+            </div>
+            <div className="px-4 pb-4">
+              <p className="text-[11px] text-gray-400 leading-relaxed italic">
+                * Estimate only. Final rate confirmed after warehouse electronic scale weighing and volumetric inspection.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Tracking Screen (Dedicated Live Tracking) ────────────────────────────────
+
+const LIFECYCLE_STAGES = [
+  { id: 'enquiry', label: 'Booking Registered', short: 'Booking' },
+  { id: 'pickup', label: 'Picked Up by Rider', short: 'Picked Up' },
+  { id: 'warehouse', label: 'Warehouse Weighed & Packed', short: 'Packed' },
+  { id: 'transit', label: 'Air Cargo in Flight', short: 'Air Cargo' },
+  { id: 'hub', label: 'Arrived at Destination Hub', short: 'Hub Intake' },
+  { id: 'carrier', label: 'Overseas Courier Dispatch', short: 'Courier' },
+  { id: 'delivered', label: 'Delivered to Consignee', short: 'Delivered' },
+]
+
+function TrackingScreen({
+  initialTrackingId,
+  onBack,
+}: {
+  initialTrackingId: string
+  onBack: () => void
+}) {
+  const [trackingId, setTrackingId] = useState(initialTrackingId)
+  const [searchInput, setSearchInput] = useState(initialTrackingId)
+  const [isFolded, setIsFolded] = useState(true)
+  const [isBoxesOpen, setIsBoxesOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  // Tracking details from live API or mock fallback
+  const [data, setData] = useState<TrackingDetails>(() => {
+    return mockTrackingMap[initialTrackingId] || mockTrackingMap['NP-20240922-001']
+  })
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!trackingId) return
+    setLoading(true)
+
+    // Try fetching live backend tracking
+    fetch(`${API_BASE}/api/tracking/${encodeURIComponent(trackingId)}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(liveRes => {
+        if (liveRes && liveRes.trackingNumber) {
+          // Map backend tracking response
+          const statusStr = (liveRes.status || '').toUpperCase()
+          let stageIdx = 3
+          if (statusStr.includes('DELIVERED')) stageIdx = 6
+          else if (statusStr.includes('CARRIER') || statusStr.includes('OUT_FOR_DELIVERY')) stageIdx = 5
+          else if (statusStr.includes('HUB') || statusStr.includes('CUSTOMS')) stageIdx = 4
+          else if (statusStr.includes('TRANSIT')) stageIdx = 3
+          else if (statusStr.includes('PACK') || statusStr.includes('CREATED')) stageIdx = 2
+          else if (statusStr.includes('PICK')) stageIdx = 1
+
+          setData({
+            tracking: liveRes.trackingNumber,
+            receiverName: liveRes.receiverName || 'Consignee',
+            carrier: liveRes.forwardingCompany || 'DHL Express',
+            carrierTracking: liveRes.forwardingNumber || '9400111899562849102834',
+            carrierUrl: liveRes.forwardingCompany?.toUpperCase().includes('FEDEX')
+              ? 'https://www.fedex.com/fedextrack/'
+              : 'https://www.dhl.com/en/express/tracking.html',
+            status: statusStr.includes('DELIVERED') ? 'delivered' : 'in_progress',
+            statusLabel: statusStr.includes('DELIVERED') ? 'Delivered' : 'In Transit (Air Cargo)',
+            heroTitle: statusStr.includes('DELIVERED') ? 'Delivered to Consignee' : 'Air Cargo in Flight',
+            heroSubtitle: `En route to ${liveRes.destination || 'Destination'} • Verified Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`,
+            stageIndex: stageIdx,
+            weight: `${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`,
+            volumetricWeight: `${liveRes.volumetricWeight || '3.0'} kg`,
+            chargeableWeight: `${liveRes.chargeableWeight || liveRes.weight || '3.5'} kg`,
+            origin: liveRes.origin || 'Kathmandu (KTM)',
+            destination: liveRes.destination || 'International Destination',
+            commodity: liveRes.commodity || 'Express Air Cargo',
+            boxes: [
+              {
+                boxNumber: 1,
+                dimensions: '40 × 30 × 20 cm',
+                weight: `${liveRes.weight || '3.5'} kg`,
+                items: [{ item: liveRes.commodity || 'Cargo Consignment', pieces: 1 }],
+              },
+            ],
+            checkpoints: liveRes.checkpoints && liveRes.checkpoints.length > 0
+              ? liveRes.checkpoints.map((cp: any) => ({
+                  activity: cp.activity || cp.status?.replace(/_/g, ' ') || 'Checkpoint Scanned',
+                  location: cp.location || 'Kathmandu Hub',
+                  time: formatDateTime(cp.timestamp || cp.created_at) || 'Recently',
+                  source: cp.source || 'NetPack Operations',
+                }))
+              : mockTrackingMap['NP-20240922-001'].checkpoints,
+          })
+        } else if (mockTrackingMap[trackingId]) {
+          setData(mockTrackingMap[trackingId])
+        }
+      })
+      .catch(() => {
+        if (mockTrackingMap[trackingId]) {
+          setData(mockTrackingMap[trackingId])
+        }
+      })
+      .finally(() => setLoading(false))
+  }, [trackingId])
+
+  const handleCopy = (txt: string) => {
+    navigator.clipboard.writeText(txt)
+    setCopied(true)
+    toast.success('Copied tracking number!')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSearch = () => {
+    if (searchInput.trim()) {
+      setTrackingId(searchInput.trim())
+    }
+  }
+
+  const progressPercent = Math.min(100, Math.round(((data.stageIndex + 1) / LIFECYCLE_STAGES.length) * 100))
+
+  return (
+    <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
+      {/* Top Header */}
+      <div className="px-4 pt-5 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center shrink-0 active:scale-95 transition-transform cursor-pointer"
+            >
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <div>
+              <h1 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-700 text-[#0D1B2A] tracking-tight">
+                Consignment Tracking
+              </h1>
+              <p className="text-gray-500 text-xs mt-0.5">Live airway checkpoints and status.</p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            Live Sync
+          </span>
+        </div>
+      </div>
+
+      <div className="px-4 space-y-4">
+        {/* Search Bar with Chips */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-3 shadow-xs space-y-2.5">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Enter Consignment or HAWB number..."
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-gray-200 bg-gray-50/50 font-mono text-[#0D1B2A] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+            <button
+              onClick={handleSearch}
+              style={{ fontFamily: 'Jost, sans-serif' }}
+              className="bg-[#0D1B2A] text-white text-xs font-600 px-3.5 py-2.5 rounded-xl active:scale-95 transition-transform cursor-pointer"
+            >
+              Track
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-[11px] text-gray-400 scrollbar-none">
+            <span className="font-semibold text-gray-600 shrink-0">Sample:</span>
+            {['NP-20240922-001', 'NP-20240910-088', 'NP-20240905-047'].map(chip => (
+              <button
+                key={chip}
+                onClick={() => {
+                  setSearchInput(chip)
+                  setTrackingId(chip)
+                }}
+                className="px-2.5 py-0.5 rounded-lg bg-gray-100 hover:bg-blue-50 hover:text-blue-600 font-mono text-[10px] shrink-0 border border-gray-200 transition-colors cursor-pointer"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-xs">
+            <IconRefresh size={22} className="mx-auto text-blue-600 animate-spin mb-2" />
+            <p className="text-xs text-gray-500 font-medium">Connecting to live airway logs...</p>
+          </div>
+        )}
+
+        {!loading && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-in fade-in-50 duration-200">
+            {/* Action Bar */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+              <div className="flex items-center gap-2">
+                <span style={{ fontFamily: 'Jost, sans-serif' }} className="font-700 text-sm text-[#0D1B2A]">
+                  {data.receiverName}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-white border border-gray-200 text-gray-600">
+                  {data.carrier}
+                </span>
+              </div>
+              <StatusBadge status={data.status} />
+            </div>
+
+            <div className="p-4 space-y-5">
+              {/* Hero Status & Shimmer Progress Bar */}
+              <div className="space-y-3">
+                <div>
+                  <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-800 text-[#0D1B2A] tracking-tight">
+                    {data.heroTitle}
+                  </h2>
+                  <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{data.heroSubtitle}</p>
+                </div>
+
+                {/* Animated Flight Route Banner */}
+                <div className="flex items-center justify-between gap-3 py-2 px-3 rounded-xl bg-gray-50 border border-gray-100 text-xs">
+                  <div className="flex items-center gap-1 font-bold text-[#0D1B2A] shrink-0">
+                    <IconMapPin size={14} className="text-blue-600" />
+                    <span>{data.origin}</span>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center relative px-2">
+                    <div className="w-full border-t border-dashed border-blue-400" />
+                    <span className="absolute bg-white p-1 rounded-full border border-blue-200 shadow-2xs animate-plane-glide">
+                      <IconPlane size={14} className="text-blue-600 rotate-45" />
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 font-bold text-[#0D1B2A] shrink-0">
+                    <span>{data.destination}</span>
+                    <IconMapPin size={14} className="text-emerald-600" />
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="space-y-1">
+                  <div className="relative w-full h-2 rounded-full bg-gray-100 overflow-hidden shadow-inner">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 rounded-full transition-all duration-700 ease-out animate-shimmer"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] text-gray-400 font-medium">
+                    <span>Kathmandu (Origin)</span>
+                    <span className="font-bold text-blue-600">{progressPercent}% Completed</span>
+                    <span>Consignee Delivery</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 7-Stage Milestones Stepper */}
+              <div className="rounded-xl border border-gray-100 p-3.5 space-y-3 bg-gray-50/40">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Milestones</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                      Stage {data.stageIndex + 1} of {LIFECYCLE_STAGES.length}: {LIFECYCLE_STAGES[data.stageIndex]?.short}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsFolded(!isFolded)}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>{isFolded ? 'Expand' : 'Fold'}</span>
+                    {isFolded ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}
+                  </button>
+                </div>
+
+                {/* Folded Horizontal Stepper */}
+                {isFolded ? (
+                  <div className="w-full overflow-x-auto py-2 px-1 scrollbar-none">
+                    <div className="flex items-center justify-between min-w-[500px] relative px-2">
+                      <div className="absolute left-6 right-6 top-3.5 h-0.5 bg-gray-200 -z-0" />
+                      <div
+                        className="absolute left-6 top-3.5 h-0.5 bg-emerald-500 -z-0 transition-all duration-300"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (data.stageIndex / (LIFECYCLE_STAGES.length - 1)) * 100))}%`,
+                        }}
+                      />
+                      {LIFECYCLE_STAGES.map((stg, idx) => {
+                        const isCompleted = idx < data.stageIndex || (idx === data.stageIndex && data.stageIndex === LIFECYCLE_STAGES.length - 1)
+                        const isActive = idx === data.stageIndex && data.stageIndex < LIFECYCLE_STAGES.length - 1
+                        return (
+                          <div key={stg.id} className="flex flex-col items-center relative z-10 min-w-[58px] text-center">
+                            <div
+                              className={`h-7 w-7 rounded-full flex items-center justify-center text-xs transition-all ${
+                                isCompleted
+                                  ? 'bg-emerald-500 text-white shadow-xs'
+                                  : isActive
+                                  ? 'bg-blue-600 text-white ring-4 ring-blue-100 animate-pulse-ring'
+                                  : 'bg-white border border-gray-300 text-gray-400'
+                              }`}
+                            >
+                              {isCompleted ? <IconCheck size={13} /> : idx + 1}
+                            </div>
+                            <span
+                              className={`text-[9px] mt-1.5 font-semibold text-center whitespace-nowrap leading-none ${
+                                isActive ? 'text-blue-600 font-bold' : isCompleted ? 'text-emerald-700' : 'text-gray-400'
+                              }`}
+                            >
+                              {stg.short}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* Expanded Vertical Stepper */
+                  <div className="relative pl-5 pt-1 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
+                    {LIFECYCLE_STAGES.map((stg, idx) => {
+                      const isCompleted = idx < data.stageIndex || (idx === data.stageIndex && data.stageIndex === LIFECYCLE_STAGES.length - 1)
+                      const isActive = idx === data.stageIndex && data.stageIndex < LIFECYCLE_STAGES.length - 1
+                      return (
+                        <div key={stg.id} className="relative group">
+                          <div
+                            className={`absolute -left-5 top-0 flex h-4.5 w-4.5 items-center justify-center rounded-full text-[10px] transition-all ${
+                              isCompleted ? 'bg-emerald-500 text-white' : isActive ? 'bg-blue-600 text-white ring-2 ring-blue-200' : 'bg-gray-200 text-gray-500'
+                            }`}
+                          >
+                            {isCompleted ? <IconCheck size={10} /> : idx + 1}
+                          </div>
+                          <div className="ml-2">
+                            <p className={`text-xs font-semibold ${isActive ? 'text-blue-600 font-bold' : isCompleted ? 'text-[#0D1B2A]' : 'text-gray-400'}`}>
+                              {stg.label}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Overseas Courier Leg Card */}
+              <div className="rounded-xl border border-gray-100 p-3.5 bg-white shadow-2xs space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-400 font-medium">Overseas Forwarding Courier</span>
+                  <span className="font-bold text-[#0D1B2A]">{data.carrier}</span>
+                </div>
+                <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-gray-400">Carrier AWB / Tracking</p>
+                    <p className="font-mono font-bold text-xs text-[#0D1B2A] mt-0.5">{data.carrierTracking}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleCopy(data.carrierTracking)}
+                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all cursor-pointer"
+                      title="Copy Tracking Number"
+                    >
+                      {copied ? <IconCheck size={14} className="text-emerald-600" /> : <IconCopy size={14} />}
+                    </button>
+                    <a
+                      href={data.carrierUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all inline-flex items-center justify-center"
+                      title="Track on Carrier Website"
+                    >
+                      <IconExternalLink size={14} />
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transit Checkpoints & Scans */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Activity Checkpoints</span>
+                  <span className="text-[11px] text-gray-400">{data.checkpoints.length} scans</span>
+                </div>
+                <div className="space-y-2">
+                  {data.checkpoints.map((cp, idx) => (
+                    <div key={idx} className="bg-gray-50/70 rounded-xl p-3 border border-gray-100 flex items-start gap-2.5">
+                      <div className="mt-0.5">
+                        {idx === 0 ? (
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                          </span>
+                        ) : (
+                          <span className="w-2 h-2 rounded-full bg-gray-300 block" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="text-xs font-semibold text-[#0D1B2A] leading-tight">{cp.activity}</p>
+                          {cp.source && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 shrink-0">
+                              {cp.source}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-0.5">{cp.location}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">{cp.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Package Specifications Drawer */}
+              <div className="rounded-xl border border-gray-100 bg-white overflow-hidden shadow-2xs">
+                <button
+                  onClick={() => setIsBoxesOpen(!isBoxesOpen)}
+                  className="w-full px-4 py-3 flex items-center justify-between text-left cursor-pointer hover:bg-gray-50/50"
+                >
+                  <div className="flex items-center gap-2">
+                    <IconScale size={16} className="text-blue-600" />
+                    <span style={{ fontFamily: 'Jost, sans-serif' }} className="font-700 text-xs text-[#0D1B2A]">
+                      Package Specifications & Item Breakdown
+                    </span>
+                  </div>
+                  {isBoxesOpen ? <IconChevronUp size={16} className="text-gray-400" /> : <IconChevronDown size={16} className="text-gray-400" />}
+                </button>
+
+                {isBoxesOpen && (
+                  <div className="px-4 pb-4 pt-1 border-t border-gray-100 space-y-3 animate-in fade-in-50 duration-200">
+                    <div className="grid grid-cols-3 gap-2 text-center pt-2">
+                      <div className="bg-gray-50 rounded-xl p-2 border border-gray-100">
+                        <p className="text-[10px] text-gray-400">Actual Wt</p>
+                        <p className="font-bold text-xs text-[#0D1B2A] mt-0.5">{data.weight}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-2 border border-gray-100">
+                        <p className="text-[10px] text-gray-400">Volumetric</p>
+                        <p className="font-bold text-xs text-[#0D1B2A] mt-0.5">{data.volumetricWeight}</p>
+                      </div>
+                      <div className="bg-blue-50/60 rounded-xl p-2 border border-blue-100">
+                        <p className="text-[10px] text-blue-600 font-medium">Chargeable</p>
+                        <p className="font-bold text-xs text-blue-700 mt-0.5">{data.chargeableWeight}</p>
+                      </div>
+                    </div>
+
+                    {data.boxes.map(box => (
+                      <div key={box.boxNumber} className="bg-gray-50/70 rounded-xl p-3 border border-gray-100 space-y-1.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-[#0D1B2A]">Box #{box.boxNumber}</span>
+                          <span className="text-[11px] text-gray-500 font-mono">{box.dimensions}</span>
+                        </div>
+                        <div className="pt-1 border-t border-gray-100 space-y-1">
+                          {box.items.map((item, i) => (
+                            <div key={i} className="flex justify-between items-center text-[11px] text-gray-600">
+                              <span>• {item.item}</span>
+                              <span className="font-semibold text-gray-800">{item.pieces} pcs</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Consignment Metadata Card */}
+              <div className="rounded-xl border border-gray-100 p-3 bg-gray-50/60 text-xs space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Consignment Number</span>
+                  <div className="flex items-center gap-1 font-mono font-bold text-[#0D1B2A]">
+                    <span>{data.tracking}</span>
+                    <button onClick={() => handleCopy(data.tracking)} className="text-gray-400 hover:text-blue-600 cursor-pointer">
+                      <IconCopy size={13} />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Route</span>
+                  <span className="font-semibold text-[#0D1B2A]">
+                    {data.origin} ➔ {data.destination}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Commodity</span>
+                  <span className="font-semibold text-[#0D1B2A]">{data.commodity}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Book Screen (Progressive 3-Step Flow) ─────────────────────────────────────
+
+const COMMODITY_CHIPS = [
+  'Handicrafts & Souvenirs',
+  'Pashmina & Woolen Garments',
+  'Documents / Business Papers',
+  'Himalayan Tea & Spices',
+  'Personal Effects & Gifts',
+  'Organic Herbal Products',
+]
+
+const TIME_SLOTS = [
+  'Morning (10:00 AM – 01:00 PM)',
+  'Afternoon (01:00 PM – 05:00 PM)',
+  'Evening (05:00 PM – 08:00 PM)',
+]
+
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="text-[13px] font-semibold text-[#0D1B2A] mb-1.5 block">
+      {children}
+      {required && <span className="text-red-500 ml-0.5">*</span>}
+    </label>
+  )
+}
+
+function TextInput({
+  placeholder,
+  value,
+  onChange,
+  type = 'text',
+}: {
+  placeholder: string
+  value: string
+  onChange: (v: string) => void
+  type?: string
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-[#0D1B2A] placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+    />
+  )
+}
+
+function BookScreen({ onComplete }: { onComplete: (newShipment: Shipment) => void }) {
+  const [step, setStep] = useState<BookStep>(1)
+  const [commodity, setCommodity] = useState('')
+  const [weight, setWeight] = useState('')
+  const [recipientName, setRecipientName] = useState('')
+  const [recipientPhone, setRecipientPhone] = useState('')
+  const [destCountry, setDestCountry] = useState('')
+  const [destCity, setDestCity] = useState('')
+  const [streetAddress, setStreetAddress] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [doorstepPickup, setDoorstepPickup] = useState(true)
+  const [pickupAddress, setPickupAddress] = useState('')
+  const [pickupPhone, setPickupPhone] = useState('')
+  const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[0])
+  const [pickupNotes, setPickupNotes] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+  const [bookingTracking, setBookingTracking] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleConfirmBooking = async () => {
+    setSubmitting(true)
+    const genTracking = `NP-${Date.now().toString().slice(-6)}`
+    setBookingTracking(genTracking)
+
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('netpack_customer_token') : null
+      await fetch(`${API_BASE}/api/bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          commodity,
+          approximateWeight: parseFloat(weight) || 1,
+          receiverName: recipientName,
+          receiverPhone: recipientPhone,
+          receiverCountry: destCountry,
+          receiverCity: destCity,
+          receiverAddress: streetAddress,
+          receiverPostcode: postalCode,
+          isPickupRequired: doorstepPickup,
+          pickupAddress: doorstepPickup ? pickupAddress : 'Drop-off at NetPack Teku Hub',
+          pickupPhone,
+          pickupTimeSlot: timeSlot,
+          pickupNotes,
+        }),
+      })
+    } catch {
+      // Non-blocking for offline / demo
+    }
+
+    const created: Shipment = {
+      id: String(Date.now()),
+      tracking: genTracking,
+      destination: `${destCity || 'Destination'}, ${destCountry || 'Country'}`,
+      country: destCountry,
+      commodity: commodity || 'General Cargo',
+      weight: `${weight || '1.0'} kg`,
+      status: 'pending',
+      date: 'Today',
+      receiverName: recipientName,
+      receiverCity: destCity,
+    }
+    onComplete(created)
+    setSubmitting(false)
+    setSubmitted(true)
+  }
+
+  if (submitted) {
+    return (
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-28 flex flex-col items-center justify-center px-6 text-center animate-in fade-in-50 duration-200">
+        <div className="w-20 h-20 rounded-3xl bg-emerald-500 flex items-center justify-center mb-5 shadow-lg shadow-emerald-200">
+          <IconCheck size={36} className="text-white" />
+        </div>
+        <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-2xl font-700 text-[#0D1B2A]">
+          Booking Confirmed!
+        </h2>
+        <p className="text-gray-500 text-sm mt-2 max-w-xs">
+          Your consignment has been recorded. A NetPack rider will collect your cargo during the chosen time slot.
+        </p>
+        <div className="mt-6 bg-white rounded-2xl border border-gray-100 p-4 w-full max-w-xs text-left shadow-xs">
+          <p className="text-[11px] text-gray-400 uppercase tracking-widest font-semibold mb-2">Booking Summary</p>
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Tracking</span>
+              <span className="font-mono font-semibold text-[#0D1B2A] text-xs">{bookingTracking}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Destination</span>
+              <span className="font-semibold text-[#0D1B2A] text-xs truncate max-w-[140px]">
+                {destCity || 'N/A'}, {destCountry || 'N/A'}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Commodity</span>
+              <span className="font-semibold text-[#0D1B2A] text-xs truncate max-w-[140px]">{commodity || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Weight</span>
+              <span className="font-semibold text-[#0D1B2A]">{weight ? `${weight} kg` : 'N/A'}</span>
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            setSubmitted(false)
+            setStep(1)
+          }}
+          style={{ fontFamily: 'Jost, sans-serif' }}
+          className="mt-5 bg-[#0D1B2A] text-white font-600 text-sm px-8 py-3 rounded-xl active:opacity-90 cursor-pointer"
+        >
+          Book Another Consignment
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
+      {/* Progress Indicator */}
+      <div className="px-4 pt-5 pb-4">
+        <div className="flex items-center justify-between mb-1">
+          <h1 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-700 text-[#0D1B2A] tracking-tight">
+            Create Booking
+          </h1>
+          <span className="text-[12px] text-gray-400 font-medium">Step {step} of 3</span>
+        </div>
+        <div className="flex gap-1.5 mt-3">
+          {([1, 2, 3] as BookStep[]).map(s => (
+            <div key={s} className={`h-1.5 flex-1 rounded-full transition-all ${s <= step ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
+          ))}
+        </div>
+      </div>
+
+      {/* Info Banner */}
+      <div className="mx-4 mb-4 bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3 shadow-2xs">
+        <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+          <IconBox size={16} className="text-blue-600" />
+        </div>
+        <div>
+          <p className="text-[13px] font-semibold text-blue-900">Professional Packaging by NetPack Logistics</p>
+          <p className="text-[12px] text-blue-700/80 mt-0.5 leading-relaxed">
+            Specify your <strong>commodity</strong> and <strong>approximate weight</strong> — our hub handles packaging to airline specs.
+          </p>
+        </div>
+      </div>
+
+      {/* Step 1: Cargo Details */}
+      {step === 1 && (
+        <div className="px-4 space-y-5 animate-in fade-in-50 duration-200">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center">
+                <span className="text-white text-[11px] font-bold">1</span>
+              </div>
+              <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="font-700 text-[#0D1B2A] uppercase text-[11px] tracking-widest">
+                Cargo Details
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <FieldLabel required>Commodity Description</FieldLabel>
+                <TextInput placeholder="e.g., Handicrafts, Woolen Garments, Docs" value={commodity} onChange={setCommodity} />
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {COMMODITY_CHIPS.map(chip => (
+                    <button
+                      key={chip}
+                      onClick={() => setCommodity(chip)}
+                      className={`text-[11px] font-medium px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
+                        commodity === chip ? 'bg-[#0D1B2A] text-white border-[#0D1B2A]' : 'text-gray-600 border-gray-200 bg-white hover:border-gray-400'
+                      }`}
+                    >
+                      + {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <FieldLabel required>Approximate Weight (kg)</FieldLabel>
+                <TextInput placeholder="e.g., 2.5" value={weight} onChange={setWeight} type="number" />
+                <p className="text-[11px] text-gray-400 mt-1.5">Gross weight estimate. Exact weight verified at warehouse scale.</p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setStep(2)}
+            disabled={!commodity || !weight}
+            style={{ fontFamily: 'Jost, sans-serif' }}
+            className="w-full bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 active:opacity-90 transition-opacity shadow-md shadow-blue-200 cursor-pointer"
+          >
+            Next: Destination Details <IconArrowRight size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Step 2: Destination */}
+      {step === 2 && (
+        <div className="px-4 space-y-5 animate-in fade-in-50 duration-200">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center">
+                <span className="text-white text-[11px] font-bold">2</span>
+              </div>
+              <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="font-700 text-[#0D1B2A] uppercase text-[11px] tracking-widest">
+                Destination & Recipient
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <FieldLabel required>Recipient Full Name</FieldLabel>
+                <TextInput placeholder="Full name of receiver" value={recipientName} onChange={setRecipientName} />
+              </div>
+              <div>
+                <FieldLabel required>Recipient Phone</FieldLabel>
+                <TextInput placeholder="+1 234 567 8900" value={recipientPhone} onChange={setRecipientPhone} type="tel" />
+              </div>
+              <div>
+                <FieldLabel required>Destination Country</FieldLabel>
+                <TextInput placeholder="Select or type destination country" value={destCountry} onChange={setDestCountry} />
+              </div>
+              <div>
+                <FieldLabel required>Destination City</FieldLabel>
+                <TextInput placeholder="e.g., London, New York, Tokyo" value={destCity} onChange={setDestCity} />
+              </div>
+              <div>
+                <FieldLabel required>Delivery Street Address</FieldLabel>
+                <TextInput placeholder="Street, Building, Apartment / Suite number" value={streetAddress} onChange={setStreetAddress} />
+              </div>
+              <div>
+                <FieldLabel>Postal / Zip Code</FieldLabel>
+                <TextInput placeholder="e.g., SW1A 1AA / 10001" value={postalCode} onChange={setPostalCode} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStep(1)}
+              className="flex-1 bg-white text-gray-600 font-medium text-sm py-3.5 rounded-xl border border-gray-200 active:bg-gray-50 transition-colors cursor-pointer"
+            >
+              Back
+            </button>
+            <button
+              onClick={() => setStep(3)}
+              disabled={!recipientName || !destCountry || !destCity || !streetAddress}
+              style={{ fontFamily: 'Jost, sans-serif' }}
+              className="flex-[2] bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 active:opacity-90 shadow-md shadow-blue-200 cursor-pointer"
+            >
+              Next: Pickup Details <IconArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Pickup Details */}
+      {step === 3 && (
+        <div className="px-4 space-y-5 animate-in fade-in-50 duration-200">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                  <IconTruck size={18} className="text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#0D1B2A]">Doorstep Pickup by Rider</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">A NetPack rider will collect cargo at your location.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDoorstepPickup(!doorstepPickup)}
+                className={`w-11 h-6 rounded-full transition-all cursor-pointer ${doorstepPickup ? 'bg-[#2563EB]' : 'bg-gray-300'} relative`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${doorstepPickup ? 'left-[22px]' : 'left-0.5'}`} />
+              </button>
+            </div>
+          </div>
+
+          {doorstepPickup && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4 shadow-xs">
+              <div>
+                <FieldLabel required>Pickup Address in Kathmandu</FieldLabel>
+                <TextInput placeholder="e.g., Thamel, Teku, New Road, Lazimpat" value={pickupAddress} onChange={setPickupAddress} />
+              </div>
+              <div>
+                <FieldLabel required>Contact Phone for Driver</FieldLabel>
+                <TextInput placeholder="e.g., 9841XXXXXX" value={pickupPhone} onChange={setPickupPhone} type="tel" />
+              </div>
+              <div>
+                <FieldLabel>Preferred Time Slot</FieldLabel>
+                <div className="relative">
+                  <select
+                    value={timeSlot}
+                    onChange={e => setTimeSlot(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none"
+                  >
+                    {TIME_SLOTS.map(t => (
+                      <option key={t}>{t}</option>
+                    ))}
+                  </select>
+                  <IconChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Pickup Notes for Driver</FieldLabel>
+                <TextInput placeholder="e.g., Near landmark, call before arriving" value={pickupNotes} onChange={setPickupNotes} />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStep(2)}
+              className="flex-1 bg-white text-gray-600 font-medium text-sm py-3.5 rounded-xl border border-gray-200 active:bg-gray-50 cursor-pointer"
+            >
+              Back
+            </button>
+            <button
+              onClick={handleConfirmBooking}
+              disabled={submitting}
+              style={{ fontFamily: 'Jost, sans-serif' }}
+              className="flex-[2] bg-[#0D1B2A] text-white font-600 text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 active:opacity-90 shadow-md shadow-slate-300 cursor-pointer"
+            >
+              {submitting ? 'Confirming...' : 'Confirm & Request Pickup'}
+              <IconArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Notifications Screen ─────────────────────────────────────────────────────
+
+const notifIconMap = {
+  welcome: { bg: 'bg-blue-50', icon: <IconStar size={14} className="text-blue-500" /> },
+  update: { bg: 'bg-amber-50', icon: <IconTruck size={14} className="text-amber-500" /> },
+  delivered: { bg: 'bg-emerald-50', icon: <IconCheck size={14} className="text-emerald-500" /> },
+  alert: { bg: 'bg-red-50', icon: <IconBell size={14} className="text-red-500" /> },
+}
+
+function NotificationsScreen({ onBack }: { onBack: () => void }) {
+  const [items, setItems] = useState<NotificationItem[]>(initialNotifications)
+
+  const markAllRead = () => setItems(items.map(n => ({ ...n, read: true })))
+  const unread = items.filter(n => !n.read).length
+
+  return (
+    <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
+      <div className="px-4 pt-5 pb-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center shrink-0 active:scale-95 transition-transform cursor-pointer"
+            >
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <div>
+              <h1 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-700 text-[#0D1B2A] tracking-tight">
+                Notifications
+              </h1>
+              <p className="text-gray-500 text-xs mt-0.5">Live cargo milestone alerts.</p>
+            </div>
+          </div>
+          {unread > 0 && (
+            <button onClick={markAllRead} className="text-[12px] text-blue-600 font-semibold mt-1 cursor-pointer">
+              Mark all read
+            </button>
+          )}
+        </div>
+
+        {unread > 0 && (
+          <div className="mt-3 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            <p className="text-[12px] text-blue-700 font-medium">
+              {unread} unread notification{unread > 1 ? 's' : ''}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 flex flex-col gap-2.5">
+        {items.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-10 flex flex-col items-center gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">
+              <IconBell size={24} className="text-gray-300" />
+            </div>
+            <p className="text-gray-400 text-sm">No notifications yet.</p>
+          </div>
+        ) : (
+          items.map(n => {
+            const { bg, icon } = notifIconMap[n.type]
+            return (
+              <button
+                key={n.id}
+                onClick={() => setItems(items.map(i => (i.id === n.id ? { ...i, read: true } : i)))}
+                className={`w-full text-left rounded-2xl border p-4 flex gap-3 transition-all active:scale-[0.99] cursor-pointer ${
+                  n.read ? 'bg-white border-gray-100' : 'bg-white border-blue-100 shadow-xs'
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}>{icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`text-sm leading-tight ${n.read ? 'font-medium text-[#0D1B2A]' : 'font-semibold text-[#0D1B2A]'}`}>{n.title}</p>
+                    {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1" />}
+                  </div>
+                  <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{n.body}</p>
+                  <p className="text-[11px] text-gray-400 mt-1.5">{n.time}</p>
+                </div>
+              </button>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Profile Screen ───────────────────────────────────────────────────────────
+
+function ProfileScreen({
+  userName,
+  userEmail,
+  userPhone,
+  userAddress,
+  shipmentCount,
+  deliveredCount,
+  onSignOut,
+}: {
+  userName?: string
+  userEmail?: string
+  userPhone?: string
+  userAddress?: string
+  shipmentCount: number
+  deliveredCount: number
+  onSignOut: () => void
+}) {
+  const { theme, setTheme } = useTheme()
+  const currentMode = (theme as ThemeMode) || 'light'
+
+  const profileFields = [
+    { label: 'Full Name', value: userName || 'Customer' },
+    { label: 'Email Address', value: userEmail || 'customer@example.com' },
+    { label: 'Phone', value: userPhone || '9869233939' },
+    { label: 'Address Line', value: userAddress || 'Teku-12' },
+    { label: 'City', value: 'Kathmandu' },
+    { label: 'State / Province', value: 'Bagmati Province' },
+    { label: 'Country', value: 'Nepal' },
+  ]
+
+  return (
+    <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
+      <div className="px-4 pt-5 pb-4">
+        <h1 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-700 text-[#0D1B2A] tracking-tight">
+          Profile
+        </h1>
+        <p className="text-gray-500 text-xs mt-0.5">Manage your account and preferences.</p>
+      </div>
+
+      {/* Avatar */}
+      <div className="flex flex-col items-center py-4">
+        <div className="relative">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-200">
+            <IconUser size={36} className="text-white" />
+          </div>
+          <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#0D1B2A] rounded-xl flex items-center justify-center border-2 border-[#F1F4F8] shadow-xs cursor-pointer">
+            <IconCamera size={14} className="text-white" />
+          </button>
+        </div>
+        <p style={{ fontFamily: 'Jost, sans-serif' }} className="mt-3 text-base font-700 text-[#0D1B2A]">
+          {userName || 'Customer'}
+        </p>
+        <p className="text-[12px] text-gray-400">{userEmail || 'customer@example.com'}</p>
+      </div>
+
+      <div className="px-4 space-y-4">
+        {/* Info Card */}
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xs">
+          {profileFields.map((f, i) => (
+            <div
+              key={f.label}
+              className={`flex items-center justify-between px-4 py-3 ${i < profileFields.length - 1 ? 'border-b border-gray-50' : ''}`}
+            >
+              <span className="text-[12px] text-gray-400 font-medium">{f.label}</span>
+              <span className="text-[13px] font-semibold text-[#0D1B2A] text-right max-w-[55%] truncate">{f.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Theme Toggle */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">App Theme</p>
+            <p className="text-[12px] text-blue-600 font-semibold capitalize">{currentMode} Mode</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {(['light', 'dark', 'system'] as ThemeMode[]).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setTheme(mode as any)}
+                className={`flex flex-col items-center gap-1.5 py-2.5 rounded-xl border text-[12px] font-medium capitalize transition-all cursor-pointer ${
+                  currentMode === mode ? 'bg-[#0D1B2A] text-white border-[#0D1B2A]' : 'text-gray-500 border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                {mode === 'light' && <IconSun size={16} />}
+                {mode === 'dark' && (
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                  </svg>
+                )}
+                {mode === 'system' && (
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                    <line x1="8" y1="21" x2="16" y2="21" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                  </svg>
+                )}
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Activity Summary */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-3">Activity</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#F1F4F8] rounded-xl p-3">
+              <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-2xl font-700 text-[#0D1B2A]">
+                {shipmentCount}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Total Consignments</p>
+            </div>
+            <div className="bg-emerald-50 rounded-xl p-3">
+              <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-2xl font-700 text-emerald-600">
+                {deliveredCount}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Delivered</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Sign Out */}
+        <button
+          onClick={onSignOut}
+          className="w-full flex items-center justify-center gap-2 bg-red-500 text-white font-semibold text-sm py-3.5 rounded-2xl active:opacity-90 transition-opacity shadow-md shadow-red-100 cursor-pointer"
+        >
+          <IconLogout size={16} />
+          Sign Out
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Customer PWA Component ──────────────────────────────────────────────
 
 export default function CustomerPWA() {
   const { theme, setTheme } = useTheme()
-  const [activeTab, setActiveTab] = useState<'book' | 'track' | 'shipments' | 'notifications' | 'account'>(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('netpack_customer_token')
-      return token ? 'shipments' : 'account'
-    }
-    return 'account'
-  })
+  const [screen, setScreen] = useState<Screen>('home')
+  const [activeTrackingId, setActiveTrackingId] = useState('NP-20240922-001')
+  const [trackingReturnScreen, setTrackingReturnScreen] = useState<Screen>('home')
 
-  // Auth state
+  // Real backend state
+  const [shipments, setShipments] = useState<Shipment[]>(initialShipments)
   const [customerToken, setCustomerToken] = useState<string | null>(() => {
     return typeof window !== 'undefined' ? localStorage.getItem('netpack_customer_token') : null
   })
@@ -258,20 +2252,7 @@ export default function CustomerPWA() {
     return null
   })
 
-  // Auth form state
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
-  const [authEmail, setAuthEmail] = useState('')
-  const [authPassword, setAuthPassword] = useState('')
-  const [authConfirmPassword, setAuthConfirmPassword] = useState('')
-  const [authName, setAuthName] = useState('')
-  const [authPhone, setAuthPhone] = useState('')
-  const [authAddress1, setAuthAddress1] = useState('')
-  const [authAddress2, setAuthAddress2] = useState('')
-  const [authCity, setAuthCity] = useState('Kathmandu')
-  const [authPostcode, setAuthPostcode] = useState('')
-  const [authLoading, setAuthLoading] = useState(false)
-
-  // PWA Install state
+  // PWA Install Prompt
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
   useEffect(() => {
@@ -292,3147 +2273,147 @@ export default function CustomerPWA() {
           toast.success('Netpack app successfully installed to your home screen!')
         }
         setDeferredPrompt(null)
-        return
       } catch (err) {
-        console.warn('Install prompt error:', err)
+        console.warn('Install error:', err)
       }
     } else {
       toast.info('To install: tap your browser menu (⋮) and choose "Install app"')
     }
   }
 
-  // Google Signup Modal state
-  const [googleModalOpen, setGoogleModalOpen] = useState(false)
-  const [googleStep, setGoogleStep] = useState<'verify' | 'details'>('verify')
-  const [googleInputEmail, setGoogleInputEmail] = useState('')
-  const [googleVerifying, setGoogleVerifying] = useState(false)
-  const [googleProfileData, setGoogleProfileData] = useState<{
-    email: string
-    name: string
-    photoUrl?: string
-    phone: string
-    address1: string
-    address2: string
-    city: string
-    state: string
-    postcode: string
-    countryId?: number
-  }>({
-    email: '',
-    name: '',
-    photoUrl: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
-    phone: '',
-    address1: '',
-    address2: '',
-    city: 'Kathmandu',
-    state: 'Bagmati Province',
-    postcode: '',
-    countryId: 1,
-  })
-
-  // Profile photo upload & edit state
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [editingProfile, setEditingProfile] = useState(false)
-  const [editName, setEditName] = useState('')
-  const [editPhone, setEditPhone] = useState('')
-  const [editAddress1, setEditAddress1] = useState('')
-  const [editAddress2, setEditAddress2] = useState('')
-  const [editCity, setEditCity] = useState('')
-  const [editState, setEditState] = useState('')
-  const [editPostcode, setEditPostcode] = useState('')
-  const [editCountryId, setEditCountryId] = useState<number>(1)
-
-  // Booking form state
-  const [commodity, setCommodity] = useState('')
-  const [approximateWeight, setApproximateWeight] = useState('')
-  const [useMyAddress, setUseMyAddress] = useState(false)
-  const [receiverName, setReceiverName] = useState('')
-  const [receiverPhone, setReceiverPhone] = useState('')
-  const [receiverCountry, setReceiverCountry] = useState('')
-  const [receiverCity, setReceiverCity] = useState('')
-  const [receiverAddress, setReceiverAddress] = useState('')
-  const [receiverPostcode, setReceiverPostcode] = useState('')
-  const [isPickupRequired, setIsPickupRequired] = useState(true)
-  const [pickupAddress, setPickupAddress] = useState('')
-  const [pickupPhone, setPickupPhone] = useState('')
-  const [pickupTimeSlot, setPickupTimeSlot] = useState(TIME_SLOT_OPTIONS[0])
-  const [pickupNotes, setPickupNotes] = useState('')
-  const [bookingSubmitting, setBookingSubmitting] = useState(false)
-  const [lastBookedBooking, setLastBookedBooking] = useState<any>(null)
-
-  // Countries list
-  const [countries, setCountries] = useState<Array<{ id: number; name: string }>>([])
-
-  // Tracking state
-  const [trackingInput, setTrackingInput] = useState('')
-  const [trackingLoading, setTrackingLoading] = useState(false)
-  const [trackingData, setTrackingData] = useState<any>(null)
-  const [trackingCopied, setTrackingCopied] = useState(false)
-  const [selectedPhotoUrls, setSelectedPhotoUrls] = useState<string[]>([])
-  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0)
-  const [isMilestonesFolded, setIsMilestonesFolded] = useState<boolean>(true)
-  const [isCheckpointsExpanded, setIsCheckpointsExpanded] = useState<boolean>(false)
-  const [isPackageDetailsOpen, setIsPackageDetailsOpen] = useState<boolean>(false)
-
-  // Shipments state
-  const [myShipments, setMyShipments] = useState<any[]>([])
-  const [shipmentsLoading, setShipmentsLoading] = useState(false)
-  const [shipmentFilter, setShipmentFilter] = useState<'ALL' | 'ACTIVE' | 'DELIVERED'>('ALL')
-
-  // Notifications state
-  const [notifications, setNotifications] = useState<any[]>([])
-  const [notifsLoading, setNotifsLoading] = useState(false)
-
-  // Rate Enquiry state
-  const [rateEnquiryOpen, setRateEnquiryOpen] = useState(false)
-  const [rateCountry, setRateCountry] = useState('')
-  const [rateCommodity, setRateCommodity] = useState('')
-  const [rateWeight, setRateWeight] = useState('')
-  const [rateResult, setRateResult] = useState<null | { rate: string; transit: string; service: string }>(null)
-
-  const handleCalcRate = () => {
-    const w = parseFloat(rateWeight) || 1
-    const base = 15 + w * 8.5
-    setRateResult({
-      rate: `NPR ${(base * 135).toFixed(0)} – NPR ${(base * 145).toFixed(0)}`,
-      transit: '7–12 business days',
-      service: 'International Air Cargo Express',
+  // Fetch live customer shipments
+  const fetchShipments = () => {
+    if (!customerToken) return
+    fetch(`${API_BASE}/api/bookings/my`, {
+      headers: { Authorization: `Bearer ${customerToken}` },
     })
-  }
-
-  // ─── Fetch Countries & Fresh Profile ────────────────────────────────────────
-  useEffect(() => {
-    fetch(`${API_BASE}/api/location/getCountry`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setCountries(data)
+      .then(res => (res.ok ? res.json() : []))
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: Shipment[] = data.map(b => ({
+            id: String(b.id),
+            tracking: b.trackingNumber || `NP-${b.id}`,
+            destination: b.receiverCity ? `${b.receiverCity}, ${b.receiverCountry || ''}` : b.receiverCountry || 'International',
+            country: b.receiverCountry || '',
+            commodity: b.commodity || 'General Cargo',
+            weight: `${b.weight || b.approximateWeight || '1.0'} kg`,
+            status:
+              (b.status || '').toUpperCase() === 'DELIVERED'
+                ? 'delivered'
+                : (b.status || '').toUpperCase() === 'PENDING' || (b.status || '').toUpperCase() === 'ENQUIRY_GENERATED'
+                ? 'pending'
+                : 'in_progress',
+            date: b.createdAt
+              ? new Date(b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : 'Recent',
+            receiverName: b.receiverName,
+            receiverCity: b.receiverCity,
+          }))
+          setShipments(mapped)
         }
       })
       .catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (customerToken) {
-      fetch(`${API_BASE}/api/customer/profile`, {
-        headers: { Authorization: `Bearer ${customerToken}` },
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.id) {
-            setCustomerUser(data)
-            localStorage.setItem('netpack_customer_user', JSON.stringify(data))
-          }
-        })
-        .catch(() => {})
-    }
-  }, [customerToken])
-
-  // ─── Save / Load Auth ──────────────────────────────────────────────────────
-  const saveAuthSession = (token: string, user: any) => {
-    setCustomerToken(token)
-    setCustomerUser(user)
-    localStorage.setItem('netpack_customer_token', token)
-    localStorage.setItem('netpack_customer_user', JSON.stringify(user))
-    if (user.address1 && !pickupAddress) setPickupAddress(user.address1)
-    if (user.phone && !pickupPhone) setPickupPhone(user.phone)
   }
 
-  const handleLogout = () => {
-    setCustomerToken(null)
-    setCustomerUser(null)
+  useEffect(() => {
+    fetchShipments()
+  }, [customerToken])
+
+  const handleSignOut = () => {
     localStorage.removeItem('netpack_customer_token')
     localStorage.removeItem('netpack_customer_user')
-    setMyShipments([])
-    setNotifications([])
-    setActiveTab('account')
-    toast.info('You have logged out.')
+    setCustomerToken(null)
+    setCustomerUser(null)
+    toast.success('Signed out successfully')
+    setScreen('home')
   }
 
-  // ─── Handle Email/Password Login ──────────────────────────────────────────
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!authEmail || !authPassword) {
-      toast.error('Please provide both email and password.')
-      return
-    }
-    setAuthLoading(true)
-    try {
-      const res = await fetch(`${API_BASE}/api/customer/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: authEmail, password: authPassword }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Login failed')
-      }
-      saveAuthSession(data.token, data.customer)
-      toast.success(`Welcome back, ${data.customer.name}!`)
-      setActiveTab('shipments')
-    } catch (err: any) {
-      toast.error(err.message || 'Login failed. Please check credentials.')
-    } finally {
-      setAuthLoading(false)
-    }
+  const handleTrackNav = (id: string, fromScreen: Screen = screen) => {
+    setActiveTrackingId(id)
+    setTrackingReturnScreen(fromScreen)
+    setScreen('tracking')
   }
 
-  // ─── Handle Customer Signup with Confirm Password ─────────────────────────
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!authName || !authEmail || !authPhone || !authPassword) {
-      toast.error('Please fill in all required registration fields.')
-      return
-    }
-    if (authPassword !== authConfirmPassword) {
-      toast.error('Passwords do not match. Please verify your password.')
-      return
-    }
-    if (authPassword.length < 6) {
-      toast.error('Password must be at least 6 characters long.')
-      return
-    }
-    setAuthLoading(true)
-    try {
-      const res = await fetch(`${API_BASE}/api/customer/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: authName.trim(),
-          email: authEmail.trim(),
-          phone: authPhone.trim(),
-          password: authPassword,
-          address1: authAddress1.trim(),
-          address2: authAddress2.trim() || undefined,
-          city: authCity.trim() || 'Kathmandu',
-          postcode: authPostcode.trim() || undefined,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Signup failed')
-      }
-      saveAuthSession(data.token, data.customer)
-      toast.success(`Welcome to NetPack Logistics, ${data.customer.name}!`)
-      setActiveTab('shipments')
-    } catch (err: any) {
-      toast.error(err.message || 'Registration failed.')
-    } finally {
-      setAuthLoading(false)
-    }
+  const handleBookComplete = (newShipment: Shipment) => {
+    setShipments(prev => [newShipment, ...prev])
   }
 
-  // ─── Handle Google Sign-in Verification & Completion ───────────────────────
-  const handleGoogleSignInClick = () => {
-    setGoogleStep('verify')
-    setGoogleInputEmail(authEmail || (customerUser?.email || ''))
-    setGoogleModalOpen(true)
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark')
   }
 
-  const handleVerifyGoogleAccount = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    const cleanEmail = googleInputEmail.trim().toLowerCase()
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      toast.error('Please enter a valid Google email address.')
-      return
-    }
-    setGoogleVerifying(true)
-    try {
-      const rawName = cleanEmail.split('@')[0].replace(/[._]/g, ' ')
-      const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
-      const googleId = `google-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '')}`
-      const photo = 'https://lh3.googleusercontent.com/a/default-user=s96-c'
-
-      // Check if user exists with profile already
-      const res = await fetch(`${API_BASE}/api/customer/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: cleanEmail,
-          name: formattedName,
-          photoUrl: photo,
-          googleId: googleId,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Google account verification failed')
-      }
-
-      const cust = data.customer
-      // If customer has already saved real contact and address, sign in immediately!
-      if (cust && cust.phone && cust.phone !== '+977-9800000000' && cust.address1) {
-        saveAuthSession(data.token, cust)
-        setGoogleModalOpen(false)
-        toast.success(`Welcome back, ${cust.name}!`)
-        setActiveTab('shipments')
-        return
-      }
-
-      // First-time or incomplete profile: Proceed to details step
-      setGoogleProfileData({
-        email: cleanEmail,
-        name: cust?.name || formattedName,
-        photoUrl: cust?.photoUrl || photo,
-        phone: cust?.phone && cust.phone !== '+977-9800000000' ? cust.phone : '',
-        address1: cust?.address1 || '',
-        address2: cust?.address2 || '',
-        city: cust?.city || 'Kathmandu',
-        state: cust?.state || 'Bagmati Province',
-        postcode: cust?.postcode || '',
-        countryId: cust?.countryId || 1,
-      })
-      setGoogleStep('details')
-      toast.success('Google account verified! Please enter your delivery details.')
-    } catch (err: any) {
-      toast.error(err.message || 'Error verifying Google account.')
-    } finally {
-      setGoogleVerifying(false)
-    }
-  }
-
-  const handleGoogleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    if (!googleProfileData.phone || !googleProfileData.address1 || !googleProfileData.city) {
-      toast.error('Please fill in required fields (Phone, Address Line 1, City).')
-      return
-    }
-    setAuthLoading(true)
-    try {
-      const res = await fetch(`${API_BASE}/api/customer/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: googleProfileData.email.trim(),
-          name: googleProfileData.name.trim(),
-          photoUrl: googleProfileData.photoUrl || 'https://lh3.googleusercontent.com/a/default-user=s96-c',
-          phone: googleProfileData.phone.trim(),
-          address1: googleProfileData.address1.trim(),
-          address2: googleProfileData.address2.trim() || undefined,
-          city: googleProfileData.city.trim(),
-          state: googleProfileData.state.trim() || undefined,
-          postcode: googleProfileData.postcode.trim() || undefined,
-          countryId: googleProfileData.countryId || 1,
-          googleId: `google-${googleProfileData.email.replace(/[^a-zA-Z0-9]/g, '')}`,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Google sign-in failed')
-      }
-      saveAuthSession(data.token, data.customer)
-      setGoogleModalOpen(false)
-      toast.success(`Welcome to NetPack Logistics, ${data.customer.name}!`)
-      setActiveTab('shipments')
-    } catch (err: any) {
-      toast.error(err.message || 'Error saving delivery details.')
-    } finally {
-      setAuthLoading(false)
-    }
-  }
-
-  // ─── Profile Photo Upload Handler ──────────────────────────────────────────
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !e.target.files[0] || !customerToken) return
-    const file = e.target.files[0]
-    setUploadingPhoto(true)
-    try {
-      const formData = new FormData()
-      formData.append('photo', file)
-
-      const res = await fetch(`${API_BASE}/api/customer/profile/upload-photo`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${customerToken}`,
-        },
-        body: formData,
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to upload profile photo')
-      }
-      const updatedCustomer = {
-        ...customerUser,
-        photoUrl: data.photoUrl,
-      }
-      setCustomerUser(updatedCustomer)
-      localStorage.setItem('netpack_customer_user', JSON.stringify(updatedCustomer))
-      toast.success('Profile photo updated successfully!')
-    } catch (err: any) {
-      toast.error(err.message || 'Error uploading photo.')
-    } finally {
-      setUploadingPhoto(false)
-    }
-  }
-
-  // ─── Profile Update Handler ────────────────────────────────────────────────
-  const startEditProfile = () => {
-    if (!customerUser) return
-    setEditName(customerUser.name || '')
-    setEditPhone(customerUser.phone || '')
-    setEditAddress1(customerUser.address1 || '')
-    setEditAddress2(customerUser.address2 || '')
-    setEditCity(customerUser.city || 'Kathmandu')
-    setEditState(customerUser.state || '')
-    setEditPostcode(customerUser.postcode || '')
-    setEditCountryId(
-      typeof customerUser.countryId === 'number'
-        ? customerUser.countryId
-        : (customerUser.country?.id || 1)
-    )
-    setEditingProfile(true)
-  }
-
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!customerToken) return
-    try {
-      const res = await fetch(`${API_BASE}/api/customer/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${customerToken}`,
-        },
-        body: JSON.stringify({
-          name: editName.trim(),
-          phone: editPhone.trim(),
-          address1: editAddress1.trim(),
-          address2: editAddress2.trim() || undefined,
-          city: editCity.trim(),
-          state: editState.trim() || undefined,
-          postcode: editPostcode.trim() || undefined,
-          countryId: Number(editCountryId) || undefined,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to update profile')
-      }
-      setCustomerUser(data.customer)
-      localStorage.setItem('netpack_customer_user', JSON.stringify(data.customer))
-      setEditingProfile(false)
-      toast.success('Profile updated successfully!')
-    } catch (err: any) {
-      toast.error(err.message || 'Error updating profile')
-    }
-  }
-
-  // ─── Fetch My Shipments ───────────────────────────────────────────────────
-  const fetchMyShipments = () => {
-    if (!customerToken) return
-    setShipmentsLoading(true)
-    fetch(`${API_BASE}/api/customer/my-shipments`, {
-      headers: { Authorization: `Bearer ${customerToken}` },
-    })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setMyShipments(Array.isArray(data) ? data : []))
-      .catch(() => {})
-      .finally(() => setShipmentsLoading(false))
-  }
-
-  // ─── Fetch Notifications ──────────────────────────────────────────────────
-  const fetchNotifications = () => {
-    if (!customerToken) return
-    setNotifsLoading(true)
-    fetch(`${API_BASE}/api/customer/notifications`, {
-      headers: { Authorization: `Bearer ${customerToken}` },
-    })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setNotifications(Array.isArray(data) ? data : []))
-      .catch(() => {})
-      .finally(() => setNotifsLoading(false))
-  }
-
-  useEffect(() => {
-    if (customerToken) {
-      fetchMyShipments()
-      fetchNotifications()
-    }
-  }, [customerToken])
-
-  const unreadNotifsCount = useMemo(() => {
-    return notifications.filter((n) => !n.isRead).length
-  }, [notifications])
-
-  // ─── Handle New Booking ───────────────────────────────────────────────────
-  const handleCreateBooking = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!customerToken) {
-      toast.error('Please sign in or create an account to submit a booking.')
-      setActiveTab('account')
-      return
-    }
-
-    if (!commodity.trim()) {
-      toast.error('Please specify the commodity description.')
-      return
-    }
-
-    const wt = parseFloat(approximateWeight)
-    if (isNaN(wt) || wt <= 0) {
-      toast.error('Please enter a valid approximate weight in kg.')
-      return
-    }
-
-    if (!receiverName || !receiverPhone || !receiverCountry || !receiverCity || !receiverAddress) {
-      toast.error('Please complete receiver and destination details.')
-      return
-    }
-
-    setBookingSubmitting(true)
-    try {
-      const payload = {
-        commodity: commodity.trim(),
-        approximateWeight: wt,
-        senderName: customerUser?.name,
-        senderPhone: customerUser?.phone,
-        senderEmail: customerUser?.email,
-        senderAddress: pickupAddress || customerUser?.address1 || 'Kathmandu',
-        senderCity: customerUser?.city || 'Kathmandu',
-        receiverName: receiverName.trim(),
-        receiverPhone: receiverPhone.trim(),
-        receiverCountry: receiverCountry.trim(),
-        receiverCity: receiverCity.trim(),
-        receiverAddress: receiverAddress.trim(),
-        receiverPostcode: receiverPostcode.trim(),
-        isPickupRequired,
-        pickupAddress: isPickupRequired ? (pickupAddress || customerUser?.address1 || 'Kathmandu') : null,
-        pickupPhone: isPickupRequired ? (pickupPhone || customerUser?.phone) : null,
-        pickupPreferredTime: isPickupRequired ? pickupTimeSlot : null,
-        pickupNote: isPickupRequired ? pickupNotes : null,
-      }
-
-      const res = await fetch(`${API_BASE}/api/customer/enquiries`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${customerToken}`,
-        },
-        body: JSON.stringify(payload),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Booking failed')
-      }
-
-      toast.success('Shipment booking submitted successfully!')
-      setLastBookedBooking(data)
-      // Reset form fields
-      setCommodity('')
-      setApproximateWeight('')
-      setReceiverName('')
-      setReceiverPhone('')
-      setReceiverCountry('')
-      setReceiverCity('')
-      setReceiverAddress('')
-      setReceiverPostcode('')
-      setPickupNotes('')
-
-      // Refresh list & notifications
-      fetchMyShipments()
-      fetchNotifications()
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to submit booking.')
-    } finally {
-      setBookingSubmitting(false)
-    }
-  }
-
-  // ─── Handle Track Query ───────────────────────────────────────────────────
-  const handleTrackSubmit = (queryToUse?: string) => {
-    const q = (queryToUse || trackingInput).trim()
-    if (!q) {
-      toast.error('Please enter a tracking or consignment number.')
-      return
-    }
-
-    setTrackingLoading(true)
-    fetch(`${API_BASE}/api/tracking/${encodeURIComponent(q)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && data.found) {
-          setTrackingData(data)
-        } else {
-          setTrackingData(null)
-          toast.error(data?.message || `No active shipment found for "${q}"`)
-        }
-      })
-      .catch(() => {
-        setTrackingData(null)
-        toast.error('Network error checking tracking status.')
-      })
-      .finally(() => setTrackingLoading(false))
-  }
-
-  const handleCopyText = (txt: string) => {
-    if (!txt) return
-    navigator.clipboard.writeText(txt)
-    setTrackingCopied(true)
-    setTimeout(() => setTrackingCopied(false), 2000)
-    toast.success('Copied to clipboard!')
-  }
-
-  // ─── Milestone Stepper Resolver (7 Primary Lifecycle Stages) ────────────────
-  const trackingMilestones = useMemo(() => {
-    if (!trackingData) return []
-    const checkpoints = trackingData.checkpoints || []
-
-    const enquiryCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'ENQUIRY_GENERATED')
-    const pickupCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'PICKED_UP')
-    const createdCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'SHIPMENT_CREATED')
-    const transitCp = checkpoints.find(
-      (cp: any) => (cp.status || '').toUpperCase() === 'IN_TRANSIT' && (!cp.source || cp.source.includes('AIRLINE') || cp.source.includes('INTERNAL') || cp.source.includes('MAWB'))
-    )
-    const hubCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'ARRIVED_AT_HUB')
-    const carrierCp = checkpoints.find(
-      (cp: any) => (cp.status || '').toUpperCase() === 'CARRIER_SCANNED' ||
-                   (cp.status || '').toUpperCase() === 'OUT_FOR_DELIVERY' ||
-                   (cp.source || '').includes('CARRIER') ||
-                   (cp.source || '').includes('TRACKINGMORE')
-    )
-    const deliveredCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'DELIVERED')
-
-    const dest = trackingData.destination || 'Overseas'
-    const displayHawb = trackingData.hawbNumber || 'Assigned'
-    const isSelfDrop = trackingData.isSelfDrop || trackingData.pickupRequired === false
-
-    const stages: any[] = [
-      {
-        id: 'ENQUIRY_GENERATED',
-        label: 'Enquiry Generated',
-        description: 'Consignment booking registered with NetPack Logistics',
-        timestamp: enquiryCp?.timestamp,
-        icon: <PackageSearch className='h-4 w-4' />,
-      },
-      {
-        id: 'PICKED_UP',
-        label: isSelfDrop ? 'Counter Drop-off (Self Drop)' : 'Cargo Picked Up',
-        description: isSelfDrop
-          ? 'Consignment dropped off at counter by customer'
-          : (pickupCp?.activity || 'Picked up by NetPack courier & safely received at warehouse'),
-        timestamp: pickupCp?.timestamp || trackingData.pickedUpAt,
-        icon: <Truck className='h-4 w-4' />,
-        badge: isSelfDrop ? 'Self Drop' : undefined,
-        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300',
-      },
-      {
-        id: 'SHIPMENT_CREATED',
-        label: 'Shipment Created',
-        description: `HAWB allocated (${displayHawb}) & export documents prepared`,
-        timestamp: createdCp?.timestamp,
-        icon: <PackageOpen className='h-4 w-4' />,
-      },
-      {
-        id: 'IN_TRANSIT',
-        label: 'In Transit',
-        description: transitCp?.activity || `Air cargo departed Kathmandu (KTM) on scheduled route to ${dest}`,
-        timestamp: transitCp?.timestamp || trackingData.departureDate,
-        icon: <Plane className='h-4 w-4' />,
-      },
-      {
-        id: 'ARRIVED_AT_HUB',
-        label: 'Arrived at Hub',
-        description: hubCp?.activity || `Landed & cleared destination cargo hub terminal`,
-        timestamp: hubCp?.timestamp || trackingData.arrivalDate,
-        icon: <Warehouse className='h-4 w-4' />,
-      },
-      {
-        id: 'CARRIER_SCANNED',
-        label: 'Carrier Scanned',
-        description: carrierCp?.activity || `Scanned by ${trackingData.forwardingCompany || 'express courier'} for final delivery`,
-        timestamp: carrierCp?.timestamp,
-        icon: <Truck className='h-4 w-4' />,
-      },
-      {
-        id: 'DELIVERED',
-        label: 'Delivered',
-        description: deliveredCp?.activity || `Successfully delivered to ${trackingData.receiverName || 'Consignee'}`,
-        timestamp: deliveredCp?.timestamp,
-        icon: <CheckCircle2 className='h-4 w-4' />,
-      },
-    ]
-
-    return stages
-  }, [trackingData])
-
-  const trackingStageIndex = useMemo(() => {
-    if (!trackingData || !trackingMilestones.length) return 0
-    const s = (trackingData.currentStatus || '').toUpperCase()
-    let highest = 0
-    trackingMilestones.forEach((stg, i) => {
-      if (stg.id === 'CARRIER_SCANNED' && (s.includes('CARRIER') || s.includes('OUT_FOR_DELIVERY'))) highest = i
-      else if (stg.id === 'ARRIVED_AT_HUB' && (s.includes('ARRIVED_AT_HUB') || s.includes('HUB'))) highest = i
-      else if (stg.id === 'IN_TRANSIT' && s.includes('TRANSIT')) highest = i
-      else if (stg.id === 'SHIPMENT_CREATED' && s.includes('SHIPMENT_CREATED')) highest = i
-      else if (stg.id === 'PICKED_UP' && (s.includes('PICKED_UP') || s.includes('PICKUP'))) highest = i
-      else if (stg.id === 'DELIVERED' && s.includes('DELIVERED')) highest = i
-    })
-    return highest
-  }, [trackingData, trackingMilestones])
-
-  const trackingCheckpoints = useMemo(() => {
-    return trackingData?.checkpoints || []
-  }, [trackingData])
-
-  const canCollapse = trackingCheckpoints.length > 3
-
-  const displayedCheckpoints = useMemo(() => {
-    if (!canCollapse || isCheckpointsExpanded) {
-      return trackingCheckpoints.map((cp: any, i: number) => ({ cp, originalIdx: i, isBottomSummary: false }))
-    }
-    // Collapsed: Top 2, and bottom 1
-    const topTwo = trackingCheckpoints.slice(0, 2).map((cp: any, i: number) => ({ cp, originalIdx: i, isBottomSummary: false }))
-    const bottomOne = { cp: trackingCheckpoints[trackingCheckpoints.length - 1], originalIdx: trackingCheckpoints.length - 1, isBottomSummary: true }
-    return [...topTwo, bottomOne]
-  }, [trackingCheckpoints, canCollapse, isCheckpointsExpanded])
-
-  const latestCheckpoint = trackingCheckpoints[0]
-  const statusCfg = useMemo(() => getStatusConfig(trackingData?.currentStatus || ''), [trackingData?.currentStatus])
-  const progressPercent = useMemo(() => getProgressPercent(trackingData?.currentStatus || ''), [trackingData?.currentStatus])
-  const displayForwardingCompany = trackingData?.forwardingCompany || 'UPS'
-  const displayForwardingNumber = trackingData?.forwardingNumber
-  const carrierUrl =
-    trackingData?.carrierTrackingUrl ||
-    (displayForwardingNumber ? `https://www.ups.com/track?tracknum=${displayForwardingNumber}` : null)
-
-  // Filtered shipments
-  const displayedShipments = useMemo(() => {
-    if (shipmentFilter === 'DELIVERED') {
-      return myShipments.filter((s) => (s.status || '').toUpperCase() === 'DELIVERED')
-    }
-    if (shipmentFilter === 'ACTIVE') {
-      return myShipments.filter((s) => (s.status || '').toUpperCase() !== 'DELIVERED')
-    }
-    return myShipments
-  }, [myShipments, shipmentFilter])
+  const deliveredCount = shipments.filter(s => s.status === 'delivered').length
 
   return (
-    <div className='min-h-screen bg-slate-50 dark:bg-slate-950 text-foreground pb-24 md:pb-12 flex flex-col'>
-      {/* ── Top PWA Brand Bar ── */}
-      <header className='sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md px-4 py-3 sm:px-6 shadow-xs'>
-        <div className='max-w-4xl mx-auto flex items-center justify-between'>
-          <div className='flex items-center gap-2.5'>
-            <img
-              src='/images/netpack-icon-192.png'
-              alt='Netpack'
-              className='h-9 w-9 rounded-xl border border-border bg-white p-0.5 shadow-sm object-contain shrink-0'
+    <div className="min-h-screen bg-[#F1F4F8] flex justify-center selection:bg-blue-100 selection:text-blue-900">
+      <div className="w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] shadow-2xl">
+        {/* Top Header matching Figma */}
+        <Header
+          userName={customerUser?.name || 'Customer'}
+          unreadCount={2}
+          onBellClick={() => setScreen('notifications')}
+          onSignOut={handleSignOut}
+          onInstall={handleInstallClick}
+          onToggleTheme={toggleTheme}
+        />
+
+        {/* Screen Routing */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {screen === 'home' && (
+            <HomeScreen
+              shipments={shipments}
+              onViewAll={() => setScreen('shipments')}
+              onBook={() => setScreen('book')}
+              onRateEnquiry={() => setScreen('rateenquiry')}
+              onTrack={id => handleTrackNav(id, 'home')}
             />
-            <div>
-              <div className='font-bold text-base leading-tight tracking-tight flex items-center gap-1.5'>
-                Netpack
-                <Badge variant='outline' className='text-[10px] py-0 px-1.5 bg-primary/10 text-primary border-primary/30'>
-                  Customer App
-                </Badge>
-              </div>
-              <div className='text-[11px] text-muted-foreground'>Global Express & Courier Services</div>
-            </div>
-          </div>
-
-          <div className='flex items-center gap-2'>
-            {/* Install App on Phone */}
-            <button
-              type='button'
-              onClick={handleInstallClick}
-              className='inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs transition-all cursor-pointer'
-              title='Install Netpack App on Phone'
-            >
-              <Download className='h-3.5 w-3.5' />
-              <span className='hidden sm:inline'>Install App</span>
-            </button>
-            <ThemeSwitch />
-            {customerToken ? (
-              <>
-                <button
-                  type='button'
-                  onClick={() => setActiveTab('notifications')}
-                  className='relative p-2 rounded-lg border hover:bg-muted transition-colors'
-                  title='Notifications'
-                >
-                  <Bell className='h-4 w-4' />
-                  {unreadNotifsCount > 0 && (
-                    <span className='absolute -top-1 -right-1 h-4 w-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse'>
-                      {unreadNotifsCount}
-                    </span>
-                  )}
-                </button>
-                <button
-                  type='button'
-                  onClick={() => setActiveTab('account')}
-                  className='flex items-center gap-1.5 p-0.5 rounded-full hover:ring-2 hover:ring-primary/40 transition-all ml-1'
-                  title='My Profile'
-                >
-                  {customerUser?.photoUrl ? (
-                    <img
-                      src={customerUser.photoUrl.startsWith('http') ? customerUser.photoUrl : `${API_BASE}${customerUser.photoUrl}`}
-                      alt={customerUser.name || 'Profile'}
-                      className='h-8 w-8 rounded-full object-cover border border-primary/40 shadow-xs'
-                    />
-                  ) : (
-                    <div className='h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold border border-primary/20'>
-                      {customerUser?.name ? customerUser.name.charAt(0).toUpperCase() : <User className='h-4 w-4' />}
-                    </div>
-                  )}
-                </button>
-                <button
-                  type='button'
-                  onClick={handleLogout}
-                  className='text-xs text-muted-foreground hover:text-rose-600 p-1.5 rounded-lg border hover:bg-muted transition-colors'
-                  title='Sign Out'
-                >
-                  <LogOut className='h-4 w-4' />
-                </button>
-              </>
-            ) : null}
-          </div>
-        </div>
-      </header>
-
-      {/* ── Main Content Area ── */}
-      <main className='flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6'>
-        {/* ── TAB: BOOK NEW SHIPMENT ── */}
-        {activeTab === 'book' && (
-          <div className='space-y-5 animate-in fade-in-50 duration-200'>
-            {/* Success Banner if booking just made */}
-            {lastBookedBooking && (
-              <Card className='border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-800 shadow-sm'>
-                <CardContent className='p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4'>
-                  <div className='flex items-start gap-3'>
-                    <CheckCircle2 className='h-6 w-6 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5' />
-                    <div>
-                      <h4 className='font-bold text-sm text-emerald-950 dark:text-emerald-200'>
-                        Booking Successful!
-                      </h4>
-                      <p className='text-xs text-emerald-800 dark:text-emerald-300 mt-0.5'>
-                        Tracking Number: <strong className='font-mono'>{lastBookedBooking.trackingNumber}</strong>
-                      </p>
-                      <p className='text-[11px] text-muted-foreground mt-1'>
-                        NetPack Logistics Central Warehouse will handle secure packing upon receipt.
-                      </p>
-                    </div>
-                  </div>
-                  <div className='flex items-center gap-2 self-end sm:self-center'>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      className='text-xs border-emerald-400 text-emerald-800 dark:text-emerald-200'
-                      onClick={() => handleCopyText(lastBookedBooking.trackingNumber)}
-                    >
-                      <Copy className='h-3.5 w-3.5 mr-1.5' />
-                      Copy No.
-                    </Button>
-                    <Button
-                      size='sm'
-                      className='text-xs bg-emerald-600 hover:bg-emerald-700 text-white'
-                      onClick={() => {
-                        setTrackingInput(lastBookedBooking.trackingNumber)
-                        handleTrackSubmit(lastBookedBooking.trackingNumber)
-                        setActiveTab('track')
-                      }}
-                    >
-                      Track Now
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Packaging Notice Rule */}
-            <div className='rounded-xl border border-sky-300/80 bg-sky-50/80 dark:bg-sky-950/40 dark:border-sky-800 p-4 shadow-xs'>
-              <div className='flex items-start gap-3'>
-                <div className='p-2 rounded-lg bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300 shrink-0'>
-                  <Package className='h-5 w-5' />
-                </div>
-                <div className='text-xs space-y-1'>
-                  <div className='font-bold text-sm text-sky-950 dark:text-sky-200'>
-                    Professional Packaging by NetPack Logistics
-                  </div>
-                  <p className='text-sky-800 dark:text-sky-300 leading-relaxed'>
-                    As our customer, you only need to specify your <strong>commodity</strong> and <strong>approximate weight</strong>. 
-                    You do not need to measure boxes or worry about packaging—our Central Warehouse team packs, cushions, and labels all cargo to international airline specifications.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Booking Form Card */}
-            <Card className='shadow-sm'>
-              <CardHeader className='pb-4'>
-                <CardTitle className='text-lg font-bold flex items-center gap-2'>
-                  <PlusCircle className='h-5 w-5 text-primary' />
-                  Create Consignment Booking
-                </CardTitle>
-                <CardDescription className='text-xs'>
-                  Fill in your cargo details and request a rider for doorstep pickup.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateBooking} className='space-y-5'>
-                  {/* Cargo Specifications */}
-                  <div className='space-y-3'>
-                    <div className='text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5'>
-                      <Sparkles className='h-3.5 w-3.5 text-primary' />
-                      1. Cargo Details
-                    </div>
-
-                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-3.5'>
-                      <div className='space-y-1.5'>
-                        <label className='text-xs font-semibold text-foreground'>
-                          Commodity Description <span className='text-rose-500'>*</span>
-                        </label>
-                        <Input
-                          placeholder='e.g., Handicrafts, Woolen Garments, Documents'
-                          value={commodity}
-                          onChange={(e) => setCommodity(e.target.value)}
-                          required
-                          className='h-9 text-xs'
-                        />
-                        {/* Quick Chips */}
-                        <div className='flex flex-wrap gap-1.5 pt-1'>
-                          {COMMODITY_SUGGESTIONS.map((item) => (
-                            <button
-                              key={item}
-                              type='button'
-                              onClick={() => setCommodity(item)}
-                              className='text-[10px] font-medium px-2 py-0.5 rounded-full border bg-muted/40 hover:bg-primary/10 hover:text-primary transition-colors'
-                            >
-                              + {item}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className='space-y-1.5'>
-                        <label className='text-xs font-semibold text-foreground'>
-                          Approximate Weight (kg) <span className='text-rose-500'>*</span>
-                        </label>
-                        <Input
-                          type='number'
-                          step='0.1'
-                          min='0.1'
-                          placeholder='e.g., 2.5'
-                          value={approximateWeight}
-                          onChange={(e) => setApproximateWeight(e.target.value)}
-                          required
-                          className='h-9 text-xs'
-                        />
-                        <p className='text-[10px] text-muted-foreground'>
-                          Estimated gross weight. Exact chargeable weight will be verified at our warehouse.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className='border-t pt-4 space-y-3'>
-                    <div className='flex items-center justify-between'>
-                      <div className='text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5'>
-                        <MapPin className='h-3.5 w-3.5 text-primary' />
-                        2. Destination & Receiver
-                      </div>
-                      {customerUser && (
-                        <div className='flex items-center gap-2'>
-                          <label htmlFor='use-my-addr' className='text-xs font-semibold text-foreground cursor-pointer select-none'>
-                            Use my address as delivery address
-                          </label>
-                          <Switch
-                            id='use-my-addr'
-                            checked={useMyAddress}
-                            onCheckedChange={(checked) => {
-                              setUseMyAddress(checked)
-                              if (checked && customerUser) {
-                                setReceiverName(customerUser.name || '')
-                                setReceiverPhone(customerUser.phone && customerUser.phone !== '+977-9800000000' ? customerUser.phone : '')
-                                const combinedAddr = [customerUser.address1, customerUser.address2].filter(Boolean).join(', ')
-                                setReceiverAddress(combinedAddr || customerUser.address1 || '')
-                                setReceiverCity(customerUser.city || 'Kathmandu')
-                                setReceiverPostcode(customerUser.postcode || '')
-                                if (customerUser.country?.name) {
-                                  setReceiverCountry(customerUser.country.name)
-                                } else {
-                                  setReceiverCountry('Nepal')
-                                }
-                              }
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-3.5'>
-                      <div className='space-y-1.5'>
-                        <label className='text-xs font-semibold'>Receiver Full Name <span className='text-rose-500'>*</span></label>
-                        <Input
-                          placeholder='Full name of consignee'
-                          value={receiverName}
-                          onChange={(e) => setReceiverName(e.target.value)}
-                          required
-                          className='h-9 text-xs'
-                        />
-                      </div>
-                      <div className='space-y-1.5'>
-                        <label className='text-xs font-semibold'>Receiver Contact Phone <span className='text-rose-500'>*</span></label>
-                        <Input
-                          placeholder='+1 234 567 8900'
-                          value={receiverPhone}
-                          onChange={(e) => setReceiverPhone(e.target.value)}
-                          required
-                          className='h-9 text-xs'
-                        />
-                      </div>
-                      <div className='space-y-1.5'>
-                        <label className='text-xs font-semibold'>Destination Country <span className='text-rose-500'>*</span></label>
-                        <Input
-                          list='country-list'
-                          placeholder='Select or type destination country'
-                          value={receiverCountry}
-                          onChange={(e) => setReceiverCountry(e.target.value)}
-                          required
-                          className='h-9 text-xs'
-                        />
-                        <datalist id='country-list'>
-                          {countries.map((c) => (
-                            <option key={c.id} value={c.name} />
-                          ))}
-                        </datalist>
-                      </div>
-                      <div className='space-y-1.5'>
-                        <label className='text-xs font-semibold'>Destination City <span className='text-rose-500'>*</span></label>
-                        <Input
-                          placeholder='e.g., London, New York, Tokyo, Sydney'
-                          value={receiverCity}
-                          onChange={(e) => setReceiverCity(e.target.value)}
-                          required
-                          className='h-9 text-xs'
-                        />
-                      </div>
-                      <div className='space-y-1.5 sm:col-span-2'>
-                        <label className='text-xs font-semibold'>Delivery Street Address <span className='text-rose-500'>*</span></label>
-                        <Input
-                          placeholder='Street, Building, Apartment / Suite number'
-                          value={receiverAddress}
-                          onChange={(e) => setReceiverAddress(e.target.value)}
-                          required
-                          className='h-9 text-xs'
-                        />
-                      </div>
-                      <div className='space-y-1.5'>
-                        <label className='text-xs font-semibold'>Postal / Zip Code</label>
-                        <Input
-                          placeholder='e.g., SW1A 1AA / 10001'
-                          value={receiverPostcode}
-                          onChange={(e) => setReceiverPostcode(e.target.value)}
-                          className='h-9 text-xs'
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Pickup Request Section */}
-                  <div className='border-t pt-4 space-y-3.5'>
-                    <div className='flex items-center justify-between bg-muted/40 p-3 rounded-lg border'>
-                      <div className='flex items-center gap-2.5'>
-                        <Truck className='h-5 w-5 text-primary' />
-                        <div>
-                          <div className='text-xs font-bold'>Doorstep Pickup by Rider</div>
-                          <div className='text-[11px] text-muted-foreground'>
-                            {isPickupRequired
-                              ? 'A NetPack courier driver will collect cargo from your location.'
-                              : 'You will drop off cargo at our Kathmandu Central Warehouse.'}
-                          </div>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={isPickupRequired}
-                        onCheckedChange={setIsPickupRequired}
-                      />
-                    </div>
-
-                    {isPickupRequired && (
-                      <div className='p-3.5 rounded-lg border bg-card space-y-3 animate-in fade-in-50 duration-150'>
-                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-                          <div className='space-y-1.5'>
-                            <label className='text-xs font-semibold'>Pickup Address in Kathmandu</label>
-                            <Input
-                              placeholder='House/Office address for rider collection'
-                              value={pickupAddress}
-                              onChange={(e) => setPickupAddress(e.target.value)}
-                              className='h-9 text-xs'
-                            />
-                          </div>
-                          <div className='space-y-1.5'>
-                            <label className='text-xs font-semibold'>Pickup Contact Phone</label>
-                            <Input
-                              placeholder='Rider contact number'
-                              value={pickupPhone}
-                              onChange={(e) => setPickupPhone(e.target.value)}
-                              className='h-9 text-xs'
-                            />
-                          </div>
-                          <div className='space-y-1.5'>
-                            <label className='text-xs font-semibold'>Preferred Time Slot</label>
-                            <select
-                              value={pickupTimeSlot}
-                              onChange={(e) => setPickupTimeSlot(e.target.value)}
-                              className='w-full h-9 rounded-md border bg-background px-3 text-xs'
-                            >
-                              {TIME_SLOT_OPTIONS.map((slot) => (
-                                <option key={slot} value={slot}>{slot}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className='space-y-1.5'>
-                            <label className='text-xs font-semibold'>Pickup Notes for Driver</label>
-                            <Input
-                              placeholder='e.g., Near landmark, call before arrival'
-                              value={pickupNotes}
-                              onChange={(e) => setPickupNotes(e.target.value)}
-                              className='h-9 text-xs'
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className='pt-2'>
-                    <Button
-                      type='submit'
-                      disabled={bookingSubmitting}
-                      className='w-full h-10 text-sm font-bold shadow-md'
-                    >
-                      {bookingSubmitting ? (
-                        <>
-                          <RefreshCw className='h-4 w-4 mr-2 animate-spin' />
-                          Submitting Booking...
-                        </>
-                      ) : (
-                        <>
-                          Confirm Booking & Request Pickup
-                          <ArrowRight className='h-4 w-4 ml-2' />
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* ── TAB: TRACK SHIPMENT ── */}
-        {activeTab === 'track' && (
-          <div className='space-y-4 animate-in fade-in-50 duration-200'>
-            {/* Top Navigation & Live Sync Pill */}
-            <div className='flex items-center justify-between gap-2'>
-              <button
-                type='button'
-                onClick={() => setActiveTab('shipments')}
-                className='inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground bg-card hover:bg-muted/80 px-3 py-1.5 rounded-xl border border-border/80 shadow-2xs transition-all active:scale-95'
-              >
-                <ArrowLeft className='h-3.5 w-3.5' />
-                Back to My Consignments
-              </button>
-              <Badge variant='outline' className='text-[11px] font-bold border-emerald-300 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 flex items-center gap-1.5 px-2.5 py-1'>
-                <span className='h-2 w-2 rounded-full bg-emerald-500 animate-ping' />
-                Live Network Sync
-              </Badge>
-            </div>
-
-            {/* Quick Consignment Tracking Search Header Bar */}
-            <div className='rounded-2xl border bg-card p-3 shadow-xs space-y-2.5'>
-              <div className='flex items-center gap-2'>
-                <div className='relative flex-1'>
-                  <Search className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
-                  <Input
-                    type='text'
-                    placeholder='Track another consignment (e.g. NP-20240922-001)...'
-                    value={trackingInput}
-                    onChange={(e) => setTrackingInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleTrackSubmit()
-                    }}
-                    className='pl-9 h-10 text-xs font-mono rounded-xl'
-                  />
-                </div>
-                <Button
-                  size='sm'
-                  onClick={() => handleTrackSubmit()}
-                  disabled={trackingLoading || !trackingInput.trim()}
-                  className='h-10 px-4 text-xs font-bold rounded-xl active:scale-95 transition-transform'
-                >
-                  {trackingLoading ? <RefreshCw className='h-3.5 w-3.5 animate-spin' /> : 'Track'}
-                </Button>
-              </div>
-              <div className='flex items-center gap-1.5 overflow-x-auto pb-0.5 text-[11px] text-muted-foreground scrollbar-none'>
-                <span className='font-semibold shrink-0 text-foreground'>Sample:</span>
-                {['NP-20240922-001', 'NP-20240910-088', 'NP-20240905-047'].map((chip) => (
-                  <button
-                    key={chip}
-                    type='button'
-                    onClick={() => {
-                      setTrackingInput(chip)
-                      handleTrackSubmit(chip)
-                    }}
-                    className='px-2.5 py-0.5 rounded-lg bg-muted/70 hover:bg-primary/10 hover:text-primary hover:border-primary/40 font-mono text-[10px] font-semibold shrink-0 border transition-all active:scale-95'
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {trackingLoading && (
-              <Card className='border shadow-xs text-center p-12'>
-                <RefreshCw className='h-8 w-8 mx-auto text-primary animate-spin mb-3' />
-                <p className='font-semibold text-sm'>Loading shipment tracking...</p>
-                <p className='text-xs text-muted-foreground mt-1'>Connecting to live airway and courier tracking logs...</p>
-              </Card>
-            )}
-
-            {!trackingLoading && !trackingData && (
-              <Card className='border shadow-xs text-center p-8'>
-                <PackageSearch className='h-12 w-12 mx-auto text-muted-foreground/50 mb-2' />
-                <p className='font-semibold text-sm'>No shipment selected for tracking</p>
-                <p className='text-xs text-muted-foreground mt-1'>
-                  Select any shipment from your Shipments tab to view live tracking milestones and checkpoints.
-                </p>
-                <Button
-                  size='sm'
-                  onClick={() => setActiveTab('shipments')}
-                  className='mt-4 text-xs font-semibold'
-                >
-                  View My Shipments
-                </Button>
-              </Card>
-            )}
-
-            {/* Tracking Result View */}
-            {!trackingLoading && trackingData && (
-              <Card className='border shadow-md overflow-hidden'>
-                {/* ── Tracking Header Action Bar ── */}
-                <div className='flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 border-b bg-background'>
-                  <div className='flex items-center gap-2'>
-                    <span className='text-sm font-bold text-foreground'>
-                      {trackingData.receiverName || 'Consignment Tracking'}
-                    </span>
-                    <span className='text-xs font-bold text-foreground uppercase tracking-wide px-2 py-0.5 rounded bg-muted'>
-                      {displayForwardingCompany}
-                    </span>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <Badge variant='outline' className={`text-xs font-semibold px-2.5 py-0.5 border ${statusCfg.badgeClass}`}>
-                      {statusCfg.label}
-                    </Badge>
-                  </div>
-                </div>
-
-                <CardContent className='p-4 sm:p-6 space-y-6'>
-                  {/* ── HERO STATUS & LATEST UPDATE SECTION ── */}
-                  <div className='space-y-3.5'>
-                    <div>
-                      <h2 className='text-2xl font-bold tracking-tight text-foreground'>
-                        {statusCfg.heroTitle}
-                      </h2>
-                      <p className='text-xs text-muted-foreground font-medium mt-1'>
-                        {latestCheckpoint?.activity ? (
-                          <span className='text-foreground font-semibold'>
-                            {latestCheckpoint.activity}
-                            {latestCheckpoint.location ? ` • ${latestCheckpoint.location}` : ''}
-                            {latestCheckpoint.timestamp ? ` • ${formatDateTime(latestCheckpoint.timestamp)}` : ''}
-                          </span>
-                        ) : (
-                          `Latest status updated for ${trackingData.destination || 'cargo destination'}`
-                        )}
-                      </p>
-                    </div>
-
-                    {/* Animated Flight / Cargo Route Banner */}
-                    <div className='flex items-center justify-between gap-3 py-2.5 px-3.5 rounded-xl bg-muted/40 border border-border/70 text-xs'>
-                      <div className='flex items-center gap-1.5 font-bold text-foreground shrink-0'>
-                        <MapPin className='h-3.5 w-3.5 text-primary' />
-                        <span>Kathmandu (KTM)</span>
-                      </div>
-                      <div className='flex-1 flex items-center justify-center relative px-2'>
-                        <div className='w-full border-t border-dashed border-sky-400/80 dark:border-sky-500/80' />
-                        <span className='absolute bg-background p-1 rounded-full border border-sky-200 dark:border-sky-800 shadow-xs animate-plane-glide'>
-                          <Plane className='h-3.5 w-3.5 text-sky-600 dark:text-sky-400 rotate-45' />
-                        </span>
-                      </div>
-                      <div className='flex items-center gap-1.5 font-bold text-foreground shrink-0'>
-                        <span>{trackingData.destination || 'Cargo Destination'}</span>
-                        <MapPin className='h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400' />
-                      </div>
-                    </div>
-
-                    {/* Horizontal Progress Bar with Shimmer */}
-                    <div className='space-y-1'>
-                      <div className='relative w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden shadow-inner'>
-                        <div
-                          className='h-full bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 rounded-full transition-all duration-700 ease-out animate-shimmer shadow-xs'
-                          style={{ width: `${progressPercent}%` }}
-                        />
-                      </div>
-                      <div className='flex justify-between items-center text-[10px] text-muted-foreground font-medium pt-0.5'>
-                        <span>Origin Pickup</span>
-                        <span className='font-bold text-primary'>{progressPercent}% Completed</span>
-                        <span>Final Delivery</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ── MILESTONES LIFECYCLE SECTION (With Folding Format) ── */}
-                  <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>
-                    <div className='flex items-center justify-between'>
-                      <div className='flex items-center gap-2'>
-                        <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
-                          Milestones & Lifecycle
-                        </span>
-                        <Badge variant='outline' className='text-[10px] font-bold py-0 h-5'>
-                          Stage {trackingStageIndex + 1} of {trackingMilestones.length}: {trackingMilestones[trackingStageIndex]?.label}
-                        </Badge>
-                      </div>
-                      <button
-                        type='button'
-                        onClick={() => setIsMilestonesFolded(!isMilestonesFolded)}
-                        className='inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer'
-                      >
-                        <span>{isMilestonesFolded ? 'Expand Milestones' : 'Fold Milestones'}</span>
-                        {isMilestonesFolded ? (
-                          <ChevronDown className='h-3.5 w-3.5' />
-                        ) : (
-                          <ChevronUp className='h-3.5 w-3.5' />
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Folded View: Single Horizontal Line Stepper (Picture 5) */}
-                    {isMilestonesFolded ? (
-                      <div className='w-full overflow-x-auto py-3 px-1 scrollbar-none'>
-                        <div className='flex items-center justify-between min-w-[560px] sm:min-w-full relative px-2'>
-                          {/* Background connecting line */}
-                          <div className='absolute left-6 right-6 top-4 h-0.5 bg-slate-200 dark:bg-slate-700 -z-0' />
-                          {/* Completed progress line */}
-                          <div
-                            className='absolute left-6 top-4 h-0.5 bg-emerald-500 -z-0 transition-all duration-300'
-                            style={{
-                              width:
-                                trackingMilestones.length > 1
-                                  ? `${Math.min(100, Math.max(0, (trackingStageIndex / (trackingMilestones.length - 1)) * 100))}%`
-                                  : '0%',
-                            }}
-                          />
-
-                          {trackingMilestones.map((stg: any, sIdx: number) => {
-                            const isCompleted =
-                              sIdx < trackingStageIndex ||
-                              (sIdx === trackingStageIndex && trackingStageIndex === trackingMilestones.length - 1)
-                            const isActive =
-                              sIdx === trackingStageIndex && trackingStageIndex < trackingMilestones.length - 1
-
-                            return (
-                              <div
-                                key={stg.id}
-                                className='flex flex-col items-center relative z-10 min-w-[62px] text-center'
-                              >
-                                <div
-                                  className={`h-8 w-8 rounded-full flex items-center justify-center transition-all ${
-                                    isCompleted
-                                      ? 'bg-emerald-500 text-white shadow-xs'
-                                      : isActive
-                                      ? 'bg-sky-600 text-white shadow-md ring-4 ring-sky-200 dark:ring-sky-900 animate-pulse'
-                                      : 'bg-muted border border-slate-300 dark:border-slate-700 text-muted-foreground'
-                                  }`}
-                                >
-                                  {isCompleted ? (
-                                    <Check className='h-4 w-4 stroke-[2.5]' />
-                                  ) : (
-                                    <span className='scale-85'>{stg.icon}</span>
-                                  )}
-                                </div>
-                                <span
-                                  className={`text-[10px] mt-1.5 font-semibold text-center whitespace-nowrap leading-none ${
-                                    isActive
-                                      ? 'text-sky-600 dark:text-sky-400 font-bold'
-                                      : isCompleted
-                                      ? 'text-emerald-700 dark:text-emerald-400'
-                                      : 'text-muted-foreground'
-                                  }`}
-                                >
-                                  {getShortMilestoneLabel(stg.label)}
-                                </span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      /* Expanded View: Full Authentic Stepper */
-                      <div className='relative pl-6 pt-2 before:absolute before:left-[11px] before:top-3.5 before:bottom-3.5 before:w-[2px] before:bg-slate-200 dark:before:bg-slate-800'>
-                        {trackingMilestones.map((stg: any, sIdx: number) => {
-                          const isCompleted = sIdx < trackingStageIndex || (sIdx === trackingStageIndex && trackingStageIndex === trackingMilestones.length - 1)
-                          const isActive = sIdx === trackingStageIndex && trackingStageIndex < trackingMilestones.length - 1
-
-                          return (
-                            <div key={stg.id} className='relative pb-4 last:pb-1 group'>
-                              {/* Node Dot */}
-                              <div
-                                className={`absolute -left-6 top-0 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${
-                                  isCompleted
-                                    ? 'border-emerald-500 bg-emerald-500 text-white'
-                                    : isActive
-                                    ? 'border-sky-500 bg-sky-100 dark:bg-sky-950 text-sky-600 ring-2 ring-sky-200 dark:ring-sky-900'
-                                    : 'border-slate-300 dark:border-slate-700 bg-muted text-muted-foreground'
-                                }`}
-                              >
-                                {isCompleted ? <Check className='h-3.5 w-3.5 stroke-[3]' /> : stg.icon}
-                              </div>
-
-                              {/* Milestone Details */}
-                              <div className='space-y-0.5 text-left ml-2'>
-                                <div className='flex items-center justify-between'>
-                                  <div className='flex items-center gap-1.5 flex-wrap'>
-                                    <span
-                                      className={`text-xs font-bold leading-tight ${
-                                        isActive
-                                          ? 'text-sky-600 dark:text-sky-400'
-                                          : isCompleted
-                                          ? 'text-foreground'
-                                          : 'text-muted-foreground'
-                                      }`}
-                                    >
-                                      {stg.label}
-                                    </span>
-                                    {stg.badge && (
-                                      <Badge variant='outline' className={`text-[9px] font-bold px-1.5 py-0 h-4 border ${stg.badgeClass || ''}`}>
-                                        {stg.badge}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {stg.timestamp && (
-                                    <span className='text-[10px] text-muted-foreground font-mono'>
-                                      {formatDateTime(stg.timestamp)}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className='text-xs text-muted-foreground leading-snug'>
-                                  {stg.description}
-                                </p>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ── OVERSEAS COURIER LEG CARD ── */}
-                  {(displayForwardingNumber || trackingData.forwardingCompany) && (
-                    <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>
-                      <div className='flex items-center justify-between border-b pb-2.5'>
-                        <div className='flex items-center gap-2'>
-                          <Truck className='h-4 w-4 text-indigo-500' />
-                          <span className='text-xs font-bold uppercase tracking-wider text-foreground'>
-                            Overseas Courier Delivery Leg
-                          </span>
-                        </div>
-                        <Badge variant='outline' className='bg-indigo-50 dark:bg-indigo-950 font-bold text-xs text-indigo-700 dark:text-indigo-300'>
-                          {displayForwardingCompany}
-                        </Badge>
-                      </div>
-                      <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1'>
-                        <div>
-                          <span className='text-muted-foreground text-[11px] block'>Carrier Tracking / Forwarding No:</span>
-                          <div className='flex items-center gap-1.5 mt-0.5'>
-                            <span className='font-mono font-bold text-sm text-foreground'>{displayForwardingNumber || 'Assigned'}</span>
-                            {displayForwardingNumber && (
-                              <button
-                                type='button'
-                                onClick={() => handleCopyText(displayForwardingNumber)}
-                                className='text-muted-foreground hover:text-primary'
-                                title='Copy carrier number'
-                              >
-                                <Copy className='h-3.5 w-3.5' />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        {carrierUrl && (
-                          <a
-                            href={carrierUrl}
-                            target='_blank'
-                            rel='noreferrer'
-                            className='inline-flex items-center gap-1.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 px-3.5 py-2 rounded-lg transition-colors'
-                          >
-                            Track on Carrier Website
-                            <ExternalLink className='h-3.5 w-3.5' />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── TRANSIT CHECKPOINTS SECTION (Descending Order: Freshest at Top) ── */}
-                  <div className='space-y-2 pt-1'>
-                    <div className='flex items-center justify-between'>
-                      <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
-                        Transit Checkpoints & Scans ({trackingCheckpoints.length})
-                      </span>
-                      <span className='text-[11px] text-muted-foreground'>Newest First</span>
-                    </div>
-
-                    {trackingCheckpoints.length > 0 ? (
-                      <div className='relative pl-6 before:absolute before:left-[7px] before:top-2.5 before:bottom-2.5 before:w-[2px] before:bg-slate-200 dark:before:bg-slate-800'>
-                        {displayedCheckpoints.map(({ cp, originalIdx }: any, loopIdx: number) => {
-                          const isTopItem = originalIdx === 0
-                          const isManualNoteEvent = cp.source === 'MANUAL_NOTE' || (cp.source && cp.source.includes('MANUAL'))
-                          const isSelfDropEvent = cp.source === 'COUNTER_DROPOFF'
-
-                          return (
-                            <div key={originalIdx} className='relative group pb-5 last:pb-1'>
-                              {/* Node Dot */}
-                              <div
-                                className={`absolute -left-6 top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 bg-background transition-all ${
-                                  isTopItem
-                                    ? 'border-sky-500 dark:border-sky-400 ring-2 ring-sky-200 dark:ring-sky-950'
-                                    : 'border-slate-300 dark:border-slate-600'
-                                }`}
-                              >
-                                {isTopItem && (
-                                  <div className='h-1.5 w-1.5 rounded-full bg-sky-500 dark:bg-sky-400' />
-                                )}
-                              </div>
-
-                              {/* Checkpoint Detail Block */}
-                              <div className='space-y-1 text-left'>
-                                <div className='flex flex-wrap items-center gap-1.5'>
-                                  <span className='font-bold text-sm text-foreground leading-snug'>
-                                    {cp.activity}
-                                  </span>
-                                  {isManualNoteEvent && (
-                                    <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border-amber-300'>
-                                      Manual Operator Note
-                                    </Badge>
-                                  )}
-                                  {isSelfDropEvent && (
-                                    <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'>
-                                      Self Drop
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className='text-xs text-muted-foreground font-medium'>
-                                  {cp.location || 'Kathmandu, Nepal'}
-                                </div>
-                                <div className='text-xs text-muted-foreground/80 font-normal'>
-                                  {formatDateTime(cp.timestamp)}
-                                </div>
-                              </div>
-
-                              {/* "SEE ALL UPDATES (N)" Button inserted between Top 2 and Bottom 1 when collapsed */}
-                              {!isCheckpointsExpanded && canCollapse && loopIdx === 1 && (
-                                <div className='my-3 -ml-1'>
-                                  <button
-                                    type='button'
-                                    onClick={() => setIsCheckpointsExpanded(true)}
-                                    className='inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer py-1'
-                                  >
-                                    <span>SEE ALL UPDATES ({trackingCheckpoints.length})</span>
-                                    <ChevronDown className='h-3.5 w-3.5' />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-
-                        {/* "COLLAPSE UPDATES" Button at bottom when expanded */}
-                        {isCheckpointsExpanded && canCollapse && (
-                          <div className='pt-1 pb-3 -ml-1'>
-                            <button
-                              type='button'
-                              onClick={() => setIsCheckpointsExpanded(false)}
-                              className='inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer py-1'
-                            >
-                              <span>COLLAPSE UPDATES</span>
-                              <ChevronUp className='h-3.5 w-3.5' />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className='rounded-xl border border-dashed p-6 text-center text-xs text-muted-foreground space-y-2'>
-                        <PackageSearch className='h-8 w-8 mx-auto text-muted-foreground/50' />
-                        <p className='font-medium text-foreground'>No transit checkpoints logged yet</p>
-                        <p>Live checkpoints will record automatically upon carrier or airline dispatch.</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ── PACKAGE SPECIFICATIONS & PACKING LIST (Expandable Button & Details) ── */}
-                  <div className='rounded-xl border bg-card overflow-hidden shadow-xs'>
-                    <div className='p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20'>
-                      <div className='flex items-center gap-3'>
-                        <div className='h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0'>
-                          <Boxes className='h-5 w-5' />
-                        </div>
-                        <div>
-                          <div className='text-xs font-bold text-foreground flex items-center gap-2'>
-                            <span>Package Specifications & Packing List</span>
-                            {trackingData.boxes && trackingData.boxes.length > 0 && (
-                              <Badge variant='outline' className='text-[10px] font-semibold py-0 h-4 px-1.5 bg-background'>
-                                {trackingData.boxes.length} {trackingData.boxes.length === 1 ? 'Box' : 'Boxes'}
-                              </Badge>
-                            )}
-                            {trackingData.weight && (
-                              <Badge variant='outline' className='text-[10px] font-semibold py-0 h-4 px-1.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'>
-                                {trackingData.weight} kg
-                              </Badge>
-                            )}
-                          </div>
-                          <div className='text-[11px] text-muted-foreground mt-0.5'>
-                            View box dimensions, verified weights, scale photo & itemized packing list
-                          </div>
-                        </div>
-                      </div>
-
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='sm'
-                        onClick={() => setIsPackageDetailsOpen(!isPackageDetailsOpen)}
-                        className='h-8 text-xs font-semibold gap-1.5 shrink-0 bg-background hover:bg-muted'
-                      >
-                        <Scale className='h-3.5 w-3.5 text-primary' />
-                        <span>{isPackageDetailsOpen ? 'Hide Package Details' : 'View Package & Items'}</span>
-                        {isPackageDetailsOpen ? <ChevronUp className='h-3.5 w-3.5' /> : <ChevronDown className='h-3.5 w-3.5' />}
-                      </Button>
-                    </div>
-
-                    {/* Expandable Content Body */}
-                    {isPackageDetailsOpen && (
-                      <div className='border-t p-4 sm:p-5 space-y-5 animate-in fade-in-50 duration-150'>
-                        {/* 1. Warehouse Verified Scale & Intake Details */}
-                        {(trackingData.weightProofImageUrl || trackingData.weight || trackingData.pickedUpAt) && (
-                          <div className='rounded-lg border bg-muted/20 p-3.5 space-y-3'>
-                            <div className='flex items-center justify-between'>
-                              <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5'>
-                                <Scale className='h-3.5 w-3.5 text-primary' />
-                                Warehouse Verified Weight & Scale Photo
-                              </span>
-                              <Badge variant='outline' className='text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'>
-                                Verified at Intake
-                              </Badge>
-                            </div>
-
-                              {((trackingData.weightProofImages && trackingData.weightProofImages.length > 0) || trackingData.weightProofImageUrl) && (
-                                <div className='flex flex-wrap items-center gap-2'>
-                                  {(trackingData.weightProofImages?.length
-                                    ? trackingData.weightProofImages
-                                    : [trackingData.weightProofImageUrl]
-                                  ).map((imgUrl: string, imgIdx: number) => {
-                                    const fullUrl = imgUrl.startsWith('http') ? imgUrl : `${API_BASE}${imgUrl}`
-                                    return (
-                                      <button
-                                        key={imgIdx}
-                                        type='button'
-                                        onClick={() => {
-                                          const allImgs = (trackingData.weightProofImages?.length
-                                            ? trackingData.weightProofImages
-                                            : [trackingData.weightProofImageUrl]
-                                          ).map((u: string) => (u.startsWith('http') ? u : `${API_BASE}${u}`))
-                                          setSelectedPhotoUrls(allImgs)
-                                          setSelectedPhotoIndex(imgIdx)
-                                        }}
-                                        className='relative group overflow-hidden rounded-lg border border-border shadow-xs hover:border-primary shrink-0 cursor-pointer text-left'
-                                      >
-                                        <img
-                                          src={fullUrl}
-                                          alt={`Proof ${imgIdx + 1}`}
-                                          className='h-20 w-24 object-cover transition-transform group-hover:scale-105'
-                                        />
-                                        <div className='absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1 rounded font-medium'>
-                                          #{imgIdx + 1}
-                                        </div>
-                                        <div className='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-medium'>
-                                          View
-                                        </div>
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                              )}
-
-                              <div className='space-y-1.5 text-xs flex-1'>
-                                <div className='grid grid-cols-2 sm:grid-cols-3 gap-2'>
-                                  <div>
-                                    <span className='text-muted-foreground block text-[11px]'>Actual Gross Weight:</span>
-                                    <span className='font-bold text-foreground text-sm'>{trackingData.weight || 'N/A'} kg</span>
-                                  </div>
-                                  {trackingData.volumetricWeight && (
-                                    <div>
-                                      <span className='text-muted-foreground block text-[11px]'>Volumetric Weight:</span>
-                                      <span className='font-medium text-foreground text-sm'>{trackingData.volumetricWeight} kg</span>
-                                    </div>
-                                  )}
-                                  {trackingData.chargeableWeight && (
-                                    <div>
-                                      <span className='text-muted-foreground block text-[11px]'>Chargeable Weight:</span>
-                                      <span className='font-bold text-primary text-sm'>{trackingData.chargeableWeight} kg</span>
-                                    </div>
-                                  )}
-                                </div>
-                                {trackingData.pickedUpAt && (
-                                  <div className='text-[11px] text-muted-foreground pt-1.5 border-t'>
-                                    Intake Time: {formatDateTime(trackingData.pickedUpAt)}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                        )}
-
-                        {/* 2. Box Specifications & Items in Boxes (Packing List without values) */}
-                        <div className='space-y-3'>
-                          <div className='flex items-center justify-between'>
-                            <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5'>
-                              <Boxes className='h-3.5 w-3.5 text-primary' />
-                              Box Weights, Dimensions & Item Packing List
-                            </span>
-                            <span className='text-[11px] text-muted-foreground'>
-                              {trackingData.boxes?.length || 1} {(trackingData.boxes?.length || 1) === 1 ? 'Box' : 'Boxes'} Total
-                            </span>
-                          </div>
-
-                          <div className='space-y-3'>
-                            {(trackingData.boxes && trackingData.boxes.length > 0 ? trackingData.boxes : [
-                              {
-                                boxNumber: 1,
-                                trackingNumber: 'BOX-1',
-                                weight: trackingData.weight || 10.0,
-                                dimensions: 'Standard Cargo Box',
-                                items: [{ item: trackingData.commodity || 'General Cargo', pieces: 1 }]
-                              }
-                            ]).map((box: any, bIdx: number) => (
-                              <div key={bIdx} className='rounded-lg border bg-muted/10 p-3.5 space-y-2.5 shadow-2xs'>
-                                {/* Box Header: Weight & Dims */}
-                                <div className='flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-xs'>
-                                  <div className='flex items-center gap-2'>
-                                    <span className='font-bold text-foreground'>Box #{box.boxNumber || bIdx + 1}</span>
-                                    {box.trackingNumber && (
-                                      <span className='font-mono text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded'>
-                                        {box.trackingNumber}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className='flex items-center gap-3 text-[11px]'>
-                                    <span>
-                                      <strong className='text-foreground'>Weight:</strong> {box.weight || '-'} kg
-                                    </span>
-                                    <span>
-                                      <strong className='text-foreground'>Dims:</strong> {box.dimensions || (box.length && box.breadth && box.height ? `${box.length} x ${box.breadth} x ${box.height} cm` : 'Standard Box')}
-                                    </span>
-                                    {box.volumetricWeight && (
-                                      <span className='text-muted-foreground'>
-                                        (Vol: {box.volumetricWeight} kg)
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Items in this Box (Packing List - Items & Pcs only) */}
-                                <div className='pt-0.5'>
-                                  <div className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5'>
-                                    Items in this Box (Packing List):
-                                  </div>
-                                  {box.items && box.items.length > 0 ? (
-                                    <div className='divide-y rounded-md border bg-background'>
-                                      {box.items.map((itm: any, itmIdx: number) => (
-                                        <div key={itmIdx} className='flex items-center justify-between px-3 py-1.5 text-xs'>
-                                          <span className='font-medium text-foreground'>{itm.item || 'Item'}</span>
-                                          <span className='font-bold text-primary bg-primary/10 px-2 py-0.5 rounded text-[11px]'>
-                                            {itm.pieces || 1} {(itm.pieces || 1) === 1 ? 'pc' : 'pcs'}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className='text-xs text-muted-foreground italic px-2 py-1 bg-background rounded border'>
-                                      {trackingData.commodity || 'General Cargo Goods'} — 1 pc
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ── FOOTER METADATA / CONSIGNMENT SUMMARY CARD ── */}
-                  <div className='rounded-xl border bg-muted/30 p-4 space-y-3.5 text-xs'>
-                    {/* Tracking Number Row with Copy Button */}
-                    <div className='flex items-center justify-between pb-3 border-b border-border/60'>
-                      <span className='font-medium text-muted-foreground'>Tracking number</span>
-                      <div className='flex items-center gap-2'>
-                        <span className='font-mono font-bold text-sm text-foreground'>
-                          {trackingData.trackingNumber || displayForwardingNumber || 'N/A'}
-                        </span>
-                        <Button
-                          type='button'
-                          variant='ghost'
-                          size='icon'
-                          onClick={() => handleCopyText(trackingData.trackingNumber || displayForwardingNumber)}
-                          className='h-6 w-6 text-muted-foreground hover:text-foreground'
-                          title='Copy tracking number'
-                        >
-                          {trackingCopied ? <Check className='h-3.5 w-3.5 text-emerald-600' /> : <Copy className='h-3.5 w-3.5' />}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Carrier Row with External Link */}
-                    <div className='flex items-center justify-between pb-3 border-b border-border/60'>
-                      <span className='font-medium text-muted-foreground'>Carrier</span>
-                      <div className='flex items-center gap-1.5 font-bold text-foreground'>
-                        <span>{displayForwardingCompany}</span>
-                        {carrierUrl && (
-                          <a
-                            href={carrierUrl}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            className='text-primary hover:underline inline-flex items-center gap-0.5'
-                          >
-                            <ExternalLink className='h-3 w-3' />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Route & Cargo Specs */}
-                    <div className='grid grid-cols-2 gap-2 text-[11px] text-muted-foreground pt-0.5'>
-                      <div>
-                        <span className='font-medium text-foreground'>Route:</span>{' '}
-                        {trackingData.origin || 'Kathmandu, NP'} ➔ {trackingData.destination || 'Overseas'}
-                      </div>
-                      <div>
-                        <span className='font-medium text-foreground'>Cargo:</span>{' '}
-                        {trackingData.commodity || 'General Cargo'}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {/* ── TAB: MY SHIPMENTS ── */}
-        {activeTab === 'shipments' && (
-          <div className='space-y-4 animate-in fade-in-50 duration-200'>
-            {/* ── Modern Gradient Stat Cards ── */}
-            <div className='grid grid-cols-2 gap-3 pt-0.5'>
-              {/* Total Pending */}
-              <div
-                className='relative overflow-hidden rounded-2xl p-4 min-h-[110px] flex flex-col justify-between shadow-sm group active:scale-[0.98] transition-all cursor-pointer'
-                style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 60%, #F97316 100%)' }}
-                onClick={() => setShipmentFilter('ACTIVE')}
-              >
-                <div className='absolute -right-3 -bottom-3 opacity-20 pointer-events-none group-hover:scale-110 transition-transform'>
-                  <Clock className='h-20 w-20 text-white animate-float' />
-                </div>
-                <div className='w-8 h-8 rounded-xl bg-white/25 backdrop-blur-xs flex items-center justify-center shadow-2xs'>
-                  <Clock className='h-4 w-4 text-white' />
-                </div>
-                <div>
-                  <p className='text-white font-black text-3xl leading-none font-serif tracking-tight'>
-                    {myShipments.filter(s => (s.status || '').toUpperCase() === 'PENDING' || (s.status || '').toUpperCase() === 'ENQUIRY_GENERATED').length || (myShipments.length > 0 ? 1 : 0)}
-                  </p>
-                  <p className='text-white/90 text-xs font-semibold mt-1'>Total Pending</p>
-                </div>
-              </div>
-
-              {/* In Transit */}
-              <div
-                className='relative overflow-hidden rounded-2xl p-4 min-h-[110px] flex flex-col justify-between shadow-sm group active:scale-[0.98] transition-all cursor-pointer'
-                style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #9333EA 60%, #A855F7 100%)' }}
-                onClick={() => setShipmentFilter('ACTIVE')}
-              >
-                <div className='absolute -right-3 -bottom-3 opacity-20 pointer-events-none group-hover:scale-110 transition-transform'>
-                  <Truck className='h-20 w-20 text-white animate-float' />
-                </div>
-                <div className='w-8 h-8 rounded-xl bg-white/25 backdrop-blur-xs flex items-center justify-center shadow-2xs'>
-                  <Truck className='h-4 w-4 text-white' />
-                </div>
-                <div>
-                  <p className='text-white font-black text-3xl leading-none font-serif tracking-tight'>
-                    {myShipments.filter(s => (s.status || '').toUpperCase().includes('TRANSIT') || (s.status || '').toUpperCase().includes('CARRIER') || (s.status || '').toUpperCase().includes('HUB')).length || 0}
-                  </p>
-                  <p className='text-white/90 text-xs font-semibold mt-1'>In Transit</p>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Quick Consignment Tracking Search ── */}
-            <div className='rounded-2xl border bg-card p-3 shadow-xs space-y-2'>
-              <div className='flex items-center gap-2'>
-                <div className='relative flex-1'>
-                  <Search className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
-                  <Input
-                    type='text'
-                    id='pwa-home-quick-track'
-                    placeholder='Track consignment (e.g., NP-20240922-001)...'
-                    className='pl-9 h-10 text-xs font-mono rounded-xl'
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const val = (e.target as HTMLInputElement).value.trim()
-                        if (val) {
-                          setTrackingInput(val)
-                          handleTrackSubmit(val)
-                          setActiveTab('track')
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <Button
-                  size='sm'
-                  onClick={() => {
-                    const el = document.getElementById('pwa-home-quick-track') as HTMLInputElement
-                    if (el && el.value.trim()) {
-                      const val = el.value.trim()
-                      setTrackingInput(val)
-                      handleTrackSubmit(val)
-                      setActiveTab('track')
-                    }
-                  }}
-                  className='h-10 px-4 text-xs font-bold rounded-xl active:scale-95 transition-transform'
-                >
-                  Track
-                </Button>
-              </div>
-            </div>
-
-            {/* ── Services Section: Rate Enquiry ── */}
-            <div>
-              <h4 className='text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2'>Services</h4>
-              <button
-                type='button'
-                onClick={() => setRateEnquiryOpen(true)}
-                className='w-full rounded-2xl border bg-card p-3.5 flex items-center gap-3.5 shadow-xs hover:border-primary/40 active:scale-[0.99] transition-all group text-left'
-              >
-                <div className='w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform'>
-                  <Receipt className='h-5 w-5' />
-                </div>
-                <div className='flex-1 min-w-0'>
-                  <p className='text-sm font-bold text-foreground'>Rate Enquiry</p>
-                  <p className='text-xs text-muted-foreground mt-0.5 truncate'>Calculate the estimated shipping rate before you place an order.</p>
-                </div>
-                <ArrowRight className='h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0' />
-              </button>
-            </div>
-
-            <div className='flex items-center justify-between pt-1'>
-              <div>
-                <h3 className='text-base font-bold tracking-tight'>My Consignments</h3>
-                <p className='text-xs text-muted-foreground'>Review your active bookings and cargo history.</p>
-              </div>
-              <Button size='sm' variant='outline' onClick={fetchMyShipments} className='h-8 text-xs gap-1 rounded-xl'>
-                <RefreshCw className={`h-3 w-3 ${shipmentsLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-
-            {/* Filter Tabs */}
-            <div className='flex gap-1.5 p-1 rounded-lg bg-muted/40 border w-fit text-xs font-semibold'>
-              <button
-                type='button'
-                onClick={() => setShipmentFilter('ALL')}
-                className={`px-3 py-1 rounded-md transition-colors ${shipmentFilter === 'ALL' ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                All ({myShipments.length})
-              </button>
-              <button
-                type='button'
-                onClick={() => setShipmentFilter('ACTIVE')}
-                className={`px-3 py-1 rounded-md transition-colors ${shipmentFilter === 'ACTIVE' ? 'bg-background shadow-xs text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                In Progress
-              </button>
-              <button
-                type='button'
-                onClick={() => setShipmentFilter('DELIVERED')}
-                className={`px-3 py-1 rounded-md transition-colors ${shipmentFilter === 'DELIVERED' ? 'bg-background shadow-xs text-emerald-600' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                Delivered
-              </button>
-            </div>
-
-            {/* Shipments List */}
-            {displayedShipments.length === 0 ? (
-              <Card className='p-8 text-center text-muted-foreground'>
-                <PackageSearch className='h-10 w-10 mx-auto text-muted-foreground/50 mb-2' />
-                <p className='text-xs font-medium'>No consignments found under this view.</p>
-                <Button size='sm' onClick={() => setActiveTab('book')} className='mt-3 text-xs font-semibold'>
-                  Book a Consignment
-                </Button>
-              </Card>
-            ) : (
-              <div className='grid grid-cols-1 gap-3'>
-                {displayedShipments.map((s) => (
-                  <Card key={s.id} className='hover:border-primary/40 transition-colors shadow-xs'>
-                    <CardContent className='p-4 space-y-3'>
-                      <div className='flex items-start justify-between gap-2'>
-                        <div>
-                          <div className='font-mono font-bold text-xs text-foreground flex items-center gap-1.5'>
-                            {s.trackingNumber}
-                            <button
-                              type='button'
-                              onClick={() => handleCopyText(s.trackingNumber)}
-                              className='text-muted-foreground hover:text-primary'
-                              title='Copy Tracking Number'
-                            >
-                              <Copy className='h-3 w-3' />
-                            </button>
-                          </div>
-                          <div className='text-xs font-semibold text-foreground mt-0.5'>
-                            {s.commodity}
-                          </div>
-                        </div>
-                        <Badge variant='outline' className='text-[10px] font-bold py-0.5 px-2 bg-muted/60'>
-                          {s.status}
-                        </Badge>
-                      </div>
-
-                      <div className='grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-muted-foreground pt-1 border-t'>
-                        <div>
-                          <span className='font-medium text-foreground'>Destination:</span> {s.destination}
-                        </div>
-                        <div>
-                          <span className='font-medium text-foreground'>
-                            {s.isPacked || (s.status && s.status !== 'PENDING' && s.status !== 'ENQUIRY_GENERATED')
-                              ? 'Weight:'
-                              : 'Approx Wt:'}
-                          </span>{' '}
-                          {s.weight || s.approximateWeight} kg
-                        </div>
-                        <div>
-                          <span className='font-medium text-foreground'>Booked:</span>{' '}
-                          {s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-'}
-                        </div>
-                      </div>
-
-                      {/* Scale photo button if weightProofImages exists */}
-                      {((s.weightProofImages && s.weightProofImages.length > 0) || s.weightProofImageUrl) && (
-                        <div className='flex items-center justify-between pt-2 border-t border-dashed'>
-                          <button
-                            type='button'
-                            onClick={() => {
-                              const imgs = s.weightProofImages?.length
-                                ? s.weightProofImages.map((u: string) => (u.startsWith('http') ? u : `${API_BASE}${u}`))
-                                : [s.weightProofImageUrl.startsWith('http') ? s.weightProofImageUrl : `${API_BASE}${s.weightProofImageUrl}`]
-                              setSelectedPhotoUrls(imgs)
-                              setSelectedPhotoIndex(0)
-                            }}
-                            className='inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline'
-                          >
-                            <Scale className='h-3.5 w-3.5 text-primary' />
-                            <span>
-                              View {s.weightProofImages && s.weightProofImages.length > 1 ? `${s.weightProofImages.length} Scale/Box Photos` : 'Scale Photo Proof'}
-                            </span>
-                          </button>
-                          <span className='text-[10px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded'>
-                            Warehouse Verified
-                          </span>
-                        </div>
-                      )}
-
-                      <div className='pt-1 flex items-center justify-between'>
-                        <div className='text-[10px] text-muted-foreground flex items-center gap-1'>
-                          <MapPin className='h-3 w-3 text-primary' />
-                          To: {s.receiverName || 'Consignee'} ({s.receiverCity})
-                        </div>
-                        <Button
-                          size='sm'
-                          variant='ghost'
-                          className='h-7 text-xs font-bold text-primary hover:bg-primary/10 gap-1'
-                          onClick={() => {
-                            setTrackingInput(s.trackingNumber)
-                            handleTrackSubmit(s.trackingNumber)
-                            setActiveTab('track')
-                          }}
-                        >
-                          View Tracking
-                          <ChevronRight className='h-3.5 w-3.5' />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── TAB: NOTIFICATIONS ── */}
-        {activeTab === 'notifications' && (
-          <div className='space-y-4 animate-in fade-in-50 duration-200'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <h3 className='text-base font-bold tracking-tight'>Notifications & Alerts</h3>
-                <p className='text-xs text-muted-foreground'>Stay updated on your cargo milestones and alerts.</p>
-              </div>
-              <Button size='sm' variant='outline' onClick={fetchNotifications} className='h-8 text-xs gap-1'>
-                <RefreshCw className={`h-3 w-3 ${notifsLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-
-            {notifications.length === 0 ? (
-              <Card className='p-8 text-center text-muted-foreground'>
-                <Bell className='h-10 w-10 mx-auto text-muted-foreground/50 mb-2' />
-                <p className='text-xs font-medium'>You have no notifications at this time.</p>
-              </Card>
-            ) : (
-              <div className='space-y-2.5'>
-                {notifications.map((n) => (
-                  <Card key={n.id} className={`shadow-xs transition-colors ${n.isRead ? 'bg-card opacity-80' : 'bg-primary/5 border-primary/30'}`}>
-                    <CardContent className='p-4 space-y-1.5'>
-                      <div className='flex items-center justify-between'>
-                        <span className='font-bold text-xs text-foreground flex items-center gap-1.5'>
-                          <Sparkles className='h-3.5 w-3.5 text-primary' />
-                          {n.title}
-                        </span>
-                        {n.createdAt && (
-                          <span className='text-[10px] text-muted-foreground'>
-                            {new Date(n.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        )}
-                      </div>
-                      <p className='text-xs text-muted-foreground leading-relaxed'>
-                        {n.body}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── TAB: ACCOUNT / SIGN IN ── */}
-        {activeTab === 'account' && (
-          <div className='max-w-md mx-auto space-y-5 animate-in fade-in-50 duration-200 pb-12'>
-            {customerToken ? (
-              <div className='space-y-4'>
-                {/* Greeting Banner */}
-                <div className='rounded-2xl bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4 border border-primary/20 flex items-center justify-between'>
-                  <div>
-                    <h2 className='text-lg font-extrabold text-foreground'>
-                      Hello, {customerUser?.name?.trim() ? customerUser.name.trim().split(/\s+/)[0] : 'Customer'}! 👋
-                    </h2>
-                    <p className='text-xs text-muted-foreground mt-0.5'>
-                      Welcome to your NetPack logistics profile
-                    </p>
-                  </div>
-                  <div className='h-12 w-12 rounded-full border-2 border-primary/30 overflow-hidden relative shadow-sm shrink-0 bg-primary/10 flex items-center justify-center'>
-                    {customerUser?.photoUrl ? (
-                      <img
-                        src={customerUser.photoUrl.startsWith('http') ? customerUser.photoUrl : `${API_BASE}${customerUser.photoUrl}`}
-                        alt={customerUser?.name || 'User'}
-                        className='h-full w-full object-cover'
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none'
-                        }}
-                      />
-                    ) : (
-                      <span className='font-black text-base text-primary'>
-                        {customerUser?.name ? customerUser.name.slice(0, 2).toUpperCase() : 'NP'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Profile Card with Photo Change & Details */}
-                <Card className='shadow-md border'>
-                  <CardHeader className='pb-3'>
-                    <div className='flex items-center justify-between'>
-                      <CardTitle className='text-sm font-bold flex items-center gap-2'>
-                        <User className='h-4 w-4 text-primary' />
-                        Account Details
-                      </CardTitle>
-                      {!editingProfile && (
-                        <Button
-                          variant='ghost'
-                          size='sm'
-                          onClick={startEditProfile}
-                          className='h-7 text-xs font-semibold gap-1 text-primary hover:text-primary hover:bg-primary/10'
-                        >
-                          <Edit2 className='h-3 w-3' />
-                          Edit
-                        </Button>
-                      )}
-                    </div>
-                    <CardDescription className='text-xs'>
-                      Manage your contact and delivery addresses
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className='space-y-4 text-xs'>
-                    {/* User Avatar with Upload Trigger */}
-                    <div className='flex flex-col items-center justify-center py-2'>
-                      <div className='relative group'>
-                        <div className='h-20 w-20 rounded-full border-2 border-primary overflow-hidden shadow-md bg-muted flex items-center justify-center'>
-                          {customerUser?.photoUrl ? (
-                            <img
-                              src={customerUser.photoUrl.startsWith('http') ? customerUser.photoUrl : `${API_BASE}${customerUser.photoUrl}`}
-                              alt={customerUser?.name || 'User'}
-                              className='h-full w-full object-cover'
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none'
-                              }}
-                            />
-                          ) : (
-                            <span className='font-black text-2xl text-primary'>
-                              {customerUser?.name ? customerUser.name.slice(0, 2).toUpperCase() : 'NP'}
-                            </span>
-                          )}
-                        </div>
-                        <label className='absolute bottom-0 right-0 p-1.5 rounded-full bg-primary text-primary-foreground shadow cursor-pointer hover:bg-primary/90 transition-transform active:scale-95'>
-                          <Camera className='h-3.5 w-3.5' />
-                          <input
-                            type='file'
-                            accept='image/*'
-                            className='hidden'
-                            onChange={handlePhotoUpload}
-                            disabled={uploadingPhoto}
-                          />
-                        </label>
-                      </div>
-                      {uploadingPhoto && (
-                        <p className='text-[10px] text-primary animate-pulse mt-1 font-medium'>
-                          Uploading photo...
-                        </p>
-                      )}
-                      <span className='text-[10px] text-muted-foreground mt-1'>
-                        Tap camera to update photo
-                      </span>
-                    </div>
-
-                    {editingProfile ? (
-                      <form onSubmit={handleUpdateProfile} className='space-y-3 pt-2'>
-                        <div className='space-y-1'>
-                          <label className='text-[11px] font-semibold text-muted-foreground'>Full Name</label>
-                          <Input
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            required
-                            className='h-8 text-xs'
-                          />
-                        </div>
-                        <div className='space-y-1'>
-                          <label className='text-[11px] font-semibold text-muted-foreground'>Phone Number</label>
-                          <Input
-                            value={editPhone}
-                            onChange={(e) => setEditPhone(e.target.value)}
-                            required
-                            className='h-8 text-xs'
-                          />
-                        </div>
-                        <div className='space-y-1'>
-                          <label className='text-[11px] font-semibold text-muted-foreground'>Address Line 1</label>
-                          <Input
-                            value={editAddress1}
-                            onChange={(e) => setEditAddress1(e.target.value)}
-                            required
-                            placeholder='Street / House No'
-                            className='h-8 text-xs'
-                          />
-                        </div>
-                        <div className='space-y-1'>
-                          <label className='text-[11px] font-semibold text-muted-foreground'>Address Line 2 (Optional)</label>
-                          <Input
-                            value={editAddress2}
-                            onChange={(e) => setEditAddress2(e.target.value)}
-                            placeholder='Apartment, suite, unit'
-                            className='h-8 text-xs'
-                          />
-                        </div>
-                        <div className='grid grid-cols-2 gap-2'>
-                          <div className='space-y-1'>
-                            <label className='text-[11px] font-semibold text-muted-foreground'>City</label>
-                            <Input
-                              value={editCity}
-                              onChange={(e) => setEditCity(e.target.value)}
-                              className='h-8 text-xs'
-                            />
-                          </div>
-                          <div className='space-y-1'>
-                            <label className='text-[11px] font-semibold text-muted-foreground'>State / Province</label>
-                            <Input
-                              value={editState}
-                              onChange={(e) => setEditState(e.target.value)}
-                              placeholder='e.g., Bagmati'
-                              className='h-8 text-xs'
-                            />
-                          </div>
-                        </div>
-                        <div className='grid grid-cols-2 gap-2'>
-                          <div className='space-y-1'>
-                            <label className='text-[11px] font-semibold text-muted-foreground'>Postcode</label>
-                            <Input
-                              value={editPostcode}
-                              onChange={(e) => setEditPostcode(e.target.value)}
-                              placeholder='e.g., 44600'
-                              className='h-8 text-xs'
-                            />
-                          </div>
-                          <div className='space-y-1'>
-                            <label className='text-[11px] font-semibold text-muted-foreground'>Country</label>
-                            <select
-                              value={editCountryId}
-                              onChange={(e) => setEditCountryId(Number(e.target.value))}
-                              className='h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:ring-1 focus:ring-primary'
-                            >
-                              {countries.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                        <div className='flex gap-2 pt-2'>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='sm'
-                            onClick={() => setEditingProfile(false)}
-                            className='flex-1 h-8 text-xs'
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type='submit'
-                            size='sm'
-                            className='flex-1 h-8 text-xs font-bold'
-                          >
-                            Save Changes
-                          </Button>
-                        </div>
-                      </form>
-                    ) : (
-                      <div className='rounded-lg border p-3.5 space-y-2.5 bg-muted/30'>
-                        <div className='flex justify-between items-center py-0.5 border-b border-border/40'>
-                          <span className='text-muted-foreground'>Full Name</span>
-                          <strong className='text-foreground'>{customerUser?.name || '—'}</strong>
-                        </div>
-                        <div className='flex justify-between items-center py-0.5 border-b border-border/40'>
-                          <span className='text-muted-foreground'>Email Address</span>
-                          <strong className='text-foreground font-mono'>{customerUser?.email || '—'}</strong>
-                        </div>
-                        <div className='flex justify-between items-center py-0.5 border-b border-border/40'>
-                          <span className='text-muted-foreground'>Phone</span>
-                          <strong className='text-foreground font-mono'>{customerUser?.phone || '—'}</strong>
-                        </div>
-                        <div className='flex justify-between items-center py-0.5 border-b border-border/40'>
-                          <span className='text-muted-foreground'>Address Line 1</span>
-                          <strong className='text-foreground'>{customerUser?.address1 || '—'}</strong>
-                        </div>
-                        {customerUser?.address2 && (
-                          <div className='flex justify-between items-center py-0.5 border-b border-border/40'>
-                            <span className='text-muted-foreground'>Address Line 2</span>
-                            <strong className='text-foreground'>{customerUser.address2}</strong>
-                          </div>
-                        )}
-                        <div className='flex justify-between items-center py-0.5 border-b border-border/40'>
-                          <span className='text-muted-foreground'>City</span>
-                          <strong className='text-foreground'>{customerUser?.city || 'Kathmandu'}</strong>
-                        </div>
-                        {customerUser?.state && (
-                          <div className='flex justify-between items-center py-0.5 border-b border-border/40'>
-                            <span className='text-muted-foreground'>State / Province</span>
-                            <strong className='text-foreground'>{customerUser.state}</strong>
-                          </div>
-                        )}
-                        <div className='flex justify-between items-center py-0.5 border-b border-border/40'>
-                          <span className='text-muted-foreground'>Postcode</span>
-                          <strong className='text-foreground'>{customerUser?.postcode || '—'}</strong>
-                        </div>
-                        <div className='flex justify-between items-center py-0.5'>
-                          <span className='text-muted-foreground'>Country</span>
-                          <strong className='text-foreground'>
-                            {typeof customerUser?.country === 'object' && customerUser?.country?.name
-                              ? customerUser.country.name
-                              : (typeof customerUser?.country === 'string' ? customerUser.country : 'Nepal')}
-                          </strong>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ── Theme Appearance Preference ── */}
-                    <div className='pt-3 border-t space-y-2'>
-                      <div className='flex items-center justify-between'>
-                        <span className='font-bold text-[11px] text-muted-foreground uppercase tracking-wider'>
-                          App Theme
-                        </span>
-                        <span className='text-[10px] text-primary font-bold capitalize'>{theme} Mode</span>
-                      </div>
-                      <div className='grid grid-cols-3 gap-1.5 p-1 bg-muted/60 rounded-xl border'>
-                        <button
-                          type='button'
-                          onClick={() => setTheme('light')}
-                          className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                            theme === 'light'
-                              ? 'bg-background text-foreground shadow-xs font-bold border'
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          <Sun className='h-3.5 w-3.5 text-amber-500' />
-                          <span>Light</span>
-                        </button>
-                        <button
-                          type='button'
-                          onClick={() => setTheme('dark')}
-                          className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                            theme === 'dark'
-                              ? 'bg-background text-foreground shadow-xs font-bold border'
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          <Moon className='h-3.5 w-3.5 text-sky-400' />
-                          <span>Dark</span>
-                        </button>
-                        <button
-                          type='button'
-                          onClick={() => setTheme('system')}
-                          className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                            theme === 'system'
-                              ? 'bg-background text-foreground shadow-xs font-bold border'
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          <Laptop className='h-3.5 w-3.5 text-slate-400' />
-                          <span>System</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className='pt-2'>
-                      <Button
-                        variant='destructive'
-                        onClick={handleLogout}
-                        className='w-full h-9 text-xs font-bold gap-1.5'
-                      >
-                        <LogOut className='h-3.5 w-3.5' />
-                        Sign Out
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            ) : (
-              <Card className='shadow-lg border'>
-                <CardHeader className='text-center pb-3'>
-                  <div className='h-12 w-12 rounded-2xl bg-primary mx-auto flex items-center justify-center text-primary-foreground font-black text-lg mb-2 shadow-md'>
-                    NP
-                  </div>
-                  <CardTitle className='text-lg font-bold'>
-                    {authMode === 'login' ? 'Welcome to NetPack' : 'Create Customer Account'}
-                  </CardTitle>
-                  <CardDescription className='text-xs'>
-                    Book consignments, schedule doorstep pickups, and track your global air freight.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className='space-y-4'>
-                  {/* Google 1-Click Sign-in Button */}
-                  <Button
-                    type='button'
-                    variant='outline'
-                    onClick={handleGoogleSignInClick}
-                    disabled={authLoading}
-                    className='w-full h-10 text-xs font-semibold flex items-center justify-center gap-2 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
-                  >
-                    <svg className='h-4 w-4' viewBox='0 0 24 24'>
-                      <path
-                        fill='#4285F4'
-                        d='M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z'
-                      />
-                      <path
-                        fill='#34A853'
-                        d='M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z'
-                      />
-                      <path
-                        fill='#FBBC05'
-                        d='M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z'
-                      />
-                      <path
-                        fill='#EA4335'
-                        d='M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z'
-                      />
-                    </svg>
-                    Continue with Google
-                  </Button>
-
-                  <div className='relative flex items-center justify-center'>
-                    <div className='border-t w-full' />
-                    <span className='bg-card px-2 text-[10px] text-muted-foreground uppercase tracking-wider relative'>
-                      Or with email
-                    </span>
-                  </div>
-
-                  {authMode === 'login' ? (
-                    <form onSubmit={handleEmailLogin} className='space-y-3.5'>
-                      <div className='space-y-1.5'>
-                        <label className='text-xs font-semibold'>Email Address</label>
-                        <Input
-                          type='email'
-                          placeholder='customer@example.com'
-                          value={authEmail}
-                          onChange={(e) => setAuthEmail(e.target.value)}
-                          required
-                          className='h-9 text-xs'
-                        />
-                      </div>
-                      <div className='space-y-1.5'>
-                        <label className='text-xs font-semibold'>Password</label>
-                        <Input
-                          type='password'
-                          placeholder='••••••••'
-                          value={authPassword}
-                          onChange={(e) => setAuthPassword(e.target.value)}
-                          required
-                          className='h-9 text-xs'
-                        />
-                      </div>
-                      <Button
-                        type='submit'
-                        disabled={authLoading}
-                        className='w-full h-9 text-xs font-bold'
-                      >
-                        {authLoading ? <RefreshCw className='h-4 w-4 animate-spin' /> : 'Sign In'}
-                      </Button>
-                    </form>
-                  ) : (
-                    <form onSubmit={handleSignup} className='space-y-2.5'>
-                      <div className='space-y-1'>
-                        <label className='text-xs font-semibold'>Full Name *</label>
-                        <Input
-                          placeholder='Your full name'
-                          value={authName}
-                          onChange={(e) => setAuthName(e.target.value)}
-                          required
-                          className='h-8 text-xs'
-                        />
-                      </div>
-                      <div className='space-y-1'>
-                        <label className='text-xs font-semibold'>Email Address *</label>
-                        <Input
-                          type='email'
-                          placeholder='name@domain.com'
-                          value={authEmail}
-                          onChange={(e) => setAuthEmail(e.target.value)}
-                          required
-                          className='h-8 text-xs'
-                        />
-                      </div>
-                      <div className='space-y-1'>
-                        <label className='text-xs font-semibold'>Phone Number *</label>
-                        <Input
-                          placeholder='+977 98...'
-                          value={authPhone}
-                          onChange={(e) => setAuthPhone(e.target.value)}
-                          required
-                          className='h-8 text-xs'
-                        />
-                      </div>
-                      <div className='grid grid-cols-2 gap-2'>
-                        <div className='space-y-1'>
-                          <label className='text-xs font-semibold'>Password *</label>
-                          <Input
-                            type='password'
-                            placeholder='Create password'
-                            value={authPassword}
-                            onChange={(e) => setAuthPassword(e.target.value)}
-                            required
-                            className='h-8 text-xs'
-                          />
-                        </div>
-                        <div className='space-y-1'>
-                          <label className='text-xs font-semibold'>Confirm Password *</label>
-                          <Input
-                            type='password'
-                            placeholder='Confirm password'
-                            value={authConfirmPassword}
-                            onChange={(e) => setAuthConfirmPassword(e.target.value)}
-                            required
-                            className='h-8 text-xs'
-                          />
-                        </div>
-                      </div>
-                      <div className='space-y-1'>
-                        <label className='text-xs font-semibold'>Pickup Address Line 1</label>
-                        <Input
-                          placeholder='Street, Ward, Area (e.g. Thamel)'
-                          value={authAddress1}
-                          onChange={(e) => setAuthAddress1(e.target.value)}
-                          className='h-8 text-xs'
-                        />
-                      </div>
-                      <div className='space-y-1'>
-                        <label className='text-xs font-semibold'>Address Line 2 (Optional)</label>
-                        <Input
-                          placeholder='Apartment, landmark, suite'
-                          value={authAddress2}
-                          onChange={(e) => setAuthAddress2(e.target.value)}
-                          className='h-8 text-xs'
-                        />
-                      </div>
-                      <div className='grid grid-cols-2 gap-2'>
-                        <div className='space-y-1'>
-                          <label className='text-xs font-semibold'>City</label>
-                          <Input
-                            placeholder='Kathmandu'
-                            value={authCity}
-                            onChange={(e) => setAuthCity(e.target.value)}
-                            className='h-8 text-xs'
-                          />
-                        </div>
-                        <div className='space-y-1'>
-                          <label className='text-xs font-semibold'>Postcode</label>
-                          <Input
-                            placeholder='44600'
-                            value={authPostcode}
-                            onChange={(e) => setAuthPostcode(e.target.value)}
-                            className='h-8 text-xs'
-                          />
-                        </div>
-                      </div>
-                      <Button
-                        type='submit'
-                        disabled={authLoading}
-                        className='w-full h-9 text-xs font-bold mt-2'
-                      >
-                        {authLoading ? <RefreshCw className='h-4 w-4 animate-spin' /> : 'Create Account'}
-                      </Button>
-                    </form>
-                  )}
-
-                  <div className='text-center pt-2'>
-                    {authMode === 'login' ? (
-                      <button
-                        type='button'
-                        onClick={() => setAuthMode('signup')}
-                        className='text-xs text-primary font-semibold hover:underline'
-                      >
-                        Don't have an account? Sign Up
-                      </button>
-                    ) : (
-                      <button
-                        type='button'
-                        onClick={() => setAuthMode('login')}
-                        className='text-xs text-primary font-semibold hover:underline'
-                      >
-                        Already have an account? Sign In
-                      </button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* ── Fixed Mobile-First Bottom Navigation Bar (3 Buttons - Logged-in Only) ── */}
-      {customerToken && (
-        <nav className='fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border px-4 py-2 shadow-lg max-w-md mx-auto'>
-        <div className='flex items-center justify-around'>
-          {/* Tab 1: Shipments */}
-          <button
-            type='button'
-            onClick={() => setActiveTab('shipments')}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-colors ${
-              activeTab === 'shipments' ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Package className='h-5 w-5' />
-            <span className='text-[10px] mt-0.5'>Shipments</span>
-          </button>
-
-          {/* Tab 2: Book / Create Consignment (Elevated Center Button) */}
-          <button
-            type='button'
-            onClick={() => setActiveTab('book')}
-            className='relative -top-3 flex flex-col items-center group'
-          >
-            <div className={`h-12 w-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 ${
-              activeTab === 'book'
-                ? 'bg-primary text-primary-foreground ring-4 ring-primary/20'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            }`}>
-              <PlusCircle className='h-6 w-6' />
-            </div>
-            <span className={`text-[10px] font-bold mt-1 ${activeTab === 'book' ? 'text-primary' : 'text-muted-foreground'}`}>
-              Book
-            </span>
-          </button>
-
-          {/* Tab 3: Profile */}
-          <button
-            type='button'
-            onClick={() => setActiveTab('account')}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-colors ${
-              activeTab === 'account' ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {customerToken && customerUser?.photoUrl ? (
-              <div className={`h-5 w-5 rounded-full overflow-hidden border ${activeTab === 'account' ? 'border-primary ring-1 ring-primary' : 'border-border'}`}>
-                <img
-                  src={customerUser.photoUrl.startsWith('http') ? customerUser.photoUrl : `${API_BASE}${customerUser.photoUrl}`}
-                  alt='Profile'
-                  className='h-full w-full object-cover'
-                />
-              </div>
-            ) : (
-              <User className='h-5 w-5' />
-            )}
-            <span className='text-[10px] mt-0.5'>{customerToken ? 'Profile' : 'Login'}</span>
-          </button>
-        </div>
-      </nav>
-      )}
-
-      {/* ── Google Verification & Profile Details Modal ── */}
-      <Dialog open={googleModalOpen} onOpenChange={setGoogleModalOpen}>
-        <DialogContent className='max-w-md'>
-          {googleStep === 'verify' ? (
-            <div>
-              <DialogHeader className='text-center pb-2'>
-                <div className='h-11 w-11 rounded-full border shadow-sm flex items-center justify-center mx-auto mb-2 bg-white'>
-                  <svg className='h-6 w-6' viewBox='0 0 24 24'>
-                    <path
-                      fill='#4285F4'
-                      d='M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z'
-                    />
-                    <path
-                      fill='#34A853'
-                      d='M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z'
-                    />
-                    <path
-                      fill='#FBBC05'
-                      d='M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z'
-                    />
-                    <path
-                      fill='#EA4335'
-                      d='M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z'
-                    />
-                  </svg>
-                </div>
-                <DialogTitle className='text-base font-bold'>Verify Google Account</DialogTitle>
-                <DialogDescription className='text-xs'>
-                  Enter your Google email to authenticate and link with NetPack Logistics.
-                </DialogDescription>
-              </DialogHeader>
-
-              <form onSubmit={handleVerifyGoogleAccount} className='space-y-4 pt-2'>
-                <div className='space-y-1.5'>
-                  <label className='text-xs font-semibold text-foreground'>Google Email Address</label>
-                  <Input
-                    type='email'
-                    placeholder='yourname@gmail.com'
-                    value={googleInputEmail}
-                    onChange={(e) => setGoogleInputEmail(e.target.value)}
-                    required
-                    className='h-9 text-xs font-mono'
-                    autoFocus
-                  />
-                  <p className='text-[10px] text-muted-foreground'>
-                    We will verify this account with Google security services before proceeding.
-                  </p>
-                </div>
-
-                <DialogFooter className='gap-2 sm:gap-0 pt-2'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    onClick={() => setGoogleModalOpen(false)}
-                    className='h-9 text-xs'
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type='submit'
-                    size='sm'
-                    disabled={googleVerifying}
-                    className='h-9 text-xs font-bold'
-                  >
-                    {googleVerifying ? <RefreshCw className='h-3.5 w-3.5 animate-spin mr-1.5' /> : null}
-                    Verify Account
-                  </Button>
-                </DialogFooter>
-              </form>
-            </div>
-          ) : (
-            <div>
-              <DialogHeader>
-                <DialogTitle className='text-base font-bold flex items-center gap-2'>
-                  Complete Delivery Profile
-                </DialogTitle>
-                <DialogDescription className='text-xs'>
-                  Your Google account is verified. Please add your contact and address details for doorstep pickups.
-                </DialogDescription>
-              </DialogHeader>
-
-              {/* Verified Account Card */}
-              <div className='flex items-center gap-3 p-3 my-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs'>
-                <div className='h-10 w-10 rounded-full overflow-hidden border-2 border-emerald-500 shrink-0 bg-white'>
-                  <img
-                    src={googleProfileData.photoUrl || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}
-                    alt='Google Avatar'
-                    className='h-full w-full object-cover'
-                  />
-                </div>
-                <div className='flex-1 min-w-0'>
-                  <div className='flex items-center gap-1.5'>
-                    <span className='font-bold text-foreground truncate'>{googleProfileData.name}</span>
-                    <span className='inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-600 text-white px-1.5 py-0.2 rounded-full shrink-0'>
-                      <Check className='h-2.5 w-2.5 stroke-[3]' /> Verified
-                    </span>
-                  </div>
-                  <span className='text-[11px] text-muted-foreground font-mono truncate block'>
-                    {googleProfileData.email}
-                  </span>
-                </div>
-              </div>
-
-              <form onSubmit={handleGoogleSubmit} className='space-y-3 text-xs'>
-                <div className='space-y-1'>
-                  <label className='font-semibold text-muted-foreground'>Phone Number *</label>
-                  <Input
-                    value={googleProfileData.phone}
-                    onChange={(e) =>
-                      setGoogleProfileData((prev) => ({ ...prev, phone: e.target.value }))
-                    }
-                    required
-                    placeholder='+977 98...'
-                    className='h-8 text-xs'
-                  />
-                </div>
-                <div className='space-y-1'>
-                  <label className='font-semibold text-muted-foreground'>Address Line 1 *</label>
-                  <Input
-                    value={googleProfileData.address1}
-                    onChange={(e) =>
-                      setGoogleProfileData((prev) => ({ ...prev, address1: e.target.value }))
-                    }
-                    required
-                    placeholder='Street, Ward (e.g. Thamel, Ward 26)'
-                    className='h-8 text-xs'
-                  />
-                </div>
-                <div className='space-y-1'>
-                  <label className='font-semibold text-muted-foreground'>Address Line 2 (Optional)</label>
-                  <Input
-                    value={googleProfileData.address2}
-                    onChange={(e) =>
-                      setGoogleProfileData((prev) => ({ ...prev, address2: e.target.value }))
-                    }
-                    placeholder='Apartment, suite, landmark'
-                    className='h-8 text-xs'
-                  />
-                </div>
-                <div className='grid grid-cols-2 gap-2'>
-                  <div className='space-y-1'>
-                    <label className='font-semibold text-muted-foreground'>City *</label>
-                    <Input
-                      value={googleProfileData.city}
-                      onChange={(e) =>
-                        setGoogleProfileData((prev) => ({ ...prev, city: e.target.value }))
-                      }
-                      required
-                      className='h-8 text-xs'
-                    />
-                  </div>
-                  <div className='space-y-1'>
-                    <label className='font-semibold text-muted-foreground'>State / Province</label>
-                    <Input
-                      value={googleProfileData.state}
-                      onChange={(e) =>
-                        setGoogleProfileData((prev) => ({ ...prev, state: e.target.value }))
-                      }
-                      placeholder='Bagmati Province'
-                      className='h-8 text-xs'
-                    />
-                  </div>
-                </div>
-                <div className='grid grid-cols-2 gap-2'>
-                  <div className='space-y-1'>
-                    <label className='font-semibold text-muted-foreground'>Postcode</label>
-                    <Input
-                      value={googleProfileData.postcode}
-                      onChange={(e) =>
-                        setGoogleProfileData((prev) => ({ ...prev, postcode: e.target.value }))
-                      }
-                      placeholder='44600'
-                      className='h-8 text-xs'
-                    />
-                  </div>
-                  <div className='space-y-1'>
-                    <label className='font-semibold text-muted-foreground'>Country</label>
-                    <select
-                      value={googleProfileData.countryId || 1}
-                      onChange={(e) =>
-                        setGoogleProfileData((prev) => ({ ...prev, countryId: Number(e.target.value) }))
-                      }
-                      className='h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring'
-                    >
-                      {countries.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <DialogFooter className='pt-2 gap-2 sm:gap-0'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    onClick={() => setGoogleStep('verify')}
-                    className='h-8 text-xs'
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    type='submit'
-                    size='sm'
-                    disabled={authLoading}
-                    className='h-8 text-xs font-bold'
-                  >
-                    {authLoading ? <RefreshCw className='h-3.5 w-3.5 animate-spin mr-1' /> : null}
-                    Complete & Continue
-                  </Button>
-                </DialogFooter>
-              </form>
-            </div>
           )}
-        </DialogContent>
-      </Dialog>
 
-      {/* ── Multi-Photo Lightbox Modal ── */}
-      {selectedPhotoUrls.length > 0 && (
-        <div
-          className='fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 animate-in fade-in-50 duration-200'
-          onClick={() => setSelectedPhotoUrls([])}
-        >
-          <div
-            className='relative max-w-2xl w-full bg-background rounded-xl p-3 shadow-2xl overflow-hidden'
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className='flex items-center justify-between pb-2 mb-2 border-b'>
-              <div className='flex items-center gap-2'>
-                <Scale className='h-4 w-4 text-primary' />
-                <span className='text-xs font-bold text-foreground'>
-                  Warehouse Weighing & Box Photo Proof ({selectedPhotoIndex + 1} of {selectedPhotoUrls.length})
-                </span>
-              </div>
-              <Button
-                size='icon'
-                variant='ghost'
-                className='h-7 w-7 rounded-full'
-                onClick={() => setSelectedPhotoUrls([])}
-              >
-                <X className='h-4 w-4' />
-              </Button>
-            </div>
+          {screen === 'shipments' && (
+            <ShipmentsScreen
+              shipments={shipments}
+              onBook={() => setScreen('book')}
+              onBack={() => setScreen('home')}
+              onTrack={id => handleTrackNav(id, 'shipments')}
+              onRefresh={fetchShipments}
+            />
+          )}
 
-            {/* Main Active Image with Prev / Next Navigation */}
-            <div className='relative overflow-hidden rounded-lg bg-black flex items-center justify-center max-h-[65vh] min-h-[250px]'>
-              <img
-                src={selectedPhotoUrls[selectedPhotoIndex]}
-                alt={`Photo Proof ${selectedPhotoIndex + 1}`}
-                className='max-h-[65vh] max-w-full object-contain'
-              />
+          {screen === 'tracking' && (
+            <TrackingScreen
+              initialTrackingId={activeTrackingId}
+              onBack={() => setScreen(trackingReturnScreen)}
+            />
+          )}
 
-              {selectedPhotoUrls.length > 1 && (
-                <>
-                  <button
-                    type='button'
-                    onClick={() =>
-                      setSelectedPhotoIndex((prev) =>
-                        prev > 0 ? prev - 1 : selectedPhotoUrls.length - 1
-                      )
-                    }
-                    className='absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/90 transition-colors'
-                  >
-                    <ArrowLeft className='h-4 w-4' />
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() =>
-                      setSelectedPhotoIndex((prev) =>
-                        prev < selectedPhotoUrls.length - 1 ? prev + 1 : 0
-                      )
-                    }
-                    className='absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/90 transition-colors'
-                  >
-                    <ArrowRight className='h-4 w-4' />
-                  </button>
-                </>
-              )}
-            </div>
+          {screen === 'rateenquiry' && (
+            <RateEnquiryScreen onBack={() => setScreen('home')} />
+          )}
 
-            {/* Thumbnail Strip for Multi-Photo Box Proofs */}
-            {selectedPhotoUrls.length > 1 && (
-              <div className='flex gap-2 pt-2 overflow-x-auto pb-1'>
-                {selectedPhotoUrls.map((url, idx) => (
-                  <button
-                    key={idx}
-                    type='button'
-                    onClick={() => setSelectedPhotoIndex(idx)}
-                    className={`relative h-12 w-12 shrink-0 rounded-md overflow-hidden border-2 transition-all ${
-                      selectedPhotoIndex === idx
-                        ? 'border-primary ring-2 ring-primary/40'
-                        : 'border-border/50 opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <img
-                      src={url}
-                      alt={`Thumb ${idx + 1}`}
-                      className='h-full w-full object-cover'
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
+          {screen === 'book' && (
+            <BookScreen onComplete={handleBookComplete} />
+          )}
 
-            <div className='pt-2 flex justify-between items-center text-xs'>
-              <span className='text-[10px] text-muted-foreground'>
-                {selectedPhotoUrls.length > 1 ? `${selectedPhotoUrls.length} photos captured for boxes & scale` : '1 photo proof'}
-              </span>
-              <a
-                href={selectedPhotoUrls[selectedPhotoIndex]}
-                target='_blank'
-                rel='noreferrer'
-                className='inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline'
-              >
-                Open Original Image
-                <ExternalLink className='h-3.5 w-3.5' />
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+          {screen === 'notifications' && (
+            <NotificationsScreen onBack={() => setScreen('home')} />
+          )}
 
-      {/* ── Rate Enquiry Dialog Modal ── */}
-      <Dialog open={rateEnquiryOpen} onOpenChange={setRateEnquiryOpen}>
-        <DialogContent className='max-w-md p-5 rounded-2xl'>
-          <DialogHeader>
-            <DialogTitle className='text-lg font-bold flex items-center gap-2'>
-              <div className='w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center'>
-                <Receipt className='h-4 w-4' />
-              </div>
-              Rate Enquiry Calculator
-            </DialogTitle>
-            <DialogDescription className='text-xs'>
-              Calculate an instant estimated shipping cost before booking.
-            </DialogDescription>
-          </DialogHeader>
+          {screen === 'profile' && (
+            <ProfileScreen
+              userName={customerUser?.name}
+              userEmail={customerUser?.email}
+              userPhone={customerUser?.phone}
+              userAddress={customerUser?.address1}
+              shipmentCount={shipments.length}
+              deliveredCount={deliveredCount}
+              onSignOut={handleSignOut}
+            />
+          )}
+        </main>
 
-          <div className='space-y-3.5 pt-2'>
-            <div>
-              <label className='text-xs font-semibold block mb-1'>
-                Destination Country <span className='text-rose-500'>*</span>
-              </label>
-              <select
-                value={rateCountry}
-                onChange={(e) => {
-                  setRateCountry(e.target.value)
-                  setRateResult(null)
-                }}
-                className='w-full border rounded-xl px-3 py-2.5 text-xs bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30'
-              >
-                <option value=''>Select destination country</option>
-                {['United Kingdom', 'United States', 'Australia', 'Canada', 'Germany', 'Japan', 'Singapore', 'UAE'].map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className='text-xs font-semibold block mb-1'>
-                Commodity Type <span className='text-rose-500'>*</span>
-              </label>
-              <select
-                value={rateCommodity}
-                onChange={(e) => {
-                  setRateCommodity(e.target.value)
-                  setRateResult(null)
-                }}
-                className='w-full border rounded-xl px-3 py-2.5 text-xs bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30'
-              >
-                <option value=''>Select commodity</option>
-                {COMMODITY_SUGGESTIONS.map((comm) => (
-                  <option key={comm} value={comm}>{comm}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className='text-xs font-semibold block mb-1'>
-                Approximate Weight (kg) <span className='text-rose-500'>*</span>
-              </label>
-              <Input
-                type='number'
-                step='0.1'
-                min='0.1'
-                placeholder='e.g. 3.5'
-                value={rateWeight}
-                onChange={(e) => {
-                  setRateWeight(e.target.value)
-                  setRateResult(null)
-                }}
-                className='h-10 text-xs rounded-xl'
-              />
-            </div>
-
-            <Button
-              type='button'
-              onClick={handleCalcRate}
-              disabled={!rateCountry || !rateCommodity || !rateWeight}
-              className='w-full h-10 text-xs font-bold rounded-xl active:scale-98 transition-transform'
-            >
-              <Calculator className='h-4 w-4 mr-1.5' />
-              Calculate Estimated Rate
-            </Button>
-
-            {rateResult && (
-              <div className='rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 p-3.5 space-y-2 animate-in fade-in-50 duration-200'>
-                <div className='flex items-center justify-between text-xs pb-1 border-b border-emerald-200 dark:border-emerald-800'>
-                  <span className='text-muted-foreground'>Destination:</span>
-                  <span className='font-bold text-foreground'>{rateCountry}</span>
-                </div>
-                <div className='flex items-center justify-between text-xs pb-1 border-b border-emerald-200 dark:border-emerald-800'>
-                  <span className='text-muted-foreground'>Estimated Transit:</span>
-                  <span className='font-bold text-emerald-700 dark:text-emerald-300'>{rateResult.transit}</span>
-                </div>
-                <div className='flex items-center justify-between text-xs pb-1 border-b border-emerald-200 dark:border-emerald-800'>
-                  <span className='text-muted-foreground'>Service Level:</span>
-                  <span className='font-bold text-foreground'>{rateResult.service}</span>
-                </div>
-                <div className='flex items-center justify-between pt-1'>
-                  <span className='text-xs font-semibold text-foreground'>Estimated Rate:</span>
-                  <span className='text-base font-extrabold text-emerald-600 dark:text-emerald-400 font-serif'>{rateResult.rate}</span>
-                </div>
-                <p className='text-[10px] text-muted-foreground pt-1 italic'>
-                  * Estimate only. Final chargeable rate confirmed after warehouse electronic scale weighing and volumetric inspection.
-                </p>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
+        {/* Bottom Floating Navigation matching Figma */}
+        <BottomNav screen={screen} setScreen={setScreen} />
+      </div>
     </div>
   )
 }
