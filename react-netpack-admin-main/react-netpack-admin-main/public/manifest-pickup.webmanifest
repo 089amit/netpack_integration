@@ -1,43 +1,43 @@
 {
-  "name": "NetPack Logistics Rider & Pickup App",
-  "short_name": "NetPack Rider",
+  "name": "Netpack Rider",
+  "short_name": "Netpack Rider",
   "description": "Field pickup dispatch, instant audio push alerts, and verified warehouse weighing for NetPack Logistics riders.",
   "start_url": "/pickup-pwa",
-  "scope": "/",
+  "scope": "/pickup-pwa",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#090d16",
-  "theme_color": "#0284c7",
+  "theme_color": "#0b1e42",
   "icons": [
     {
-      "src": "/alzlogo.png",
+      "src": "/images/netpack-rider-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/alzlogo.png",
+      "src": "/images/netpack-rider-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/images/favicon.png",
-      "sizes": "192x192",
+      "src": "/images/netpack-rider-maskable-512.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
     {
       "name": "Pending Pickups",
       "url": "/pickup-pwa?filter=pending",
-      "icons": [{ "src": "/images/favicon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/images/netpack-rider-icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Completed Today",
       "url": "/pickup-pwa?filter=picked_up",
-      "icons": [{ "src": "/images/favicon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/images/netpack-rider-icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

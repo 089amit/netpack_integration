@@ -32,10 +32,18 @@ import {
   Instagram,
   Linkedin,
   Sparkles,
+  Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { isAuthenticated } from '@/lib/auth'
 import { SERVER_URL } from '@/constants/endpoint'
@@ -123,18 +131,27 @@ export default function LandingPage() {
     return () => window.removeEventListener('beforeinstallprompt', handlePrompt)
   }, [])
 
-  const handleInstallClick = async () => {
+  // Install Modal State
+  const [installModalOpen, setInstallModalOpen] = useState(false)
+  const [installModalTarget, setInstallModalTarget] = useState<'customer' | 'rider'>('customer')
+
+  const handleInstallClick = async (target: 'customer' | 'rider' = 'customer') => {
     if (deferredPrompt) {
-      deferredPrompt.prompt()
-      const { outcome } = await deferredPrompt.userChoice
-      if (outcome === 'accepted') {
-        toast.success('NetPack Logistic App successfully installed!')
+      try {
+        deferredPrompt.prompt()
+        const { outcome } = await deferredPrompt.userChoice
+        if (outcome === 'accepted') {
+          toast.success(`${target === 'rider' ? 'Netpack Rider' : 'Netpack'} App installed!`)
+        }
+        setDeferredPrompt(null)
+        return
+      } catch (err) {
+        console.warn('Install prompt error:', err)
       }
-      setDeferredPrompt(null)
-    } else {
-      // Direct user to PWA mobile experience
-      window.location.href = '/pwa'
     }
+    // If deferredPrompt is unavailable (iOS Safari, or user on mobile browser where menu action is needed)
+    setInstallModalTarget(target)
+    setInstallModalOpen(true)
   }
 
   const handleTrack = async (e?: React.FormEvent) => {
@@ -303,12 +320,9 @@ export default function LandingPage() {
       <header className='bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 sticky top-0 z-50 shadow-xs'>
         <div className='container mx-auto px-4 py-3'>
           <div className='flex items-center justify-between'>
-            {/* Logo */}
+            {/* Logo without redundant text */}
             <a href='/' className='flex items-center gap-3 group'>
-              <img src='/alzlogo.png' alt='NetPack Logistic Logo' className='h-9 w-auto object-contain transition-transform group-hover:scale-105' />
-              <span className='font-bold text-lg tracking-tight hidden sm:inline-block text-slate-900 dark:text-white'>
-                NETPACK <span className='text-blue-600'>LOGISTIC</span>
-              </span>
+              <img src='/alzlogo.png' alt='Netpack Logo' className='h-9 md:h-10 w-auto object-contain transition-transform group-hover:scale-105' />
             </a>
 
             {/* Desktop Navigation Links */}
@@ -347,23 +361,13 @@ export default function LandingPage() {
               {/* Install App Button */}
               <button
                 type='button'
-                onClick={handleInstallClick}
+                onClick={() => handleInstallClick('customer')}
                 className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300 font-semibold text-xs shadow-xs transition-all cursor-pointer'
-                title='Install NetPack PWA on Mobile / Desktop'
+                title='Install Netpack App on Phone / Desktop'
               >
-                <Smartphone className='h-3.5 w-3.5 text-blue-600' />
+                <Download className='h-3.5 w-3.5 text-blue-600' />
                 <span>Install App</span>
               </button>
-
-              {/* Rider App Button */}
-              <a
-                href='/pickup-pwa'
-                className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs shadow-xs transition-all'
-                title='NetPack Pickup Rider Dispatch App'
-              >
-                <Truck className='h-3.5 w-3.5 text-sky-500' />
-                <span>Rider App</span>
-              </a>
 
               {/* Login Button (redirects to main site / portal) */}
               {isAuth ? (
@@ -430,19 +434,15 @@ export default function LandingPage() {
               <div className='flex items-center justify-between'>
                 <button
                   type='button'
-                  onClick={handleInstallClick}
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    handleInstallClick('customer')
+                  }}
                   className='inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600'
                 >
-                  <Smartphone className='h-4 w-4' />
+                  <Download className='h-4 w-4' />
                   <span>Install Mobile App</span>
                 </button>
-                <a
-                  href='/pickup-pwa'
-                  className='inline-flex items-center gap-1 text-xs font-semibold text-sky-600'
-                >
-                  <Truck className='h-3.5 w-3.5' />
-                  <span>Rider App</span>
-                </a>
               </div>
               <div className='flex items-center justify-between pt-1'>
                 <a
@@ -456,6 +456,40 @@ export default function LandingPage() {
           </div>
         )}
       </header>
+
+      {/* ── AUTOMATED LIVE LOGISTICS STATUS TICKER ─────────────────────────── */}
+      <div className='bg-slate-900 text-slate-200 border-b border-slate-800 text-xs py-2 px-4 overflow-hidden relative shadow-inner'>
+        <div className='container mx-auto flex items-center justify-between gap-4'>
+          <div className='flex items-center gap-2 shrink-0 font-bold text-sky-400 text-[11px] uppercase tracking-wider'>
+            <span className='relative flex h-2.5 w-2.5'>
+              <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75' />
+              <span className='relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500' />
+            </span>
+            <span>Live Dispatch Status:</span>
+          </div>
+          <div className='flex items-center gap-6 md:gap-8 overflow-x-auto no-scrollbar whitespace-nowrap text-xs text-slate-300'>
+            <div className='flex items-center gap-2'>
+              <Plane className='h-3.5 w-3.5 text-blue-400 shrink-0' />
+              <span>Air Cargo Route: <strong>KTM ➔ DXB (Daily Direct)</strong></span>
+            </div>
+            <span className='text-slate-600'>•</span>
+            <div className='flex items-center gap-2'>
+              <Truck className='h-3.5 w-3.5 text-emerald-400 shrink-0' />
+              <span>Kathmandu Valley Pickup: <strong>Active (20-30 min dispatch)</strong></span>
+            </div>
+            <span className='text-slate-600'>•</span>
+            <div className='flex items-center gap-2'>
+              <Shield className='h-3.5 w-3.5 text-amber-400 shrink-0' />
+              <span>TIA Customs Clearance: <strong>Operational</strong></span>
+            </div>
+            <span className='text-slate-600'>•</span>
+            <div className='flex items-center gap-2'>
+              <Globe className='h-3.5 w-3.5 text-sky-400 shrink-0' />
+              <span>Coverage: <strong>75+ Hubs Across Nepal &amp; Worldwide</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── HERO SECTION ────────────────────────────────────────────────────── */}
       <section className='bg-gradient-to-br from-blue-50/40 via-white to-slate-100/60 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 py-16 lg:py-24 border-b border-gray-200 dark:border-slate-800 relative overflow-hidden'>
@@ -493,33 +527,50 @@ export default function LandingPage() {
                 </a>
               </div>
 
-              {/* Download NetPack App banner */}
-              <div className='rounded-2xl border border-blue-100 dark:border-blue-950 bg-gradient-to-r from-blue-50/70 via-white to-blue-50/40 dark:from-slate-900 dark:to-blue-950/30 p-4 shadow-xs'>
+              {/* Netpack Mobile App Card */}
+              <div className='rounded-2xl border border-blue-100 dark:border-blue-950 bg-gradient-to-r from-blue-50/80 via-white to-blue-50/40 dark:from-slate-900 dark:via-slate-900/90 dark:to-blue-950/30 p-4 shadow-sm'>
                 <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
-                  <div className='space-y-1'>
-                    <p className='text-xs font-bold uppercase tracking-wider text-blue-600'>
-                      Mobile App
-                    </p>
-                    <h3 className='text-base font-bold text-slate-900 dark:text-white'>
-                      Download NetPack App
-                    </h3>
-                    <p className='text-xs text-slate-500 dark:text-slate-400'>
-                      Track shipments, request pickups, and stay updated on the go.
-                    </p>
+                  <div className='flex items-center gap-3.5'>
+                    <img
+                      src='/images/netpack-icon-192.png'
+                      alt='Netpack'
+                      className='h-12 w-12 rounded-2xl border border-blue-100 dark:border-slate-700 bg-white p-0.5 shadow-sm shrink-0 object-contain'
+                    />
+                    <div className='space-y-0.5 text-left'>
+                      <div className='flex items-center gap-2'>
+                        <span className='text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400'>
+                          Mobile App
+                        </span>
+                        <span className='inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-medium'>
+                          <span className='h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse' />
+                          Direct Phone Install
+                        </span>
+                      </div>
+                      <h3 className='text-base font-bold text-slate-900 dark:text-white'>
+                        Download Netpack App
+                      </h3>
+                      <p className='text-xs text-slate-500 dark:text-slate-400'>
+                        Track shipments, request pickups, and view scale weights on the go.
+                      </p>
+                    </div>
                   </div>
-                  <button
-                    type='button'
-                    onClick={handleInstallClick}
-                    className='group inline-flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 shadow-xs hover:border-blue-500 transition-all cursor-pointer'
-                  >
-                    <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950'>
-                      <Smartphone className='h-5 w-5 text-blue-600' />
-                    </div>
-                    <div className='text-left'>
-                      <p className='text-[9px] uppercase tracking-wider text-slate-400 font-semibold'>Get it on</p>
-                      <img src='/google.png' alt='Google Play' className='h-6 w-auto' />
-                    </div>
-                  </button>
+                  <div className='flex items-center gap-2 sm:shrink-0'>
+                    <button
+                      type='button'
+                      onClick={() => handleInstallClick('customer')}
+                      className='w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-5 py-2.5 font-semibold text-xs shadow-sm hover:shadow transition-all cursor-pointer'
+                    >
+                      <Download className='h-4 w-4' />
+                      <span>Install App</span>
+                    </button>
+                    <a
+                      href='/pwa'
+                      className='hidden md:inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-3.5 py-2.5 font-medium text-xs transition-all'
+                    >
+                      <span>Open</span>
+                      <ArrowRight className='h-3.5 w-3.5' />
+                    </a>
+                  </div>
                 </div>
               </div>
 
@@ -1354,14 +1405,90 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── NETPACK RIDER DISPATCH & APP SECTION (BOTTOM OF HOMEPAGE) ───────────────── */}
+      <section id='rider-dispatch' className='py-16 bg-slate-950 text-white relative overflow-hidden border-t border-slate-800'>
+        {/* Ambient Glow */}
+        <div className='absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none' />
+        <div className='absolute bottom-0 left-0 -mb-10 -ml-10 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none' />
+
+        <div className='container mx-auto px-4 relative z-10'>
+          <div className='max-w-5xl mx-auto rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 p-6 md:p-10 shadow-2xl'>
+            <div className='grid lg:grid-cols-12 gap-8 items-center'>
+              {/* Icon & Details */}
+              <div className='lg:col-span-8 space-y-4 text-left'>
+                <div className='flex items-center gap-3.5'>
+                  <img
+                    src='/images/netpack-rider-icon-192.png'
+                    alt='Netpack Rider App'
+                    className='h-16 w-16 rounded-2xl border border-slate-700 bg-white p-1 shadow-lg shrink-0 object-contain'
+                  />
+                  <div>
+                    <div className='inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold uppercase tracking-wider mb-1'>
+                      <span className='h-2 w-2 rounded-full bg-emerald-400 animate-pulse' />
+                      Field Operations Only
+                    </div>
+                    <h3 className='text-2xl md:text-3xl font-extrabold text-white tracking-tight'>
+                      Netpack Rider App
+                    </h3>
+                  </div>
+                </div>
+
+                <p className='text-slate-300 text-sm md:text-base leading-relaxed'>
+                  Are you a Netpack delivery executive or field pickup rider? Launch the dedicated Rider App for instant audio pickup alerts, live route navigation, digital Bluetooth scale sync, and instant customer signature capture.
+                </p>
+
+                <div className='grid sm:grid-cols-3 gap-3 pt-2 text-xs text-slate-300'>
+                  <div className='flex items-center gap-2 bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60'>
+                    <Truck className='h-4 w-4 text-sky-400 shrink-0' />
+                    <span>Instant Audio Dispatch</span>
+                  </div>
+                  <div className='flex items-center gap-2 bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60'>
+                    <MapPin className='h-4 w-4 text-emerald-400 shrink-0' />
+                    <span>Turn-by-Turn GPS</span>
+                  </div>
+                  <div className='flex items-center gap-2 bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60'>
+                    <Smartphone className='h-4 w-4 text-blue-400 shrink-0' />
+                    <span>Scale Weight Sync</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className='lg:col-span-4 flex flex-col gap-3.5'>
+                <a
+                  href='/pickup-pwa'
+                  className='inline-flex items-center justify-center gap-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-sm px-6 py-3.5 rounded-xl shadow-lg hover:shadow-blue-600/30 transition-all cursor-pointer'
+                >
+                  <Truck className='h-4 w-4' />
+                  <span>Launch Rider App</span>
+                  <ArrowRight className='h-4 w-4 ml-auto' />
+                </a>
+
+                <button
+                  type='button'
+                  onClick={() => handleInstallClick('rider')}
+                  className='inline-flex items-center justify-center gap-2 border border-slate-700 bg-slate-800/80 hover:bg-slate-800 active:scale-95 text-slate-200 font-semibold text-xs px-5 py-3 rounded-xl transition-all cursor-pointer'
+                >
+                  <Download className='h-4 w-4 text-sky-400' />
+                  <span>Install Rider App on Phone</span>
+                </button>
+
+                <p className='text-[11px] text-slate-400 text-center'>
+                  Works offline &bull; Directly installable to phone home screen
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── FOOTER ─────────────────────────────────────────────────────────── */}
       <footer className='bg-slate-950 text-slate-400 text-xs py-14 mt-auto'>
         <div className='container mx-auto px-4'>
           <div className='grid md:grid-cols-2 lg:grid-cols-4 gap-8 text-left'>
             <div className='space-y-4'>
               <div className='flex items-center gap-2'>
-                <img src='/alzlogo.png' alt='NetPack Logo' className='h-8 w-auto' />
-                <span className='font-bold text-white text-base'>NETPACK LOGISTIC</span>
+                <img src='/alzlogo.png' alt='Netpack Logo' className='h-8 w-auto' />
               </div>
               <p className='leading-relaxed text-slate-400'>
                 Your trusted logistics partner in Nepal, delivering excellence with every package since 2009.
@@ -1399,7 +1526,8 @@ export default function LandingPage() {
                 <li><a href='#tracking' className='hover:text-white transition-colors'>Track Package</a></li>
                 <li><a href='#about' className='hover:text-white transition-colors'>About Us</a></li>
                 <li><a href='#contact' className='hover:text-white transition-colors'>Contact</a></li>
-                <li><a href='/pwa' className='hover:text-white transition-colors'>Customer PWA Web App</a></li>
+                <li><a href='/pwa' className='hover:text-white transition-colors'>Customer App</a></li>
+                <li><a href='/pickup-pwa' className='hover:text-white transition-colors'>Rider Dispatch App</a></li>
                 <li><a href='/sign-in' className='hover:text-white transition-colors'>Staff Portal Login</a></li>
               </ul>
             </div>
@@ -1433,6 +1561,74 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* ── INSTALL APP GUIDANCE DIALOG ────────────────────────────────────────── */}
+      <Dialog open={installModalOpen} onOpenChange={setInstallModalOpen}>
+        <DialogContent className='sm:max-w-md bg-card text-card-foreground border-border'>
+          <DialogHeader className='text-center sm:text-left'>
+            <div className='flex items-center gap-3 mb-2'>
+              <img
+                src={installModalTarget === 'rider' ? '/images/netpack-rider-icon-192.png' : '/images/netpack-icon-192.png'}
+                alt='App Icon'
+                className='h-12 w-12 rounded-2xl border border-border bg-white p-0.5 shadow-sm object-contain'
+              />
+              <div>
+                <DialogTitle className='text-base font-bold'>
+                  Install {installModalTarget === 'rider' ? 'Netpack Rider' : 'Netpack'} on Your Phone
+                </DialogTitle>
+                <DialogDescription className='text-xs text-muted-foreground'>
+                  Direct phone app installation with offline support and instant 1-tap access.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className='space-y-3 py-1 text-xs'>
+            {/* Android Instructions */}
+            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
+              <div className='flex items-center gap-2 font-bold text-foreground'>
+                <Smartphone className='h-4 w-4 text-emerald-500' />
+                <span>On Android (Chrome / Brave / Samsung)</span>
+              </div>
+              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
+                <li>Tap the <strong>three dots menu (⋮)</strong> at top-right of your browser.</li>
+                <li>Tap <strong>&quot;Install app&quot;</strong> or <strong>&quot;Add to Home screen&quot;</strong>.</li>
+                <li>Confirm by tapping <strong>Install</strong>.</li>
+              </ol>
+            </div>
+
+            {/* iOS Instructions */}
+            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
+              <div className='flex items-center gap-2 font-bold text-foreground'>
+                <Smartphone className='h-4 w-4 text-blue-500' />
+                <span>On iPhone / iPad (Safari)</span>
+              </div>
+              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
+                <li>Tap the <strong>Share button (⎋)</strong> at the bottom of the screen.</li>
+                <li>Scroll down and select <strong>&quot;Add to Home Screen&quot; (+)</strong>.</li>
+                <li>Tap <strong>Add</strong> in the top-right corner.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div className='flex items-center justify-between gap-3 pt-3 border-t border-border/60'>
+            <a
+              href={installModalTarget === 'rider' ? '/pickup-pwa' : '/pwa'}
+              className='inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline'
+            >
+              <span>Launch Web Version</span>
+              <ArrowRight className='h-3.5 w-3.5' />
+            </a>
+            <Button
+              type='button'
+              onClick={() => setInstallModalOpen(false)}
+              className='h-9 px-4 rounded-xl text-xs font-semibold'
+            >
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

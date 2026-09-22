@@ -37,11 +37,6 @@ export const sidebarData: SidebarData = {
           icon: IconTruckDelivery,
         },
         {
-          title: 'Rider PWA (Live)',
-          url: '/pickup-pwa',
-          icon: IconTruckDelivery,
-        },
-        {
           title: 'Enquiry',
           url: '/tasks',
           icon: IconChecklist,

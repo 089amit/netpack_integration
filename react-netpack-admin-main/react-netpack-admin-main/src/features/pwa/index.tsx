@@ -32,6 +32,8 @@ import {
   Sun,
   Moon,
   Laptop,
+  Download,
+  Smartphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -266,6 +268,36 @@ export default function CustomerPWA() {
   const [authCity, setAuthCity] = useState('Kathmandu')
   const [authPostcode, setAuthPostcode] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
+
+  // PWA Install state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [installModalOpen, setInstallModalOpen] = useState(false)
+
+  useEffect(() => {
+    const handlePrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handlePrompt)
+    return () => window.removeEventListener('beforeinstallprompt', handlePrompt)
+  }, [])
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt()
+        const { outcome } = await deferredPrompt.userChoice
+        if (outcome === 'accepted') {
+          toast.success('Netpack app successfully installed to your home screen!')
+        }
+        setDeferredPrompt(null)
+        return
+      } catch (err) {
+        console.warn('Install prompt error:', err)
+      }
+    }
+    setInstallModalOpen(true)
+  }
 
   // Google Signup Modal state
   const [googleModalOpen, setGoogleModalOpen] = useState(false)
@@ -961,14 +993,16 @@ export default function CustomerPWA() {
       <header className='sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md px-4 py-3 sm:px-6 shadow-xs'>
         <div className='max-w-4xl mx-auto flex items-center justify-between'>
           <div className='flex items-center gap-2.5'>
-            <div className='h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-extrabold shadow-md'>
-              NP
-            </div>
+            <img
+              src='/images/netpack-icon-192.png'
+              alt='Netpack'
+              className='h-9 w-9 rounded-xl border border-border bg-white p-0.5 shadow-sm object-contain shrink-0'
+            />
             <div>
               <div className='font-bold text-base leading-tight tracking-tight flex items-center gap-1.5'>
-                NetPack Express
+                Netpack
                 <Badge variant='outline' className='text-[10px] py-0 px-1.5 bg-primary/10 text-primary border-primary/30'>
-                  PWA Portal
+                  Customer App
                 </Badge>
               </div>
               <div className='text-[11px] text-muted-foreground'>Global Express & Courier Services</div>
@@ -976,6 +1010,16 @@ export default function CustomerPWA() {
           </div>
 
           <div className='flex items-center gap-2'>
+            {/* Install App on Phone */}
+            <button
+              type='button'
+              onClick={handleInstallClick}
+              className='inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs transition-all cursor-pointer'
+              title='Install Netpack App on Phone'
+            >
+              <Download className='h-3.5 w-3.5' />
+              <span className='hidden sm:inline'>Install App</span>
+            </button>
             <ThemeSwitch />
             {customerToken ? (
               <>
@@ -3074,6 +3118,67 @@ export default function CustomerPWA() {
           </div>
         </div>
       )}
+
+      {/* ── INSTALL APP GUIDANCE DIALOG ────────────────────────────────────────── */}
+      <Dialog open={installModalOpen} onOpenChange={setInstallModalOpen}>
+        <DialogContent className='sm:max-w-md bg-card text-card-foreground border-border'>
+          <DialogHeader className='text-center sm:text-left'>
+            <div className='flex items-center gap-3 mb-2'>
+              <img
+                src='/images/netpack-icon-192.png'
+                alt='Netpack'
+                className='h-12 w-12 rounded-2xl border border-border bg-white p-0.5 shadow-sm object-contain'
+              />
+              <div>
+                <DialogTitle className='text-base font-bold'>
+                  Install Netpack on Your Phone
+                </DialogTitle>
+                <DialogDescription className='text-xs text-muted-foreground'>
+                  Direct phone app installation with offline support and instant 1-tap access.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className='space-y-3 py-1 text-xs'>
+            {/* Android Instructions */}
+            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
+              <div className='flex items-center gap-2 font-bold text-foreground'>
+                <Smartphone className='h-4 w-4 text-emerald-500' />
+                <span>On Android (Chrome / Brave / Samsung)</span>
+              </div>
+              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
+                <li>Tap the <strong>three dots menu (⋮)</strong> at top-right of your browser.</li>
+                <li>Tap <strong>&quot;Install app&quot;</strong> or <strong>&quot;Add to Home screen&quot;</strong>.</li>
+                <li>Confirm by tapping <strong>Install</strong>.</li>
+              </ol>
+            </div>
+
+            {/* iOS Instructions */}
+            <div className='p-3 rounded-xl bg-muted/60 border border-border/80 space-y-1.5'>
+              <div className='flex items-center gap-2 font-bold text-foreground'>
+                <Smartphone className='h-4 w-4 text-blue-500' />
+                <span>On iPhone / iPad (Safari)</span>
+              </div>
+              <ol className='list-decimal list-inside space-y-1 text-muted-foreground pl-1'>
+                <li>Tap the <strong>Share button (⎋)</strong> at the bottom of the screen.</li>
+                <li>Scroll down and select <strong>&quot;Add to Home Screen&quot; (+)</strong>.</li>
+                <li>Tap <strong>Add</strong> in the top-right corner.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div className='flex justify-end pt-3 border-t border-border/60'>
+            <Button
+              type='button'
+              onClick={() => setInstallModalOpen(false)}
+              className='h-9 px-4 rounded-xl text-xs font-semibold'
+            >
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
