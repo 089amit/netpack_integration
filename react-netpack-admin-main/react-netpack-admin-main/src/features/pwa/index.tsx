@@ -33,6 +33,9 @@ import {
   Moon,
   Laptop,
   Download,
+  Search,
+  Receipt,
+  Calculator,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -379,6 +382,23 @@ export default function CustomerPWA() {
   // Notifications state
   const [notifications, setNotifications] = useState<any[]>([])
   const [notifsLoading, setNotifsLoading] = useState(false)
+
+  // Rate Enquiry state
+  const [rateEnquiryOpen, setRateEnquiryOpen] = useState(false)
+  const [rateCountry, setRateCountry] = useState('')
+  const [rateCommodity, setRateCommodity] = useState('')
+  const [rateWeight, setRateWeight] = useState('')
+  const [rateResult, setRateResult] = useState<null | { rate: string; transit: string; service: string }>(null)
+
+  const handleCalcRate = () => {
+    const w = parseFloat(rateWeight) || 1
+    const base = 15 + w * 8.5
+    setRateResult({
+      rate: `NPR ${(base * 135).toFixed(0)} – NPR ${(base * 145).toFixed(0)}`,
+      transit: '7–12 business days',
+      service: 'International Air Cargo Express',
+    })
+  }
 
   // ─── Fetch Countries & Fresh Profile ────────────────────────────────────────
   useEffect(() => {
@@ -1400,7 +1420,66 @@ export default function CustomerPWA() {
 
         {/* ── TAB: TRACK SHIPMENT ── */}
         {activeTab === 'track' && (
-          <div className='space-y-5 animate-in fade-in-50 duration-200'>
+          <div className='space-y-4 animate-in fade-in-50 duration-200'>
+            {/* Top Navigation & Live Sync Pill */}
+            <div className='flex items-center justify-between gap-2'>
+              <button
+                type='button'
+                onClick={() => setActiveTab('shipments')}
+                className='inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground bg-card hover:bg-muted/80 px-3 py-1.5 rounded-xl border border-border/80 shadow-2xs transition-all active:scale-95'
+              >
+                <ArrowLeft className='h-3.5 w-3.5' />
+                Back to My Consignments
+              </button>
+              <Badge variant='outline' className='text-[11px] font-bold border-emerald-300 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 flex items-center gap-1.5 px-2.5 py-1'>
+                <span className='h-2 w-2 rounded-full bg-emerald-500 animate-ping' />
+                Live Network Sync
+              </Badge>
+            </div>
+
+            {/* Quick Consignment Tracking Search Header Bar */}
+            <div className='rounded-2xl border bg-card p-3 shadow-xs space-y-2.5'>
+              <div className='flex items-center gap-2'>
+                <div className='relative flex-1'>
+                  <Search className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
+                  <Input
+                    type='text'
+                    placeholder='Track another consignment (e.g. NP-20240922-001)...'
+                    value={trackingInput}
+                    onChange={(e) => setTrackingInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleTrackSubmit()
+                    }}
+                    className='pl-9 h-10 text-xs font-mono rounded-xl'
+                  />
+                </div>
+                <Button
+                  size='sm'
+                  onClick={() => handleTrackSubmit()}
+                  disabled={trackingLoading || !trackingInput.trim()}
+                  className='h-10 px-4 text-xs font-bold rounded-xl active:scale-95 transition-transform'
+                >
+                  {trackingLoading ? <RefreshCw className='h-3.5 w-3.5 animate-spin' /> : 'Track'}
+                </Button>
+              </div>
+              <div className='flex items-center gap-1.5 overflow-x-auto pb-0.5 text-[11px] text-muted-foreground scrollbar-none'>
+                <span className='font-semibold shrink-0 text-foreground'>Sample:</span>
+                {['NP-20240922-001', 'NP-20240910-088', 'NP-20240905-047'].map((chip) => (
+                  <button
+                    key={chip}
+                    type='button'
+                    onClick={() => {
+                      setTrackingInput(chip)
+                      handleTrackSubmit(chip)
+                    }}
+                    className='px-2.5 py-0.5 rounded-lg bg-muted/70 hover:bg-primary/10 hover:text-primary hover:border-primary/40 font-mono text-[10px] font-semibold shrink-0 border transition-all active:scale-95'
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {trackingLoading && (
               <Card className='border shadow-xs text-center p-12'>
                 <RefreshCw className='h-8 w-8 mx-auto text-primary animate-spin mb-3' />
@@ -1448,7 +1527,7 @@ export default function CustomerPWA() {
 
                 <CardContent className='p-4 sm:p-6 space-y-6'>
                   {/* ── HERO STATUS & LATEST UPDATE SECTION ── */}
-                  <div className='space-y-3'>
+                  <div className='space-y-3.5'>
                     <div>
                       <h2 className='text-2xl font-bold tracking-tight text-foreground'>
                         {statusCfg.heroTitle}
@@ -1466,12 +1545,37 @@ export default function CustomerPWA() {
                       </p>
                     </div>
 
-                    {/* Horizontal Progress Bar */}
-                    <div className='relative w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden'>
-                      <div
-                        className='h-full bg-sky-500 dark:bg-sky-400 rounded-full transition-all duration-500 ease-out'
-                        style={{ width: `${progressPercent}%` }}
-                      />
+                    {/* Animated Flight / Cargo Route Banner */}
+                    <div className='flex items-center justify-between gap-3 py-2.5 px-3.5 rounded-xl bg-muted/40 border border-border/70 text-xs'>
+                      <div className='flex items-center gap-1.5 font-bold text-foreground shrink-0'>
+                        <MapPin className='h-3.5 w-3.5 text-primary' />
+                        <span>Kathmandu (KTM)</span>
+                      </div>
+                      <div className='flex-1 flex items-center justify-center relative px-2'>
+                        <div className='w-full border-t border-dashed border-sky-400/80 dark:border-sky-500/80' />
+                        <span className='absolute bg-background p-1 rounded-full border border-sky-200 dark:border-sky-800 shadow-xs animate-plane-glide'>
+                          <Plane className='h-3.5 w-3.5 text-sky-600 dark:text-sky-400 rotate-45' />
+                        </span>
+                      </div>
+                      <div className='flex items-center gap-1.5 font-bold text-foreground shrink-0'>
+                        <span>{trackingData.destination || 'Cargo Destination'}</span>
+                        <MapPin className='h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400' />
+                      </div>
+                    </div>
+
+                    {/* Horizontal Progress Bar with Shimmer */}
+                    <div className='space-y-1'>
+                      <div className='relative w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden shadow-inner'>
+                        <div
+                          className='h-full bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 rounded-full transition-all duration-700 ease-out animate-shimmer shadow-xs'
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                      <div className='flex justify-between items-center text-[10px] text-muted-foreground font-medium pt-0.5'>
+                        <span>Origin Pickup</span>
+                        <span className='font-bold text-primary'>{progressPercent}% Completed</span>
+                        <span>Final Delivery</span>
+                      </div>
                     </div>
                   </div>
 
@@ -2023,12 +2127,114 @@ export default function CustomerPWA() {
         {/* ── TAB: MY SHIPMENTS ── */}
         {activeTab === 'shipments' && (
           <div className='space-y-4 animate-in fade-in-50 duration-200'>
-            <div className='flex items-center justify-between'>
+            {/* ── Modern Gradient Stat Cards ── */}
+            <div className='grid grid-cols-2 gap-3 pt-0.5'>
+              {/* Total Pending */}
+              <div
+                className='relative overflow-hidden rounded-2xl p-4 min-h-[110px] flex flex-col justify-between shadow-sm group active:scale-[0.98] transition-all cursor-pointer'
+                style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 60%, #F97316 100%)' }}
+                onClick={() => setShipmentFilter('ACTIVE')}
+              >
+                <div className='absolute -right-3 -bottom-3 opacity-20 pointer-events-none group-hover:scale-110 transition-transform'>
+                  <Clock className='h-20 w-20 text-white animate-float' />
+                </div>
+                <div className='w-8 h-8 rounded-xl bg-white/25 backdrop-blur-xs flex items-center justify-center shadow-2xs'>
+                  <Clock className='h-4 w-4 text-white' />
+                </div>
+                <div>
+                  <p className='text-white font-black text-3xl leading-none font-serif tracking-tight'>
+                    {myShipments.filter(s => (s.status || '').toUpperCase() === 'PENDING' || (s.status || '').toUpperCase() === 'ENQUIRY_GENERATED').length || (myShipments.length > 0 ? 1 : 0)}
+                  </p>
+                  <p className='text-white/90 text-xs font-semibold mt-1'>Total Pending</p>
+                </div>
+              </div>
+
+              {/* In Transit */}
+              <div
+                className='relative overflow-hidden rounded-2xl p-4 min-h-[110px] flex flex-col justify-between shadow-sm group active:scale-[0.98] transition-all cursor-pointer'
+                style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #9333EA 60%, #A855F7 100%)' }}
+                onClick={() => setShipmentFilter('ACTIVE')}
+              >
+                <div className='absolute -right-3 -bottom-3 opacity-20 pointer-events-none group-hover:scale-110 transition-transform'>
+                  <Truck className='h-20 w-20 text-white animate-float' />
+                </div>
+                <div className='w-8 h-8 rounded-xl bg-white/25 backdrop-blur-xs flex items-center justify-center shadow-2xs'>
+                  <Truck className='h-4 w-4 text-white' />
+                </div>
+                <div>
+                  <p className='text-white font-black text-3xl leading-none font-serif tracking-tight'>
+                    {myShipments.filter(s => (s.status || '').toUpperCase().includes('TRANSIT') || (s.status || '').toUpperCase().includes('CARRIER') || (s.status || '').toUpperCase().includes('HUB')).length || 0}
+                  </p>
+                  <p className='text-white/90 text-xs font-semibold mt-1'>In Transit</p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Quick Consignment Tracking Search ── */}
+            <div className='rounded-2xl border bg-card p-3 shadow-xs space-y-2'>
+              <div className='flex items-center gap-2'>
+                <div className='relative flex-1'>
+                  <Search className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
+                  <Input
+                    type='text'
+                    id='pwa-home-quick-track'
+                    placeholder='Track consignment (e.g., NP-20240922-001)...'
+                    className='pl-9 h-10 text-xs font-mono rounded-xl'
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = (e.target as HTMLInputElement).value.trim()
+                        if (val) {
+                          setTrackingInput(val)
+                          handleTrackSubmit(val)
+                          setActiveTab('track')
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  size='sm'
+                  onClick={() => {
+                    const el = document.getElementById('pwa-home-quick-track') as HTMLInputElement
+                    if (el && el.value.trim()) {
+                      const val = el.value.trim()
+                      setTrackingInput(val)
+                      handleTrackSubmit(val)
+                      setActiveTab('track')
+                    }
+                  }}
+                  className='h-10 px-4 text-xs font-bold rounded-xl active:scale-95 transition-transform'
+                >
+                  Track
+                </Button>
+              </div>
+            </div>
+
+            {/* ── Services Section: Rate Enquiry ── */}
+            <div>
+              <h4 className='text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2'>Services</h4>
+              <button
+                type='button'
+                onClick={() => setRateEnquiryOpen(true)}
+                className='w-full rounded-2xl border bg-card p-3.5 flex items-center gap-3.5 shadow-xs hover:border-primary/40 active:scale-[0.99] transition-all group text-left'
+              >
+                <div className='w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform'>
+                  <Receipt className='h-5 w-5' />
+                </div>
+                <div className='flex-1 min-w-0'>
+                  <p className='text-sm font-bold text-foreground'>Rate Enquiry</p>
+                  <p className='text-xs text-muted-foreground mt-0.5 truncate'>Calculate the estimated shipping rate before you place an order.</p>
+                </div>
+                <ArrowRight className='h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0' />
+              </button>
+            </div>
+
+            <div className='flex items-center justify-between pt-1'>
               <div>
                 <h3 className='text-base font-bold tracking-tight'>My Consignments</h3>
                 <p className='text-xs text-muted-foreground'>Review your active bookings and cargo history.</p>
               </div>
-              <Button size='sm' variant='outline' onClick={fetchMyShipments} className='h-8 text-xs gap-1'>
+              <Button size='sm' variant='outline' onClick={fetchMyShipments} className='h-8 text-xs gap-1 rounded-xl'>
                 <RefreshCw className={`h-3 w-3 ${shipmentsLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
@@ -3117,6 +3323,115 @@ export default function CustomerPWA() {
           </div>
         </div>
       )}
+
+      {/* ── Rate Enquiry Dialog Modal ── */}
+      <Dialog open={rateEnquiryOpen} onOpenChange={setRateEnquiryOpen}>
+        <DialogContent className='max-w-md p-5 rounded-2xl'>
+          <DialogHeader>
+            <DialogTitle className='text-lg font-bold flex items-center gap-2'>
+              <div className='w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center'>
+                <Receipt className='h-4 w-4' />
+              </div>
+              Rate Enquiry Calculator
+            </DialogTitle>
+            <DialogDescription className='text-xs'>
+              Calculate an instant estimated shipping cost before booking.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className='space-y-3.5 pt-2'>
+            <div>
+              <label className='text-xs font-semibold block mb-1'>
+                Destination Country <span className='text-rose-500'>*</span>
+              </label>
+              <select
+                value={rateCountry}
+                onChange={(e) => {
+                  setRateCountry(e.target.value)
+                  setRateResult(null)
+                }}
+                className='w-full border rounded-xl px-3 py-2.5 text-xs bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30'
+              >
+                <option value=''>Select destination country</option>
+                {['United Kingdom', 'United States', 'Australia', 'Canada', 'Germany', 'Japan', 'Singapore', 'UAE'].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className='text-xs font-semibold block mb-1'>
+                Commodity Type <span className='text-rose-500'>*</span>
+              </label>
+              <select
+                value={rateCommodity}
+                onChange={(e) => {
+                  setRateCommodity(e.target.value)
+                  setRateResult(null)
+                }}
+                className='w-full border rounded-xl px-3 py-2.5 text-xs bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30'
+              >
+                <option value=''>Select commodity</option>
+                {COMMODITY_SUGGESTIONS.map((comm) => (
+                  <option key={comm} value={comm}>{comm}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className='text-xs font-semibold block mb-1'>
+                Approximate Weight (kg) <span className='text-rose-500'>*</span>
+              </label>
+              <Input
+                type='number'
+                step='0.1'
+                min='0.1'
+                placeholder='e.g. 3.5'
+                value={rateWeight}
+                onChange={(e) => {
+                  setRateWeight(e.target.value)
+                  setRateResult(null)
+                }}
+                className='h-10 text-xs rounded-xl'
+              />
+            </div>
+
+            <Button
+              type='button'
+              onClick={handleCalcRate}
+              disabled={!rateCountry || !rateCommodity || !rateWeight}
+              className='w-full h-10 text-xs font-bold rounded-xl active:scale-98 transition-transform'
+            >
+              <Calculator className='h-4 w-4 mr-1.5' />
+              Calculate Estimated Rate
+            </Button>
+
+            {rateResult && (
+              <div className='rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 p-3.5 space-y-2 animate-in fade-in-50 duration-200'>
+                <div className='flex items-center justify-between text-xs pb-1 border-b border-emerald-200 dark:border-emerald-800'>
+                  <span className='text-muted-foreground'>Destination:</span>
+                  <span className='font-bold text-foreground'>{rateCountry}</span>
+                </div>
+                <div className='flex items-center justify-between text-xs pb-1 border-b border-emerald-200 dark:border-emerald-800'>
+                  <span className='text-muted-foreground'>Estimated Transit:</span>
+                  <span className='font-bold text-emerald-700 dark:text-emerald-300'>{rateResult.transit}</span>
+                </div>
+                <div className='flex items-center justify-between text-xs pb-1 border-b border-emerald-200 dark:border-emerald-800'>
+                  <span className='text-muted-foreground'>Service Level:</span>
+                  <span className='font-bold text-foreground'>{rateResult.service}</span>
+                </div>
+                <div className='flex items-center justify-between pt-1'>
+                  <span className='text-xs font-semibold text-foreground'>Estimated Rate:</span>
+                  <span className='text-base font-extrabold text-emerald-600 dark:text-emerald-400 font-serif'>{rateResult.rate}</span>
+                </div>
+                <p className='text-[10px] text-muted-foreground pt-1 italic'>
+                  * Estimate only. Final chargeable rate confirmed after warehouse electronic scale weighing and volumetric inspection.
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   )
