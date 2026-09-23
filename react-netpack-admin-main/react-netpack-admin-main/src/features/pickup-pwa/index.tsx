@@ -28,6 +28,8 @@ import {
   EyeOff,
   Bike,
   LogOut,
+  Download,
+  Smartphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -119,6 +121,102 @@ interface BoxItem {
   multiplier?: number | string
 }
 
+function InstallGuideModal({
+  open,
+  onClose,
+  isIos,
+}: {
+  open: boolean
+  onClose: () => void
+  isIos: boolean
+}) {
+  if (!open) return null
+  return (
+    <div className='fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-200'>
+      <div className='bg-white dark:bg-[#0D1B2A] rounded-3xl w-full max-w-sm border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden p-5'>
+        <div className='flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/10'>
+          <div className='flex items-center gap-2.5'>
+            <div className='w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs'>
+              <Smartphone className='w-5 h-5' />
+            </div>
+            <div>
+              <h3 style={{ fontFamily: 'Jost, sans-serif' }} className='font-bold text-sm text-[#0D1B2A] dark:text-white'>Install Netpack Rider</h3>
+              <p className='text-[11px] text-muted-foreground'>Home screen app installation</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className='w-7 h-7 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center cursor-pointer transition-colors'
+          >
+            <X className='w-4 h-4' />
+          </button>
+        </div>
+
+        <div className='py-4 space-y-3 text-xs text-slate-600 dark:text-slate-300'>
+          {isIos ? (
+            <>
+              <p className='font-semibold text-slate-900 dark:text-white text-[13px]'>
+                Follow these 3 steps on iPhone / iPad:
+              </p>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>1</div>
+                <div className='leading-relaxed text-[12px]'>
+                  In Safari, tap the <strong>Share</strong> button <span className='inline-block px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border text-[11px] font-mono'>⎋</span> or <span className='inline-block px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border text-[11px] font-mono'>[↑]</span> at the bottom bar.
+                  <p className='text-[10px] text-muted-foreground mt-0.5'>(In Chrome for iOS: tap the 3 dots <strong>⋯</strong> in corner)</p>
+                </div>
+              </div>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>2</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Scroll down the share sheet and tap <strong>"Add to Home Screen"</strong> <span className='inline-block px-1 py-0.5 rounded bg-white dark:bg-slate-800 border text-[10px] font-mono'>➕</span>.
+                </p>
+              </div>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>3</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Tap <strong>Add</strong> in the top right. Launch the <strong>Netpack Rider</strong> icon directly from your home screen!
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className='font-semibold text-slate-900 dark:text-white text-[13px]'>
+                Follow these steps on Android / Chrome:
+              </p>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>1</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Tap the browser <strong>Three Dots (⋮)</strong> menu in the upper corner.
+                </p>
+              </div>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>2</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Choose <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
+                </p>
+              </div>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>3</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Confirm the installation prompt. Launch from your home screen for full-screen offline dispatch!
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{ fontFamily: 'Jost, sans-serif' }}
+          className='w-full py-3 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs transition-all cursor-pointer shadow-md shadow-blue-500/20'
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function PickupRiderPWA() {
   // Navigation & Filter Tabs: 'pending' | 'assigned' | 'picked_up' | 'all'
   const [activeTab, setActiveTab] = useState<'pending' | 'assigned' | 'picked_up' | 'all'>('pending')
@@ -149,6 +247,23 @@ export default function PickupRiderPWA() {
   const [newPickupAlert, setNewPickupAlert] = useState<any | null>(null)
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null)
   const [installPrompt, setInstallPrompt] = useState<any>(null)
+  const [isStandalone, setIsStandalone] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    return (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://')
+    )
+  })
+  const [showInstallGuideModal, setShowInstallGuideModal] = useState<boolean>(false)
+
+  const isIos = useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    )
+  }, [])
 
   // Rider Authentication State
   const [riderToken, setRiderToken] = useState<string | null>(() => {
@@ -247,15 +362,15 @@ export default function PickupRiderPWA() {
         const { outcome } = await installPrompt.userChoice
         if (outcome === 'accepted') {
           setInstallPrompt(null)
+          setIsStandalone(true)
           toast.success('Netpack Rider App installed to your home screen!')
         }
         return
       } catch (err) {
         console.warn('Install prompt error:', err)
       }
-    } else {
-      toast.info('To install: tap your browser menu (⋮) and choose "Install app"')
     }
+    setShowInstallGuideModal(true)
   }
 
   // ─── Register Service Worker ──────────────────────────────────────────────
@@ -742,9 +857,13 @@ export default function PickupRiderPWA() {
   // ─── Rider Login Screen (When unauthenticated) ─────────────────────────────
   if (!riderToken) {
     return (
-      <div className='flex-1 flex flex-col min-h-screen overflow-y-auto no-scrollbar bg-[#F1F4F8] dark:bg-[#0B131F] text-foreground font-sans'>
-        {/* Brand panel matching netpackpwa ui */}
-        <div className='bg-[#0D1B2A] px-6 pt-12 pb-12 relative overflow-hidden shrink-0'>
+      <div className='flex-1 flex flex-col min-h-screen overflow-y-auto no-scrollbar bg-[#0D1B2A] sm:bg-[#E2E8F0] dark:bg-[#0B131F] text-foreground font-sans'>
+        <div className='w-full max-w-[430px] mx-auto min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl'>
+          {/* Brand panel matching netpackpwa ui */}
+          <div
+            className='bg-[#0D1B2A] px-6 pb-12 relative overflow-hidden shrink-0'
+            style={{ paddingTop: 'max(36px, env(safe-area-inset-top, 36px))' }}
+          >
           {/* Route motif SVG */}
           <svg className='absolute inset-0 w-full h-full' viewBox='0 0 430 280' fill='none' preserveAspectRatio='none'>
             <path
@@ -880,19 +999,52 @@ export default function PickupRiderPWA() {
               </form>
             </div>
 
-            <p className='text-center text-[11px] text-muted-foreground leading-relaxed px-4 pt-2'>
+            {/* Install prompt when running in mobile browser */}
+            {!isStandalone && (
+              <div className='bg-white dark:bg-[#152336] rounded-2xl border border-blue-200/80 dark:border-blue-900/60 p-3.5 mt-4 shadow-sm flex items-center justify-between gap-3'>
+                <div className='flex items-center gap-3 min-w-0'>
+                  <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20 text-white'>
+                    <Download className='w-5 h-5' />
+                  </div>
+                  <div className='min-w-0'>
+                    <p className='text-[13px] font-bold text-[#0D1B2A] dark:text-white truncate'>Install Rider App</p>
+                    <p className='text-[11px] text-muted-foreground truncate'>Add to home screen for 1-tap dispatch</p>
+                  </div>
+                </div>
+                <button
+                  type='button'
+                  onClick={handleInstallClick}
+                  className='px-3.5 py-1.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-semibold shrink-0 active:scale-95 transition-all shadow-xs cursor-pointer'
+                >
+                  Install
+                </button>
+              </div>
+            )}
+
+            <p className='text-center text-[11px] text-muted-foreground leading-relaxed px-4 pt-3'>
               NetPack Field Operations • Kathmandu Central Hub Teku
             </p>
           </div>
+        </div>
+
+        <InstallGuideModal
+          open={showInstallGuideModal}
+          onClose={() => setShowInstallGuideModal(false)}
+          isIos={isIos}
+        />
         </div>
       </div>
     )
   }
 
   return (
-    <div className='min-h-screen bg-[#F1F4F8] dark:bg-[#0B131F] text-foreground flex flex-col font-sans pb-24 select-none'>
-      {/* ─── Sticky Top App Bar (Curved Gradient Header) ────────────────── */}
-      <header className='sticky top-0 z-40 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] text-white px-4 pt-2.5 pb-3 rounded-b-[18px] shadow-lg shadow-black/20'>
+    <div className='min-h-screen bg-[#0D1B2A] sm:bg-[#E2E8F0] flex justify-center text-foreground font-sans selection:bg-blue-100 selection:text-blue-900'>
+      <div className='w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl pb-24 select-none'>
+        {/* ─── Sticky Top App Bar (Curved Gradient Header) ────────────────── */}
+        <header
+          className='sticky top-0 z-40 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] text-white px-4 pb-3 rounded-b-[20px] shadow-lg shadow-black/20'
+          style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}
+        >
         <div className='max-w-[430px] mx-auto flex items-center justify-between gap-2'>
           {/* Logo & Online Status */}
           <div className='flex items-center gap-2.5 min-w-0'>
@@ -1725,6 +1877,12 @@ export default function PickupRiderPWA() {
         </DialogContent>
       </Dialog>
 
+      <InstallGuideModal
+        open={showInstallGuideModal}
+        onClose={() => setShowInstallGuideModal(false)}
+        isIos={isIos}
+      />
+      </div>
     </div>
   )
 }

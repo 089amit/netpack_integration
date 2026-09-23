@@ -2,12 +2,13 @@
   "name": "Netpack",
   "short_name": "Netpack",
   "description": "Book cargo pickups, track shipments in real time, and view verified warehouse scale weights.",
+  "id": "/pwa",
   "start_url": "/pwa",
-  "scope": "/",
+  "scope": "/pwa",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#ffffff",
-  "theme_color": "#0b1e42",
+  "background_color": "#0D1B2A",
+  "theme_color": "#0D1B2A",
   "icons": [
     {
       "src": "/images/netpack-icon-192.png",

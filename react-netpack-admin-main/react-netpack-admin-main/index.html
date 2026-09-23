@@ -26,23 +26,29 @@
       href="/images/favicon_light.png"
       media="(prefers-color-scheme: dark)"
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <link rel="manifest" href="/manifest.webmanifest" id="app-manifest" />
     <link rel="apple-touch-icon" href="/images/netpack-icon-192.png" id="app-touch-icon" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/netpack-icon-192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/images/netpack-icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-touch-fullscreen" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Netpack" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0D1B2A" />
     <script>
       (function() {
-        if (window.location.pathname.startsWith('/pickup-pwa')) {
+        var isPickup = window.location.pathname.startsWith('/pickup-pwa');
+        if (isPickup) {
           var m = document.getElementById('app-manifest');
           if (m) m.href = '/manifest-pickup.webmanifest';
           var a = document.getElementById('app-touch-icon');
           if (a) a.href = '/images/netpack-rider-icon-192.png';
-          document.title = 'Netpack Rider';
+          document.title = 'Netpack Rider Dispatch';
         }
       })();
     </script>
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Netpack" />
 
     <!-- Primary Meta Tags -->
     <title>Netpack Admin</title>
@@ -86,7 +92,6 @@
       rel="stylesheet"
     />
 
-    <meta name="theme-color" content="#fff" />
   </head>
 
   <body class="group/body">

@@ -1,13 +1,14 @@
 {
-  "name": "Netpack Rider",
+  "name": "Netpack Rider Dispatch",
   "short_name": "Netpack Rider",
   "description": "Field pickup dispatch, instant audio push alerts, and verified warehouse weighing for NetPack Logistics riders.",
+  "id": "/pickup-pwa",
   "start_url": "/pickup-pwa",
   "scope": "/pickup-pwa",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#090d16",
-  "theme_color": "#0b1e42",
+  "background_color": "#0D1B2A",
+  "theme_color": "#0D1B2A",
   "icons": [
     {
       "src": "/images/netpack-rider-icon-192.png",

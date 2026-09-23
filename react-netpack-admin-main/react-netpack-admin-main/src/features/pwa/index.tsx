@@ -601,7 +601,10 @@ function Header({
   onToggleTheme?: () => void
 }) {
   return (
-    <header className="sticky top-0 z-30 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] px-4 pt-2 pb-2.5 flex items-center gap-3 rounded-b-[18px] shadow-lg shadow-black/20">
+    <header
+      className="sticky top-0 z-30 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] px-4 pb-3 flex items-center gap-3 rounded-b-[20px] shadow-lg shadow-black/20"
+      style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}
+    >
       {/* Wave greeting */}
       <div className="text-2xl leading-none select-none">👋</div>
 
@@ -2403,7 +2406,6 @@ function ProfileScreen({
   shipmentCount,
   deliveredCount,
   onSignOut,
-  onInstall,
 }: {
   userName?: string
   userEmail?: string
@@ -2412,7 +2414,6 @@ function ProfileScreen({
   shipmentCount: number
   deliveredCount: number
   onSignOut: () => void
-  onInstall?: () => void
 }) {
   const { theme, setTheme } = useTheme()
   const currentMode = (theme as ThemeMode) || 'light'
@@ -2499,22 +2500,6 @@ function ProfileScreen({
             ))}
           </div>
         </div>
-
-        {/* Install NetPack App */}
-        {onInstall && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[13px] font-semibold text-[#0D1B2A]">Install App on Device</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">Add NetPack directly to your home screen</p>
-            </div>
-            <button
-              onClick={onInstall}
-              className="px-3.5 py-1.5 rounded-xl bg-[#0D1B2A] text-white text-[12px] font-semibold active:scale-95 transition-all shadow-xs cursor-pointer"
-            >
-              Install
-            </button>
-          </div>
-        )}
 
         {/* Activity Summary */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs">
@@ -2685,7 +2670,10 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
   return (
     <div className="flex-1 flex flex-col min-h-screen overflow-y-auto no-scrollbar">
       {/* Brand panel */}
-      <div className="bg-[#0D1B2A] px-6 pt-16 pb-12 relative overflow-hidden shrink-0">
+      <div
+        className="bg-[#0D1B2A] px-6 pb-12 relative overflow-hidden shrink-0"
+        style={{ paddingTop: 'max(40px, env(safe-area-inset-top, 40px))' }}
+      >
         {/* Route motif */}
         <svg className="absolute inset-0 w-full h-full" viewBox="0 0 430 280" fill="none" preserveAspectRatio="none">
           <path
@@ -2894,35 +2882,6 @@ export default function CustomerPWA() {
     return null
   })
 
-  // PWA Install Prompt
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-
-  useEffect(() => {
-    const handlePrompt = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e)
-    }
-    window.addEventListener('beforeinstallprompt', handlePrompt)
-    return () => window.removeEventListener('beforeinstallprompt', handlePrompt)
-  }, [])
-
-  const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      try {
-        deferredPrompt.prompt()
-        const { outcome } = await deferredPrompt.userChoice
-        if (outcome === 'accepted') {
-          toast.success('Netpack app successfully installed to your home screen!')
-        }
-        setDeferredPrompt(null)
-      } catch (err) {
-        console.warn('Install error:', err)
-      }
-    } else {
-      toast.info('To install: tap your browser menu (⋮) and choose "Install app"')
-    }
-  }
-
   // Fetch live customer shipments
   const fetchShipments = () => {
     if (!customerToken) return
@@ -2987,7 +2946,7 @@ export default function CustomerPWA() {
   const deliveredCount = shipments.filter(s => s.status === 'delivered').length
 
   return (
-    <div className="min-h-screen bg-[#F1F4F8] flex justify-center selection:bg-blue-100 selection:text-blue-900">
+    <div className="min-h-screen bg-[#0D1B2A] sm:bg-[#E2E8F0] flex justify-center selection:bg-blue-100 selection:text-blue-900">
       <div className="w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] shadow-2xl">
         {!customerUser ? (
           <AuthScreen
@@ -3057,7 +3016,6 @@ export default function CustomerPWA() {
                   shipmentCount={shipments.length}
                   deliveredCount={deliveredCount}
                   onSignOut={handleSignOut}
-                  onInstall={handleInstallClick}
                 />
               )}
             </main>
