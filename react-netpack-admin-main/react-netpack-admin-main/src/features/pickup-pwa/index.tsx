@@ -19,11 +19,9 @@ import {
   Box as BoxIcon,
   Plus,
   Trash2,
-  Download,
   AlertTriangle,
   Radio,
   X,
-  Sparkles,
   User,
   Lock,
   Eye,
@@ -231,8 +229,6 @@ export default function PickupRiderPWA() {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  // Check standalone mode
-  const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone)
 
   // Auto trigger install if ?install query parameter present
   useEffect(() => {
@@ -483,20 +479,6 @@ export default function PickupRiderPWA() {
     return () => clearInterval(interval)
   }, [isOnline, notifyNewPickup])
 
-  // ─── Test Alert Simulation ────────────────────────────────────────────────
-  const handleTestAlert = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/pickups/test-alert`, { method: 'POST' }).then((r) =>
-        r.json()
-      )
-      if (res?.pickup) {
-        setPickups((prev) => [res.pickup, ...prev])
-        notifyNewPickup(res.pickup)
-      }
-    } catch (e) {
-      toast.error('Failed to simulate test alert')
-    }
-  }
 
   // ─── Copy Tracking Number ─────────────────────────────────────────────────
   const handleCopy = (text: string) => {
@@ -760,140 +742,115 @@ export default function PickupRiderPWA() {
   // ─── Rider Login Screen (When unauthenticated) ─────────────────────────────
   if (!riderToken) {
     return (
-      <div className='min-h-screen bg-background text-foreground flex flex-col font-sans'>
-        {/* Top Sticky Header with Theme Switcher & Install */}
-        <header className='border-b border-border bg-card/80 backdrop-blur-md px-4 py-3 sticky top-0 z-40'>
-          <div className='max-w-md mx-auto flex items-center justify-between'>
+      <div className='min-h-screen bg-[#F1F4F8] dark:bg-[#0B131F] text-foreground flex flex-col font-sans'>
+        {/* Top Sticky Header with Theme Switcher (Install button removed) */}
+        <header className='bg-[#0D1B2A] text-white px-4 py-3.5 sticky top-0 z-40 shadow-md'>
+          <div className='max-w-[430px] mx-auto flex items-center justify-between'>
             <div className='flex items-center gap-2.5'>
               <img
                 src='/images/netpack-rider-icon-192.png'
                 alt='Netpack Rider'
-                className='h-9 w-9 rounded-xl object-contain bg-white p-0.5 border border-border shadow-xs'
+                className='h-9 w-9 rounded-xl object-contain bg-white p-0.5 border border-white/20 shadow-xs'
               />
               <div>
-                <span className='text-sm font-black tracking-tight'>Netpack Rider</span>
-                <span className='text-[10px] block text-muted-foreground'>Field Rider Dispatch Portal</span>
+                <span style={{ fontFamily: 'Jost, sans-serif' }} className='text-base font-700 tracking-tight text-white block leading-tight'>
+                  Netpack Rider
+                </span>
+                <span className='text-[10px] block text-white/60'>Field Rider Dispatch Portal</span>
               </div>
             </div>
             <div className='flex items-center gap-2'>
-              <button
-                type='button'
-                onClick={handleInstallClick}
-                className='inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs transition-all cursor-pointer'
-                title='Install Netpack Rider on Phone'
-              >
-                <Download className='h-3.5 w-3.5' />
-                <span>Install App</span>
-              </button>
               <ThemeSwitch />
             </div>
           </div>
         </header>
 
-        {/* Mobile Install Promotion Banner (if not installed in standalone) */}
-        {!isStandalone && (
-          <div className='bg-primary/10 border-b border-primary/20 px-4 py-2.5 text-xs text-primary flex items-center justify-between gap-2 shadow-xs'>
-            <div className='flex items-center gap-2 min-w-0'>
-              <Download className='h-4 w-4 shrink-0 text-primary animate-bounce' />
-              <span className='font-medium truncate'>Install Netpack Rider as an app on your phone</span>
-            </div>
-            <Button
-              size='sm'
-              variant='default'
-              className='h-7 text-[11px] px-3 font-semibold shrink-0 shadow-xs'
-              onClick={handleInstallClick}
-            >
-              Install App
-            </Button>
-          </div>
-        )}
-
         {/* Main Login Card */}
         <main className='flex-1 flex items-center justify-center p-4 sm:p-6'>
-          <div className='max-w-md w-full space-y-4 animate-in fade-in-50 duration-200'>
-            <Card className='border shadow-xl bg-card'>
-              <CardHeader className='text-center pb-4 pt-6'>
-                <div className='h-14 w-14 rounded-2xl bg-primary/10 text-primary mx-auto flex items-center justify-center mb-3 shadow-inner border border-primary/20'>
+          <div className='max-w-[430px] w-full space-y-4 animate-in fade-in-50 duration-200'>
+            <div className='rounded-3xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-[#152238] shadow-xl p-6'>
+              <div className='text-center pb-4 pt-2'>
+                <div className='h-14 w-14 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center mb-3 shadow-inner border border-blue-100 dark:border-blue-900/50'>
                   <Bike className='h-7 w-7' />
                 </div>
-                <h2 className='text-xl font-black tracking-tight text-foreground'>
+                <h2 style={{ fontFamily: 'Jost, sans-serif' }} className='text-2xl font-800 tracking-tight text-[#0D1B2A] dark:text-white'>
                   Rider Dispatch Login
                 </h2>
                 <p className='text-xs text-muted-foreground mt-1'>
                   Sign in to access assigned pickups, live Kathmandu dispatch alerts, and camera weighing.
                 </p>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <form onSubmit={handleRiderLogin} className='space-y-4'>
-                  {/* Rider ID / Email / Phone */}
-                  <div className='space-y-1.5'>
-                    <label className='text-xs font-semibold text-foreground flex items-center justify-between'>
-                      <span>Rider ID / Email / Phone</span>
-                      <span className='text-[10px] text-muted-foreground font-normal'>Registered Account</span>
-                    </label>
-                    <div className='relative'>
-                      <User className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
-                      <Input
-                        type='text'
-                        placeholder='e.g. driver@netpack.com or rider-01'
-                        value={loginIdentifier}
-                        onChange={(e) => setLoginIdentifier(e.target.value)}
-                        className='pl-9 h-10 text-xs'
-                        autoComplete='username'
-                        required
-                      />
-                    </div>
-                  </div>
+              </div>
 
-                  {/* Password */}
-                  <div className='space-y-1.5'>
-                    <label className='text-xs font-semibold text-foreground flex items-center justify-between'>
-                      <span>Password</span>
-                      <span className='text-[10px] text-muted-foreground font-normal'>Security Code</span>
-                    </label>
-                    <div className='relative'>
-                      <Lock className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
-                      <Input
-                        type={showLoginPassword ? 'text' : 'password'}
-                        placeholder='Enter your rider password'
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className='pl-9 pr-9 h-10 text-xs font-mono'
-                        autoComplete='current-password'
-                        required
-                      />
-                      <button
-                        type='button'
-                        onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground'
-                        tabIndex={-1}
-                      >
-                        {showLoginPassword ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
-                      </button>
-                    </div>
+              <form onSubmit={handleRiderLogin} className='space-y-4 pt-2'>
+                {/* Rider ID / Email / Phone */}
+                <div className='space-y-1.5'>
+                  <label className='text-xs font-semibold text-foreground flex items-center justify-between'>
+                    <span>Rider ID / Email / Phone</span>
+                    <span className='text-[10px] text-muted-foreground font-normal'>Registered Account</span>
+                  </label>
+                  <div className='relative'>
+                    <User className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
+                    <Input
+                      type='text'
+                      placeholder='e.g. driver@netpack.com or rider-01'
+                      value={loginIdentifier}
+                      onChange={(e) => setLoginIdentifier(e.target.value)}
+                      className='pl-9 h-11 text-xs rounded-xl bg-background text-foreground'
+                      autoComplete='username'
+                      required
+                    />
                   </div>
+                </div>
 
-                  {/* Submit Button */}
-                  <Button
-                    type='submit'
-                    disabled={loginLoading}
-                    className='w-full h-10 text-xs font-bold gap-2 shadow-md'
-                  >
-                    {loginLoading ? (
-                      <>
-                        <RefreshCw className='h-4 w-4 animate-spin' />
-                        Authenticating...
-                      </>
-                    ) : (
-                      <>
-                        <Bike className='h-4 w-4' />
-                        Sign In to Rider Portal
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                {/* Password */}
+                <div className='space-y-1.5'>
+                  <label className='text-xs font-semibold text-foreground flex items-center justify-between'>
+                    <span>Password</span>
+                    <span className='text-[10px] text-muted-foreground font-normal'>Security Code</span>
+                  </label>
+                  <div className='relative'>
+                    <Lock className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
+                    <Input
+                      type={showLoginPassword ? 'text' : 'password'}
+                      placeholder='Enter your rider password'
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className='pl-9 pr-9 h-11 text-xs font-mono rounded-xl bg-background text-foreground'
+                      autoComplete='current-password'
+                      required
+                    />
+                    <button
+                      type='button'
+                      onClick={() => setShowLoginPassword(!showLoginPassword)}
+                      className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground'
+                      tabIndex={-1}
+                    >
+                      {showLoginPassword ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type='submit'
+                  disabled={loginLoading}
+                  style={{ fontFamily: 'Jost, sans-serif' }}
+                  className='w-full h-11 text-xs font-700 text-white bg-[#0D1B2A] hover:bg-[#152238] active:scale-95 transition-all rounded-2xl flex items-center justify-center gap-2 shadow-md cursor-pointer'
+                >
+                  {loginLoading ? (
+                    <>
+                      <RefreshCw className='h-4 w-4 animate-spin' />
+                      Authenticating...
+                    </>
+                  ) : (
+                    <>
+                      <Bike className='h-4 w-4' />
+                      Sign In to Rider Portal
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
           </div>
         </main>
       </div>
@@ -901,92 +858,74 @@ export default function PickupRiderPWA() {
   }
 
   return (
-    <div className='min-h-screen bg-background text-foreground flex flex-col font-sans pb-24 select-none'>
-      {/* ─── Sticky Top App Bar ─────────────────────────────────────────────── */}
-      <header className='sticky top-0 z-40 bg-card/90 backdrop-blur-md border-b border-border shadow-xs px-3.5 py-2.5'>
-        <div className='max-w-2xl mx-auto flex items-center justify-between gap-2'>
+    <div className='min-h-screen bg-[#F1F4F8] dark:bg-[#0B131F] text-foreground flex flex-col font-sans pb-24 select-none'>
+      {/* ─── Sticky Top App Bar (Matching Customer PWA Deep Navy Theme) ────── */}
+      <header className='sticky top-0 z-40 bg-[#0D1B2A] text-white px-3.5 py-3 shadow-md'>
+        <div className='max-w-[430px] mx-auto flex items-center justify-between gap-2'>
           {/* Logo & Online Status */}
-          <div className='flex items-center gap-2.5'>
-            <div className='relative'>
+          <div className='flex items-center gap-2.5 min-w-0'>
+            <div className='relative shrink-0'>
               <img
                 src='/images/netpack-rider-icon-192.png'
                 alt='Netpack Rider'
-                className='h-8 w-8 rounded-lg object-contain bg-white p-0.5 border border-border shadow-xs'
+                className='h-8 w-8 rounded-xl object-contain bg-white p-0.5 border border-white/20 shadow-xs'
               />
               {isOnline && (
-                <span className='absolute -top-1 -right-1 flex h-3 w-3'>
+                <span className='absolute -top-1 -right-1 flex h-2.5 w-2.5'>
                   <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75'></span>
-                  <span className='relative inline-flex rounded-full h-3 w-3 bg-emerald-500'></span>
+                  <span className='relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500'></span>
                 </span>
               )}
             </div>
-            <div>
+            <div className='min-w-0'>
               <div className='flex items-center gap-1.5'>
-                <span className='text-sm font-black tracking-tight text-foreground truncate max-w-[130px] sm:max-w-[190px]'>
+                <span style={{ fontFamily: 'Jost, sans-serif' }} className='text-sm font-700 tracking-tight text-white truncate max-w-[125px] sm:max-w-[170px] leading-tight block'>
                   {riderUser?.name || 'Netpack Rider'}
                 </span>
-                <Badge
-                  variant='outline'
-                  className={`text-[9px] px-1.5 py-0 h-4 border-0 font-bold ${
+                <span
+                  className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider shrink-0 ${
                     isOnline
-                      ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-muted text-muted-foreground'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-white/10 text-white/50 border border-white/10'
                   }`}
                 >
                   {isOnline ? 'ONLINE' : 'OFFLINE'}
-                </Badge>
-              </div>
-              <p className='text-[10px] text-muted-foreground flex items-center gap-1 leading-tight'>
-                <span className='text-primary font-mono font-medium'>
-                  ID: {riderUser?.username || riderUser?.phone || `R-${riderUser?.id}`}
-                </span> •{' '}
-                <span>
-                  Sync {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
+              </div>
+              <p className='text-[10px] text-white/60 flex items-center gap-1 leading-tight mt-0.5 font-mono truncate'>
+                <span>ID: {riderUser?.username || riderUser?.phone || `R-${riderUser?.id}`}</span>
+                <span>•</span>
+                <span>Sync {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               </p>
             </div>
           </div>
 
-          {/* Quick Action Controls */}
-          <div className='flex items-center gap-1.5'>
-            {/* Install App on Phone */}
-            <button
-              type='button'
-              onClick={handleInstallClick}
-              className='inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs transition-all cursor-pointer'
-              title='Install Netpack Rider on Phone'
-            >
-              <Download className='h-3.5 w-3.5' />
-              <span className='hidden sm:inline'>Install</span>
-            </button>
+          {/* Quick Action Controls (Install button completely removed from top header) */}
+          <div className='flex items-center gap-1.5 shrink-0'>
             {/* Theme Switcher */}
             <ThemeSwitch />
 
             {/* Audio Toggle */}
-            <Button
-              variant='ghost'
-              size='icon'
-              className={`h-8 w-8 rounded-lg ${
-                soundEnabled
-                  ? 'text-sky-600 dark:text-sky-400 bg-sky-500/10 border border-sky-500/30'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+            <button
               onClick={() => toggleSound(!soundEnabled)}
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                soundEnabled
+                  ? 'bg-white/20 text-white border border-white/30'
+                  : 'bg-white/10 text-white/60 hover:text-white'
+              }`}
               title={soundEnabled ? 'Mute Alert Chime' : 'Enable Alert Chime'}
             >
               {soundEnabled ? <Volume2 className='h-4 w-4' /> : <VolumeX className='h-4 w-4' />}
-            </Button>
+            </button>
 
             {/* Notification Permission Toggle */}
-            <Button
-              variant='ghost'
-              size='icon'
-              className={`h-8 w-8 rounded-lg ${
-                notificationPermission === 'granted'
-                  ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
-                  : 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 animate-pulse'
-              }`}
+            <button
               onClick={requestNotificationPermission}
+              className={`relative w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                notificationPermission === 'granted'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
+              }`}
               title={
                 notificationPermission === 'granted'
                   ? 'Push Alerts Active'
@@ -994,85 +933,35 @@ export default function PickupRiderPWA() {
               }
             >
               <Bell className='h-4 w-4' />
-            </Button>
+              {notificationPermission === 'granted' && (
+                <span className='w-1.5 h-1.5 bg-emerald-400 rounded-full absolute top-1.5 right-1.5' />
+              )}
+            </button>
 
             {/* Refresh */}
-            <Button
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8 text-muted-foreground hover:text-foreground'
+            <button
               onClick={() => fetchPickups(true)}
               disabled={refreshing}
+              className='w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer'
+              title='Refresh Assigned Pickups'
             >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin text-primary' : ''}`} />
-            </Button>
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin text-white' : ''}`} />
+            </button>
 
             {/* Sign Out Button */}
-            <Button
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors'
+            <button
               onClick={handleRiderLogout}
+              className='w-8 h-8 rounded-xl bg-white/10 hover:bg-red-500/30 active:scale-95 text-white/80 hover:text-red-300 flex items-center justify-center transition-all cursor-pointer'
               title='Sign Out Rider'
             >
-              <LogOut className='h-4 w-4' />
-            </Button>
-
-            {/* Test Simulation Alert */}
-            <Button
-              size='sm'
-              variant='outline'
-              className='text-[11px] h-8 px-2 border-border bg-card text-foreground hover:bg-muted'
-              onClick={handleTestAlert}
-            >
-              <Sparkles className='h-3.5 w-3.5 mr-1 text-amber-500' />
-              Test Alert
-            </Button>
+              <LogOut className='h-3.5 w-3.5' />
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Install Promotion Banner (if not running in standalone mode) */}
-      {!isStandalone && (
-        <div className='bg-primary/10 border-b border-primary/20 px-3.5 py-2 text-xs text-primary flex items-center justify-between gap-2 shadow-xs'>
-          <div className='flex items-center gap-2 min-w-0'>
-            <Download className='h-3.5 w-3.5 shrink-0 text-primary' />
-            <span className='font-medium truncate'>Install Netpack Rider App on your device</span>
-          </div>
-          <Button
-            size='sm'
-            variant='default'
-            className='h-6 text-[10px] px-2.5 font-semibold shrink-0 shadow-xs'
-            onClick={handleInstallClick}
-          >
-            Install
-          </Button>
-        </div>
-      )}
-
       {/* ─── Main Content Container ────────────────────────────────────────── */}
-      <main className='max-w-2xl mx-auto w-full px-3 pt-3 space-y-3'>
-        {/* PWA Install Banner (shown if browser prompted) */}
-        {installPrompt && (
-          <div className='p-3 bg-gradient-to-r from-sky-500/10 to-indigo-500/10 border border-primary/30 rounded-xl flex items-center justify-between gap-3 shadow-xs'>
-            <div className='flex items-center gap-2.5'>
-              <div className='p-2 rounded-lg bg-primary text-primary-foreground shrink-0'>
-                <Download className='h-4 w-4' />
-              </div>
-              <div className='text-xs'>
-                <div className='font-bold text-foreground'>Install NetPack Rider App</div>
-                <div className='text-muted-foreground text-[11px]'>Instant alerts on your home screen</div>
-              </div>
-            </div>
-            <Button
-              size='sm'
-              className='bg-primary text-primary-foreground font-bold text-xs h-7 px-3'
-              onClick={handleInstallClick}
-            >
-              Install
-            </Button>
-          </div>
-        )}
+      <main className='max-w-[430px] mx-auto w-full px-3.5 pt-3 space-y-3'>
 
         {/* Notification Permission Callout (if not yet granted) */}
         {notificationPermission !== 'granted' && (
@@ -1135,69 +1024,73 @@ export default function PickupRiderPWA() {
           </div>
         )}
 
-        {/* ─── Metric Stats Chips ────────────────────────────────────────── */}
-        <div className='grid grid-cols-3 gap-2'>
+        {/* ─── Metric Stats Chips (Customer PWA Style) ────────────────────── */}
+        <div className='grid grid-cols-3 gap-2.5'>
           <div
-            className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+            className={`p-3 rounded-2xl border text-center transition-all active:scale-98 cursor-pointer ${
               activeTab === 'pending'
-                ? 'bg-amber-500/10 border-amber-500 shadow-xs'
-                : 'bg-card border-border hover:bg-muted/40'
+                ? 'bg-amber-500/10 border-amber-500/80 shadow-xs'
+                : 'bg-white dark:bg-[#152238] border-gray-100 dark:border-slate-800 shadow-2xs hover:border-gray-200'
             }`}
             onClick={() => setActiveTab('pending')}
           >
-            <div className='text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1'>
+            <div className='text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1'>
               <span className='h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse'></span>
               Pending
             </div>
-            <div className='text-xl font-black text-foreground mt-0.5'>
+            <div style={{ fontFamily: 'Jost, sans-serif' }} className='text-2xl font-800 text-[#0D1B2A] dark:text-white mt-0.5 leading-none'>
               {stats.pendingCount || pendingCount}
             </div>
-            <div className='text-[10px] text-muted-foreground'>Need Pickup</div>
+            <div className='text-[10px] text-gray-400 mt-1 font-medium'>Need Pickup</div>
           </div>
 
           <div
-            className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+            className={`p-3 rounded-2xl border text-center transition-all active:scale-98 cursor-pointer ${
               activeTab === 'assigned'
-                ? 'bg-sky-500/10 border-sky-500 shadow-xs'
-                : 'bg-card border-border hover:bg-muted/40'
+                ? 'bg-blue-500/10 border-blue-500/80 shadow-xs'
+                : 'bg-white dark:bg-[#152238] border-gray-100 dark:border-slate-800 shadow-2xs hover:border-gray-200'
             }`}
             onClick={() => setActiveTab('assigned')}
           >
-            <div className='text-[11px] font-semibold text-sky-600 dark:text-sky-400'>In Route</div>
-            <div className='text-xl font-black text-foreground mt-0.5'>{assignedCount}</div>
-            <div className='text-[10px] text-muted-foreground'>Assigned</div>
+            <div className='text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400'>In Route</div>
+            <div style={{ fontFamily: 'Jost, sans-serif' }} className='text-2xl font-800 text-[#0D1B2A] dark:text-white mt-0.5 leading-none'>
+              {assignedCount}
+            </div>
+            <div className='text-[10px] text-gray-400 mt-1 font-medium'>Assigned</div>
           </div>
 
           <div
-            className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+            className={`p-3 rounded-2xl border text-center transition-all active:scale-98 cursor-pointer ${
               activeTab === 'picked_up'
-                ? 'bg-emerald-500/10 border-emerald-500 shadow-xs'
-                : 'bg-card border-border hover:bg-muted/40'
+                ? 'bg-emerald-500/10 border-emerald-500/80 shadow-xs'
+                : 'bg-white dark:bg-[#152238] border-gray-100 dark:border-slate-800 shadow-2xs hover:border-gray-200'
             }`}
             onClick={() => setActiveTab('picked_up')}
           >
-            <div className='text-[11px] font-semibold text-emerald-600 dark:text-emerald-400'>Collected</div>
-            <div className='text-xl font-black text-foreground mt-0.5'>{stats.pickedUpCount || 0}</div>
-            <div className='text-[10px] text-muted-foreground'>
+            <div className='text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400'>Collected</div>
+            <div style={{ fontFamily: 'Jost, sans-serif' }} className='text-2xl font-800 text-emerald-600 dark:text-emerald-400 mt-0.5 leading-none'>
+              {stats.pickedUpCount || 0}
+            </div>
+            <div className='text-[10px] text-gray-400 mt-1 font-medium'>
               {stats.totalWeightToday ? `${stats.totalWeightToday} kg` : 'Today'}
             </div>
           </div>
         </div>
 
         {/* ─── Search & Tab Filters ──────────────────────────────────────── */}
-        <div className='space-y-2'>
-          <div className='relative'>
-            <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground' />
-            <Input
+        <div className='space-y-2 pt-1'>
+          <div className='relative bg-white dark:bg-[#152238] rounded-2xl border border-gray-200/90 dark:border-slate-800 shadow-2xs p-1 flex items-center'>
+            <Search className='h-4 w-4 text-gray-400 ml-2.5 shrink-0' />
+            <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder='Search sender, phone, area, tracking...'
-              className='pl-9 bg-card border-border text-xs h-9 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary'
+              className='flex-1 pl-2 pr-2 bg-transparent text-xs text-[#0D1B2A] dark:text-white placeholder-gray-400 outline-none h-8 font-sans'
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className='absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1'
+                className='text-gray-400 hover:text-gray-600 p-1.5 mr-1 cursor-pointer'
               >
                 <X className='h-3.5 w-3.5' />
               </button>
@@ -1208,29 +1101,29 @@ export default function PickupRiderPWA() {
           <div className='flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5'>
             <button
               onClick={() => setActiveTab('pending')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'pending'
-                  ? 'bg-amber-500 text-slate-950 shadow-xs'
-                  : 'bg-card text-muted-foreground hover:bg-muted border border-border/50'
+                  ? 'bg-[#0D1B2A] text-white shadow-xs'
+                  : 'bg-white dark:bg-[#152238] text-gray-500 hover:text-gray-800 dark:text-gray-400 border border-gray-200/70 dark:border-slate-800'
               }`}
             >
               <span>Pending Pickups</span>
-              <span className='px-1.5 py-0.2 rounded-full text-[10px] bg-black/10 dark:bg-black/30'>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${activeTab === 'pending' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
                 {pendingCount}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab('assigned')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'assigned'
-                  ? 'bg-sky-600 text-white shadow-xs'
-                  : 'bg-card text-muted-foreground hover:bg-muted border border-border/50'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-[#152238] text-gray-500 hover:text-gray-800 dark:text-gray-400 border border-gray-200/70 dark:border-slate-800'
               }`}
             >
               <span>In Route</span>
               {assignedCount > 0 && (
-                <span className='px-1.5 py-0.2 rounded-full text-[10px] bg-white/20'>
+                <span className='px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 font-bold'>
                   {assignedCount}
                 </span>
               )}
@@ -1238,10 +1131,10 @@ export default function PickupRiderPWA() {
 
             <button
               onClick={() => setActiveTab('picked_up')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'picked_up'
                   ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-card text-muted-foreground hover:bg-muted border border-border/50'
+                  : 'bg-white dark:bg-[#152238] text-gray-500 hover:text-gray-800 dark:text-gray-400 border border-gray-200/70 dark:border-slate-800'
               }`}
             >
               <span>Completed</span>
@@ -1249,10 +1142,10 @@ export default function PickupRiderPWA() {
 
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer ${
                 activeTab === 'all'
-                  ? 'bg-foreground text-background'
-                  : 'bg-card text-muted-foreground hover:bg-muted border border-border/50'
+                  ? 'bg-[#0D1B2A] text-white shadow-xs'
+                  : 'bg-white dark:bg-[#152238] text-gray-500 hover:text-gray-800 dark:text-gray-400 border border-gray-200/70 dark:border-slate-800'
               }`}
             >
               All
@@ -1341,7 +1234,10 @@ export default function PickupRiderPWA() {
                         </div>
 
                         {/* Customer / Sender Name */}
-                        <div className='text-base font-extrabold text-foreground leading-tight flex items-center gap-1.5'>
+                        <div
+                          className='text-base font-extrabold text-foreground leading-tight flex items-center gap-1.5'
+                          style={{ fontFamily: 'Jost, sans-serif' }}
+                        >
                           {p.senderName || 'Customer Sender'}
                         </div>
                       </div>

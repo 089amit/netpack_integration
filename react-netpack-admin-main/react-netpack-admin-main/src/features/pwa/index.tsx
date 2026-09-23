@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useTheme } from '@/context/theme-context'
 
@@ -97,6 +97,8 @@ interface TrackingDetails {
     items: Array<{ item: string; pieces: number }>
   }>
   checkpoints: CheckpointItem[]
+  weightProofImageUrl?: string
+  weightProofImages?: string[]
 }
 
 // ─── Initial Mock Data & Fallbacks ─────────────────────────────────────────────
@@ -230,6 +232,8 @@ const mockTrackingMap: Record<string, TrackingDetails> = {
         source: 'Courier Pickup',
       },
     ],
+    weightProofImageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&auto=format&fit=crop&q=80',
+    weightProofImages: ['https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&auto=format&fit=crop&q=80'],
   },
   'NP-20240910-088': {
     tracking: 'NP-20240910-088',
@@ -294,6 +298,8 @@ const mockTrackingMap: Record<string, TrackingDetails> = {
         time: 'Sep 10, 01:15 PM',
       },
     ],
+    weightProofImageUrl: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800&auto=format&fit=crop&q=80',
+    weightProofImages: ['https://images.unsplash.com/photo-1553413077-190dd305871c?w=800&auto=format&fit=crop&q=80'],
   },
   'NP-20240905-047': {
     tracking: 'NP-20240905-047',
@@ -342,6 +348,8 @@ const mockTrackingMap: Record<string, TrackingDetails> = {
         source: 'Airline Scanned',
       },
     ],
+    weightProofImageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&auto=format&fit=crop&q=80',
+    weightProofImages: ['https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&auto=format&fit=crop&q=80'],
   },
 }
 
@@ -496,6 +504,13 @@ const IconLogout = ({ size = 18, className = '' }: { size?: number; className?: 
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
     <polyline points="16 17 21 12 16 7"/>
     <line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+)
+
+const IconClose = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <line x1="18" y1="6" x2="6" y2="18"/>
+    <line x1="6" y1="6" x2="18" y2="18"/>
   </svg>
 )
 
@@ -694,9 +709,22 @@ function HomeScreen({
   onRateEnquiry: () => void
   onTrack: (trackingNumber: string) => void
 }) {
+  const [searchQuery, setSearchQuery] = useState('')
   const pending = shipments.filter(s => s.status === 'pending').length
   const inTransit = shipments.filter(s => s.status === 'in_progress').length
   const recent = shipments.slice(0, 3)
+
+  const filteredShipments = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return []
+    return shipments.filter(s => {
+      const matchName = s.receiverName?.toLowerCase().includes(q)
+      const matchDest = s.destination?.toLowerCase().includes(q) || s.receiverCity?.toLowerCase().includes(q)
+      const matchComm = s.commodity?.toLowerCase().includes(q)
+      const matchTrack = s.tracking?.toLowerCase().includes(q) || s.id?.toLowerCase().includes(q)
+      return matchName || matchDest || matchComm || matchTrack
+    })
+  }, [searchQuery, shipments])
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
@@ -746,68 +774,133 @@ function HomeScreen({
         </div>
       </div>
 
-      {/* Quick Tracking Search Bar */}
+      {/* Multi-Attribute Consignment Search Bar */}
       <div className="px-4 pt-2 pb-1">
-        <div className="bg-white rounded-2xl border border-gray-200/90 shadow-2xs p-2.5 flex items-center gap-2">
+        <div className="bg-white rounded-2xl border border-gray-200/90 shadow-2xs p-2 flex items-center gap-2">
           <IconSearch size={18} className="text-gray-400 shrink-0 ml-1.5" />
           <input
             type="text"
-            id="home-quick-track-input"
-            placeholder="Track consignment (e.g., NP-20240922-001)..."
-            className="flex-1 text-xs sm:text-sm bg-transparent outline-none text-[#0D1B2A] placeholder-gray-400 font-mono"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search consignee, address, or commodity..."
+            className="flex-1 text-xs sm:text-sm bg-transparent outline-none text-[#0D1B2A] placeholder-gray-400 font-sans"
             onKeyDown={e => {
               if (e.key === 'Enter') {
-                const val = (e.target as HTMLInputElement).value.trim()
-                if (val) onTrack(val)
+                const val = searchQuery.trim()
+                if (val) {
+                  if (filteredShipments.length === 1) {
+                    onTrack(filteredShipments[0].tracking)
+                  } else if (val.toUpperCase().startsWith('NP-')) {
+                    onTrack(val)
+                  }
+                }
               }
             }}
           />
+          {searchQuery ? (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              <IconClose size={15} />
+            </button>
+          ) : null}
           <button
             onClick={() => {
-              const el = document.getElementById('home-quick-track-input') as HTMLInputElement
-              if (el && el.value.trim()) onTrack(el.value.trim())
+              const val = searchQuery.trim()
+              if (val) {
+                if (filteredShipments.length === 1) {
+                  onTrack(filteredShipments[0].tracking)
+                } else if (val.toUpperCase().startsWith('NP-')) {
+                  onTrack(val)
+                }
+              }
             }}
             style={{ fontFamily: 'Jost, sans-serif' }}
             className="bg-[#0D1B2A] text-white text-xs font-600 px-3.5 py-2 rounded-xl active:scale-95 transition-transform cursor-pointer"
           >
-            Track
+            Search
           </button>
         </div>
       </div>
 
-      {/* Recent Consignments */}
-      <div className="px-4 pt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-base font-700 text-[#0D1B2A] tracking-tight">
-            Recent Consignments
-          </h2>
-          <button onClick={onViewAll} className="text-[13px] font-semibold text-[#2563EB] cursor-pointer">
-            View All
-          </button>
-        </div>
-
-        {recent.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 flex flex-col items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center">
-              <IconBox size={22} className="text-gray-300" />
+      {/* Dynamic Results: Search Results or Recent Consignments */}
+      {searchQuery.trim() ? (
+        <div className="px-4 pt-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-base font-700 text-[#0D1B2A] tracking-tight">
+                Matching Shipments
+              </h2>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                {filteredShipments.length} found
+              </span>
             </div>
-            <p className="text-gray-400 text-sm text-center">No consignments yet.</p>
             <button
-              onClick={onBook}
-              style={{ fontFamily: 'Jost, sans-serif' }}
-              className="bg-[#0D1B2A] text-white font-600 text-sm px-5 py-2.5 rounded-xl cursor-pointer"
+              onClick={() => setSearchQuery('')}
+              className="text-xs font-semibold text-gray-500 hover:text-gray-700 cursor-pointer"
             >
-              Book a Consignment
+              Clear
             </button>
           </div>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {recent.map(s => (
-              <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} />
-            ))}
+
+          {filteredShipments.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-6 flex flex-col items-center text-center gap-2">
+              <IconSearch size={22} className="text-gray-300" />
+              <p className="text-sm font-semibold text-gray-700">No shipments found</p>
+              <p className="text-xs text-gray-400 max-w-[240px]">
+                No consignments match "{searchQuery}". Try searching by recipient name, city, or commodity item.
+              </p>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="mt-2 text-xs font-semibold text-[#2563EB] cursor-pointer"
+              >
+                Reset Search
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {filteredShipments.map((s: Shipment) => (
+                <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="px-4 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-base font-700 text-[#0D1B2A] tracking-tight">
+              Recent Consignments
+            </h2>
+            <button onClick={onViewAll} className="text-[13px] font-semibold text-[#2563EB] cursor-pointer">
+              View All
+            </button>
           </div>
-        )}
-      </div>
+
+          {recent.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 flex flex-col items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center">
+                <IconBox size={22} className="text-gray-300" />
+              </div>
+              <p className="text-gray-400 text-sm text-center">No consignments yet.</p>
+              <button
+                onClick={onBook}
+                style={{ fontFamily: 'Jost, sans-serif' }}
+                className="bg-[#0D1B2A] text-white font-600 text-sm px-5 py-2.5 rounded-xl cursor-pointer"
+              >
+                Book a Consignment
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {recent.map(s => (
+                <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Services */}
       <div className="px-4 pt-5 pb-2">
@@ -1115,6 +1208,78 @@ function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
 
 // ─── Tracking Screen (Dedicated Live Tracking) ────────────────────────────────
 
+function ScalePhotoModal({
+  photoUrl,
+  weight,
+  trackingNumber,
+  onClose,
+}: {
+  photoUrl: string
+  weight?: string
+  trackingNumber?: string
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="px-4 py-3.5 border-b border-gray-100 flex items-center justify-between bg-white">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <IconScale size={16} />
+            </div>
+            <div>
+              <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-sm font-700 text-[#0D1B2A] leading-tight">
+                Verified Scale Proof
+              </p>
+              <p className="text-[10px] text-gray-400 font-mono mt-0.5">{trackingNumber}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center cursor-pointer transition-colors"
+          >
+            <IconClose size={15} />
+          </button>
+        </div>
+
+        {/* Photo Container */}
+        <div className="relative bg-[#0A0E14] flex items-center justify-center overflow-hidden min-h-[260px] max-h-[420px]">
+          <img
+            src={photoUrl}
+            alt="Warehouse Scale Proof"
+            className="w-full h-full object-contain"
+          />
+          {weight && (
+            <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1 rounded-xl border border-white/20 shadow-md">
+              Scale Weight: <span className="text-emerald-400 font-bold">{weight}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Details Footer */}
+        <div className="p-4 bg-gray-50/80 border-t border-gray-100 space-y-2 text-xs">
+          <div className="flex items-center justify-between text-gray-500">
+            <span>Certification:</span>
+            <span className="font-semibold text-emerald-600">NetPack Intake Digital Scale #01</span>
+          </div>
+          <div className="flex items-center justify-between text-gray-500">
+            <span>Inspection Hub:</span>
+            <span className="font-semibold text-[#0D1B2A]">Teku Central Operations, Kathmandu</span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ fontFamily: 'Jost, sans-serif' }}
+            className="w-full mt-2 py-2.5 bg-[#0D1B2A] text-white rounded-xl font-600 text-xs active:scale-98 transition-transform cursor-pointer"
+          >
+            Close Preview
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const LIFECYCLE_STAGES = [
   { id: 'enquiry', label: 'Booking Registered', short: 'Booking' },
   { id: 'pickup', label: 'Picked Up by Rider', short: 'Picked Up' },
@@ -1137,6 +1302,7 @@ function TrackingScreen({
   const [isFolded, setIsFolded] = useState(true)
   const [isBoxesOpen, setIsBoxesOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null)
 
   // Tracking details from live API or mock fallback
   const [data, setData] = useState<TrackingDetails>(() => {
@@ -1162,6 +1328,9 @@ function TrackingScreen({
           else if (statusStr.includes('TRANSIT')) stageIdx = 3
           else if (statusStr.includes('PACK') || statusStr.includes('CREATED')) stageIdx = 2
           else if (statusStr.includes('PICK')) stageIdx = 1
+
+          const proofImg = liveRes.weightProofImageUrl || (liveRes.weightProofImages && liveRes.weightProofImages[0]) || undefined
+          const proofImgs = liveRes.weightProofImages || (proofImg ? [proofImg] : [])
 
           setData({
             tracking: liveRes.trackingNumber,
@@ -1198,6 +1367,8 @@ function TrackingScreen({
                   source: cp.source || 'NetPack Operations',
                 }))
               : mockTrackingMap['NP-20240922-001'].checkpoints,
+            weightProofImageUrl: proofImg,
+            weightProofImages: proofImgs,
           })
         } else if (mockTrackingMap[trackingId]) {
           setData(mockTrackingMap[trackingId])
@@ -1437,6 +1608,16 @@ function TrackingScreen({
                             <p className={`text-xs font-semibold ${isActive ? 'text-blue-600 font-bold' : isCompleted ? 'text-[#0D1B2A]' : 'text-gray-400'}`}>
                               {stg.label}
                             </p>
+                            {idx === 2 && data.weightProofImageUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewPhotoUrl(data.weightProofImageUrl!)}
+                                className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/80 text-[10px] font-semibold transition-all cursor-pointer"
+                              >
+                                <IconScale size={12} />
+                                <span>View Verified Scale Image ({data.weight})</span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       )
@@ -1444,6 +1625,65 @@ function TrackingScreen({
                   </div>
                 )}
               </div>
+
+              {/* Warehouse Verified Weight Scale Photo Card */}
+              {data.weightProofImageUrl && (
+                <div className="rounded-2xl border border-emerald-100 bg-white p-3.5 shadow-2xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <IconScale size={15} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-[#0D1B2A] leading-tight">Warehouse Verified Weight</p>
+                        <p className="text-[10px] text-gray-400">Electronic Scale Calibration Proof</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {data.weight} Certified
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 bg-emerald-50/40 p-2.5 rounded-xl border border-emerald-100/60">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPhotoUrl(data.weightProofImageUrl!)}
+                      className="relative group overflow-hidden rounded-xl border border-emerald-200 shadow-2xs shrink-0 cursor-pointer"
+                    >
+                      <img
+                        src={data.weightProofImageUrl.startsWith('http') ? data.weightProofImageUrl : `${API_BASE}${data.weightProofImageUrl}`}
+                        alt="Scale Proof"
+                        className="h-18 w-24 object-cover transition-transform group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
+                        Inspect Photo
+                      </div>
+                    </button>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-gray-500">Gross Weight:</span>
+                        <span className="font-bold text-[#0D1B2A]">{data.weight}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-gray-500">Volumetric:</span>
+                        <span className="font-medium text-gray-700">{data.volumetricWeight}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-gray-500">Chargeable:</span>
+                        <span className="font-bold text-emerald-700">{data.chargeableWeight}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewPhotoUrl(data.weightProofImageUrl!)}
+                        className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer pt-0.5"
+                      >
+                        <span>View Scale Proof Photo</span>
+                        <IconArrowRight size={11} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Overseas Courier Leg Card */}
               <div className="rounded-xl border border-gray-100 p-3.5 bg-white shadow-2xs space-y-2">
@@ -1591,6 +1831,16 @@ function TrackingScreen({
           </div>
         )}
       </div>
+
+      {/* Scale Proof Photo Lightbox Modal */}
+      {previewPhotoUrl && (
+        <ScalePhotoModal
+          photoUrl={previewPhotoUrl.startsWith('http') ? previewPhotoUrl : `${API_BASE}${previewPhotoUrl}`}
+          weight={data.weight}
+          trackingNumber={data.tracking}
+          onClose={() => setPreviewPhotoUrl(null)}
+        />
+      )}
     </div>
   )
 }
