@@ -742,87 +742,116 @@ export default function PickupRiderPWA() {
   // ─── Rider Login Screen (When unauthenticated) ─────────────────────────────
   if (!riderToken) {
     return (
-      <div className='min-h-screen bg-[#F1F4F8] dark:bg-[#0B131F] text-foreground flex flex-col font-sans'>
-        {/* Top Sticky Header with Theme Switcher (Install button removed) */}
-        <header className='bg-[#0D1B2A] text-white px-4 py-3.5 sticky top-0 z-40 shadow-md'>
-          <div className='max-w-[430px] mx-auto flex items-center justify-between'>
-            <div className='flex items-center gap-2.5'>
-              <img
-                src='/images/netpack-rider-icon-192.png'
-                alt='Netpack Rider'
-                className='h-9 w-9 rounded-xl object-contain bg-white p-0.5 border border-white/20 shadow-xs'
-              />
-              <div>
-                <span style={{ fontFamily: 'Jost, sans-serif' }} className='text-base font-700 tracking-tight text-white block leading-tight'>
-                  Netpack Rider
-                </span>
-                <span className='text-[10px] block text-white/60'>Field Rider Dispatch Portal</span>
+      <div className='flex-1 flex flex-col min-h-screen overflow-y-auto no-scrollbar bg-[#F1F4F8] dark:bg-[#0B131F] text-foreground font-sans'>
+        {/* Brand panel matching netpackpwa ui */}
+        <div className='bg-[#0D1B2A] px-6 pt-12 pb-12 relative overflow-hidden shrink-0'>
+          {/* Route motif SVG */}
+          <svg className='absolute inset-0 w-full h-full' viewBox='0 0 430 280' fill='none' preserveAspectRatio='none'>
+            <path
+              d='M-30 230 C 70 150, 150 260, 240 170 S 400 50, 470 -10'
+              stroke='#3B82F6'
+              strokeOpacity='0.35'
+              strokeWidth='1.5'
+              strokeDasharray='1 9'
+              strokeLinecap='round'
+            />
+            <circle cx='240' cy='170' r='3' fill='#60A5FA' fillOpacity='0.6' />
+          </svg>
+          <style>{`
+            @keyframes floatBubbleA {
+              0%, 100% { transform: translate(0, 0); }
+              50% { transform: translate(-8px, 10px); }
+            }
+            @keyframes floatBubbleB {
+              0%, 100% { transform: translate(0, 0); }
+              50% { transform: translate(7px, -8px); }
+            }
+          `}</style>
+          <div
+            className='absolute top-8 right-6 w-24 h-24 rounded-full bg-blue-500/15 blur-[2px]'
+            style={{ animation: 'floatBubbleA 6s ease-in-out infinite' }}
+          />
+          <div
+            className='absolute top-16 left-24 w-14 h-14 rounded-full bg-blue-500/10 blur-[1px]'
+            style={{ animation: 'floatBubbleB 5s ease-in-out infinite' }}
+          />
+
+          <div className='relative flex items-start justify-between'>
+            <div>
+              <h1
+                style={{ fontFamily: 'Georgia, "Times New Roman", serif', letterSpacing: '0.14em' }}
+                className='text-white text-2xl font-bold mb-1 select-none'
+              >
+                NETPACK
+              </h1>
+              <div className='inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-[10px] font-semibold mb-3'>
+                <Bike className='h-3 w-3' />
+                <span>RIDER DISPATCH PORTAL</span>
               </div>
+              <p className='text-white/80 text-[13px] leading-relaxed max-w-[280px]'>
+                Sign in to manage assigned customer pickups, Kathmandu routes, and digital scale weights.
+              </p>
             </div>
-            <div className='flex items-center gap-2'>
+            <div className='pt-1'>
               <ThemeSwitch />
             </div>
           </div>
-        </header>
+        </div>
 
-        {/* Main Login Card */}
-        <main className='flex-1 flex items-center justify-center p-4 sm:p-6'>
-          <div className='max-w-[430px] w-full space-y-4 animate-in fade-in-50 duration-200'>
-            <div className='rounded-3xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-[#152238] shadow-xl p-6'>
-              <div className='text-center pb-4 pt-2'>
-                <div className='h-14 w-14 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center mb-3 shadow-inner border border-blue-100 dark:border-blue-900/50'>
-                  <Bike className='h-7 w-7' />
+        {/* Form sheet matching netpackpwa ui */}
+        <div className='flex-1 bg-[#F1F4F8] dark:bg-[#0B131F] rounded-t-[28px] -mt-5 px-5 pt-6 pb-10 relative'>
+          <div className='max-w-[430px] mx-auto space-y-4'>
+            <div className='bg-white dark:bg-[#152238] rounded-2xl border border-gray-200/80 dark:border-slate-800 p-5 shadow-sm space-y-4'>
+              <div className='flex items-center gap-2 pb-2 border-b border-gray-100 dark:border-slate-800'>
+                <div className='w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center'>
+                  <Bike className='h-4 w-4' />
                 </div>
-                <h2 style={{ fontFamily: 'Jost, sans-serif' }} className='text-2xl font-800 tracking-tight text-[#0D1B2A] dark:text-white'>
-                  Rider Dispatch Login
-                </h2>
-                <p className='text-xs text-muted-foreground mt-1'>
-                  Sign in to access assigned pickups, live Kathmandu dispatch alerts, and camera weighing.
-                </p>
+                <div>
+                  <h2 style={{ fontFamily: 'Jost, sans-serif' }} className='text-base font-bold text-[#0D1B2A] dark:text-white leading-tight'>
+                    Rider Authentication
+                  </h2>
+                  <p className='text-[11px] text-muted-foreground'>Enter your registered driver ID or email</p>
+                </div>
               </div>
 
-              <form onSubmit={handleRiderLogin} className='space-y-4 pt-2'>
-                {/* Rider ID / Email / Phone */}
-                <div className='space-y-1.5'>
-                  <label className='text-xs font-semibold text-foreground flex items-center justify-between'>
-                    <span>Rider ID / Email / Phone</span>
-                    <span className='text-[10px] text-muted-foreground font-normal'>Registered Account</span>
+              <form onSubmit={handleRiderLogin} className='space-y-4 pt-1'>
+                <div>
+                  <label className='block text-[12px] font-semibold text-[#0D1B2A] dark:text-gray-200 mb-1.5'>
+                    Rider ID / Email / Phone <span className='text-red-500'>*</span>
                   </label>
                   <div className='relative'>
-                    <User className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
+                    <User className='h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground' />
                     <Input
                       type='text'
                       placeholder='e.g. driver@netpack.com or rider-01'
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      className='pl-9 h-11 text-xs rounded-xl bg-background text-foreground'
+                      className='pl-10 h-11 text-xs rounded-xl bg-background text-foreground'
                       autoComplete='username'
                       required
                     />
                   </div>
                 </div>
 
-                {/* Password */}
-                <div className='space-y-1.5'>
-                  <label className='text-xs font-semibold text-foreground flex items-center justify-between'>
-                    <span>Password</span>
-                    <span className='text-[10px] text-muted-foreground font-normal'>Security Code</span>
+                <div>
+                  <label className='block text-[12px] font-semibold text-[#0D1B2A] dark:text-gray-200 mb-1.5'>
+                    Password / Security PIN <span className='text-red-500'>*</span>
                   </label>
                   <div className='relative'>
-                    <Lock className='h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground' />
+                    <Lock className='h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground' />
                     <Input
                       type={showLoginPassword ? 'text' : 'password'}
-                      placeholder='Enter your rider password'
+                      placeholder='Enter your security password'
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
-                      className='pl-9 pr-9 h-11 text-xs font-mono rounded-xl bg-background text-foreground'
+                      className='pl-10 pr-10 h-11 text-xs font-mono rounded-xl bg-background text-foreground'
                       autoComplete='current-password'
                       required
                     />
                     <button
                       type='button'
                       onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground'
+                      className='absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer'
                       tabIndex={-1}
                     >
                       {showLoginPassword ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
@@ -830,37 +859,40 @@ export default function PickupRiderPWA() {
                   </div>
                 </div>
 
-                {/* Submit Button */}
                 <button
                   type='submit'
-                  disabled={loginLoading}
+                  disabled={loginLoading || !loginIdentifier || !loginPassword}
                   style={{ fontFamily: 'Jost, sans-serif' }}
-                  className='w-full h-11 text-xs font-700 text-white bg-[#0D1B2A] hover:bg-[#152238] active:scale-95 transition-all rounded-2xl flex items-center justify-center gap-2 shadow-md cursor-pointer'
+                  className='w-full bg-[#2563EB] disabled:bg-gray-300 dark:disabled:bg-slate-800 disabled:shadow-none hover:bg-[#1D4ED8] text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 dark:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer mt-2'
                 >
                   {loginLoading ? (
                     <>
                       <RefreshCw className='h-4 w-4 animate-spin' />
-                      Authenticating...
+                      <span>Authenticating...</span>
                     </>
                   ) : (
                     <>
                       <Bike className='h-4 w-4' />
-                      Sign In to Rider Portal
+                      <span>Sign In to Rider Portal</span>
                     </>
                   )}
                 </button>
               </form>
             </div>
+
+            <p className='text-center text-[11px] text-muted-foreground leading-relaxed px-4 pt-2'>
+              NetPack Field Operations • Kathmandu Central Hub Teku
+            </p>
           </div>
-        </main>
+        </div>
       </div>
     )
   }
 
   return (
     <div className='min-h-screen bg-[#F1F4F8] dark:bg-[#0B131F] text-foreground flex flex-col font-sans pb-24 select-none'>
-      {/* ─── Sticky Top App Bar (Matching Customer PWA Deep Navy Theme) ────── */}
-      <header className='sticky top-0 z-40 bg-[#0D1B2A] text-white px-3.5 py-3 shadow-md'>
+      {/* ─── Sticky Top App Bar (Curved Gradient Header) ────────────────── */}
+      <header className='sticky top-0 z-40 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] text-white px-4 pt-2.5 pb-3 rounded-b-[18px] shadow-lg shadow-black/20'>
         <div className='max-w-[430px] mx-auto flex items-center justify-between gap-2'>
           {/* Logo & Online Status */}
           <div className='flex items-center gap-2.5 min-w-0'>

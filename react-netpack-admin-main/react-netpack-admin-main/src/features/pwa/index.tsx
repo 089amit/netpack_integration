@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { useTheme } from '@/context/theme-context'
 
@@ -537,6 +537,54 @@ const IconHome = ({ size = 22, className = '' }: { size?: number; className?: st
   </svg>
 )
 
+const IconWarehouse = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/>
+    <path d="M6 18h12"/>
+    <path d="M6 14h12"/>
+    <rect width="12" height="12" x="6" y="10"/>
+  </svg>
+)
+
+const IconDocument = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="8" y1="13" x2="16" y2="13"/>
+    <line x1="8" y1="17" x2="13" y2="17"/>
+  </svg>
+)
+
+const IconTag = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M20.59 13.41 13.42 20.59a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z" />
+    <line x1="7" y1="7" x2="7.01" y2="7" strokeWidth={2.6} />
+  </svg>
+)
+
+const IconGoogle = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className={className}>
+    <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.54 5.54 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82Z"/>
+    <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3c-1.08.72-2.46 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.26v3.1A12 12 0 0 0 12 24Z"/>
+    <path fill="#FBBC05" d="M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28v-3.1H1.26A12 12 0 0 0 0 12c0 1.94.46 3.77 1.26 5.38l4.01-3.1Z"/>
+    <path fill="#EA4335" d="M12 4.75c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.26 6.62l4.01 3.1C6.22 6.87 8.87 4.75 12 4.75Z"/>
+  </svg>
+)
+
+const IconEye = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+)
+
+const IconEyeOff = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a13.16 13.16 0 0 1-3.17 4.34M6.61 6.61C3.63 8.36 1 12 1 12s4 8 11 8a9.26 9.26 0 0 0 5.39-1.61M1 1l22 22"/>
+    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+  </svg>
+)
+
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 function Header({
@@ -553,7 +601,7 @@ function Header({
   onToggleTheme?: () => void
 }) {
   return (
-    <header className="sticky top-0 z-30 bg-[#0D1B2A] px-4 pt-3 pb-3 flex items-center gap-3 shadow-md">
+    <header className="sticky top-0 z-30 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] px-4 pt-2 pb-2.5 flex items-center gap-3 rounded-b-[18px] shadow-lg shadow-black/20">
       {/* Wave greeting */}
       <div className="text-2xl leading-none select-none">👋</div>
 
@@ -564,7 +612,7 @@ function Header({
         </span>
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <button
           onClick={onToggleTheme}
           className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer"
@@ -579,12 +627,12 @@ function Header({
         >
           <IconBell size={17} />
           {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-blue-400 rounded-full ring-2 ring-[#0D1B2A] animate-pulse" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-400 rounded-full ring-2 ring-[#0D1B2A] animate-pulse" />
           )}
         </button>
         <button
           onClick={onSignOut}
-          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-500/20 active:scale-95 text-white/80 hover:text-red-400 flex items-center justify-center transition-all cursor-pointer"
+          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-500/25 active:scale-95 text-white/80 hover:text-red-400 flex items-center justify-center transition-all cursor-pointer"
           title="Sign Out"
         >
           <IconLogout size={17} />
@@ -599,39 +647,37 @@ function Header({
 function BottomNav({ screen, setScreen }: { screen: Screen; setScreen: (s: Screen) => void }) {
   const homeActive = screen === 'home' || screen === 'shipments' || screen === 'rateenquiry' || screen === 'tracking'
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white dark:bg-[#0D1B2A] border-t border-gray-200 dark:border-gray-800 max-w-[430px] mx-auto shadow-lg">
-      <div className="flex items-center px-6 py-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-30 max-w-[430px] mx-auto px-4 pb-2.5 pb-safe pointer-events-none">
+      <div className="pointer-events-auto bg-[#0D1B2A] rounded-[22px] shadow-2xl shadow-black/40 border border-white/10 px-3 py-1.5 flex items-center justify-between">
         {/* Home */}
         <button
           onClick={() => setScreen('home')}
-          className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 transition-colors ${homeActive ? 'text-[#2563EB] font-bold' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 px-5 py-2 rounded-2xl transition-all cursor-pointer ${
+            homeActive ? 'text-white bg-white/10 font-bold' : 'text-white/35 hover:text-white/60'
+          }`}
         >
-          <IconHome size={22} />
-          <span className="text-[10px] tracking-wide">Home</span>
+          <IconHome size={20} />
+          <span className="text-[9px] font-semibold tracking-wide">Home</span>
         </button>
 
         {/* Book FAB */}
-        <div className="flex-1 flex flex-col items-center py-0.5 -mt-5">
-          <button
-            onClick={() => setScreen('book')}
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-95 ${
-              screen === 'book' ? 'bg-[#2563EB] shadow-blue-500/40 ring-4 ring-blue-200' : 'bg-[#0D1B2A] shadow-slate-900/30'
-            }`}
-          >
-            <IconPlus size={26} className="text-white" />
-          </button>
-          <span className={`text-[10px] font-semibold mt-1 tracking-wide ${screen === 'book' ? 'text-[#2563EB]' : 'text-gray-400'}`}>
-            Book
-          </span>
-        </div>
+        <button
+          onClick={() => setScreen('book')}
+          className="w-12 h-12 -mt-5 rounded-full bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] flex items-center justify-center shadow-lg shadow-blue-500/40 border-2 border-white active:scale-95 transition-transform cursor-pointer"
+          title="Book Consignment"
+        >
+          <IconPlus size={24} className="text-white" />
+        </button>
 
         {/* Profile */}
         <button
           onClick={() => setScreen('profile')}
-          className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 transition-colors ${screen === 'profile' ? 'text-[#2563EB] font-bold' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 px-5 py-2 rounded-2xl transition-all cursor-pointer ${
+            screen === 'profile' ? 'text-white bg-white/10 font-bold' : 'text-white/35 hover:text-white/60'
+          }`}
         >
-          <IconUser size={22} />
-          <span className="text-[10px] tracking-wide">Profile</span>
+          <IconUser size={20} />
+          <span className="text-[9px] font-semibold tracking-wide">Profile</span>
         </button>
       </div>
     </nav>
@@ -1280,15 +1326,6 @@ function ScalePhotoModal({
   )
 }
 
-const LIFECYCLE_STAGES = [
-  { id: 'enquiry', label: 'Booking Registered', short: 'Booking' },
-  { id: 'pickup', label: 'Picked Up by Rider', short: 'Picked Up' },
-  { id: 'warehouse', label: 'Warehouse Weighed & Packed', short: 'Packed' },
-  { id: 'transit', label: 'Air Cargo in Flight', short: 'Air Cargo' },
-  { id: 'hub', label: 'Arrived at Destination Hub', short: 'Hub Intake' },
-  { id: 'carrier', label: 'Overseas Courier Dispatch', short: 'Courier' },
-  { id: 'delivered', label: 'Delivered to Consignee', short: 'Delivered' },
-]
 
 function TrackingScreen({
   initialTrackingId,
@@ -1303,6 +1340,8 @@ function TrackingScreen({
   const [isBoxesOpen, setIsBoxesOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null)
+  const stepperScrollRef = useRef<HTMLDivElement>(null)
+  const activeStepRef = useRef<HTMLDivElement>(null)
 
   // Tracking details from live API or mock fallback
   const [data, setData] = useState<TrackingDetails>(() => {
@@ -1395,7 +1434,25 @@ function TrackingScreen({
     }
   }
 
-  const progressPercent = Math.min(100, Math.round(((data.stageIndex + 1) / LIFECYCLE_STAGES.length) * 100))
+  const milestones = [
+    { label: 'Enquiry', title: 'Enquiry Generated', desc: 'Consignment booking registered with NetPack', Icon: IconDocument },
+    { label: 'Picked Up', title: 'Cargo Picked Up', desc: 'Verified & weighed at Central Teku warehouse', Icon: IconBox },
+    { label: 'Created', title: 'Shipment Created', desc: 'HAWB allocated & export clearance prepared', Icon: IconTag },
+    { label: 'In Transit', title: 'In Transit (Air Cargo)', desc: `Departed KTM on flight to ${data.destination}`, Icon: IconPlane },
+    { label: 'At Hub', title: 'Arrived at Destination Hub', desc: 'Customs clearance at destination terminal', Icon: IconWarehouse },
+    { label: 'Carrier', title: 'Carrier Out for Delivery', desc: `Handed over to ${data.carrier} for final delivery`, Icon: IconTruck },
+    { label: 'Delivered', title: 'Delivered', desc: `Delivered to ${data.receiverName}`, Icon: IconCheck },
+  ]
+
+  const currentStatusLabel = (milestones[data.stageIndex]?.title || data.statusLabel).replace(/\s*\([^)]*\)\s*$/, '')
+
+  useEffect(() => {
+    if (isFolded && activeStepRef.current && stepperScrollRef.current) {
+      activeStepRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    }
+  }, [isFolded, data.stageIndex])
+
+  const progressPercent = Math.min(100, Math.round(((data.stageIndex + 1) / milestones.length) * 100))
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
@@ -1532,57 +1589,60 @@ function TrackingScreen({
                 </div>
               </div>
 
-              {/* 7-Stage Milestones Stepper */}
-              <div className="rounded-xl border border-gray-100 p-3.5 space-y-3 bg-gray-50/40">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Milestones</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                      Stage {data.stageIndex + 1} of {LIFECYCLE_STAGES.length}: {LIFECYCLE_STAGES[data.stageIndex]?.short}
+              {/* Milestones Stepper — "Flight Path" (Folded / Expanded) */}
+              <div className="rounded-2xl bg-gradient-to-br from-[#0D1B2A] to-[#16293D] p-4 space-y-4 relative overflow-hidden">
+                {/* faint route texture */}
+                <svg className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none" viewBox="0 0 300 160" preserveAspectRatio="none">
+                  <path d="M-10 140 C 60 90, 100 160, 160 100 S 280 20, 320 -10" stroke="#60A5FA" strokeWidth="1.5" strokeDasharray="1 8" />
+                </svg>
+
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span style={{ fontFamily: 'Jost, sans-serif' }} className="text-[12px] font-700 text-white tracking-tight truncate">
+                      {currentStatusLabel}
                     </span>
                   </div>
                   <button
                     onClick={() => setIsFolded(!isFolded)}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-400 hover:text-sky-300 transition-colors cursor-pointer"
                   >
                     <span>{isFolded ? 'Expand' : 'Fold'}</span>
-                    {isFolded ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}
+                    {isFolded ? <IconChevronDown size={13} /> : <IconChevronUp size={13} />}
                   </button>
                 </div>
 
-                {/* Folded Horizontal Stepper */}
                 {isFolded ? (
-                  <div className="w-full overflow-x-auto py-2 px-1 scrollbar-none">
-                    <div className="flex items-center justify-between min-w-[500px] relative px-2">
-                      <div className="absolute left-6 right-6 top-3.5 h-0.5 bg-gray-200 -z-0" />
-                      <div
-                        className="absolute left-6 top-3.5 h-0.5 bg-emerald-500 -z-0 transition-all duration-300"
-                        style={{
-                          width: `${Math.min(100, Math.max(0, (data.stageIndex / (LIFECYCLE_STAGES.length - 1)) * 100))}%`,
-                        }}
-                      />
-                      {LIFECYCLE_STAGES.map((stg, idx) => {
-                        const isCompleted = idx < data.stageIndex || (idx === data.stageIndex && data.stageIndex === LIFECYCLE_STAGES.length - 1)
-                        const isActive = idx === data.stageIndex && data.stageIndex < LIFECYCLE_STAGES.length - 1
+                  /* Folded View: Horizontal Scrollable Nodes */
+                  <div ref={stepperScrollRef} className="overflow-x-auto no-scrollbar -mx-1 px-1 py-1">
+                    <div className="flex items-center gap-6 min-w-max px-2">
+                      {milestones.map((stg, sIdx) => {
+                        const isCompleted = sIdx < data.stageIndex || (sIdx === 6 && data.stageIndex === 6)
+                        const isActive = sIdx === data.stageIndex && data.stageIndex < 6
+                        const Icon = stg.Icon
+
                         return (
-                          <div key={stg.id} className="flex flex-col items-center relative z-10 min-w-[58px] text-center">
+                          <div
+                            key={stg.label}
+                            ref={isActive ? activeStepRef : null}
+                            className="flex flex-col items-center shrink-0 text-center"
+                          >
                             <div
-                              className={`h-7 w-7 rounded-full flex items-center justify-center text-xs transition-all ${
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
                                 isCompleted
-                                  ? 'bg-emerald-500 text-white shadow-xs'
+                                  ? 'bg-emerald-400 text-[#0D1B2A]'
                                   : isActive
-                                  ? 'bg-blue-600 text-white ring-4 ring-blue-100 animate-pulse-ring'
-                                  : 'bg-white border border-gray-300 text-gray-400'
+                                  ? 'bg-gradient-to-br from-sky-400 to-[#2563EB] text-white shadow-lg ring-4 ring-sky-400/25'
+                                  : 'bg-white/5 border border-white/10 text-white/30'
                               }`}
                             >
-                              {isCompleted ? <IconCheck size={13} /> : idx + 1}
+                              <Icon size={16} />
                             </div>
                             <span
-                              className={`text-[9px] mt-1.5 font-semibold text-center whitespace-nowrap leading-none ${
-                                isActive ? 'text-blue-600 font-bold' : isCompleted ? 'text-emerald-700' : 'text-gray-400'
+                              className={`text-[9px] mt-2 font-semibold whitespace-nowrap leading-none ${
+                                isActive ? 'text-sky-300' : isCompleted ? 'text-emerald-300' : 'text-white/30'
                               }`}
                             >
-                              {stg.short}
+                              {stg.label}
                             </span>
                           </div>
                         )
@@ -1590,29 +1650,43 @@ function TrackingScreen({
                     </div>
                   </div>
                 ) : (
-                  /* Expanded Vertical Stepper */
-                  <div className="relative pl-5 pt-1 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
-                    {LIFECYCLE_STAGES.map((stg, idx) => {
-                      const isCompleted = idx < data.stageIndex || (idx === data.stageIndex && data.stageIndex === LIFECYCLE_STAGES.length - 1)
-                      const isActive = idx === data.stageIndex && data.stageIndex < LIFECYCLE_STAGES.length - 1
+                  /* Expanded View: Itinerary-style Vertical Stepper */
+                  <div className="relative pl-9 pt-1 space-y-4 before:absolute before:left-[15px] before:top-1 before:bottom-1 before:w-[2px] before:bg-white/10">
+                    {milestones.map((stg, sIdx) => {
+                      const isCompleted = sIdx < data.stageIndex || (sIdx === 6 && data.stageIndex === 6)
+                      const isActive = sIdx === data.stageIndex && data.stageIndex < 6
+                      const Icon = stg.Icon
+
                       return (
-                        <div key={stg.id} className="relative group">
+                        <div key={stg.label} className="relative text-left">
                           <div
-                            className={`absolute -left-5 top-0 flex h-4.5 w-4.5 items-center justify-center rounded-full text-[10px] transition-all ${
-                              isCompleted ? 'bg-emerald-500 text-white' : isActive ? 'bg-blue-600 text-white ring-2 ring-blue-200' : 'bg-gray-200 text-gray-500'
+                            className={`absolute -left-9 top-0 flex h-8 w-8 items-center justify-center rounded-xl transition-all ${
+                              isCompleted
+                                ? 'bg-emerald-400 text-[#0D1B2A]'
+                                : isActive
+                                ? 'bg-gradient-to-br from-sky-400 to-[#2563EB] text-white ring-4 ring-sky-400/25'
+                                : 'bg-white/5 border border-white/10 text-white/30'
                             }`}
                           >
-                            {isCompleted ? <IconCheck size={10} /> : idx + 1}
+                            <Icon size={15} />
                           </div>
-                          <div className="ml-2">
-                            <p className={`text-xs font-semibold ${isActive ? 'text-blue-600 font-bold' : isCompleted ? 'text-[#0D1B2A]' : 'text-gray-400'}`}>
-                              {stg.label}
+                          <div className="pt-1">
+                            <p
+                              style={{ fontFamily: 'Jost, sans-serif' }}
+                              className={`text-[13px] font-700 leading-tight ${
+                                isActive ? 'text-sky-300' : isCompleted ? 'text-white' : 'text-white/35'
+                              }`}
+                            >
+                              {stg.title}
                             </p>
-                            {idx === 2 && data.weightProofImageUrl && (
+                            <p className={`text-[11px] leading-snug mt-0.5 ${isActive || isCompleted ? 'text-white/55' : 'text-white/20'}`}>
+                              {stg.desc}
+                            </p>
+                            {(sIdx === 1 || sIdx === 2) && data.weightProofImageUrl && (
                               <button
                                 type="button"
                                 onClick={() => setPreviewPhotoUrl(data.weightProofImageUrl!)}
-                                className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/80 text-[10px] font-semibold transition-all cursor-pointer"
+                                className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-400/30 text-[10px] font-semibold transition-all cursor-pointer"
                               >
                                 <IconScale size={12} />
                                 <span>View Verified Scale Image ({data.weight})</span>
@@ -2474,6 +2548,325 @@ function ProfileScreen({
   )
 }
 
+
+function PasswordInput({
+  placeholder,
+  value,
+  onChange,
+}: {
+  placeholder: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative">
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full border border-gray-200 rounded-xl pl-4 pr-11 py-3 text-sm text-[#0D1B2A] placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all font-sans"
+      />
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+        tabIndex={-1}
+      >
+        {show ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+      </button>
+    </div>
+  )
+}
+
+// ─── Branded Auth Screen (netpackpwa ui) ──────────────────────────────────────
+
+type AuthMode = 'login' | 'signup'
+
+function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: string) => void }) {
+  const [mode, setMode] = useState<AuthMode>('login')
+  const [loading, setLoading] = useState(false)
+
+  // Login fields
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+
+  // Signup fields
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address1, setAddress1] = useState('')
+  const [address2, setAddress2] = useState('')
+  const [city, setCity] = useState('')
+  const [stateProvince, setStateProvince] = useState('')
+  const [postcode, setPostcode] = useState('')
+  const [country, setCountry] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
+  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword
+  const signupValid = Boolean(
+    fullName && email && phone && address1 && city && stateProvince && postcode && country && password && confirmPassword && password === confirmPassword
+  )
+  const loginValid = Boolean(loginEmail && loginPassword)
+
+  const handleLogin = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/customer-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const user = data.user || { name: data.name || loginEmail.split('@')[0], email: loginEmail }
+        const token = data.token || 'demo-token'
+        localStorage.setItem('netpack_customer_token', token)
+        localStorage.setItem('netpack_customer_user', JSON.stringify(user))
+        toast.success(`Welcome back, ${user.name}!`)
+        onAuthenticated(user, token)
+        return
+      }
+    } catch {
+      // offline fallback
+    }
+
+    const demoUser = {
+      name: loginEmail.split('@')[0] || 'Customer',
+      email: loginEmail,
+      phone: '9801234567',
+      address1: 'Thamel, Kathmandu',
+    }
+    const demoToken = 'jwt-customer-session'
+    localStorage.setItem('netpack_customer_token', demoToken)
+    localStorage.setItem('netpack_customer_user', JSON.stringify(demoUser))
+    toast.success(`Welcome back, ${demoUser.name}!`)
+    onAuthenticated(demoUser, demoToken)
+    setLoading(false)
+  }
+
+  const handleSignup = () => {
+    setLoading(true)
+    const newUser = {
+      name: fullName,
+      email,
+      phone,
+      address1,
+      address2,
+      city,
+      stateProvince,
+      postcode,
+      country,
+    }
+    const token = 'jwt-customer-session'
+    localStorage.setItem('netpack_customer_token', token)
+    localStorage.setItem('netpack_customer_user', JSON.stringify(newUser))
+    toast.success(`Welcome to NetPack, ${fullName}!`)
+    onAuthenticated(newUser, token)
+    setLoading(false)
+  }
+
+  const handleGoogleSignIn = () => {
+    const googleUser = {
+      name: 'Google Customer',
+      email: 'customer@gmail.com',
+      phone: '9841234567',
+      address1: 'Kathmandu, Nepal',
+    }
+    const token = 'jwt-google-session'
+    localStorage.setItem('netpack_customer_token', token)
+    localStorage.setItem('netpack_customer_user', JSON.stringify(googleUser))
+    toast.success('Signed in with Google!')
+    onAuthenticated(googleUser, token)
+  }
+
+  return (
+    <div className="flex-1 flex flex-col min-h-screen overflow-y-auto no-scrollbar">
+      {/* Brand panel */}
+      <div className="bg-[#0D1B2A] px-6 pt-16 pb-12 relative overflow-hidden shrink-0">
+        {/* Route motif */}
+        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 430 280" fill="none" preserveAspectRatio="none">
+          <path
+            d="M-30 230 C 70 150, 150 260, 240 170 S 400 50, 470 -10"
+            stroke="#3B82F6"
+            strokeOpacity="0.35"
+            strokeWidth="1.5"
+            strokeDasharray="1 9"
+            strokeLinecap="round"
+          />
+          <circle cx="240" cy="170" r="3" fill="#60A5FA" fillOpacity="0.6" />
+        </svg>
+        <style>{`
+          @keyframes floatBubbleA {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-8px, 10px); }
+          }
+          @keyframes floatBubbleB {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(7px, -8px); }
+          }
+        `}</style>
+        <div
+          className="absolute top-8 right-6 w-24 h-24 rounded-full bg-blue-500/15 blur-[2px]"
+          style={{ animation: 'floatBubbleA 6s ease-in-out infinite' }}
+        />
+        <div
+          className="absolute top-16 left-24 w-14 h-14 rounded-full bg-blue-500/10 blur-[1px]"
+          style={{ animation: 'floatBubbleB 5s ease-in-out infinite' }}
+        />
+
+        <div className="relative">
+          <h1
+            style={{ fontFamily: 'Georgia, "Times New Roman", serif', letterSpacing: '0.14em' }}
+            className="text-white text-2xl font-bold mb-5 select-none"
+          >
+            NETPACK
+          </h1>
+          <p className="text-white/80 text-[13px] leading-relaxed max-w-[260px]">
+            {mode === 'login' ? 'Log in to track and manage your consignments.' : 'Create an account to start shipping worldwide.'}
+          </p>
+        </div>
+      </div>
+
+      {/* Form sheet */}
+      <div className="flex-1 bg-[#F1F4F8] rounded-t-[28px] -mt-5 px-5 pt-6 pb-10 relative">
+        {/* Mode tabs */}
+        <div className="grid grid-cols-2 bg-white rounded-xl border border-gray-200 p-1 mb-5">
+          <button
+            onClick={() => setMode('login')}
+            className={`py-2.5 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
+              mode === 'login' ? 'bg-[#0D1B2A] text-white shadow-xs' : 'text-gray-400'
+            }`}
+          >
+            Log In
+          </button>
+          <button
+            onClick={() => setMode('signup')}
+            className={`py-2.5 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
+              mode === 'signup' ? 'bg-[#0D1B2A] text-white shadow-xs' : 'text-gray-400'
+            }`}
+          >
+            Create Account
+          </button>
+        </div>
+
+        {/* Google sign in */}
+        <button
+          onClick={handleGoogleSignIn}
+          className="w-full bg-white border border-gray-200 rounded-xl py-3 flex items-center justify-center gap-2.5 font-semibold text-[13px] text-[#0D1B2A] active:scale-[0.99] transition-transform shadow-sm cursor-pointer"
+        >
+          <IconGoogle size={17} />
+          Continue with Google
+        </button>
+
+        <div className="flex items-center gap-3 my-5">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-[11px] text-gray-400 font-medium">or continue with email</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+
+        {mode === 'login' ? (
+          <div className="space-y-4">
+            <div>
+              <FieldLabel required>Email Address</FieldLabel>
+              <TextInput placeholder="you@example.com" value={loginEmail} onChange={setLoginEmail} type="email" />
+            </div>
+            <div>
+              <FieldLabel required>Password</FieldLabel>
+              <PasswordInput placeholder="Enter your password" value={loginPassword} onChange={setLoginPassword} />
+              <button className="text-[12px] text-blue-600 font-medium mt-2 cursor-pointer">Forgot password?</button>
+            </div>
+            <button
+              onClick={handleLogin}
+              disabled={!loginValid || loading}
+              style={{ fontFamily: 'Jost, sans-serif' }}
+              className="w-full bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 transition-all mt-1 cursor-pointer"
+            >
+              {loading ? 'Logging in...' : 'Log In'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <FieldLabel required>Full Name</FieldLabel>
+              <TextInput placeholder="Your full name" value={fullName} onChange={setFullName} />
+            </div>
+            <div>
+              <FieldLabel required>Email Address</FieldLabel>
+              <TextInput placeholder="you@example.com" value={email} onChange={setEmail} type="email" />
+            </div>
+            <div>
+              <FieldLabel required>Phone</FieldLabel>
+              <TextInput placeholder="98XXXXXXXX" value={phone} onChange={setPhone} type="tel" />
+            </div>
+            <div>
+              <FieldLabel required>Address Line 1</FieldLabel>
+              <TextInput placeholder="House no., street" value={address1} onChange={setAddress1} />
+            </div>
+            <div>
+              <FieldLabel>Address Line 2</FieldLabel>
+              <TextInput placeholder="Apartment, area (optional)" value={address2} onChange={setAddress2} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel required>City</FieldLabel>
+                <TextInput placeholder="City" value={city} onChange={setCity} />
+              </div>
+              <div>
+                <FieldLabel required>State / Province</FieldLabel>
+                <TextInput placeholder="State" value={stateProvince} onChange={setStateProvince} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel required>Postcode</FieldLabel>
+                <TextInput placeholder="Postcode" value={postcode} onChange={setPostcode} />
+              </div>
+              <div>
+                <FieldLabel required>Country</FieldLabel>
+                <div className="relative">
+                  <select
+                    value={country}
+                    onChange={e => setCountry(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl pl-4 pr-9 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none"
+                  >
+                    <option value="">Select</option>
+                    {COUNTRIES.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                  <IconChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <FieldLabel required>Password</FieldLabel>
+              <PasswordInput placeholder="Create a password" value={password} onChange={setPassword} />
+            </div>
+            <div>
+              <FieldLabel required>Confirm Password</FieldLabel>
+              <PasswordInput placeholder="Re-enter your password" value={confirmPassword} onChange={setConfirmPassword} />
+              {passwordsMismatch && <p className="text-[11px] text-red-500 mt-1.5">Passwords don't match.</p>}
+            </div>
+            <button
+              onClick={handleSignup}
+              disabled={!signupValid || loading}
+              style={{ fontFamily: 'Jost, sans-serif' }}
+              className="w-full bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 transition-all mt-1 cursor-pointer"
+            >
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </button>
+          </div>
+        )}
+
+        <p className="text-center text-[11px] text-gray-400 mt-6 leading-relaxed px-4">
+          By continuing, you agree to NetPack's Terms of Service and Privacy Policy.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Customer PWA Component ──────────────────────────────────────────────
 
 export default function CustomerPWA() {
@@ -2596,72 +2989,83 @@ export default function CustomerPWA() {
   return (
     <div className="min-h-screen bg-[#F1F4F8] flex justify-center selection:bg-blue-100 selection:text-blue-900">
       <div className="w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] shadow-2xl">
-        {/* Top Header matching Figma */}
-        <Header
-          userName={customerUser?.name || 'Customer'}
-          unreadCount={2}
-          onBellClick={() => setScreen('notifications')}
-          onSignOut={handleSignOut}
-          onToggleTheme={toggleTheme}
-        />
-
-        {/* Screen Routing */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {screen === 'home' && (
-            <HomeScreen
-              shipments={shipments}
-              onViewAll={() => setScreen('shipments')}
-              onBook={() => setScreen('book')}
-              onRateEnquiry={() => setScreen('rateenquiry')}
-              onTrack={id => handleTrackNav(id, 'home')}
-            />
-          )}
-
-          {screen === 'shipments' && (
-            <ShipmentsScreen
-              shipments={shipments}
-              onBook={() => setScreen('book')}
-              onBack={() => setScreen('home')}
-              onTrack={id => handleTrackNav(id, 'shipments')}
-              onRefresh={fetchShipments}
-            />
-          )}
-
-          {screen === 'tracking' && (
-            <TrackingScreen
-              initialTrackingId={activeTrackingId}
-              onBack={() => setScreen(trackingReturnScreen)}
-            />
-          )}
-
-          {screen === 'rateenquiry' && (
-            <RateEnquiryScreen onBack={() => setScreen('home')} />
-          )}
-
-          {screen === 'book' && (
-            <BookScreen onComplete={handleBookComplete} />
-          )}
-
-          {screen === 'notifications' && (
-            <NotificationsScreen onBack={() => setScreen('home')} />
-          )}
-
-          {screen === 'profile' && (
-            <ProfileScreen
-              userName={customerUser?.name}
-              userEmail={customerUser?.email}
-              userPhone={customerUser?.phone}
-              userAddress={customerUser?.address1}
-              shipmentCount={shipments.length}
-              deliveredCount={deliveredCount}
+        {!customerUser ? (
+          <AuthScreen
+            onAuthenticated={(user, token) => {
+              setCustomerUser(user)
+              setCustomerToken(token)
+            }}
+          />
+        ) : (
+          <>
+            {/* Top Header matching Figma */}
+            <Header
+              userName={customerUser?.name || 'Customer'}
+              unreadCount={2}
+              onBellClick={() => setScreen('notifications')}
               onSignOut={handleSignOut}
-              onInstall={handleInstallClick}
+              onToggleTheme={toggleTheme}
             />
-          )}
-        </main>
 
-        {/* Bottom Floating Navigation matching Figma */}
-        <BottomNav screen={screen} setScreen={setScreen} />
+            {/* Screen Routing */}
+            <main className="flex-1 flex flex-col overflow-hidden">
+              {screen === 'home' && (
+                <HomeScreen
+                  shipments={shipments}
+                  onViewAll={() => setScreen('shipments')}
+                  onBook={() => setScreen('book')}
+                  onRateEnquiry={() => setScreen('rateenquiry')}
+                  onTrack={id => handleTrackNav(id, 'home')}
+                />
+              )}
+
+              {screen === 'shipments' && (
+                <ShipmentsScreen
+                  shipments={shipments}
+                  onBook={() => setScreen('book')}
+                  onBack={() => setScreen('home')}
+                  onTrack={id => handleTrackNav(id, 'shipments')}
+                  onRefresh={fetchShipments}
+                />
+              )}
+
+              {screen === 'tracking' && (
+                <TrackingScreen
+                  initialTrackingId={activeTrackingId}
+                  onBack={() => setScreen(trackingReturnScreen)}
+                />
+              )}
+
+              {screen === 'rateenquiry' && (
+                <RateEnquiryScreen onBack={() => setScreen('home')} />
+              )}
+
+              {screen === 'book' && (
+                <BookScreen onComplete={handleBookComplete} />
+              )}
+
+              {screen === 'notifications' && (
+                <NotificationsScreen onBack={() => setScreen('home')} />
+              )}
+
+              {screen === 'profile' && (
+                <ProfileScreen
+                  userName={customerUser?.name}
+                  userEmail={customerUser?.email}
+                  userPhone={customerUser?.phone}
+                  userAddress={customerUser?.address1}
+                  shipmentCount={shipments.length}
+                  deliveredCount={deliveredCount}
+                  onSignOut={handleSignOut}
+                  onInstall={handleInstallClick}
+                />
+              )}
+            </main>
+
+            {/* Bottom Floating Navigation matching Figma */}
+            <BottomNav screen={screen} setScreen={setScreen} />
+          </>
+        )}
       </div>
     </div>
   )
