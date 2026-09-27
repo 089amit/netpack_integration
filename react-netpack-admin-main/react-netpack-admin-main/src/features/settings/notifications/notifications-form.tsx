@@ -32,7 +32,8 @@ type NotificationsFormValues = z.infer<typeof notificationsFormSchema>
 
 // This can come from your database or API.
 const defaultValues: Partial<NotificationsFormValues> = {
-  communication_emails: false,
+  type: 'all',
+  communication_emails: true,
   marketing_emails: false,
   social_emails: true,
   security_emails: true,
@@ -210,7 +211,9 @@ export function NotificationsForm() {
             </FormItem>
           )}
         />
-        <Button type='submit'>Update notifications</Button>
+        <Button type='submit' className='bg-primary font-semibold shadow-sm'>
+          Apply Notification Changes
+        </Button>
       </form>
     </Form>
   )
