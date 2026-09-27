@@ -1991,40 +1991,60 @@ function BookScreen({ onComplete }: { onComplete: (newShipment: Shipment) => voi
 
   const handleConfirmBooking = async () => {
     setSubmitting(true)
-    const genTracking = `NP-${Date.now().toString().slice(-6)}`
-    setBookingTracking(genTracking)
+    let finalTracking = `NP-${Date.now().toString().slice(-6)}`
+    let finalEnquiryId = String(Date.now())
 
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('netpack_customer_token') : null
-      await fetch(`${API_BASE}/api/bookings`, {
+      const payloadData = {
+        commodity: commodity || 'General Cargo',
+        approximateWeight: parseFloat(weight) || 1,
+        receiverName: recipientName,
+        receiverPhone: recipientPhone,
+        receiverCountry: destCountry,
+        receiverCity: destCity,
+        receiverAddress: streetAddress,
+        receiverPostcode: postalCode,
+        isPickupRequired: doorstepPickup,
+        pickupAddress: doorstepPickup ? pickupAddress : 'Drop-off at NetPack Teku Hub',
+        pickupPhone,
+        pickupPreferredTime: timeSlot,
+        pickupNote: pickupNotes,
+      }
+
+      let res = await fetch(`${API_BASE}/api/customer/enquiries`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          commodity,
-          approximateWeight: parseFloat(weight) || 1,
-          receiverName: recipientName,
-          receiverPhone: recipientPhone,
-          receiverCountry: destCountry,
-          receiverCity: destCity,
-          receiverAddress: streetAddress,
-          receiverPostcode: postalCode,
-          isPickupRequired: doorstepPickup,
-          pickupAddress: doorstepPickup ? pickupAddress : 'Drop-off at NetPack Teku Hub',
-          pickupPhone,
-          pickupTimeSlot: timeSlot,
-          pickupNotes,
-        }),
+        body: JSON.stringify(payloadData),
       })
-    } catch {
-      // Non-blocking for offline / demo
+      if (!res.ok && res.status === 404) {
+        res = await fetch(`${API_BASE}/api/bookings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payloadData),
+        })
+      }
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.trackingNumber) finalTracking = data.trackingNumber
+        if (data.enquiryId) finalEnquiryId = String(data.enquiryId)
+      }
+    } catch (err) {
+      console.warn('Booking network issue:', err)
     }
 
+    setBookingTracking(finalTracking)
+
     const created: Shipment = {
-      id: String(Date.now()),
-      tracking: genTracking,
+      id: finalEnquiryId,
+      tracking: finalTracking,
       destination: `${destCity || 'Destination'}, ${destCountry || 'Country'}`,
       country: destCountry,
       commodity: commodity || 'General Cargo',
@@ -2599,72 +2619,107 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
   const handleLogin = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/api/auth/customer-login`, {
+      let res = await fetch(`${API_BASE}/api/customer/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+        body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        const user = data.user || { name: data.name || loginEmail.split('@')[0], email: loginEmail }
-        const token = data.token || 'demo-token'
+      if (!res.ok && res.status === 404) {
+        res = await fetch(`${API_BASE}/api/auth/customer-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
+        })
+      }
+
+      const data = await res.json()
+      if (res.ok && data.token) {
+        const user = data.customer || data.user || { name: data.name || loginEmail.split('@')[0], email: loginEmail }
+        const token = data.token
         localStorage.setItem('netpack_customer_token', token)
         localStorage.setItem('netpack_customer_user', JSON.stringify(user))
         toast.success(`Welcome back, ${user.name}!`)
         onAuthenticated(user, token)
         return
+      } else {
+        toast.error(data.detail || 'Invalid email or password')
+      }
+    } catch (err) {
+      console.warn('Network error logging in:', err)
+      toast.error('Network connection error. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSignup = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/customer/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
+          password,
+          address1: address1.trim(),
+          address2: address2 ? address2.trim() : null,
+          city: city.trim(),
+          postcode: postcode ? postcode.trim() : null,
+          countryId: 1,
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok && data.token) {
+        const user = data.customer || { name: fullName, email }
+        const token = data.token
+        localStorage.setItem('netpack_customer_token', token)
+        localStorage.setItem('netpack_customer_user', JSON.stringify(user))
+        toast.success(`Welcome to NetPack, ${fullName}!`)
+        onAuthenticated(user, token)
+        return
+      } else {
+        toast.error(data.detail || 'Registration failed. Please check your details.')
+      }
+    } catch (err) {
+      console.warn('Signup network error:', err)
+      toast.error('Network connection error during registration.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/customer/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'customer@gmail.com',
+          name: 'Google Customer',
+          phone: '+977-9841234567',
+          address1: 'Kathmandu, Nepal',
+          googleId: 'google_demo_uid_01',
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.token) {
+        const user = data.customer || { name: 'Google Customer', email: 'customer@gmail.com' }
+        const token = data.token
+        localStorage.setItem('netpack_customer_token', token)
+        localStorage.setItem('netpack_customer_user', JSON.stringify(user))
+        toast.success('Signed in with Google!')
+        onAuthenticated(user, token)
+        return
       }
     } catch {
       // offline fallback
+    } finally {
+      setLoading(false)
     }
-
-    const demoUser = {
-      name: loginEmail.split('@')[0] || 'Customer',
-      email: loginEmail,
-      phone: '9801234567',
-      address1: 'Thamel, Kathmandu',
-    }
-    const demoToken = 'jwt-customer-session'
-    localStorage.setItem('netpack_customer_token', demoToken)
-    localStorage.setItem('netpack_customer_user', JSON.stringify(demoUser))
-    toast.success(`Welcome back, ${demoUser.name}!`)
-    onAuthenticated(demoUser, demoToken)
-    setLoading(false)
-  }
-
-  const handleSignup = () => {
-    setLoading(true)
-    const newUser = {
-      name: fullName,
-      email,
-      phone,
-      address1,
-      address2,
-      city,
-      stateProvince,
-      postcode,
-      country,
-    }
-    const token = 'jwt-customer-session'
-    localStorage.setItem('netpack_customer_token', token)
-    localStorage.setItem('netpack_customer_user', JSON.stringify(newUser))
-    toast.success(`Welcome to NetPack, ${fullName}!`)
-    onAuthenticated(newUser, token)
-    setLoading(false)
-  }
-
-  const handleGoogleSignIn = () => {
-    const googleUser = {
-      name: 'Google Customer',
-      email: 'customer@gmail.com',
-      phone: '9841234567',
-      address1: 'Kathmandu, Nepal',
-    }
-    const token = 'jwt-google-session'
-    localStorage.setItem('netpack_customer_token', token)
-    localStorage.setItem('netpack_customer_user', JSON.stringify(googleUser))
-    toast.success('Signed in with Google!')
-    onAuthenticated(googleUser, token)
   }
 
   return (
@@ -2757,6 +2812,22 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
 
         {mode === 'login' ? (
           <div className="space-y-4">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-[11px] text-blue-900">
+              <div>
+                <span className="font-bold">Test Account: </span>
+                <span className="font-mono text-blue-700">customer@example.com</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginEmail('customer@example.com')
+                  setLoginPassword('Customer@123')
+                }}
+                className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 cursor-pointer text-[10px]"
+              >
+                Auto Fill
+              </button>
+            </div>
             <div>
               <FieldLabel required>Email Address</FieldLabel>
               <TextInput placeholder="you@example.com" value={loginEmail} onChange={setLoginEmail} type="email" />
@@ -2885,10 +2956,17 @@ export default function CustomerPWA() {
   // Fetch live customer shipments
   const fetchShipments = () => {
     if (!customerToken) return
-    fetch(`${API_BASE}/api/bookings/my`, {
+    fetch(`${API_BASE}/api/customer/my-shipments`, {
       headers: { Authorization: `Bearer ${customerToken}` },
     })
-      .then(res => (res.ok ? res.json() : []))
+      .then(async res => {
+        if (!res.ok && res.status === 404) {
+          return fetch(`${API_BASE}/api/bookings/my`, {
+            headers: { Authorization: `Bearer ${customerToken}` },
+          }).then(r => (r.ok ? r.json() : []))
+        }
+        return res.ok ? res.json() : []
+      })
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           const mapped: Shipment[] = data.map(b => ({
@@ -2909,6 +2987,8 @@ export default function CustomerPWA() {
               : 'Recent',
             receiverName: b.receiverName,
             receiverCity: b.receiverCity,
+            weightProofImages: b.weightProofImages || (b.weightProofImageUrl ? [b.weightProofImageUrl] : []),
+            weightProofImageUrl: b.weightProofImageUrl,
           }))
           setShipments(mapped)
         }

@@ -90,6 +90,31 @@ def integration_status():
         "backend": "FastAPI (Python 3.14)"
     }
 
+# ─── Legacy & PWA Root Aliases ───────────────────────────────────────────────
+from fastapi import BackgroundTasks, Depends
+from sqlalchemy.orm import Session
+from database import get_db
+
+@app.post("/api/auth/customer-login", tags=["Customer Portal Aliases"])
+def root_alias_customer_login(payload: customer_portal.CustomerLoginRequest, db: Session = Depends(get_db)):
+    return customer_portal.customer_login(payload, db)
+
+@app.post("/api/bookings", tags=["Customer Portal Aliases"])
+def root_alias_create_booking(
+    payload: customer_portal.CustomerEnquiryCreateRequest,
+    background_tasks: BackgroundTasks,
+    current_customer: models.Customer = Depends(customer_portal.get_current_customer),
+    db: Session = Depends(get_db)
+):
+    return customer_portal.create_customer_enquiry(payload, background_tasks, current_customer, db)
+
+@app.get("/api/bookings/my", tags=["Customer Portal Aliases"])
+def root_alias_my_bookings(
+    current_customer: models.Customer = Depends(customer_portal.get_current_customer),
+    db: Session = Depends(get_db)
+):
+    return customer_portal.get_customer_shipments(current_customer, db)
+
 # ─── Production Frontend SPA & Static File Serving (Single Platform) ─────────
 FRONTEND_DIST = None
 possible_dist_dirs = [

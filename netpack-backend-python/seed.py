@@ -207,12 +207,37 @@ def seed_database():
                 db.add(Rate(weightFrom=10.01, weightTo=100.0, rate=550.0, isPerKg=True, zoneId=z_obj.id))
         db.commit()
 
-        # 9. Seed Sample Customer
-        if not db.query(Customer).first():
-            cust = Customer(
+        # 9. Seed Sample Customers with Passwords
+        demo_customer_email = "customer@example.com"
+        demo_cust = db.query(Customer).filter(Customer.email == demo_customer_email).first()
+        if not demo_cust:
+            demo_cust = Customer(
+                name="Demo Customer",
+                phone="+977-9801234567",
+                email=demo_customer_email,
+                password=get_password_hash("Customer@123"),
+                isOrganization=False,
+                address1="Thamel Marg, Ward 26",
+                city="Kathmandu",
+                countryId=created_countries["United Arab Emirates"].id,
+                postcode="44600"
+            )
+            db.add(demo_cust)
+            db.commit()
+            print(f"[OK] Demo customer created: {demo_customer_email} / Customer@123")
+        else:
+            demo_cust.password = get_password_hash("Customer@123")
+            db.commit()
+            print(f"[OK] Demo customer password refreshed: {demo_customer_email} / Customer@123")
+
+        sample_email = "contact@himalayanhandicrafts.com"
+        sample_cust = db.query(Customer).filter(Customer.email == sample_email).first()
+        if not sample_cust:
+            sample_cust = Customer(
                 name="Himalayan Handicrafts Export Pvt. Ltd.",
                 phone="+977-9841234567",
-                email="contact@himalayanhandicrafts.com",
+                email=sample_email,
+                password=get_password_hash("Customer@123"),
                 isOrganization=True,
                 organizationName="Himalayan Handicrafts",
                 address1="Thamel Marg, Ward 26",
@@ -220,9 +245,13 @@ def seed_database():
                 countryId=created_countries["United Arab Emirates"].id,
                 postcode="44600"
             )
-            db.add(cust)
+            db.add(sample_cust)
             db.commit()
-            print("[OK] Sample customer seeded.")
+            print(f"[OK] Sample customer seeded: {sample_email} / Customer@123")
+        else:
+            sample_cust.password = get_password_hash("Customer@123")
+            db.commit()
+            print(f"[OK] Sample customer password refreshed: {sample_email} / Customer@123")
 
         # 10. Seed Policies
         if not db.query(TermsAndPolicy).first():

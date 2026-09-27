@@ -86,12 +86,138 @@ function getShortMilestoneLabel(label: string) {
   return label.split(' ')[0]
 }
 
+function InstallGuideModal({
+  open,
+  onClose,
+  isIos,
+  isInAppBrowser = false,
+}: {
+  open: boolean
+  onClose: () => void
+  isIos: boolean
+  isInAppBrowser?: boolean
+}) {
+  if (!open) return null
+  return (
+    <div className='fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-200'>
+      <div className='bg-white dark:bg-[#0D1B2A] rounded-3xl w-full max-w-sm border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden p-5'>
+        <div className='flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/10'>
+          <div className='flex items-center gap-2.5'>
+            <div className='w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs'>
+              <Smartphone className='w-5 h-5' />
+            </div>
+            <div>
+              <h3 style={{ fontFamily: 'Jost, sans-serif' }} className='font-bold text-sm text-[#0D1B2A] dark:text-white'>Install Netpack App</h3>
+              <p className='text-[11px] text-muted-foreground'>Home screen app installation</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className='w-7 h-7 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center cursor-pointer transition-colors'
+          >
+            <X className='w-4 h-4' />
+          </button>
+        </div>
+
+        <div className='py-4 space-y-3 text-xs text-slate-600 dark:text-slate-300'>
+          {isInAppBrowser && (
+            <div className='p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 mb-1'>
+              <div className='flex items-center gap-1.5 font-bold text-[12px] text-amber-800 dark:text-amber-300'>
+                <span>⚠️</span>
+                <span>You are browsing inside WhatsApp</span>
+              </div>
+              <p className='text-[11px] text-amber-800/90 dark:text-amber-200/90 mt-1 leading-snug'>
+                Apple prevents installing apps directly from WhatsApp.
+              </p>
+              <div className='mt-2 bg-white dark:bg-slate-900 p-2 rounded-lg border border-amber-500/20 text-[11px] font-semibold text-slate-800 dark:text-white flex items-center gap-1.5'>
+                <span className='text-amber-600 font-bold'>👉</span>
+                <span>Tap <strong>⋯</strong> in corner and select <strong>"Open in Safari"</strong></span>
+              </div>
+            </div>
+          )}
+
+          {isIos ? (
+            <>
+              <p className='font-semibold text-slate-900 dark:text-white text-[13px]'>
+                Follow these 3 steps on iPhone / iPad:
+              </p>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>1</div>
+                <div className='leading-relaxed text-[12px]'>
+                  In Safari, tap the <strong>Share</strong> button <span className='inline-block px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border text-[11px] font-mono'>⎋</span> or <span className='inline-block px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border text-[11px] font-mono'>[↑]</span> at the bottom bar.
+                  <p className='text-[10px] text-muted-foreground mt-0.5'>(In Chrome for iOS: tap the 3 dots <strong>⋯</strong> in corner)</p>
+                </div>
+              </div>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>2</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Scroll down the share sheet and tap <strong>"Add to Home Screen"</strong> <span className='inline-block px-1 py-0.5 rounded bg-white dark:bg-slate-800 border text-[10px] font-mono'>➕</span>.
+                </p>
+              </div>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>3</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Tap <strong>Add</strong> in the top right. Launch the <strong>Netpack</strong> icon directly from your home screen!
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className='font-semibold text-slate-900 dark:text-white text-[13px]'>
+                Follow these steps on Android / Chrome:
+              </p>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>1</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Tap the browser <strong>Three Dots (⋮)</strong> menu in the upper corner.
+                </p>
+              </div>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>2</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Choose <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
+                </p>
+              </div>
+              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+                <div className='w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center shrink-0 text-xs font-bold'>3</div>
+                <p className='leading-relaxed text-[12px]'>
+                  Confirm the installation prompt. Launch from your home screen for full-screen offline experience!
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{ fontFamily: 'Jost, sans-serif' }}
+          className='w-full py-3 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs transition-all cursor-pointer shadow-md shadow-blue-500/20'
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAuth, setIsAuth] = useState(false)
 
-  // PWA Install Prompt
+  // PWA Install Prompt & Device Detection
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [showInstallGuideModal, setShowInstallGuideModal] = useState(false)
+  const isIos = useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    )
+  }, [])
+  const isInAppBrowser = useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    return /WhatsApp|FBAN|FBAV|Instagram|Line|Messenger/i.test(navigator.userAgent)
+  }, [])
 
   // Live Tracking state
   const [trackingId, setTrackingId] = useState('')
@@ -188,9 +314,10 @@ export default function LandingPage() {
         setDeferredPrompt(null)
       } catch (err) {
         console.warn('Install prompt error:', err)
+        setShowInstallGuideModal(true)
       }
     } else {
-      toast.info('To install: tap your browser menu (⋮) and choose "Install app"')
+      setShowInstallGuideModal(true)
     }
   }
 
@@ -1621,6 +1748,13 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      <InstallGuideModal
+        open={showInstallGuideModal}
+        onClose={() => setShowInstallGuideModal(false)}
+        isIos={isIos}
+        isInAppBrowser={isInAppBrowser}
+      />
     </div>
   )
 }

@@ -25,6 +25,44 @@ def _ipv4_forced_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
 socket.getaddrinfo = _ipv4_forced_getaddrinfo
 
 
+def log_email_to_db(
+    sender: str,
+    recipient: str,
+    subject: str,
+    html_content: str,
+    text_content: Optional[str] = None,
+    status: str = "SENT",
+    provider: str = "SMTP",
+    direction: str = "OUTBOUND",
+    error_message: Optional[str] = None
+):
+    """Saves email message record into database for testing, auditing, and mailbox inspection."""
+    try:
+        from database import SessionLocal
+        from models.email_log import EmailMessage
+        db = SessionLocal()
+        try:
+            msg = EmailMessage(
+                sender=sender,
+                recipient=recipient,
+                subject=subject,
+                htmlContent=html_content,
+                textContent=text_content,
+                status=status,
+                provider=provider,
+                direction=direction,
+                errorMessage=error_message
+            )
+            db.add(msg)
+            db.commit()
+            return msg.id
+        finally:
+            db.close()
+    except Exception as db_err:
+        logger.warning(f"[EmailLog DB Warning] Failed to log email: {db_err}")
+        return None
+
+
 def is_smtp_configured() -> bool:
     """Returns True if minimum SMTP or HTTPS email parameters are set in environment."""
     if config.RESEND_API_KEY or config.BREVO_API_KEY:
@@ -41,7 +79,7 @@ def send_email_sync(
     from_email: Optional[str] = None
 ) -> dict:
     """
-    Synchronously sends an email via SMTP.
+    Synchronously sends an email via SMTP or HTTPS API.
     Used inside BackgroundTasks to avoid blocking FastAPI request cycles.
     """
     if isinstance(to_emails, str):
@@ -51,7 +89,7 @@ def send_email_sync(
     if not clean_recipients:
         return {"success": False, "error": "No valid recipient email addresses provided"}
 
-    sender_email = from_email or config.SMTP_FROM_EMAIL or config.SMTP_USER
+    sender_email = from_email or config.SMTP_FROM_EMAIL or config.SMTP_USER or "info@netpacklogistic.com"
     sender_name = from_name or config.SMTP_FROM_NAME or "NetPack Logistics"
 
     if not is_smtp_configured():
@@ -61,11 +99,21 @@ def send_email_sync(
             f"  To: {', '.join(clean_recipients)}\n"
             f"  (Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD in .env to enable real sending)"
         )
+        msg_id = log_email_to_db(
+            sender=f"{sender_name} <{sender_email}>",
+            recipient=", ".join(clean_recipients),
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            status="SIMULATED",
+            provider="Simulated (In-App Mailbox)"
+        )
         return {
             "success": True,
             "simulated": True,
+            "emailId": msg_id,
             "recipients": clean_recipients,
-            "message": "Email logged (SMTP credentials not configured in .env)"
+            "message": "Email logged to in-app mailbox (SMTP credentials not configured in .env)"
         }
 
     message = MIMEMultipart("alternative")
@@ -111,7 +159,16 @@ def send_email_sync(
             r = requests.post(resend_url, json=payload, headers=headers, timeout=12)
             if r.status_code in (200, 201):
                 logger.info(f"[EmailService Resend HTTPS SUCCESS] Sent '{subject}' to {clean_recipients}")
-                return {"success": True, "provider": "Resend (HTTPS Port 443)", "recipients": clean_recipients}
+                msg_id = log_email_to_db(
+                    sender=from_field,
+                    recipient=", ".join(clean_recipients),
+                    subject=subject,
+                    html_content=html_content,
+                    text_content=text_content,
+                    status="SENT",
+                    provider="Resend (HTTPS)"
+                )
+                return {"success": True, "emailId": msg_id, "provider": "Resend (HTTPS Port 443)", "recipients": clean_recipients}
             else:
                 logger.warning(f"[EmailService Resend Warning] Status {r.status_code}: {r.text}. Falling back to SMTP...")
         except Exception as resend_err:
@@ -137,7 +194,16 @@ def send_email_sync(
             r = requests.post(brevo_url, json=payload, headers=headers, timeout=12)
             if r.status_code in (200, 201):
                 logger.info(f"[EmailService Brevo HTTPS SUCCESS] Sent '{subject}' to {clean_recipients}")
-                return {"success": True, "provider": "Brevo (HTTPS Port 443)", "recipients": clean_recipients}
+                msg_id = log_email_to_db(
+                    sender=f"{sender_name} <{sender_email}>",
+                    recipient=", ".join(clean_recipients),
+                    subject=subject,
+                    html_content=html_content,
+                    text_content=text_content,
+                    status="SENT",
+                    provider="Brevo (HTTPS)"
+                )
+                return {"success": True, "emailId": msg_id, "provider": "Brevo (HTTPS Port 443)", "recipients": clean_recipients}
             else:
                 logger.warning(f"[EmailService Brevo Warning] Status {r.status_code}: {r.text}. Falling back to SMTP...")
         except Exception as brevo_err:
@@ -181,13 +247,32 @@ def send_email_sync(
                     server.sendmail(sender_email, clean_recipients, message.as_string())
 
             logger.info(f"[EmailService SUCCESS] Sent '{subject}' to {clean_recipients} via port {curr_port} (SSL={curr_ssl})")
-            return {"success": True, "recipients": clean_recipients, "port": curr_port}
+            msg_id = log_email_to_db(
+                sender=f"{sender_name} <{sender_email}>",
+                recipient=", ".join(clean_recipients),
+                subject=subject,
+                html_content=html_content,
+                text_content=text_content,
+                status="SENT",
+                provider=f"SMTP Port {curr_port}"
+            )
+            return {"success": True, "emailId": msg_id, "recipients": clean_recipients, "port": curr_port}
         except Exception as err:
             last_err = err
             logger.warning(f"[EmailService Attempt Failed] Port {curr_port} (SSL={curr_ssl}): {err}. Trying alternate configuration...")
 
     logger.error(f"[EmailService ERROR] Failed sending to {clean_recipients}: {last_err}")
-    return {"success": False, "error": str(last_err), "recipients": clean_recipients}
+    msg_id = log_email_to_db(
+        sender=f"{sender_name} <{sender_email}>",
+        recipient=", ".join(clean_recipients),
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content,
+        status="FAILED",
+        provider="SMTP",
+        error_message=str(last_err)
+    )
+    return {"success": False, "emailId": msg_id, "error": str(last_err), "recipients": clean_recipients}
 
 
 def send_email(

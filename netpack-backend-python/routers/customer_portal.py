@@ -169,6 +169,8 @@ def customer_to_dict(customer: Customer) -> Dict[str, Any]:
 # ─── Authentication Endpoints ────────────────────────────────────────────────
 
 @router.post("/auth/login")
+@router.post("/login")
+@router.post("/customer-login")
 def customer_login(payload: CustomerLoginRequest, db: Session = Depends(get_db)):
     clean_email = payload.email.strip().lower()
     customer = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
@@ -452,6 +454,7 @@ async def upload_customer_photo(
 # ─── Customer Booking / Inquiries ────────────────────────────────────────────
 
 @router.post("/enquiries")
+@router.post("/bookings")
 def create_customer_enquiry(
     payload: CustomerEnquiryCreateRequest,
     background_tasks: BackgroundTasks,
@@ -583,6 +586,7 @@ def create_customer_enquiry(
 # ─── Customer Shipments & History ────────────────────────────────────────────
 
 @router.get("/my-shipments")
+@router.get("/bookings/my")
 def get_customer_shipments(
     current_customer: Customer = Depends(get_current_customer),
     db: Session = Depends(get_db)

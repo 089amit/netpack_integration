@@ -9,6 +9,7 @@ from models.rate import Rate, TIACharge, CustomCharge, PackingCharge
 from models.policy import TermsAndPolicy
 from models.customs_consignee import CustomsConsignee, CustomsSetting
 from models.website_content import WebsiteContent
+from models.email_log import EmailMessage
 
 __all__ = [
     "Base",
@@ -42,4 +43,5 @@ __all__ = [
     "CustomsConsignee",
     "CustomsSetting",
     "WebsiteContent",
+    "EmailMessage",
 ]

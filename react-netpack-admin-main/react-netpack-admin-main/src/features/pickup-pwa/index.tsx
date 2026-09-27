@@ -125,10 +125,12 @@ function InstallGuideModal({
   open,
   onClose,
   isIos,
+  isInAppBrowser = false,
 }: {
   open: boolean
   onClose: () => void
   isIos: boolean
+  isInAppBrowser?: boolean
 }) {
   if (!open) return null
   return (
@@ -153,6 +155,22 @@ function InstallGuideModal({
         </div>
 
         <div className='py-4 space-y-3 text-xs text-slate-600 dark:text-slate-300'>
+          {isInAppBrowser && (
+            <div className='p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 mb-1'>
+              <div className='flex items-center gap-1.5 font-bold text-[12px] text-amber-800 dark:text-amber-300'>
+                <span>⚠️</span>
+                <span>You are browsing inside WhatsApp</span>
+              </div>
+              <p className='text-[11px] text-amber-800/90 dark:text-amber-200/90 mt-1 leading-snug'>
+                Apple prevents installing apps directly from WhatsApp.
+              </p>
+              <div className='mt-2 bg-white dark:bg-slate-900 p-2 rounded-lg border border-amber-500/20 text-[11px] font-semibold text-slate-800 dark:text-white flex items-center gap-1.5'>
+                <span className='text-amber-600 font-bold'>👉</span>
+                <span>Tap <strong>⋯</strong> in corner and select <strong>"Open in Safari"</strong></span>
+              </div>
+            </div>
+          )}
+
           {isIos ? (
             <>
               <p className='font-semibold text-slate-900 dark:text-white text-[13px]'>
@@ -263,6 +281,11 @@ export default function PickupRiderPWA() {
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
     )
+  }, [])
+
+  const isInAppBrowser = useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    return /WhatsApp|FBAN|FBAV|Instagram|Line|Messenger/i.test(navigator.userAgent)
   }, [])
 
   // Rider Authentication State
@@ -1031,6 +1054,7 @@ export default function PickupRiderPWA() {
           open={showInstallGuideModal}
           onClose={() => setShowInstallGuideModal(false)}
           isIos={isIos}
+          isInAppBrowser={isInAppBrowser}
         />
         </div>
       </div>
@@ -1881,6 +1905,7 @@ export default function PickupRiderPWA() {
         open={showInstallGuideModal}
         onClose={() => setShowInstallGuideModal(false)}
         isIos={isIos}
+        isInAppBrowser={isInAppBrowser}
       />
       </div>
     </div>
