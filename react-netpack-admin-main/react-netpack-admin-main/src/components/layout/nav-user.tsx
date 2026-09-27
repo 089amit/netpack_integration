@@ -1,10 +1,11 @@
-import { useNavigate } from '@tanstack/react-router'
-import { ChevronsUpDown, LogOut } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { BadgeCheck, Bell, ChevronsUpDown, LogOut, Settings } from 'lucide-react'
 import { removeToken } from '@/lib/auth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -73,34 +74,27 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {/* <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link to='/settings/account'>
-                  <BadgeCheck />
+                <Link to='/settings/notifications' className='flex w-full items-center gap-2 cursor-pointer'>
+                  <Bell className='size-4' />
+                  Email & Notifications
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to='/settings' className='flex w-full items-center gap-2 cursor-pointer'>
+                  <Settings className='size-4' />
+                  System Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to='/settings/account' className='flex w-full items-center gap-2 cursor-pointer'>
+                  <BadgeCheck className='size-4' />
                   Account
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to='/settings'>
-                  <CreditCard />
-                  Billing
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to='/settings/notifications'>
-                  <Bell />
-                  Notifications
-                </Link>
-              </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator /> */}
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut />
               Log out
