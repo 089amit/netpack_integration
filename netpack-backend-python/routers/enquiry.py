@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Header
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any, Dict
 from database import get_db
@@ -11,7 +11,11 @@ from schemas.enquiry import (
     EnquiryCreateRequest, EnquiryStatusUpdateRequest, AddBoxItemRequest
 )
 from services.hawb_service import generate_tracking_number
-from services.auth_service import get_current_user_any
+from services.auth_service import (
+    get_current_user_any,
+    get_requester_identity,
+    get_user_enquiry_filter
+)
 from services.email_service import send_enquiry_booking_notification
 
 router = APIRouter(prefix="/api/enquiry", tags=["Enquiry"])
@@ -143,9 +147,14 @@ def get_all_enquiries(
     search: Optional[str] = None,
     status: Optional[str] = None,
     destinationCountry: Optional[int] = None,
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    requester = get_requester_identity(authorization, db)
     query = db.query(Enquiry)
+
+    if requester.is_user_or_customer:
+        query = query.filter(get_user_enquiry_filter(requester))
 
     if status:
         query = query.filter(Enquiry.status == status)
@@ -199,9 +208,11 @@ def _to_int(val: Any, default: int = 1) -> int:
 def create_enquiry(
     payload: EnquiryCreateRequest,
     background_tasks: BackgroundTasks,
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     tracking_no = generate_tracking_number()
+    requester = get_requester_identity(authorization, db)
 
     # Extract sender fields (supporting nested sender dict)
     sender = payload.sender or {}
@@ -240,9 +251,25 @@ def create_enquiry(
 
     # Customer lookup or auto-creation
     customer_id = _to_int(payload.customerId, default=0) or None
+    created_by_user_id = requester.user.id if requester.user else None
+
+    # If requester is a customer or user, ensure customer_id points to their customer record!
+    if requester.customer:
+        customer_id = requester.customer.id
+    elif requester.user:
+        cust = db.query(Customer).filter(Customer.userId == requester.user.id).first()
+        if not cust and requester.user.email:
+            cust = db.query(Customer).filter(Customer.email.ilike(requester.user.email.strip())).first()
+        if not cust and requester.user.phoneNumber:
+            cust = db.query(Customer).filter(Customer.phone == requester.user.phoneNumber.strip()).first()
+        if cust:
+            customer_id = cust.id
+
     clean_sender_email = sender_email.strip() if sender_email and sender_email.strip() else None
     if not customer_id and sender_phone:
         cust = db.query(Customer).filter(Customer.phone == sender_phone).first()
+        if not cust and clean_sender_email:
+            cust = db.query(Customer).filter(Customer.email.ilike(clean_sender_email)).first()
         if not cust:
             cust = Customer(
                 name=sender_name,
@@ -250,7 +277,8 @@ def create_enquiry(
                 email=clean_sender_email,
                 address1=sender_address1,
                 city=sender_city,
-                countryId=dest_country_id
+                countryId=dest_country_id,
+                userId=created_by_user_id
             )
             db.add(cust)
             db.commit()
@@ -276,6 +304,7 @@ def create_enquiry(
     enq = Enquiry(
         trackingNumber=tracking_no,
         customerId=customer_id,
+        createdBy=created_by_user_id,
         destinationCountry=dest_country_id,
         destinationLocation=payload.destinationLocation or receiver_city or receiver_country,
         pinCode=_to_int(payload.pinCode, default=None),
@@ -388,8 +417,16 @@ def create_enquiry(
     return {"message": "Enquiry created successfully", "enquiry": format_enquiry_response(enq)}
 
 @router.get("/get/{id}")
-def get_enquiry_by_id(id: int, db: Session = Depends(get_db)):
-    e = db.query(Enquiry).filter(Enquiry.id == id).first()
+def get_enquiry_by_id(
+    id: int,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    requester = get_requester_identity(authorization, db)
+    query = db.query(Enquiry).filter(Enquiry.id == id)
+    if requester.is_user_or_customer:
+        query = query.filter(get_user_enquiry_filter(requester))
+    e = query.first()
     if not e:
         raise HTTPException(status_code=404, detail="Enquiry not found")
     return format_enquiry_response(e)
@@ -413,8 +450,17 @@ def get_enquiries_by_customer_id(id: int, db: Session = Depends(get_db)):
 
 @router.put("/webenquiryupdate/{id}")
 @router.put("/update/{id}")
-def update_enquiry(id: int, payload: EnquiryCreateRequest, db: Session = Depends(get_db)):
-    e = db.query(Enquiry).filter(Enquiry.id == id).first()
+def update_enquiry(
+    id: int,
+    payload: EnquiryCreateRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    requester = get_requester_identity(authorization, db)
+    query = db.query(Enquiry).filter(Enquiry.id == id)
+    if requester.is_user_or_customer:
+        query = query.filter(get_user_enquiry_filter(requester))
+    e = query.first()
     if not e:
         raise HTTPException(status_code=404, detail="Enquiry not found")
 

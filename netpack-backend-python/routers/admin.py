@@ -43,7 +43,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             detail="User account is inactive"
         )
 
-    role_name = user.role.name if user.role else "ADMIN"
+    role_name = (user.role.name if user.role else "USER").upper()
     token_data = {
         "userId": user.id,
         "email": user.email,
@@ -88,7 +88,7 @@ def validate_token(
     if not user:
         return {"valid": False, "message": "User not found"}
 
-    role_name = user.role.name if user.role else "ADMIN"
+    role_name = (user.role.name if user.role else "USER").upper()
     return {
         "valid": True,
         "message": "Token is valid",
@@ -141,10 +141,9 @@ def sign_up(
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    role_id = payload.roleId
-    if not role_id:
-        admin_role = db.query(Role).filter(Role.name == "ADMIN").first()
-        role_id = admin_role.id if admin_role else None
+    # Portal signup is strictly for Users (Cargo Couriers). Never allow public elevation to ADMIN.
+    user_role = db.query(Role).filter(Role.name == "USER").first()
+    role_id = user_role.id if user_role else 3
 
     hashed_pw = get_password_hash(payload.password)
     user = User(
@@ -158,6 +157,22 @@ def sign_up(
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # Automatically ensure user is also registered as a Customer
+    from models.customer import Customer
+    cust = db.query(Customer).filter(Customer.userId == user.id).first()
+    if not cust and user.email:
+        cust = db.query(Customer).filter(Customer.email == user.email).first()
+    if not cust:
+        c = Customer(
+            name=user.fullName or user.email.split("@")[0],
+            phone=user.phoneNumber or "+977-00000000",
+            email=user.email,
+            countryId=1,
+            userId=user.id
+        )
+        db.add(c)
+        db.commit()
 
     # Dispatch welcome & account confirmation email
     send_user_welcome_email(
@@ -191,7 +206,7 @@ def get_all_admins(
     users = q.offset(skip).limit(limit).all() if limit > 0 else q.all()
     res = []
     for u in users:
-        role_name = u.role.name if u.role else "ADMIN"
+        role_name = (u.role.name if u.role else "USER").upper()
         res.append({
             "id": u.id,
             "username": u.username,
@@ -228,7 +243,7 @@ def get_admin_by_id(id: int, db: Session = Depends(get_db), admin: User = Depend
     u = db.query(User).filter(User.id == id).first()
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
-    role_name = u.role.name if u.role else "ADMIN"
+    role_name = (u.role.name if u.role else "USER").upper()
     return {
         "id": u.id,
         "username": u.username,

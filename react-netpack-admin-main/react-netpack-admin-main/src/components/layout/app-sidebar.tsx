@@ -51,7 +51,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (roleUpper === 'ADMIN') {
       return sidebarData.navGroups
     } else if (roleUpper === 'USER' || roleUpper === 'CUSTOMER') {
-      return filterByTitles(['Dashboard', 'Pickups', 'Enquiry'])
+      return filterByTitles(['Dashboard', 'Pickups', 'Enquiry', 'Rate Enquiry'])
     } else if (roleUpper === 'OPERATION' || roleUpper === 'OPERATIONS') {
       return filterByTitles([
         'Dashboard',
@@ -82,8 +82,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       return filterByTitles(['Dashboard', 'Customer', 'Shipment'])
     }
 
-    // Default for any non-admin or unknown role: ONLY Dashboard, Pickups, and Enquiry
-    return filterByTitles(['Dashboard', 'Pickups', 'Enquiry'])
+    // Default for any non-admin or unknown role: ONLY Dashboard, Pickups, Enquiry, Rate Enquiry
+    return filterByTitles(['Dashboard', 'Pickups', 'Enquiry', 'Rate Enquiry'])
   }, [userRole])
 
   useEffect(() => {

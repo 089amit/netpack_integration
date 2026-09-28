@@ -5,7 +5,7 @@ from datetime import datetime, date
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Header
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -16,7 +16,13 @@ from models.enquiry import Enquiry, Box, PickupLocationEnquiry
 from models.shipment import Shipment, TrackingEvent
 from models.user import User, Role
 from schemas.auth import RiderLoginRequest, TokenValidationRequest
-from services.auth_service import verify_password, create_access_token, decode_token
+from services.auth_service import (
+    verify_password,
+    create_access_token,
+    decode_token,
+    get_requester_identity,
+    get_user_enquiry_filter
+)
 
 
 router = APIRouter(prefix="/api/pickups", tags=["Pickups"])
@@ -286,11 +292,21 @@ def trigger_test_alert(db: Session = Depends(get_db)):
 
 
 @router.patch("/{id}/status")
-def update_pickup_status(id: int, payload: PickupStatusUpdate, db: Session = Depends(get_db)):
+def update_pickup_status(
+    id: int,
+    payload: PickupStatusUpdate,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
     """
     Updates pickup status (e.g. ASSIGNED_FOR_PICKUP / IN_ROUTE / PENDING) and logs rider notes.
     """
-    e = db.query(Enquiry).filter(Enquiry.id == id).first()
+    requester = get_requester_identity(authorization, db)
+    query = db.query(Enquiry).filter(Enquiry.id == id)
+    if requester.is_user_or_customer:
+        query = query.filter(get_user_enquiry_filter(requester))
+
+    e = query.first()
     if not e:
         raise HTTPException(status_code=404, detail="Pickup task / Enquiry not found")
 
@@ -308,23 +324,32 @@ def update_pickup_status(id: int, payload: PickupStatusUpdate, db: Session = Dep
 
 
 @router.get("/stats")
-def get_pickup_stats(db: Session = Depends(get_db)):
+def get_pickup_stats(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
     """
     Returns quick operational statistics for the pickup dashboard.
+    Strictly scoped to the caller's own pickups if role is USER or CUSTOMER.
     """
+    requester = get_requester_identity(authorization, db)
+    base_query = db.query(Enquiry)
+    if requester.is_user_or_customer:
+        base_query = base_query.filter(get_user_enquiry_filter(requester))
+
     pending_statuses = ["ENQUIRY_GENERATED", "PENDING", "ASSIGNED_FOR_PICKUP"]
-    pending_count = db.query(Enquiry).filter(
+    pending_count = base_query.filter(
         Enquiry.status.in_(pending_statuses),
         ~Enquiry.shipments.any()
     ).count()
-    picked_up_count = db.query(Enquiry).filter(
+    picked_up_count = base_query.filter(
         (Enquiry.status.in_(["PICKED_UP", "PACKED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "DELIVERED"])) |
         (Enquiry.weightProofImageUrl != None) |
         (Enquiry.shipments.any())
     ).count()
 
     today_start = datetime.combine(date.today(), datetime.min.time())
-    today_pickups = db.query(Enquiry).filter(
+    today_pickups = base_query.filter(
         Enquiry.pickedUpAt >= today_start
     ).all()
 
@@ -346,12 +371,18 @@ def get_pickups(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(15, ge=1),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """
     Returns list of enquiries for pickup operations with filterable status and search.
+    If role is USER or CUSTOMER, strictly returns only pickups requested/updated by them.
     """
+    requester = get_requester_identity(authorization, db)
     query = db.query(Enquiry)
+
+    if requester.is_user_or_customer:
+        query = query.filter(get_user_enquiry_filter(requester))
 
     status_filter = (status or "ALL").upper()
     if status_filter == "PENDING":
@@ -394,11 +425,20 @@ def get_pickups(
 
 
 @router.get("/{id}")
-def get_pickup_by_id(id: int, db: Session = Depends(get_db)):
+def get_pickup_by_id(
+    id: int,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
     """
-    Returns single pickup task details.
+    Returns single pickup task details with ownership check.
     """
-    e = db.query(Enquiry).filter(Enquiry.id == id).first()
+    requester = get_requester_identity(authorization, db)
+    query = db.query(Enquiry).filter(Enquiry.id == id)
+    if requester.is_user_or_customer:
+        query = query.filter(get_user_enquiry_filter(requester))
+
+    e = query.first()
     if not e:
         raise HTTPException(status_code=404, detail="Pickup task / Enquiry not found")
     return format_pickup_item(e)

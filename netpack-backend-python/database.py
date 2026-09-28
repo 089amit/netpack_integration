@@ -78,19 +78,39 @@ def run_auto_migrations(target_engine):
             except Exception as e:
                 print(f"[Migration Warning] Customers column check: {e}")
 
-        # 2. Ensure PICKUP role exists
+        # 2. Ensure baseline roles exist
         if "roles" in table_names:
             try:
-                r = conn.execute(sa.text("SELECT id FROM roles WHERE name = 'PICKUP'")).fetchone()
-                if not r:
-                    conn.execute(
-                        sa.text("INSERT INTO roles (name, createdAt, updatedAt) VALUES ('PICKUP', :now, :now)"),
-                        {"now": now_dt}
-                    )
-                    conn.commit()
-                    print("[Migration] Added 'PICKUP' role to roles table.")
+                for r_name in ["ADMIN", "OPERATION", "USER", "CUSTOMER", "PICKUP"]:
+                    r = conn.execute(sa.text("SELECT id FROM roles WHERE name = :name"), {"name": r_name}).fetchone()
+                    if not r:
+                        conn.execute(
+                            sa.text("INSERT INTO roles (name, createdAt, updatedAt) VALUES (:name, :now, :now)"),
+                            {"name": r_name, "now": now_dt}
+                        )
+                        conn.commit()
+                        print(f"[Migration] Added '{r_name}' role to roles table.")
             except Exception as e:
                 print(f"[Migration Warning] Role check: {e}")
+
+        # 2b. Automatically correct any accounts that were erroneously assigned ADMIN during public signup
+        if "users" in table_names and "roles" in table_names:
+            try:
+                admin_role = conn.execute(sa.text("SELECT id FROM roles WHERE name = 'ADMIN'")).fetchone()
+                user_role = conn.execute(sa.text("SELECT id FROM roles WHERE name = 'USER'")).fetchone()
+                if admin_role and user_role:
+                    admin_role_id = admin_role[0]
+                    user_role_id = user_role[0]
+                    conn.execute(sa.text("""
+                        UPDATE users 
+                        SET roleId = :user_role_id
+                        WHERE roleId = :admin_role_id
+                          AND LOWER(email) NOT IN ('admin@example.com', 'admin@netpack.com', 'admin@netpacklogistic.com')
+                          AND LOWER(email) NOT LIKE '%superadmin%'
+                    """), {"user_role_id": user_role_id, "admin_role_id": admin_role_id})
+                    conn.commit()
+            except Exception as e:
+                print(f"[Migration Warning] Auto-downgrade accidentally elevated signup users: {e}")
 
         # 3. Ensure all Users are also present in Customers table
         if "users" in table_names and "customers" in table_names:

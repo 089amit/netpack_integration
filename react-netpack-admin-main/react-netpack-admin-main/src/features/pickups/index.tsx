@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import {
   Truck,
   Scale,
@@ -14,6 +15,7 @@ import {
   LayoutGrid,
   List,
 } from 'lucide-react'
+import { useCheckRole } from '@/utils/role-utils'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ThemeSwitch } from '@/components/theme-switch'
@@ -51,6 +53,9 @@ import { WeighPickupModal } from './components/weigh-pickup-modal'
 import { ShipmentTrackingDialog } from '@/features/tasks/components/shipment-tracking-dialog'
 
 export default function PickupsDashboard() {
+  const isUserOrCustomer = useCheckRole('USER', 'CUSTOMER')
+  const navigate = useNavigate()
+
   const [pickups, setPickups] = useState<any[]>([])
   const [stats, setStats] = useState<any>({
     pendingCount: 0,
@@ -134,10 +139,22 @@ export default function PickupsDashboard() {
         <div className='flex items-center gap-2'>
           <Truck className='h-5 w-5 text-primary' />
           <h1 className='text-lg font-semibold tracking-tight'>
-            Pickup Operations & Warehouse Intake
+            {isUserOrCustomer
+              ? 'My Pickups & Consignments'
+              : 'Pickup Operations & Warehouse Intake'}
           </h1>
         </div>
         <div className='ml-auto flex items-center space-x-3'>
+          {isUserOrCustomer && (
+            <Button
+              size='sm'
+              onClick={() => navigate({ to: '/tasks' })}
+              className='gap-1.5 text-xs font-semibold'
+            >
+              <Truck className='h-3.5 w-3.5' />
+              <span>Request Pickup</span>
+            </Button>
+          )}
           <ThemeSwitch />
           <ProfileDropdown />
         </div>
@@ -149,56 +166,56 @@ export default function PickupsDashboard() {
           <Card className='border-amber-200/60 bg-gradient-to-br from-amber-50/50 to-background dark:border-amber-900/40 dark:from-amber-950/20'>
             <CardHeader className='p-4 pb-2'>
               <CardDescription className='text-xs font-medium text-amber-700 dark:text-amber-400'>
-                Awaiting Collection
+                {isUserOrCustomer ? 'Awaiting Pickup' : 'Awaiting Collection'}
               </CardDescription>
               <CardTitle className='text-2xl font-black text-amber-600 dark:text-amber-400'>
                 {loading ? <Skeleton className='h-8 w-16' /> : stats.pendingCount}
               </CardTitle>
             </CardHeader>
             <CardContent className='px-4 pb-3 pt-0 text-[11px] text-muted-foreground'>
-              Enquiries pending pickup
+              {isUserOrCustomer ? 'Your shipments pending pickup' : 'Enquiries pending pickup'}
             </CardContent>
           </Card>
 
           <Card className='border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-background dark:border-emerald-900/40 dark:from-emerald-950/20'>
             <CardHeader className='p-4 pb-2'>
               <CardDescription className='text-xs font-medium text-emerald-700 dark:text-emerald-400'>
-                Warehouse Intake
+                {isUserOrCustomer ? 'Collected & Verified' : 'Warehouse Intake'}
               </CardDescription>
               <CardTitle className='text-2xl font-black text-emerald-600 dark:text-emerald-400'>
                 {loading ? <Skeleton className='h-8 w-16' /> : stats.pickedUpCount}
               </CardTitle>
             </CardHeader>
             <CardContent className='px-4 pb-3 pt-0 text-[11px] text-muted-foreground'>
-              Picked up & verified
+              {isUserOrCustomer ? 'Picked up & in warehouse' : 'Picked up & verified'}
             </CardContent>
           </Card>
 
           <Card className='border-blue-200/60 bg-gradient-to-br from-blue-50/50 to-background dark:border-blue-900/40 dark:from-blue-950/20'>
             <CardHeader className='p-4 pb-2'>
               <CardDescription className='text-xs font-medium text-blue-700 dark:text-blue-400'>
-                Today's Weight Intake
+                {isUserOrCustomer ? 'Total Consignment Weight' : "Today's Weight Intake"}
               </CardDescription>
               <CardTitle className='text-2xl font-black text-blue-600 dark:text-blue-400'>
                 {loading ? <Skeleton className='h-8 w-16' /> : `${stats.totalWeightToday} kg`}
               </CardTitle>
             </CardHeader>
             <CardContent className='px-4 pb-3 pt-0 text-[11px] text-muted-foreground'>
-              Processed on warehouse scale
+              {isUserOrCustomer ? 'Total verified weight' : 'Processed on warehouse scale'}
             </CardContent>
           </Card>
 
           <Card className='border-violet-200/60 bg-gradient-to-br from-violet-50/50 to-background dark:border-violet-900/40 dark:from-violet-950/20'>
             <CardHeader className='p-4 pb-2'>
               <CardDescription className='text-xs font-medium text-violet-700 dark:text-violet-400'>
-                Today's Boxes Collected
+                {isUserOrCustomer ? 'Total Boxes' : "Today's Boxes Collected"}
               </CardDescription>
               <CardTitle className='text-2xl font-black text-violet-600 dark:text-violet-400'>
                 {loading ? <Skeleton className='h-8 w-16' /> : stats.totalBoxesToday}
               </CardTitle>
             </CardHeader>
             <CardContent className='px-4 pb-3 pt-0 text-[11px] text-muted-foreground'>
-              Individual parcels handled
+              {isUserOrCustomer ? 'Individual packages booked' : 'Individual parcels handled'}
             </CardContent>
           </Card>
         </div>
@@ -213,14 +230,14 @@ export default function PickupsDashboard() {
             <TabsList className='grid w-full grid-cols-3 sm:w-auto'>
               <TabsTrigger value='PENDING' className='gap-1.5 text-xs'>
                 <Clock className='h-3.5 w-3.5 text-amber-500' />
-                <span>Pending Pickups</span>
+                <span>{isUserOrCustomer ? 'Pending Collection' : 'Pending Pickups'}</span>
               </TabsTrigger>
               <TabsTrigger value='PICKED_UP' className='gap-1.5 text-xs'>
                 <CheckCircle2 className='h-3.5 w-3.5 text-emerald-500' />
-                <span>Picked Up & Weighed</span>
+                <span>{isUserOrCustomer ? 'Picked Up & Verified' : 'Picked Up & Weighed'}</span>
               </TabsTrigger>
               <TabsTrigger value='ALL' className='text-xs'>
-                All Shipments
+                {isUserOrCustomer ? 'All My Shipments' : 'All Shipments'}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -463,26 +480,40 @@ export default function PickupsDashboard() {
                   </CardContent>
 
                   <CardFooter className='flex gap-2 p-4 pt-1 border-t bg-muted/10'>
-                    <Button
-                      variant={isPastPickup ? 'outline' : 'default'}
-                      size='sm'
-                      onClick={() => handleOpenWeighModal(pickup)}
-                      className='flex-1 gap-1.5 text-xs font-semibold'
-                    >
-                      <Scale className='h-3.5 w-3.5' />
-                      <span>
-                        {isPastPickup ? 'Update Wt / Scale Photo' : 'Weigh & Pick Up'}
-                      </span>
-                    </Button>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      onClick={() => handleOpenTrackingDialog(pickup)}
-                      className='h-8 w-8'
-                      title='View Tracking Milestones'
-                    >
-                      <ChevronRight className='h-4 w-4' />
-                    </Button>
+                    {isUserOrCustomer ? (
+                      <Button
+                        variant='default'
+                        size='sm'
+                        onClick={() => handleOpenTrackingDialog(pickup)}
+                        className='flex-1 gap-1.5 text-xs font-semibold'
+                      >
+                        <Eye className='h-3.5 w-3.5' />
+                        <span>Track & Details</span>
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant={isPastPickup ? 'outline' : 'default'}
+                          size='sm'
+                          onClick={() => handleOpenWeighModal(pickup)}
+                          className='flex-1 gap-1.5 text-xs font-semibold'
+                        >
+                          <Scale className='h-3.5 w-3.5' />
+                          <span>
+                            {isPastPickup ? 'Update Wt / Scale Photo' : 'Weigh & Pick Up'}
+                          </span>
+                        </Button>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          onClick={() => handleOpenTrackingDialog(pickup)}
+                          className='h-8 w-8'
+                          title='View Tracking Milestones'
+                        >
+                          <ChevronRight className='h-4 w-4' />
+                        </Button>
+                      </>
+                    )}
                   </CardFooter>
                 </Card>
               )
@@ -582,15 +613,27 @@ export default function PickupsDashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell className='text-right'>
-                        <Button
-                          size='sm'
-                          variant={isPastPickup ? 'outline' : 'default'}
-                          onClick={() => handleOpenWeighModal(pickup)}
-                          className='h-8 text-xs font-semibold gap-1'
-                        >
-                          <Scale className='h-3.5 w-3.5' />
-                          <span>{isPastPickup ? 'Update' : 'Weigh'}</span>
-                        </Button>
+                        {isUserOrCustomer ? (
+                          <Button
+                            size='sm'
+                            variant='outline'
+                            onClick={() => handleOpenTrackingDialog(pickup)}
+                            className='h-8 text-xs font-semibold gap-1'
+                          >
+                            <Eye className='h-3.5 w-3.5' />
+                            <span>Track</span>
+                          </Button>
+                        ) : (
+                          <Button
+                            size='sm'
+                            variant={isPastPickup ? 'outline' : 'default'}
+                            onClick={() => handleOpenWeighModal(pickup)}
+                            className='h-8 text-xs font-semibold gap-1'
+                          >
+                            <Scale className='h-3.5 w-3.5' />
+                            <span>{isPastPickup ? 'Update' : 'Weigh'}</span>
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   )

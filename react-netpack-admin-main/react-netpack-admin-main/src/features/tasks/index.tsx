@@ -200,7 +200,7 @@ export default function Enquiries() {
           <EnquiryPrimaryButton onClick={handleCreateManifest} />
         </div>
 
-        {!useCheckRole('Operation', 'PICKUP') &&
+        {useCheckRole('ADMIN', 'OPERATION', 'OPERATIONS') &&
           selectedEnquiries.length > 0 && (
             <div className='mr-4 mb-4'>
               <Button
