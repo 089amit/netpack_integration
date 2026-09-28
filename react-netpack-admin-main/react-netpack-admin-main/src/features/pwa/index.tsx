@@ -1953,7 +1953,13 @@ function TextInput({
   )
 }
 
-function BookScreen({ onComplete }: { onComplete: (newShipment: Shipment) => void }) {
+function BookScreen({
+  onComplete,
+  customerUser,
+}: {
+  onComplete: (newShipment: Shipment) => void
+  customerUser?: any
+}) {
   const [step, setStep] = useState<BookStep>(1)
   const [commodity, setCommodity] = useState('')
   const [weight, setWeight] = useState('')
@@ -1964,13 +1970,48 @@ function BookScreen({ onComplete }: { onComplete: (newShipment: Shipment) => voi
   const [streetAddress, setStreetAddress] = useState('')
   const [postalCode, setPostalCode] = useState('')
   const [doorstepPickup, setDoorstepPickup] = useState(true)
-  const [pickupAddress, setPickupAddress] = useState('')
-  const [pickupPhone, setPickupPhone] = useState('')
+
+  const userSavedAddress = customerUser?.address1
+    ? `${customerUser.address1}${
+        customerUser.city && !customerUser.address1.toLowerCase().includes(customerUser.city.toLowerCase())
+          ? `, ${customerUser.city}`
+          : ''
+      }`
+    : ''
+  const userSavedPhone =
+    customerUser?.phone && customerUser.phone !== '+977-9800000000' && customerUser.phone !== '9869233939'
+      ? customerUser.phone
+      : ''
+
+  const [pickupAddress, setPickupAddress] = useState(userSavedAddress)
+  const [pickupPhone, setPickupPhone] = useState(userSavedPhone)
   const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[0])
   const [pickupNotes, setPickupNotes] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [bookingTracking, setBookingTracking] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const handleUseMyAddressForPickup = () => {
+    if (userSavedAddress) {
+      setPickupAddress(userSavedAddress)
+      if (userSavedPhone) setPickupPhone(userSavedPhone)
+      toast.success('Pickup address filled from your profile!')
+    } else {
+      toast.error('No saved address in your profile. Please enter your address.')
+    }
+  }
+
+  const handleUseMyAddressForDelivery = () => {
+    if (customerUser?.address1) {
+      setStreetAddress(customerUser.address1)
+      if (customerUser?.city) setDestCity(customerUser.city)
+      if (customerUser?.name) setRecipientName(customerUser.name)
+      if (userSavedPhone) setRecipientPhone(userSavedPhone)
+      toast.success('Address filled from your profile!')
+    } else {
+      toast.error('No saved address in your profile.')
+    }
+  }
 
   const handleConfirmBooking = async () => {
     setSubmitting(true)
@@ -2203,7 +2244,18 @@ function BookScreen({ onComplete }: { onComplete: (newShipment: Shipment) => voi
                 <TextInput placeholder="e.g., London, New York, Tokyo" value={destCity} onChange={setDestCity} />
               </div>
               <div>
-                <FieldLabel required>Delivery Street Address</FieldLabel>
+                <div className="flex items-center justify-between mb-1">
+                  <FieldLabel required>Delivery Street Address</FieldLabel>
+                  {customerUser?.address1 && (
+                    <button
+                      type="button"
+                      onClick={handleUseMyAddressForDelivery}
+                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-200 transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
+                    >
+                      <IconMapPin size={11} /> Use my address
+                    </button>
+                  )}
+                </div>
                 <TextInput placeholder="Street, Building, Apartment / Suite number" value={streetAddress} onChange={setStreetAddress} />
               </div>
               <div>
@@ -2258,7 +2310,19 @@ function BookScreen({ onComplete }: { onComplete: (newShipment: Shipment) => voi
           {doorstepPickup && (
             <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4 shadow-xs">
               <div>
-                <FieldLabel required>Pickup Address in Kathmandu</FieldLabel>
+                <div className="flex items-center justify-between mb-1">
+                  <FieldLabel required>Pickup Address in Kathmandu</FieldLabel>
+                  {customerUser?.address1 && (
+                    <button
+                      type="button"
+                      onClick={handleUseMyAddressForPickup}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
+                    >
+                      <IconMapPin size={12} />
+                      Use my address
+                    </button>
+                  )}
+                </div>
                 <TextInput placeholder="e.g., Thamel, Teku, New Road, Lazimpat" value={pickupAddress} onChange={setPickupAddress} />
               </div>
               <div>
@@ -2930,7 +2994,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
               className="w-full bg-white border border-gray-200 rounded-xl py-3 flex items-center justify-center gap-2.5 font-semibold text-[13px] text-[#0D1B2A] active:scale-[0.99] transition-transform shadow-xs cursor-pointer hover:bg-gray-50"
             >
               <IconGoogle size={17} />
-              Continue with Email Confirmation
+              Continue with Google (Email OTP)
             </button>
 
             <div className="flex items-center gap-3 my-5">
@@ -3025,22 +3089,6 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
 
         {mode === 'login' ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-[11px] text-blue-900">
-              <div>
-                <span className="font-bold">Test Account: </span>
-                <span className="font-mono text-blue-700">customer@example.com</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginEmail('customer@example.com')
-                  setLoginPassword('Customer@123')
-                }}
-                className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 cursor-pointer text-[10px]"
-              >
-                Auto Fill
-              </button>
-            </div>
             <div>
               <FieldLabel required>Email Address</FieldLabel>
               <TextInput placeholder="you@example.com" value={loginEmail} onChange={setLoginEmail} type="email" />
@@ -3172,8 +3220,6 @@ function OnboardingModal({
   const [phone, setPhone] = useState('')
   const [address1, setAddress1] = useState('')
   const [city, setCity] = useState('Kathmandu')
-  const [accountType, setAccountType] = useState<'individual' | 'business'>('individual')
-  const [organizationName, setOrganizationName] = useState('')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -3189,10 +3235,6 @@ function OnboardingModal({
       setAddress1(rawAddr === 'Teku-12' ? '' : rawAddr)
       setCity(customerUser.city || 'Kathmandu')
       setPhotoUrl(customerUser.photoUrl || null)
-      if (customerUser.isOrganization) {
-        setAccountType('business')
-        setOrganizationName(customerUser.organizationName || '')
-      }
     }
   }, [customerUser, isOpen])
 
@@ -3288,25 +3330,32 @@ function OnboardingModal({
 
   const tutorialSlides = [
     {
-      badge: 'Worldwide Air Express',
-      title: 'Global Express Cargo to 200+ Countries',
-      desc: 'Ship pashmina, handicrafts, corporate goods, documents, and parcels worldwide via DHL, FedEx, UPS & Aramex with volume rates.',
-      icon: <IconPlane size={34} className="text-blue-500" />,
-      highlight: 'Express Air Cargo & Customs Clearance Included',
+      badge: 'Step 1 • Start a Consignment',
+      title: 'Tap "+ Book a Consignment"',
+      desc: 'Tap "+" or "Book a Consignment" on your dashboard anytime to begin shipping documents, garments, handicrafts, or cargo worldwide.',
+      icon: <IconBox size={34} className="text-blue-500" />,
+      highlight: 'Express global delivery with instant tracking code generation',
     },
     {
-      badge: 'Free Kathmandu Pickup',
-      title: 'Doorstep Courier Rider Pickup',
-      desc: 'No need to visit our cargo terminal. Tap "Request Rider Pickup", and our verified courier rider will collect packages directly from your location.',
-      icon: <IconTruck size={34} className="text-amber-500" />,
-      highlight: 'Same-Day Pickup Across Kathmandu Valley',
+      badge: 'Step 2 • Goods & Approximate Weight',
+      title: 'Describe Goods & Approximate kg',
+      desc: 'No box dimensions required from you! NetPack packs and measures box sizes at our warehouse hub. Just describe what you are shipping and approximate kg.',
+      icon: <IconScale size={34} className="text-amber-500" />,
+      highlight: 'Verified scale weighing photos visible right on your tracking screen',
     },
     {
-      badge: 'Real-Time Transparency',
-      title: 'Live Milestones & Re-weighing Verification',
-      desc: 'Track airport departure flights, warehouse weighing scale verification photos, and customs clearance updates in real time on your dashboard.',
-      icon: <IconBox size={34} className="text-emerald-500" />,
-      highlight: 'Live Milestone Alerts & Air Waybills',
+      badge: 'Step 3 • One-Tap Address',
+      title: 'Instant "(Use My Address)" Auto-Fill',
+      desc: 'Never re-type your sender address! Tap the "(Use my address)" button on the booking form to instantly load your saved pickup address and phone number.',
+      icon: <IconMapPin size={34} className="text-indigo-500" />,
+      highlight: 'Saves your pickup location for fast 1-tap bookings',
+    },
+    {
+      badge: 'Step 4 • Doorstep Pickup & Tracking',
+      title: 'Doorstep Rider Pickup & Live Sync',
+      desc: 'Our courier rider collects packages right at your doorstep in Kathmandu Valley. Follow customs ramp clearance and air cargo flight departure in real time.',
+      icon: <IconTruck size={34} className="text-emerald-500" />,
+      highlight: 'Same-day Kathmandu Valley rider pickup & live milestone tracking',
     },
   ]
 
@@ -3334,7 +3383,7 @@ function OnboardingModal({
               )}
               <div className="flex items-center gap-2 mb-1">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/20">
-                  {mode === 'edit_only' ? 'Profile Management' : 'Step 1 of 2 • Account Setup'}
+                  {mode === 'edit_only' ? 'Profile Management' : 'Step 1 of 2 • Account Details'}
                 </span>
               </div>
               <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-lg font-700">
@@ -3384,46 +3433,6 @@ function OnboardingModal({
                 </div>
                 <p className="text-[11px] text-gray-400 mt-2 font-medium">Tap camera to upload profile photo</p>
               </div>
-
-              {/* Account Type Toggle */}
-              <div>
-                <FieldLabel>Account Type</FieldLabel>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => setAccountType('individual')}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                      accountType === 'individual'
-                        ? 'bg-[#0D1B2A] text-white border-[#0D1B2A]'
-                        : 'bg-white text-gray-600 border-gray-200'
-                    }`}
-                  >
-                    Individual Shipper
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAccountType('business')}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                      accountType === 'business'
-                        ? 'bg-[#0D1B2A] text-white border-[#0D1B2A]'
-                        : 'bg-white text-gray-600 border-gray-200'
-                    }`}
-                  >
-                    Cargo Courier / Business
-                  </button>
-                </div>
-              </div>
-
-              {accountType === 'business' && (
-                <div>
-                  <FieldLabel required>Company / Organization Name</FieldLabel>
-                  <TextInput
-                    placeholder="e.g. Himalayan Pashmina Exports"
-                    value={organizationName}
-                    onChange={setOrganizationName}
-                  />
-                </div>
-              )}
 
               {/* Full Name */}
               <div>
@@ -3505,14 +3514,14 @@ function OnboardingModal({
             {/* Step 2: Interactive App Walkthrough Tutorial */}
             <div className="bg-[#0D1B2A] text-white p-5 flex items-center justify-between shrink-0">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/20">
-                Step 2 of 2 • Welcome Tour
+                Step 2 of 2 • How to Create Shipments
               </span>
               <button
                 type="button"
                 onClick={handleFinishTutorial}
                 className="text-white/60 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
               >
-                Skip Tour ✕
+                Skip ✕
               </button>
             </div>
 
@@ -3569,7 +3578,7 @@ function OnboardingModal({
                     style={{ fontFamily: 'Jost, sans-serif' }}
                     className="flex-1 bg-[#2563EB] text-white font-600 text-sm py-3.5 rounded-xl shadow-md shadow-blue-200 transition-all cursor-pointer"
                   >
-                    Next Feature →
+                    Next Step →
                   </button>
                 ) : (
                   <button
@@ -3793,7 +3802,7 @@ export default function CustomerPWA() {
               )}
 
               {screen === 'book' && (
-                <BookScreen onComplete={handleBookComplete} />
+                <BookScreen onComplete={handleBookComplete} customerUser={customerUser} />
               )}
 
               {screen === 'notifications' && (
