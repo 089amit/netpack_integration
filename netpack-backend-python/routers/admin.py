@@ -276,8 +276,11 @@ def create_admin_user(
         if r:
             role_id = r.id
     if not role_id:
-        admin_role = db.query(Role).filter(Role.name == "ADMIN").first()
-        role_id = admin_role.id if admin_role else None
+        user_role = db.query(Role).filter(Role.name == "USER").first()
+        role_id = user_role.id if user_role else None
+        if not role_id:
+            first_role = db.query(Role).first()
+            role_id = first_role.id if first_role else None
 
     # Resolve countryId
     country_id = None

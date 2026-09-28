@@ -2,11 +2,16 @@ import { useAuthStore } from '@/stores/authStore'
 
 export const useCheckRole = (...targetRoles: string[]): boolean => {
   const userRole = useAuthStore((state) => {
-    const storeRole = state.auth.user?.role?.[0]
-    if (storeRole) return storeRole
+    const user = state.auth.user
+    if (user?.role) {
+      if (Array.isArray(user.role)) return user.role[0]
+      return user.role
+    }
     if (typeof window !== 'undefined') {
       return (
-        localStorage.getItem('role') || localStorage.getItem('userRole') || ''
+        localStorage.getItem('userRole') ||
+        localStorage.getItem('role') ||
+        ''
       )
     }
     return ''

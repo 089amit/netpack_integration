@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import { useAuthStore } from '@/stores/authStore'
-import { logout } from '@/lib/auth'
 import {
   Sidebar,
   SidebarContent,
@@ -18,12 +17,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // Try to get role from multiple possible sources for robustness
   const userRole = useAuthStore((state) => {
-    const storeRole = state.auth.user?.role?.[0]
-    if (storeRole) return storeRole
+    const user = state.auth.user
+    if (user?.role) {
+      if (Array.isArray(user.role)) return user.role[0]
+      return user.role
+    }
 
     if (typeof window !== 'undefined') {
       return (
-        localStorage.getItem('role') || localStorage.getItem('userRole') || ''
+        localStorage.getItem('userRole') ||
+        localStorage.getItem('role') ||
+        ''
       )
     }
     return ''
@@ -42,9 +46,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         .filter((group) => group.items && group.items.length > 0)
     }
 
-    if (userRole === 'ADMIN') {
+    const roleUpper = (userRole || '').toUpperCase().trim()
+
+    if (roleUpper === 'ADMIN') {
       return sidebarData.navGroups
-    } else if (userRole === 'OPERATIONS') {
+    } else if (roleUpper === 'USER' || roleUpper === 'CUSTOMER') {
+      return filterByTitles(['Dashboard', 'Pickups', 'Enquiry'])
+    } else if (roleUpper === 'OPERATION' || roleUpper === 'OPERATIONS') {
       return filterByTitles([
         'Dashboard',
         'Pickups',
@@ -56,7 +64,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         'Agents',
         'Rate Enquiry',
       ])
-    } else if (userRole === 'CSD') {
+    } else if (roleUpper === 'CSD') {
       return filterByTitles([
         'Dashboard',
         'Pickups',
@@ -68,20 +76,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         'Customer',
         'Rate Enquiry',
       ])
-    } else if (userRole === 'CUSTOMER') {
-      return filterByTitles(['Dashboard', 'Enquiry', 'Rate Enquiry'])
-    } else if (userRole === 'PICKUP') {
+    } else if (roleUpper === 'PICKUP') {
       return filterByTitles(['Pickups'])
-    } else if (userRole === 'ACCOUNTS') {
+    } else if (roleUpper === 'ACCOUNTS') {
       return filterByTitles(['Dashboard', 'Customer', 'Shipment'])
     }
 
-    return sidebarData.navGroups // Default to everything if role unknown (might want to change to [] if security is strict)
+    // Default for any non-admin or unknown role: ONLY Dashboard, Pickups, and Enquiry
+    return filterByTitles(['Dashboard', 'Pickups', 'Enquiry'])
   }, [userRole])
 
   useEffect(() => {
+    const roleUpper = (userRole || '').toUpperCase().trim()
     // ADMIN has access to everything
-    if (userRole === 'ADMIN' || !userRole) return
+    if (roleUpper === 'ADMIN') return
 
     // Collect all allowed URLs from filteredNavGroups
     const getAllowedUrls = (groups: typeof sidebarData.navGroups) => {
@@ -107,7 +115,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       return pathname === url || pathname.startsWith(`${url}/`)
     })
 
-    // Essential routes that should never trigger logout
+    // Essential routes that should never trigger redirect
     const isEssentialRoute = [
       '/login',
       '/sign-in',
@@ -120,23 +128,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ].includes(pathname)
 
     if (!isAllowed && !isEssentialRoute) {
-      // Special case: If user is on root '/' but it's not explicitly allowed,
-      // try to redirect them to their first allowed route instead of logging out.
-      if (pathname === '/') {
-        const firstAllowed = allowedUrls.find((u) => u !== '/')
-        if (firstAllowed) {
-          console.log(
-            `Redirecting role ${userRole} from '/' to ${firstAllowed}`
-          )
-          navigate({ to: firstAllowed })
-          return
-        }
-      }
-
+      const fallbackUrl = allowedUrls.find((u) => u !== '/') || '/dashboard'
       console.warn(
-        `Unauthorized access attempt to ${pathname} by role ${userRole}. Logging out.`
+        `Unauthorized access attempt to ${pathname} by role ${roleUpper}. Redirecting to ${fallbackUrl}.`
       )
-      logout()
+      navigate({ to: fallbackUrl })
     }
   }, [pathname, userRole, filteredNavGroups, navigate])
 
