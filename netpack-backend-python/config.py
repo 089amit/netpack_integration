@@ -49,10 +49,10 @@ SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "False").lower() in ("true", "1", "yes"
 EMAIL_USER = SMTP_USER
 EMAIL_PASSWORD = SMTP_PASSWORD
 
-# Modern HTTPS Email API Keys (Bypasses Railway/cloud port 25/465/587 firewall blocks)
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+BREVO_FROM_EMAIL = os.getenv("BREVO_FROM_EMAIL", "")
 
 # TrackingMore Integration (Unified Courier & Airline Air Cargo Tracking)
 TRACKINGMORE_API_KEY = os.getenv("TRACKINGMORE_API_KEY", "")

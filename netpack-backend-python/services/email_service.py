@@ -125,8 +125,9 @@ def send_email_sync(
                 "api-key": config.BREVO_API_KEY.strip(),
                 "Content-Type": "application/json"
             }
+            brevo_sender = getattr(config, "BREVO_FROM_EMAIL", "") or sender_email
             payload = {
-                "sender": {"name": sender_name, "email": sender_email},
+                "sender": {"name": sender_name, "email": brevo_sender},
                 "to": [{"email": e} for e in clean_recipients],
                 "subject": subject,
                 "htmlContent": html_content
