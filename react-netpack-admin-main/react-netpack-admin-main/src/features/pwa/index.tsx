@@ -2587,7 +2587,7 @@ function PasswordInput({
 
 // ─── Branded Auth Screen (netpackpwa ui) ──────────────────────────────────────
 
-type AuthMode = 'login' | 'signup'
+type AuthMode = 'login' | 'signup' | 'code'
 
 function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: string) => void }) {
   const [mode, setMode] = useState<AuthMode>('login')
@@ -2596,6 +2596,11 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
   // Login fields
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
+
+  // Email Code fields
+  const [codeEmail, setCodeEmail] = useState('')
+  const [codeOtp, setCodeOtp] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
 
   // Signup fields
   const [fullName, setFullName] = useState('')
@@ -2691,32 +2696,63 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
     }
   }
 
-  const handleGoogleSignIn = async () => {
+  const handleSendCode = async () => {
+    const targetEmail = (codeEmail || loginEmail || email || '').trim().toLowerCase()
+    if (!targetEmail || !targetEmail.includes('@')) {
+      toast.error('Please enter a valid email address.')
+      return
+    }
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/api/customer/auth/google`, {
+      const res = await fetch(`${API_BASE}/api/customer/auth/send-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setCodeSent(true)
+        setCodeEmail(targetEmail)
+        toast.success(`Verification code sent to ${targetEmail}!`)
+      } else {
+        toast.error(data.detail || 'Failed to send verification code.')
+      }
+    } catch {
+      toast.error('Network error sending verification code.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleVerifyCode = async () => {
+    if (!codeOtp || codeOtp.trim().length < 6) {
+      toast.error('Please enter the 6-digit confirmation code.')
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/customer/auth/verify-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: 'customer@gmail.com',
-          name: 'Google Customer',
-          phone: '+977-9841234567',
-          address1: 'Kathmandu, Nepal',
-          googleId: 'google_demo_uid_01',
+          email: codeEmail.trim().toLowerCase(),
+          code: codeOtp.trim(),
         }),
       })
       const data = await res.json()
       if (res.ok && data.token) {
-        const user = data.customer || { name: 'Google Customer', email: 'customer@gmail.com' }
+        const user = data.customer || { name: codeEmail.split('@')[0], email: codeEmail }
         const token = data.token
         localStorage.setItem('netpack_customer_token', token)
         localStorage.setItem('netpack_customer_user', JSON.stringify(user))
-        toast.success('Signed in with Google!')
+        toast.success(`Welcome, ${user.name}!`)
         onAuthenticated(user, token)
         return
+      } else {
+        toast.error(data.detail || 'Invalid or expired confirmation code.')
       }
     } catch {
-      // offline fallback
+      toast.error('Network error verifying confirmation code.')
     } finally {
       setLoading(false)
     }
@@ -2767,8 +2803,12 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
           >
             NETPACK
           </h1>
-          <p className="text-white/80 text-[13px] leading-relaxed max-w-[260px]">
-            {mode === 'login' ? 'Log in to track and manage your consignments.' : 'Create an account to start shipping worldwide.'}
+          <p className="text-white/80 text-[13px] leading-relaxed max-w-[280px]">
+            {mode === 'login'
+              ? 'Log in to track consignments, request pickups, and book cargo.'
+              : mode === 'code'
+              ? 'Instant sign-in with 6-digit email confirmation code.'
+              : 'Create an account to start shipping worldwide.'}
           </p>
         </div>
       </div>
@@ -2776,39 +2816,143 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
       {/* Form sheet */}
       <div className="flex-1 bg-[#F1F4F8] rounded-t-[28px] -mt-5 px-5 pt-6 pb-10 relative">
         {/* Mode tabs */}
-        <div className="grid grid-cols-2 bg-white rounded-xl border border-gray-200 p-1 mb-5">
+        <div className="grid grid-cols-3 bg-white rounded-xl border border-gray-200 p-1 mb-5">
           <button
+            type="button"
             onClick={() => setMode('login')}
-            className={`py-2.5 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
+            className={`py-2 rounded-lg text-[12px] font-semibold transition-all cursor-pointer ${
               mode === 'login' ? 'bg-[#0D1B2A] text-white shadow-xs' : 'text-gray-400'
             }`}
           >
-            Log In
+            Password
           </button>
           <button
+            type="button"
+            onClick={() => {
+              setMode('code')
+              if (!codeEmail && loginEmail) setCodeEmail(loginEmail)
+            }}
+            className={`py-2 rounded-lg text-[12px] font-semibold transition-all cursor-pointer ${
+              mode === 'code' ? 'bg-[#0D1B2A] text-white shadow-xs' : 'text-gray-400'
+            }`}
+          >
+            Email Code
+          </button>
+          <button
+            type="button"
             onClick={() => setMode('signup')}
-            className={`py-2.5 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
+            className={`py-2 rounded-lg text-[12px] font-semibold transition-all cursor-pointer ${
               mode === 'signup' ? 'bg-[#0D1B2A] text-white shadow-xs' : 'text-gray-400'
             }`}
           >
-            Create Account
+            Sign Up
           </button>
         </div>
 
-        {/* Google sign in */}
-        <button
-          onClick={handleGoogleSignIn}
-          className="w-full bg-white border border-gray-200 rounded-xl py-3 flex items-center justify-center gap-2.5 font-semibold text-[13px] text-[#0D1B2A] active:scale-[0.99] transition-transform shadow-sm cursor-pointer"
-        >
-          <IconGoogle size={17} />
-          Continue with Google
-        </button>
+        {/* Quick Email / Google action button */}
+        {mode !== 'code' && (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('code')
+                if (!codeEmail && loginEmail) setCodeEmail(loginEmail)
+              }}
+              className="w-full bg-white border border-gray-200 rounded-xl py-3 flex items-center justify-center gap-2.5 font-semibold text-[13px] text-[#0D1B2A] active:scale-[0.99] transition-transform shadow-xs cursor-pointer hover:bg-gray-50"
+            >
+              <IconGoogle size={17} />
+              Continue with Email Confirmation
+            </button>
 
-        <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-[11px] text-gray-400 font-medium">or continue with email</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
+            <div className="flex items-center gap-3 my-5">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-[11px] text-gray-400 font-medium">or continue below</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+          </>
+        )}
+
+        {/* Mode: Email Code Confirmation */}
+        {mode === 'code' && (
+          <div className="space-y-4">
+            <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 text-blue-900 text-xs">
+              <span className="font-semibold block mb-0.5">Passwordless Email Sign-In</span>
+              <span>We'll send a 6-digit confirmation code via Brevo email. Enter it below to access your account instantly.</span>
+            </div>
+
+            {!codeSent ? (
+              <div className="space-y-4">
+                <div>
+                  <FieldLabel required>Registered or Personal Email</FieldLabel>
+                  <TextInput
+                    placeholder="you@example.com"
+                    value={codeEmail}
+                    onChange={setCodeEmail}
+                    type="email"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSendCode}
+                  disabled={!codeEmail.includes('@') || loading}
+                  className="w-full bg-[#2563EB] disabled:bg-gray-300 text-white font-semibold text-sm py-3.5 rounded-xl shadow-md shadow-blue-200 transition-all cursor-pointer"
+                >
+                  {loading ? 'Sending Code...' : 'Send Verification Code'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="text-gray-500">
+                    Code sent to: <strong className="text-gray-800">{codeEmail}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCodeSent(false)
+                      setCodeOtp('')
+                    }}
+                    className="text-blue-600 font-semibold hover:underline cursor-pointer"
+                  >
+                    Change Email
+                  </button>
+                </div>
+
+                <div>
+                  <FieldLabel required>6-Digit Confirmation Code</FieldLabel>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={codeOtp}
+                    onChange={e => setCodeOtp(e.target.value.replace(/\D/g, ''))}
+                    className="w-full border border-gray-200 rounded-xl py-3 px-4 text-center font-mono text-2xl tracking-[0.4em] text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 font-bold"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleVerifyCode}
+                  disabled={codeOtp.length < 6 || loading}
+                  className="w-full bg-[#2563EB] disabled:bg-gray-300 text-white font-semibold text-sm py-3.5 rounded-xl shadow-md shadow-blue-200 transition-all cursor-pointer"
+                >
+                  {loading ? 'Verifying...' : 'Verify & Enter App'}
+                </button>
+
+                <div className="text-center pt-1">
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={loading}
+                    className="text-xs text-blue-600 font-medium hover:underline cursor-pointer"
+                  >
+                    Didn't receive code? Resend
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {mode === 'login' ? (
           <div className="space-y-4">
@@ -2835,7 +2979,16 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
             <div>
               <FieldLabel required>Password</FieldLabel>
               <PasswordInput placeholder="Enter your password" value={loginPassword} onChange={setLoginPassword} />
-              <button className="text-[12px] text-blue-600 font-medium mt-2 cursor-pointer">Forgot password?</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('code')
+                  setCodeEmail(loginEmail || '')
+                }}
+                className="text-[12px] text-blue-600 font-medium mt-2 cursor-pointer hover:underline block"
+              >
+                Forgot password? Sign in with Email Code
+              </button>
             </div>
             <button
               onClick={handleLogin}
@@ -2846,7 +2999,9 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
               {loading ? 'Logging in...' : 'Log In'}
             </button>
           </div>
-        ) : (
+        ) : null}
+
+        {mode === 'signup' && (
           <div className="space-y-4">
             <div>
               <FieldLabel required>Full Name</FieldLabel>

@@ -4,7 +4,7 @@ import random
 import string
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Header, status, UploadFile, File, BackgroundTasks
 from sqlalchemy import or_
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 import config
 from database import get_db
+from models.user import User
 from models.customer import Customer, Notification
 from models.enquiry import Enquiry, EnquiryItem, Box, PickupLocationEnquiry
 from models.shipment import Shipment
@@ -23,12 +24,15 @@ from services.auth_service import (
     decode_token,
 )
 from services.hawb_service import generate_tracking_number
-from services.email_service import send_enquiry_booking_notification, send_user_welcome_email
+from services.email_service import send_enquiry_booking_notification, send_user_welcome_email, send_email
 
 router = APIRouter(prefix="/api/customer", tags=["Customer Portal"])
 
 AVATARS_DIR = config.UPLOADS_DIR / "avatars"
 AVATARS_DIR.mkdir(parents=True, exist_ok=True)
+
+# In-memory store for PWA login verification codes: email -> (code, expiry)
+_pwa_email_codes: Dict[str, Tuple[str, datetime]] = {}
 
 
 # ─── Auth Schemas ────────────────────────────────────────────────────────────
@@ -36,6 +40,15 @@ AVATARS_DIR.mkdir(parents=True, exist_ok=True)
 class CustomerLoginRequest(BaseModel):
     email: str
     password: str
+
+
+class CustomerSendCodeRequest(BaseModel):
+    email: str
+
+
+class CustomerVerifyCodeRequest(BaseModel):
+    email: str
+    code: str
 
 
 class CustomerSignupRequest(BaseModel):
@@ -168,27 +181,143 @@ def customer_to_dict(customer: Customer) -> Dict[str, Any]:
 
 # ─── Authentication Endpoints ────────────────────────────────────────────────
 
-@router.post("/auth/login")
-@router.post("/login")
-@router.post("/customer-login")
-def customer_login(payload: CustomerLoginRequest, db: Session = Depends(get_db)):
+def build_pwa_verification_code_html(email: str, code: str) -> str:
+    return f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
+<div style="max-width: 500px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+  <div style="background: #0D1B2A; padding: 24px; text-align: center;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px;">NETPACK</h1>
+    <p style="color: #60A5FA; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Express Global Logistics</p>
+  </div>
+  <div style="padding: 28px 24px; text-align: center;">
+    <h2 style="color: #0f172a; margin-top: 0; font-size: 18px;">Customer Portal Verification Code</h2>
+    <p style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+      Use the 6-digit confirmation code below to sign in or verify your NetPack Customer App account:
+    </p>
+    <div style="background: #f1f5f9; border: 2px dashed #0284c7; border-radius: 10px; padding: 18px; margin: 0 auto 24px auto; max-width: 280px;">
+      <p style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #0284c7; font-family: monospace;">{code}</p>
+    </div>
+    <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 0;">
+      This verification code is valid for <strong>15 minutes</strong>. If you did not request this login code, you can safely ignore this email.
+    </p>
+  </div>
+  <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; font-size: 12px; color: #94a3b8; text-align: center;">
+    <p style="margin: 0;">&copy; NetPack Logistics &bull; Kathmandu, Nepal &bull; info@netpacklogistic.com</p>
+  </div>
+</div>
+</body>
+</html>"""
+
+
+@router.post("/auth/send-code")
+def customer_send_login_code(
+    payload: CustomerSendCodeRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     clean_email = payload.email.strip().lower()
-    customer = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
-    if not customer or not customer.password:
+    if not clean_email or "@" not in clean_email:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+
+    code = f"{random.randint(100000, 999999)}"
+    _pwa_email_codes[clean_email] = (code, datetime.utcnow() + timedelta(minutes=15))
+
+    subject = f"[NetPack Logistics] Your Sign-in Verification Code: {code}"
+    html = build_pwa_verification_code_html(clean_email, code)
+    send_email(
+        to_emails=clean_email,
+        subject=subject,
+        html_content=html,
+        background_tasks=background_tasks
+    )
+
+    return {
+        "message": f"Verification code sent to {clean_email}",
+        "email": clean_email,
+        "success": True
+    }
+
+
+@router.post("/auth/verify-code")
+def customer_verify_login_code(
+    payload: CustomerVerifyCodeRequest,
+    db: Session = Depends(get_db)
+):
+    clean_email = payload.email.strip().lower()
+    clean_code = payload.code.strip()
+
+    stored = _pwa_email_codes.get(clean_email)
+    if not stored:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No verification code found for this email. Please request a new code."
         )
 
-    if not verify_password(payload.password, customer.password):
+    stored_code, expiry = stored
+    if datetime.utcnow() > expiry:
+        _pwa_email_codes.pop(clean_email, None)
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired. Please request a new code."
         )
+
+    if stored_code != clean_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect verification code. Please check your email."
+        )
+
+    _pwa_email_codes.pop(clean_email, None)
+
+    # Check if customer exists
+    customer = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
+    
+    # Check if user exists (Cargo Couriers)
+    user = db.query(User).filter(User.email.ilike(clean_email)).first()
+
+    if not customer:
+        if user:
+            # Auto-create linked customer profile for this User
+            customer = Customer(
+                name=user.fullName or clean_email.split("@")[0],
+                email=user.email,
+                phone=user.phoneNumber or "+977-9800000000",
+                password=user.password,
+                userId=user.id,
+                countryId=user.countryId or 1,
+                city=user.city or "Kathmandu",
+                address1=user.address1,
+                address2=user.address2,
+                state=user.state,
+                postcode=user.postcode,
+                isOrganization=user.isOrganization,
+                organizationName=user.organizationName
+            )
+        else:
+            # Auto-create new customer
+            random_pw = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            customer = Customer(
+                name=clean_email.split("@")[0].capitalize(),
+                email=clean_email,
+                phone="+977-9800000000",
+                password=get_password_hash(random_pw),
+                countryId=1,
+                city="Kathmandu"
+            )
+        db.add(customer)
+        db.commit()
+        db.refresh(customer)
+    elif user and not customer.userId:
+        customer.userId = user.id
+        db.commit()
+        db.refresh(customer)
 
     token_payload = {
         "customerId": customer.id,
         "id": customer.id,
+        "userId": customer.userId,
         "email": customer.email,
         "name": customer.name,
         "role": "CUSTOMER"
@@ -200,6 +329,83 @@ def customer_login(payload: CustomerLoginRequest, db: Session = Depends(get_db))
         "token": token,
         "customer": customer_to_dict(customer)
     }
+
+
+@router.post("/auth/login")
+@router.post("/login")
+@router.post("/customer-login")
+def customer_login(payload: CustomerLoginRequest, db: Session = Depends(get_db)):
+    clean_email = payload.email.strip().lower()
+    customer = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
+
+    # 1. Try customer password verification if customer exists and has password
+    if customer and customer.password and verify_password(payload.password, customer.password):
+        token_payload = {
+            "customerId": customer.id,
+            "id": customer.id,
+            "userId": customer.userId,
+            "email": customer.email,
+            "name": customer.name,
+            "role": "CUSTOMER"
+        }
+        token = create_access_token(token_payload, is_admin=False, expires_delta=timedelta(days=30))
+        return {
+            "message": "Login successful",
+            "token": token,
+            "customer": customer_to_dict(customer)
+        }
+
+    # 2. Try User table (Cargo Couriers with USER role)
+    user = db.query(User).filter(User.email.ilike(clean_email)).first()
+    if user and user.password and verify_password(payload.password, user.password):
+        if not customer:
+            customer = db.query(Customer).filter(or_(Customer.userId == user.id, Customer.email.ilike(clean_email))).first()
+
+        if not customer:
+            customer = Customer(
+                name=user.fullName or clean_email.split("@")[0],
+                email=user.email,
+                phone=user.phoneNumber or "+977-9800000000",
+                password=user.password,
+                userId=user.id,
+                countryId=user.countryId or 1,
+                city=user.city or "Kathmandu",
+                address1=user.address1,
+                address2=user.address2,
+                state=user.state,
+                postcode=user.postcode,
+                isOrganization=user.isOrganization,
+                organizationName=user.organizationName
+            )
+            db.add(customer)
+            db.commit()
+            db.refresh(customer)
+        else:
+            if not customer.userId or customer.password != user.password:
+                customer.userId = user.id
+                customer.password = user.password
+                db.commit()
+                db.refresh(customer)
+
+        token_payload = {
+            "customerId": customer.id,
+            "id": customer.id,
+            "userId": user.id,
+            "email": customer.email,
+            "name": customer.name,
+            "role": "CUSTOMER"
+        }
+        token = create_access_token(token_payload, is_admin=False, expires_delta=timedelta(days=30))
+        return {
+            "message": "Login successful",
+            "token": token,
+            "customer": customer_to_dict(customer)
+        }
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid email or password"
+    )
 
 
 @router.post("/auth/signup")
@@ -591,7 +797,13 @@ def get_customer_shipments(
     current_customer: Customer = Depends(get_current_customer),
     db: Session = Depends(get_db)
 ):
-    enquiries = db.query(Enquiry).filter(Enquiry.customerId == current_customer.id).order_by(Enquiry.createdAt.desc()).all()
+    conditions = [Enquiry.customerId == current_customer.id]
+    if current_customer.userId:
+        conditions.append(Enquiry.createdBy == current_customer.userId)
+    if current_customer.email:
+        conditions.append(Enquiry.senderEmail.ilike(current_customer.email.strip()))
+
+    enquiries = db.query(Enquiry).filter(or_(*conditions)).order_by(Enquiry.createdAt.desc()).all()
     
     result = []
     for e in enquiries:

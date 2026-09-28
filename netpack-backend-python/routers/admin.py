@@ -1,8 +1,9 @@
 import math
 import random
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict, Tuple
 from database import get_db
 from models.user import User, Role
 from models.customer import Customer
@@ -12,6 +13,7 @@ from schemas.auth import (
     SignUpRequest,
     TokenValidationRequest,
     ForgotPasswordRequest,
+    ResetPasswordRequest,
     UserCreateRequest,
     UserUpdateRequest
 )
@@ -26,6 +28,9 @@ from services.email_service import (
     send_user_welcome_email,
     send_forgot_password_email
 )
+
+# In-memory store for 6-digit password reset codes: email -> (code, expiry_datetime)
+_password_reset_codes: Dict[str, Tuple[str, datetime]] = {}
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -114,19 +119,94 @@ def forgot_password(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.email.ilike(payload.email.strip())).first()
-    if not user:
-        return {"message": "If the email exists, a password reset link has been sent."}
+    clean_email = payload.email.strip().lower()
+    user = db.query(User).filter(User.email.ilike(clean_email)).first()
+    cust = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
+    if not user and not cust:
+        return {"message": "If the email exists, a password reset link has been sent.", "success": True}
 
-    # Generate 6-digit verification code
+    # Generate 6-digit verification code with 15-minute expiration
     reset_code = f"{random.randint(100000, 999999)}"
+    _password_reset_codes[clean_email] = (reset_code, datetime.utcnow() + timedelta(minutes=15))
+
+    full_name = (user.fullName if user else None) or (cust.name if cust else "User")
+    target_email = user.email if user else cust.email
     send_forgot_password_email(
-        to_email=user.email,
-        full_name=user.fullName or "User",
+        to_email=target_email,
+        full_name=full_name,
         reset_code=reset_code,
         background_tasks=background_tasks
     )
-    return {"message": "Password reset email sent successfully", "success": True}
+    return {"message": "Password reset email sent successfully", "success": True, "email": clean_email}
+
+@router.post("/reset-password")
+@router.post("/reset-password/")
+@router.post("/resetPassword")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    clean_email = payload.email.strip().lower()
+    clean_code = payload.code.strip()
+    new_password = (payload.newPassword or payload.password or "").strip()
+
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long."
+        )
+
+    stored = _password_reset_codes.get(clean_email)
+    if not stored:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code. Please request a new code."
+        )
+
+    stored_code, expiry = stored
+    if datetime.utcnow() > expiry:
+        _password_reset_codes.pop(clean_email, None)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired. Please request a new code."
+        )
+
+    if stored_code != clean_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect verification code. Please check your email and try again."
+        )
+
+    hashed_pw = get_password_hash(new_password)
+    updated = False
+
+    # Update User password if exists
+    user = db.query(User).filter(User.email.ilike(clean_email)).first()
+    if user:
+        user.password = hashed_pw
+        updated = True
+
+    # Update Customer password if exists (either by email or linked userId)
+    cust = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
+    if cust:
+        cust.password = hashed_pw
+        updated = True
+    elif user:
+        linked_cust = db.query(Customer).filter(Customer.userId == user.id).first()
+        if linked_cust:
+            linked_cust.password = hashed_pw
+            updated = True
+
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found."
+        )
+
+    _password_reset_codes.pop(clean_email, None)
+    db.commit()
+
+    return {
+        "message": "Password reset successfully! You can now log in with your new password.",
+        "success": True
+    }
 
 @router.post("/signUp")
 @router.post("/signUp/")

@@ -15,12 +15,11 @@ export default function Otp() {
     <AuthLayout>
       <Card className='gap-4'>
         <CardHeader>
-          <CardTitle className='text-base tracking-tight'>
-            Two-factor Authentication
+          <CardTitle className='text-lg tracking-tight'>
+            Reset Password
           </CardTitle>
           <CardDescription>
-            Please enter the authentication code. <br /> We have sent the
-            authentication code to your email.
+            Enter the 6-digit verification code sent to your email <br /> and choose your new password.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -28,12 +27,12 @@ export default function Otp() {
         </CardContent>
         <CardFooter>
           <p className='text-muted-foreground px-8 text-center text-sm'>
-            Haven't received it?{' '}
+            Remember your password?{' '}
             <Link
               to='/sign-in'
               className='hover:text-primary underline underline-offset-4'
             >
-              Resend a new code.
+              Sign in
             </Link>
             .
           </p>

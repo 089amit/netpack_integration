@@ -128,10 +128,12 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
     try {
       const res = await http.get<any>(USER_ROLE.GET_ALL_ROLES)
       const rolesArray = res?.roles || []
-      const rolesData = rolesArray.map((r: any) => ({
-        label: r.name,
-        value: r.name,
-      }))
+      const rolesData = rolesArray
+        .filter((r: any) => r.name?.toUpperCase() !== 'CUSTOMER')
+        .map((r: any) => ({
+          label: r.name,
+          value: r.name,
+        }))
       setRoles(rolesData)
     } catch (error) {
       console.error('Failed to fetch roles', error)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 from database import get_db
 from models.user import Role
@@ -13,7 +14,8 @@ class RoleCreate(BaseModel):
 @router.get("")
 @router.get("/")
 def get_all_roles(db: Session = Depends(get_db)):
-    roles = db.query(Role).all()
+    # Customers are not administrative or portal users managed in the user table.
+    roles = db.query(Role).filter(func.upper(Role.name) != "CUSTOMER").all()
     return {"roles": [{"id": r.id, "name": r.name} for r in roles]}
 
 @router.post("")

@@ -115,6 +115,14 @@ def root_alias_my_bookings(
 ):
     return customer_portal.get_customer_shipments(current_customer, db)
 
+@app.post("/api/auth/reset-password", tags=["Auth Aliases"])
+def root_alias_reset_password(payload: admin.ResetPasswordRequest, db: Session = Depends(get_db)):
+    return admin.reset_password(payload, db)
+
+@app.post("/api/auth/forgot-password", tags=["Auth Aliases"])
+def root_alias_forgot_password(payload: admin.ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    return admin.forgot_password(payload, background_tasks, db)
+
 # ─── Production Frontend SPA & Static File Serving (Single Platform) ─────────
 FRONTEND_DIST = None
 possible_dist_dirs = [

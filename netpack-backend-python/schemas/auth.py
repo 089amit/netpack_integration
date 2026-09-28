@@ -57,3 +57,9 @@ class RiderLoginRequest(BaseModel):
     identifier: str
     password: str
 
+class ResetPasswordRequest(BaseModel):
+    email: str
+    code: str
+    newPassword: Optional[str] = None
+    password: Optional[str] = None
+

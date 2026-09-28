@@ -41,10 +41,11 @@ export function ForgotPasswordForm({ className, ...props }: ForgotFormProps) {
         email: data.email,
       })
 
-      toast.success('Password reset email sent successfully!')
-      form.reset()
-    } catch (error) {
-      toast.error('Failed to send password reset email')
+      toast.success('Verification code sent to your email!')
+      // Redirect to OTP verification screen with email prefilled
+      window.location.href = `/otp?email=${encodeURIComponent(data.email.trim())}`
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send password reset email')
       console.error('Forgot password error:', error)
     } finally {
       setIsLoading(false)
