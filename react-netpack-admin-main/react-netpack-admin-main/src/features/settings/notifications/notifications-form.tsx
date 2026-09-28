@@ -211,9 +211,7 @@ export function NotificationsForm() {
             </FormItem>
           )}
         />
-        <Button type='submit' className='bg-primary font-semibold shadow-sm'>
-          Apply Notification Changes
-        </Button>
+        <Button type='submit'>Update notifications</Button>
       </form>
     </Form>
   )

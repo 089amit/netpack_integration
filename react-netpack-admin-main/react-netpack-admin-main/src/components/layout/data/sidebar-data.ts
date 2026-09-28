@@ -5,12 +5,6 @@ import {
   IconFileText,
   IconTruckDelivery,
   IconWorld,
-  IconSettings,
-  IconNotification,
-  IconUserCog,
-  IconTool,
-  IconPalette,
-  IconBrowserCheck,
 } from '@tabler/icons-react'
 // import RateCalculatorPage from '@/ratecalc/index.tsx'
 import { Command } from 'lucide-react'
@@ -152,46 +146,46 @@ export const sidebarData: SidebarData = {
         },
       ],
     },
-    {
-      title: 'System & Settings',
-      items: [
-        {
-          title: 'Email & Notifications',
-          url: '/settings/notifications',
-          icon: IconNotification,
-        },
-        {
-          title: 'Settings',
-          icon: IconSettings,
-          items: [
-            {
-              title: 'Email & Mailbox',
-              url: '/settings/notifications',
-              icon: IconNotification,
-            },
-            {
-              title: 'Profile',
-              url: '/settings',
-              icon: IconUserCog,
-            },
-            {
-              title: 'Account',
-              url: '/settings/account',
-              icon: IconTool,
-            },
-            {
-              title: 'Appearance',
-              url: '/settings/appearance',
-              icon: IconPalette,
-            },
-            {
-              title: 'Display',
-              url: '/settings/display',
-              icon: IconBrowserCheck,
-            },
-          ],
-        },
-      ],
-    },
+    // {
+    //   title: 'Other',
+    //   items: [
+    //     {
+    //       title: 'Settings',
+    //       icon: IconSettings,
+    //       items: [
+    //         {
+    //           title: 'Profile',
+    //           url: '/settings',
+    //           icon: IconUserCog,
+    //         },
+    //         {
+    //           title: 'Account',
+    //           url: '/settings/account',
+    //           icon: IconTool,
+    //         },
+    //         {
+    //           title: 'Appearance',
+    //           url: '/settings/appearance',
+    //           icon: IconPalette,
+    //         },
+    //         {
+    //           title: 'Notifications',
+    //           url: '/settings/notifications',
+    //           icon: IconNotification,
+    //         },
+    //         {
+    //           title: 'Display',
+    //           url: '/settings/display',
+    //           icon: IconBrowserCheck,
+    //         },
+    //       ],
+    //     },
+    //     {
+    //       title: 'Help Center',
+    //       url: '/help-center',
+    //       icon: IconHelp,
+    //     },
+    //   ],
+    // },
   ],
 }
