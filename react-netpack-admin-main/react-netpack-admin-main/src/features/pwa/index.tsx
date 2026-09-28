@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
-import { useTheme } from '@/context/theme-context'
 
 // ─── API Base URL ─────────────────────────────────────────────────────────────
 
@@ -39,7 +38,6 @@ function formatDateTime(isoStr?: string | null): string {
 type Screen = 'home' | 'shipments' | 'book' | 'notifications' | 'profile' | 'rateenquiry' | 'tracking'
 type ShipmentTab = 'all' | 'inprogress' | 'delivered'
 type BookStep = 1 | 2 | 3
-type ThemeMode = 'light' | 'dark' | 'system'
 
 interface Shipment {
   id: string
@@ -102,41 +100,6 @@ interface TrackingDetails {
 }
 
 // ─── Initial Mock Data & Fallbacks ─────────────────────────────────────────────
-
-const initialNotifications: NotificationItem[] = [
-  {
-    id: '1',
-    title: 'Shipment Out for Delivery',
-    body: 'NP-20240922-001 is out for final delivery in London. Expected today between 2–6 PM.',
-    time: 'Today, 09:14 AM',
-    read: false,
-    type: 'update',
-  },
-  {
-    id: '2',
-    title: 'Cleared UK Customs',
-    body: 'Your shipment NP-20240922-001 has cleared UK customs and is heading to the delivery hub.',
-    time: 'Sep 21, 04:30 PM',
-    read: false,
-    type: 'update',
-  },
-  {
-    id: '3',
-    title: 'Shipment NP-20240910-088 Delivered',
-    body: 'Your consignment has been successfully delivered in New York. Thank you for choosing NetPack!',
-    time: 'Sep 17, 11:00 AM',
-    read: true,
-    type: 'delivered',
-  },
-  {
-    id: '4',
-    title: 'Welcome to NetPack Logistics!',
-    body: 'Book international express consignments and request doorstep rider pickup across Kathmandu.',
-    time: 'Sep 22, 08:35 AM',
-    read: true,
-    type: 'welcome',
-  },
-]
 
 const mockTrackingMap: Record<string, TrackingDetails> = {
   'NP-20240922-001': {
@@ -445,20 +408,6 @@ const IconCamera = ({ size = 16, className = '' }: { size?: number; className?: 
   </svg>
 )
 
-const IconSun = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="12" cy="12" r="5"/>
-    <line x1="12" y1="1" x2="12" y2="3"/>
-    <line x1="12" y1="21" x2="12" y2="23"/>
-    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-    <line x1="1" y1="12" x2="3" y2="12"/>
-    <line x1="21" y1="12" x2="23" y2="12"/>
-    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-  </svg>
-)
-
 const IconLogout = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -552,16 +501,12 @@ function Header({
   photoUrl,
   unreadCount,
   onBellClick,
-  onSignOut,
-  onToggleTheme,
   onProfileClick,
 }: {
   userName?: string
   photoUrl?: string
   unreadCount: number
   onBellClick: () => void
-  onSignOut: () => void
-  onToggleTheme?: () => void
   onProfileClick?: () => void
 }) {
   const avatarSrc = photoUrl
@@ -600,28 +545,14 @@ function Header({
 
       <div className="flex items-center gap-1">
         <button
-          onClick={onToggleTheme}
-          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer"
-          title="Toggle Theme"
-        >
-          <IconSun size={17} />
-        </button>
-        <button
           onClick={onBellClick}
           className="relative w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer"
           title="Notifications"
         >
-          <IconBell size={17} />
+          <IconBell size={18} />
           {unreadCount > 0 && (
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-400 rounded-full ring-2 ring-[#0D1B2A] animate-pulse" />
           )}
-        </button>
-        <button
-          onClick={onSignOut}
-          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-500/25 active:scale-95 text-white/80 hover:text-red-400 flex items-center justify-center transition-all cursor-pointer"
-          title="Sign Out"
-        >
-          <IconLogout size={17} />
         </button>
       </div>
     </header>
@@ -1084,12 +1015,38 @@ function ShipmentsScreen({
 
 // ─── Rate Enquiry Screen ──────────────────────────────────────────────────────
 
-const COUNTRIES = ['United Kingdom', 'United States', 'Australia', 'Canada', 'Germany', 'Japan', 'Singapore', 'UAE']
+// ─── Country Options & Dial Codes ─────────────────────────────────────────────
+
+export interface CountryOption {
+  name: string
+  dialCode: string
+  id: number
+}
+
+export const COUNTRY_OPTIONS: CountryOption[] = [
+  { name: 'Nepal', dialCode: '+977', id: 1 },
+  { name: 'United Arab Emirates', dialCode: '+971', id: 2 },
+  { name: 'India', dialCode: '+91', id: 3 },
+  { name: 'United Kingdom', dialCode: '+44', id: 4 },
+  { name: 'United States', dialCode: '+1', id: 5 },
+  { name: 'Australia', dialCode: '+61', id: 6 },
+  { name: 'Canada', dialCode: '+1', id: 7 },
+  { name: 'Germany', dialCode: '+49', id: 8 },
+  { name: 'Japan', dialCode: '+81', id: 9 },
+  { name: 'Singapore', dialCode: '+65', id: 10 },
+  { name: 'China', dialCode: '+86', id: 11 },
+  { name: 'Qatar', dialCode: '+974', id: 12 },
+  { name: 'Malaysia', dialCode: '+60', id: 13 },
+  { name: 'Saudi Arabia', dialCode: '+966', id: 14 },
+  { name: 'Thailand', dialCode: '+66', id: 15 },
+  { name: 'Bangladesh', dialCode: '+880', id: 16 },
+]
+
+export const COUNTRIES = COUNTRY_OPTIONS.map(c => c.name)
 
 function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
   const [destCountry, setDestCountry] = useState('')
   const [weight, setWeight] = useState('')
-  const [commodity, setCommodity] = useState('')
   const [result, setResult] = useState<null | { rate: string; transit: string; service: string }>(null)
 
   const handleCalc = () => {
@@ -1144,27 +1101,6 @@ function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          {/* Commodity */}
-          <div>
-            <FieldLabel required>Commodity Type</FieldLabel>
-            <div className="relative">
-              <select
-                value={commodity}
-                onChange={e => {
-                  setCommodity(e.target.value)
-                  setResult(null)
-                }}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none"
-              >
-                <option value="">Select commodity</option>
-                {COMMODITY_CHIPS.map(c => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-              <IconChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-
           {/* Weight */}
           <div>
             <FieldLabel required>Approximate Weight (kg)</FieldLabel>
@@ -1182,7 +1118,7 @@ function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
 
         <button
           onClick={handleCalc}
-          disabled={!destCountry || !weight || !commodity}
+          disabled={!destCountry || !weight}
           style={{ fontFamily: 'Jost, sans-serif' }}
           className="w-full bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 active:opacity-90 shadow-md shadow-blue-200 transition-all cursor-pointer"
         >
@@ -1202,10 +1138,6 @@ function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
               <div className="flex justify-between items-center py-2 border-b border-gray-50">
                 <span className="text-[12px] text-gray-500">Destination</span>
                 <span className="text-[13px] font-semibold text-[#0D1B2A]">{destCountry}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                <span className="text-[12px] text-gray-500">Commodity</span>
-                <span className="text-[13px] font-semibold text-[#0D1B2A] text-right max-w-[55%] truncate">{commodity}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-50">
                 <span className="text-[12px] text-gray-500">Weight</span>
@@ -2383,10 +2315,17 @@ const notifIconMap = {
   alert: { bg: 'bg-red-50', icon: <IconBell size={14} className="text-red-500" /> },
 }
 
-function NotificationsScreen({ onBack }: { onBack: () => void }) {
-  const [items, setItems] = useState<NotificationItem[]>(initialNotifications)
-
-  const markAllRead = () => setItems(items.map(n => ({ ...n, read: true })))
+function NotificationsScreen({
+  onBack,
+  items = [],
+  onMarkAllRead,
+  onMarkRead,
+}: {
+  onBack: () => void
+  items?: NotificationItem[]
+  onMarkAllRead?: () => void
+  onMarkRead?: (id: string) => void
+}) {
   const unread = items.filter(n => !n.read).length
 
   return (
@@ -2409,8 +2348,8 @@ function NotificationsScreen({ onBack }: { onBack: () => void }) {
               <p className="text-gray-500 text-xs mt-0.5">Live cargo milestone alerts.</p>
             </div>
           </div>
-          {unread > 0 && (
-            <button onClick={markAllRead} className="text-[12px] text-blue-600 font-semibold mt-1 cursor-pointer">
+          {unread > 0 && onMarkAllRead && (
+            <button onClick={onMarkAllRead} className="text-[12px] text-blue-600 font-semibold mt-1 cursor-pointer">
               Mark all read
             </button>
           )}
@@ -2436,11 +2375,11 @@ function NotificationsScreen({ onBack }: { onBack: () => void }) {
           </div>
         ) : (
           items.map(n => {
-            const { bg, icon } = notifIconMap[n.type]
+            const { bg, icon } = notifIconMap[n.type] || notifIconMap.alert
             return (
               <button
                 key={n.id}
-                onClick={() => setItems(items.map(i => (i.id === n.id ? { ...i, read: true } : i)))}
+                onClick={() => onMarkRead?.(n.id)}
                 className={`w-full text-left rounded-2xl border p-4 flex gap-3 transition-all active:scale-[0.99] cursor-pointer ${
                   n.read ? 'bg-white border-gray-100' : 'bg-white border-blue-100 shadow-xs'
                 }`}
@@ -2470,7 +2409,10 @@ function ProfileScreen({
   userEmail,
   userPhone,
   userAddress,
+  userAddress2,
   userCity,
+  userPostcode,
+  userCountry,
   photoUrl,
   customerToken,
   shipmentCount,
@@ -2483,7 +2425,10 @@ function ProfileScreen({
   userEmail?: string
   userPhone?: string
   userAddress?: string
+  userAddress2?: string
   userCity?: string
+  userPostcode?: string
+  userCountry?: string
   photoUrl?: string
   customerToken?: string | null
   shipmentCount: number
@@ -2492,8 +2437,6 @@ function ProfileScreen({
   onOpenEditProfile?: () => void
   onProfileUpdated?: (updated: any) => void
 }) {
-  const { theme, setTheme } = useTheme()
-  const currentMode = (theme as ThemeMode) || 'light'
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
@@ -2531,18 +2474,23 @@ function ProfileScreen({
     : null
 
   const profileFields = [
+    { label: 'Country', value: userCountry || 'Nepal' },
     { label: 'Full Name', value: userName || 'Customer' },
     { label: 'Email Address', value: userEmail || 'customer@example.com' },
     {
-      label: 'Phone',
-      value: userPhone && userPhone !== '+977-9800000000' && userPhone !== '9869233939' ? userPhone : 'Not provided',
+      label: 'Phone Number',
+      value: userPhone && userPhone !== '+977-9800000000' ? userPhone : 'Not provided',
     },
     {
-      label: 'Address Line',
-      value: userAddress && userAddress !== 'Teku-12' ? userAddress : 'Not provided',
+      label: 'Address Line 1',
+      value: userAddress || 'Not provided',
+    },
+    {
+      label: 'Address Line 2',
+      value: userAddress2 || '—',
     },
     { label: 'City', value: userCity || 'Kathmandu' },
-    { label: 'Country', value: 'Nepal' },
+    { label: 'Postcode', value: userPostcode || '—' },
   ]
 
   return (
@@ -2607,7 +2555,7 @@ function ProfileScreen({
       </div>
 
       <div className="px-4 space-y-4">
-        {/* Info Card */}
+        {/* Info Card - Picture 3 specifications */}
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xs">
           {profileFields.map((f, i) => (
             <div
@@ -2618,40 +2566,6 @@ function ProfileScreen({
               <span className="text-[13px] font-semibold text-[#0D1B2A] text-right max-w-[55%] truncate">{f.value}</span>
             </div>
           ))}
-        </div>
-
-        {/* Theme Toggle */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">App Theme</p>
-            <p className="text-[12px] text-blue-600 font-semibold capitalize">{currentMode} Mode</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {(['light', 'dark', 'system'] as ThemeMode[]).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setTheme(mode as any)}
-                className={`flex flex-col items-center gap-1.5 py-2.5 rounded-xl border text-[12px] font-medium capitalize transition-all cursor-pointer ${
-                  currentMode === mode ? 'bg-[#0D1B2A] text-white border-[#0D1B2A]' : 'text-gray-500 border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                {mode === 'light' && <IconSun size={16} />}
-                {mode === 'dark' && (
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                  </svg>
-                )}
-                {mode === 'system' && (
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                    <line x1="8" y1="21" x2="16" y2="21" />
-                    <line x1="12" y1="17" x2="12" y2="21" />
-                  </svg>
-                )}
-                {mode}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Activity Summary */}
@@ -2673,14 +2587,16 @@ function ProfileScreen({
           </div>
         </div>
 
-        {/* Sign Out */}
-        <button
-          onClick={onSignOut}
-          className="w-full flex items-center justify-center gap-2 bg-red-500 text-white font-semibold text-sm py-3.5 rounded-2xl active:opacity-90 transition-opacity shadow-md shadow-red-100 cursor-pointer"
-        >
-          <IconLogout size={16} />
-          Sign Out
-        </button>
+        {/* Sign Out with generous bottom padding for bottom navigation bar */}
+        <div className="pt-2 pb-28">
+          <button
+            onClick={onSignOut}
+            className="w-full flex items-center justify-center gap-2 bg-red-500 text-white font-semibold text-sm py-3.5 rounded-2xl active:opacity-90 transition-opacity shadow-md shadow-red-100 cursor-pointer"
+          >
+            <IconLogout size={16} />
+            Sign Out
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -2736,21 +2652,28 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
   const [codeSent, setCodeSent] = useState(false)
 
   // Signup fields
+  const [country, setCountry] = useState('Nepal')
+  const [signupDialCode, setSignupDialCode] = useState('+977')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [address1, setAddress1] = useState('')
   const [address2, setAddress2] = useState('')
-  const [city, setCity] = useState('')
+  const [city, setCity] = useState('Kathmandu')
   const [stateProvince, setStateProvince] = useState('')
   const [postcode, setPostcode] = useState('')
-  const [country, setCountry] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
+  const handleCountryChange = (cName: string) => {
+    setCountry(cName)
+    const opt = COUNTRY_OPTIONS.find(c => c.name === cName)
+    if (opt) setSignupDialCode(opt.dialCode)
+  }
+
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword
   const signupValid = Boolean(
-    fullName && email && phone && address1 && city && stateProvince && postcode && country && password && confirmPassword && password === confirmPassword
+    fullName && email && phone && address1 && city && country && password && confirmPassword && password === confirmPassword
   )
   const loginValid = Boolean(loginEmail && loginPassword)
 
@@ -2793,25 +2716,30 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
   const handleSignup = async () => {
     setLoading(true)
     try {
+      const selectedOpt = COUNTRY_OPTIONS.find(c => c.name === country) || COUNTRY_OPTIONS[0]
+      const cleanPhone = phone.trim().startsWith('+')
+        ? phone.trim()
+        : `${selectedOpt.dialCode}-${phone.trim().replace(/^0+/, '')}`
+
       const res = await fetch(`${API_BASE}/api/customer/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: fullName.trim(),
           email: email.trim().toLowerCase(),
-          phone: phone.trim(),
+          phone: cleanPhone,
           password,
           address1: address1.trim(),
           address2: address2 ? address2.trim() : null,
           city: city.trim(),
           postcode: postcode ? postcode.trim() : null,
-          countryId: 1,
+          countryId: selectedOpt.id,
         }),
       })
 
       const data = await res.json()
       if (res.ok && data.token) {
-        const user = data.customer || { name: fullName, email }
+        const user = data.customer || { name: fullName, email, country, phone: cleanPhone }
         const token = data.token
         localStorage.setItem('netpack_customer_token', token)
         localStorage.setItem('netpack_customer_user', JSON.stringify(user))
@@ -3119,55 +3047,75 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
         {/* Mode: Sign Up Registration */}
         {mode === 'signup' && (
           <div className="space-y-4">
+            {/* Country First */}
+            <div>
+              <FieldLabel required>Country</FieldLabel>
+              <div className="relative">
+                <select
+                  value={country}
+                  onChange={e => handleCountryChange(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl pl-4 pr-9 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none font-medium"
+                >
+                  {COUNTRY_OPTIONS.map(c => (
+                    <option key={c.name} value={c.name}>
+                      {c.name} ({c.dialCode})
+                    </option>
+                  ))}
+                </select>
+                <IconChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
             <div>
               <FieldLabel required>Full Name</FieldLabel>
               <TextInput placeholder="Your full name" value={fullName} onChange={setFullName} />
             </div>
+
             <div>
               <FieldLabel required>Email Address</FieldLabel>
               <TextInput placeholder="you@example.com" value={email} onChange={setEmail} type="email" />
             </div>
+
             <div>
-              <FieldLabel required>Phone</FieldLabel>
-              <TextInput placeholder="98XXXXXXXX" value={phone} onChange={setPhone} type="tel" />
+              <FieldLabel required>Phone Number</FieldLabel>
+              <div className="flex gap-2">
+                <span className="bg-gray-100 border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-3 py-3 flex items-center shrink-0">
+                  {signupDialCode}
+                </span>
+                <input
+                  type="tel"
+                  placeholder="Mobile / Phone number"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-medium"
+                />
+              </div>
             </div>
+
             <div>
               <FieldLabel required>Address Line 1</FieldLabel>
               <TextInput placeholder="House no., street" value={address1} onChange={setAddress1} />
             </div>
+
             <div>
-              <FieldLabel>Address Line 2</FieldLabel>
+              <FieldLabel>Address Line 2 (Optional)</FieldLabel>
               <TextInput placeholder="Apartment, area (optional)" value={address2} onChange={setAddress2} />
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <FieldLabel required>City</FieldLabel>
                 <TextInput placeholder="City" value={city} onChange={setCity} />
               </div>
               <div>
-                <FieldLabel required>State / Province</FieldLabel>
-                <TextInput placeholder="State" value={stateProvince} onChange={setStateProvince} />
+                <FieldLabel>State / Province</FieldLabel>
+                <TextInput placeholder="State (optional)" value={stateProvince} onChange={setStateProvince} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FieldLabel required>Postcode</FieldLabel>
-                <TextInput placeholder="Postcode" value={postcode} onChange={setPostcode} />
-              </div>
-              <div>
-                <FieldLabel required>Country</FieldLabel>
-                <div className="relative">
-                  <select
-                    value={country}
-                    onChange={e => setCountry(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl pl-4 pr-9 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none"
-                  >
-                    <option value="">Select</option>
-                    {COUNTRIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                  <IconChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
+
+            <div>
+              <FieldLabel>Postcode</FieldLabel>
+              <TextInput placeholder="Postcode" value={postcode} onChange={setPostcode} />
             </div>
             <div>
               <FieldLabel required>Password</FieldLabel>
@@ -3226,10 +3174,14 @@ function OnboardingModal({
   onProfileUpdated: (updatedUser: any) => void
 }) {
   const [step, setStep] = useState<'details' | 'tutorial'>('details')
+  const [selectedCountry, setSelectedCountry] = useState('Nepal')
+  const [dialCode, setDialCode] = useState('+977')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [address1, setAddress1] = useState('')
+  const [address2, setAddress2] = useState('')
   const [city, setCity] = useState('Kathmandu')
+  const [postcode, setPostcode] = useState('')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -3237,18 +3189,50 @@ function OnboardingModal({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (customerUser) {
-      setName(customerUser.name || '')
-      const rawPhone = customerUser.phone || ''
-      setPhone(rawPhone === '+977-9800000000' || rawPhone === '9869233939' ? '' : rawPhone.replace(/^\+977-?/, ''))
-      const rawAddr = customerUser.address1 || ''
-      setAddress1(rawAddr === 'Teku-12' ? '' : rawAddr)
-      setCity(customerUser.city || 'Kathmandu')
-      setPhotoUrl(customerUser.photoUrl || null)
+    if (isOpen) {
+      setStep('details')
+      setTutorialIndex(0)
+      if (customerUser) {
+        setName(customerUser.name || '')
+
+        // Detect country and dial code
+        const userCountryName = customerUser.country || customerUser.countryName || 'Nepal'
+        const matched = COUNTRY_OPTIONS.find(
+          c => c.name.toLowerCase() === String(userCountryName).toLowerCase()
+        ) || COUNTRY_OPTIONS[0]
+
+        setSelectedCountry(matched.name)
+        setDialCode(matched.dialCode)
+
+        // Parse phone
+        const rawPhone = customerUser.phone || ''
+        let cleanDigits = rawPhone
+        if (cleanDigits.startsWith(matched.dialCode)) {
+          cleanDigits = cleanDigits.slice(matched.dialCode.length).replace(/^[-\s]+/, '')
+        } else if (cleanDigits.startsWith('+977')) {
+          cleanDigits = cleanDigits.replace(/^\+977[-\s]?/, '')
+        }
+        if (cleanDigits === '+977-9800000000' || cleanDigits === '9800000000') cleanDigits = ''
+        setPhone(cleanDigits)
+
+        setAddress1(customerUser.address1 || '')
+        setAddress2(customerUser.address2 || '')
+        setCity(customerUser.city || 'Kathmandu')
+        setPostcode(customerUser.postcode || '')
+        setPhotoUrl(customerUser.photoUrl || null)
+      }
     }
   }, [customerUser, isOpen])
 
   if (!isOpen) return null
+
+  const handleCountrySelect = (cName: string) => {
+    setSelectedCountry(cName)
+    const opt = COUNTRY_OPTIONS.find(c => c.name === cName)
+    if (opt) {
+      setDialCode(opt.dialCode)
+    }
+  }
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -3287,19 +3271,26 @@ function OnboardingModal({
       toast.error('Please enter your phone number')
       return
     }
+    if (!address1.trim()) {
+      toast.error('Please enter Address Line 1')
+      return
+    }
     if (!customerToken) return
 
     setSaving(true)
-    const cleanPhone = phone.trim().startsWith('+977')
-      ? phone.trim()
-      : `+977-${phone.trim().replace(/^0+/, '')}`
+    const cleanDigits = phone.trim().replace(/^0+/, '')
+    const fullPhone = phone.trim().startsWith('+') ? phone.trim() : `${dialCode}-${cleanDigits}`
+    const matchedOpt = COUNTRY_OPTIONS.find(c => c.name === selectedCountry) || COUNTRY_OPTIONS[0]
 
     const payload = {
       name: name.trim(),
-      phone: cleanPhone,
-      address1: address1.trim() || 'Kathmandu, Nepal',
+      phone: fullPhone,
+      address1: address1.trim(),
+      address2: address2 ? address2.trim() : null,
       city: city.trim() || 'Kathmandu',
-      state: 'Bagmati Province',
+      postcode: postcode ? postcode.trim() : null,
+      countryId: matchedOpt.id,
+      country: selectedCountry,
       photoUrl: photoUrl || undefined,
     }
 
@@ -3331,9 +3322,9 @@ function OnboardingModal({
   }
 
   const handleFinishTutorial = () => {
-    if (customerUser?.id) {
-      localStorage.setItem(`netpack_onboarded_${customerUser.id}`, 'completed')
-    }
+    const userKey = customerUser?.id || customerUser?.email || 'customer'
+    localStorage.setItem(`netpack_onboarded_${userKey}`, 'completed')
+    localStorage.setItem('netpack_tutorial_completed', 'true')
     toast.success('Welcome to NetPack Logistics!')
     onClose()
   }
@@ -3387,6 +3378,7 @@ function OnboardingModal({
                   type="button"
                   onClick={onClose}
                   className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 cursor-pointer"
+                  title="Close"
                 >
                   <IconClose size={16} />
                 </button>
@@ -3406,7 +3398,7 @@ function OnboardingModal({
               </p>
             </div>
 
-            {/* Form Content */}
+            {/* Form Content - Picture 3 specifications */}
             <form onSubmit={handleSaveDetails} className="p-5 overflow-y-auto space-y-4 no-scrollbar flex-1">
               {/* Photo Avatar Upload */}
               <div className="flex flex-col items-center">
@@ -3444,22 +3436,73 @@ function OnboardingModal({
                 <p className="text-[11px] text-gray-400 mt-2 font-medium">Tap camera to upload profile photo</p>
               </div>
 
-              {/* Full Name */}
+              {/* 1. Country Selection First with Dial Code Auto-Assign */}
               <div>
-                <FieldLabel required>Full Name</FieldLabel>
+                <FieldLabel required>Country</FieldLabel>
+                <div className="relative">
+                  <select
+                    value={selectedCountry}
+                    onChange={e => handleCountrySelect(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl pl-3 pr-9 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none font-medium"
+                  >
+                    {COUNTRY_OPTIONS.map(c => (
+                      <option key={c.name} value={c.name}>
+                        {c.name} ({c.dialCode})
+                      </option>
+                    ))}
+                  </select>
+                  <IconChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* 2. Customer Name */}
+              <div>
+                <FieldLabel required>Customer Name</FieldLabel>
                 <TextInput placeholder="Your full name" value={name} onChange={setName} />
               </div>
 
-              {/* Phone */}
+              {/* 3. Address Line 1 */}
               <div>
-                <FieldLabel required>Mobile Phone Number</FieldLabel>
+                <FieldLabel required>Address Line 1</FieldLabel>
+                <TextInput
+                  placeholder="House / Building No., Street, Ward"
+                  value={address1}
+                  onChange={setAddress1}
+                />
+              </div>
+
+              {/* 4. Address Line 2 */}
+              <div>
+                <FieldLabel>Address Line 2 (Optional)</FieldLabel>
+                <TextInput
+                  placeholder="Apartment, suite, unit (optional)"
+                  value={address2}
+                  onChange={setAddress2}
+                />
+              </div>
+
+              {/* 5. City & Postcode in 2 columns */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel required>City</FieldLabel>
+                  <TextInput placeholder="City" value={city} onChange={setCity} />
+                </div>
+                <div>
+                  <FieldLabel>Postcode</FieldLabel>
+                  <TextInput placeholder="Postcode" value={postcode} onChange={setPostcode} />
+                </div>
+              </div>
+
+              {/* 6. Telephone with Dynamic Dial Code Badge */}
+              <div>
+                <FieldLabel required>Telephone</FieldLabel>
                 <div className="flex gap-2">
                   <span className="bg-gray-100 border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-3 py-3 flex items-center shrink-0">
-                    +977
+                    {dialCode}
                   </span>
                   <input
                     type="tel"
-                    placeholder="98XXXXXXXX"
+                    placeholder="Mobile / Phone Number"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                     className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-medium"
@@ -3467,46 +3510,11 @@ function OnboardingModal({
                 </div>
               </div>
 
-              {/* Address */}
-              <div>
-                <FieldLabel required>Pickup / Shipping Address</FieldLabel>
-                <TextInput
-                  placeholder="Street / Tole, Ward No."
-                  value={address1}
-                  onChange={setAddress1}
-                />
-              </div>
-
-              {/* City Selection */}
-              <div>
-                <FieldLabel required>City / Region</FieldLabel>
-                <div className="relative">
-                  <select
-                    value={city}
-                    onChange={e => setCity(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl pl-3 pr-9 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none font-medium"
-                  >
-                    <option value="Kathmandu">Kathmandu</option>
-                    <option value="Lalitpur">Lalitpur</option>
-                    <option value="Bhaktapur">Bhaktapur</option>
-                    <option value="Pokhara">Pokhara</option>
-                    <option value="Biratnagar">Biratnagar</option>
-                    <option value="Birgunj">Birgunj</option>
-                    <option value="Butwal">Butwal</option>
-                    <option value="Dharan">Dharan</option>
-                    <option value="Chitwan">Chitwan</option>
-                    <option value="Nepalgunj">Nepalgunj</option>
-                    <option value="Other">Other Region</option>
-                  </select>
-                  <IconChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-
               {/* Action Button */}
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={saving || !name.trim() || !phone.trim()}
+                  disabled={saving || !name.trim() || !phone.trim() || !address1.trim()}
                   style={{ fontFamily: 'Jost, sans-serif' }}
                   className="w-full bg-[#2563EB] disabled:bg-gray-300 text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 transition-all cursor-pointer"
                 >
@@ -3612,7 +3620,6 @@ function OnboardingModal({
 // ─── Main Customer PWA Component ──────────────────────────────────────────────
 
 export default function CustomerPWA() {
-  const { theme, setTheme } = useTheme()
   const [screen, setScreen] = useState<Screen>('home')
   const [activeTrackingId, setActiveTrackingId] = useState('NP-20240922-001')
   const [trackingReturnScreen, setTrackingReturnScreen] = useState<Screen>('home')
@@ -3645,25 +3652,103 @@ export default function CustomerPWA() {
     localStorage.setItem('netpack_customer_user', JSON.stringify(updatedUser))
   }
 
+  // Dynamic notifications derived from user consignments + welcome alert
+  const notifications = useMemo<NotificationItem[]>(() => {
+    const list: NotificationItem[] = []
+
+    shipments.forEach(s => {
+      if (s.status === 'delivered') {
+        list.push({
+          id: `notif-${s.id}-delivered`,
+          title: `Shipment ${s.tracking} Delivered`,
+          body: `Consignment to ${s.destination} has been successfully delivered. Thank you for choosing NetPack!`,
+          time: s.date || 'Recent',
+          read: false,
+          type: 'delivered',
+        })
+      } else if (s.status === 'in_progress') {
+        list.push({
+          id: `notif-${s.id}-progress`,
+          title: `Shipment ${s.tracking} In Transit`,
+          body: `Air cargo en route to ${s.destination}. Verified electronic scale weight: ${s.weight}.`,
+          time: s.date || 'In Transit',
+          read: false,
+          type: 'update',
+        })
+      } else {
+        list.push({
+          id: `notif-${s.id}-pending`,
+          title: `Consignment ${s.tracking} Created`,
+          body: `Doorstep rider pickup scheduled in Kathmandu. Destination: ${s.destination}.`,
+          time: s.date || 'Recent',
+          read: false,
+          type: 'update',
+        })
+      }
+    })
+
+    // Clean initial welcome notification
+    list.push({
+      id: 'notif-welcome',
+      title: 'Welcome to NetPack Logistics!',
+      body: 'Book international express consignments and request doorstep rider pickup across Kathmandu.',
+      time: 'Account Active',
+      read: false,
+      type: 'welcome',
+    })
+
+    return list
+  }, [shipments])
+
+  const [readNotifIds, setReadNotifIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('netpack_read_notif_ids')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  const handleMarkAllRead = () => {
+    const allIds = notifications.map(n => n.id)
+    setReadNotifIds(allIds)
+    localStorage.setItem('netpack_read_notif_ids', JSON.stringify(allIds))
+  }
+
+  const handleMarkRead = (id: string) => {
+    setReadNotifIds(prev => {
+      if (prev.includes(id)) return prev
+      const next = [...prev, id]
+      localStorage.setItem('netpack_read_notif_ids', JSON.stringify(next))
+      return next
+    })
+  }
+
+  const unreadCount = useMemo(() => {
+    return notifications.filter(n => !readNotifIds.includes(n.id)).length
+  }, [notifications, readNotifIds])
+
   // Check if onboarding is needed on first login
   useEffect(() => {
     if (!customerUser) return
-    const onboardedKey = `netpack_onboarded_${customerUser.id}`
-    const hasCompletedOnboard = localStorage.getItem(onboardedKey) === 'completed'
+    const userKey = customerUser.id || customerUser.email || 'customer'
+    const onboardedKey = `netpack_onboarded_${userKey}`
+    const hasCompletedOnboard =
+      localStorage.getItem(onboardedKey) === 'completed' ||
+      localStorage.getItem('netpack_tutorial_completed') === 'true'
+
     const isPlaceholder =
       !customerUser.phone ||
       customerUser.phone === '+977-9800000000' ||
-      customerUser.phone === '9869233939' ||
       !customerUser.address1 ||
-      customerUser.address1 === 'Teku-12' ||
       Boolean(customerUser.isNewAccount) ||
       Boolean(customerUser.isIncomplete)
 
-    if (!hasCompletedOnboard || isPlaceholder) {
+    if (!hasCompletedOnboard && isPlaceholder) {
       setOnboardingMode('first_time')
       setShowOnboarding(true)
     }
-  }, [customerUser?.id])
+  }, [customerUser?.id, customerUser?.email])
 
   // Fetch live customer shipments
   const fetchShipments = () => {
@@ -3735,10 +3820,6 @@ export default function CustomerPWA() {
     setShipments(prev => [newShipment, ...prev])
   }
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
-
   const deliveredCount = shipments.filter(s => s.status === 'delivered').length
 
   return (
@@ -3749,17 +3830,20 @@ export default function CustomerPWA() {
             onAuthenticated={(user, token) => {
               setCustomerUser(user)
               setCustomerToken(token)
-              const onboardedKey = `netpack_onboarded_${user.id}`
+              const userKey = user.id || user.email || 'customer'
+              const onboardedKey = `netpack_onboarded_${userKey}`
+              const hasCompletedOnboard =
+                localStorage.getItem(onboardedKey) === 'completed' ||
+                localStorage.getItem('netpack_tutorial_completed') === 'true'
+
               const isPlaceholder =
                 !user.phone ||
                 user.phone === '+977-9800000000' ||
-                user.phone === '9869233939' ||
                 !user.address1 ||
-                user.address1 === 'Teku-12' ||
                 Boolean(user.isNewAccount) ||
                 Boolean(user.isIncomplete)
 
-              if (!localStorage.getItem(onboardedKey) || isPlaceholder) {
+              if (!hasCompletedOnboard && isPlaceholder) {
                 setOnboardingMode('first_time')
                 setShowOnboarding(true)
               }
@@ -3771,10 +3855,8 @@ export default function CustomerPWA() {
             <Header
               userName={customerUser?.name || 'Customer'}
               photoUrl={customerUser?.photoUrl}
-              unreadCount={2}
+              unreadCount={unreadCount}
               onBellClick={() => setScreen('notifications')}
-              onSignOut={handleSignOut}
-              onToggleTheme={toggleTheme}
               onProfileClick={() => setScreen('profile')}
             />
 
@@ -3816,7 +3898,12 @@ export default function CustomerPWA() {
               )}
 
               {screen === 'notifications' && (
-                <NotificationsScreen onBack={() => setScreen('home')} />
+                <NotificationsScreen
+                  onBack={() => setScreen('home')}
+                  items={notifications.map(n => ({ ...n, read: readNotifIds.includes(n.id) }))}
+                  onMarkAllRead={handleMarkAllRead}
+                  onMarkRead={handleMarkRead}
+                />
               )}
 
               {screen === 'profile' && (
@@ -3825,7 +3912,10 @@ export default function CustomerPWA() {
                   userEmail={customerUser?.email}
                   userPhone={customerUser?.phone}
                   userAddress={customerUser?.address1}
+                  userAddress2={customerUser?.address2}
                   userCity={customerUser?.city}
+                  userPostcode={customerUser?.postcode}
+                  userCountry={customerUser?.country || customerUser?.countryName || 'Nepal'}
                   photoUrl={customerUser?.photoUrl}
                   customerToken={customerToken}
                   shipmentCount={shipments.length}
