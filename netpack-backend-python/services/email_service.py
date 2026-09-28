@@ -80,7 +80,34 @@ def send_email_sync(
     part2 = MIMEText(html_content, "html", "utf-8")
     message.attach(part2)
 
-    # 1. First priority: Check if Resend HTTPS API Key is configured (runs over port 443 - NEVER blocked by Railway)
+    # 1. First priority: Check if Brevo HTTPS API Key is configured (runs over port 443 - NEVER blocked by Railway)
+    if config.BREVO_API_KEY:
+        try:
+            brevo_url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "api-key": config.BREVO_API_KEY.strip(),
+                "Content-Type": "application/json"
+            }
+            brevo_sender = getattr(config, "BREVO_FROM_EMAIL", "") or config.SMTP_FROM_EMAIL or sender_email
+            payload = {
+                "sender": {"name": sender_name, "email": brevo_sender},
+                "to": [{"email": e} for e in clean_recipients],
+                "subject": subject,
+                "htmlContent": html_content
+            }
+            if text_content:
+                payload["textContent"] = text_content
+
+            r = requests.post(brevo_url, json=payload, headers=headers, timeout=12)
+            if r.status_code in (200, 201):
+                logger.info(f"[EmailService Brevo HTTPS SUCCESS] Sent '{subject}' to {clean_recipients}")
+                return {"success": True, "provider": "Brevo (HTTPS Port 443)", "recipients": clean_recipients}
+            else:
+                logger.warning(f"[EmailService Brevo Warning] Status {r.status_code}: {r.text}. Falling back...")
+        except Exception as brevo_err:
+            logger.warning(f"[EmailService Brevo Error] {brevo_err}. Falling back...")
+
+    # 2. Second priority: Check if Resend HTTPS API Key is configured (runs over port 443)
     if config.RESEND_API_KEY:
         try:
             resend_url = "https://api.resend.com/emails"
@@ -116,33 +143,6 @@ def send_email_sync(
                 logger.warning(f"[EmailService Resend Warning] Status {r.status_code}: {r.text}. Falling back to SMTP...")
         except Exception as resend_err:
             logger.warning(f"[EmailService Resend Error] {resend_err}. Falling back to SMTP...")
-
-    # 2. Second priority: Check if Brevo HTTPS API Key is configured (runs over port 443)
-    if config.BREVO_API_KEY:
-        try:
-            brevo_url = "https://api.brevo.com/v3/smtp/email"
-            headers = {
-                "api-key": config.BREVO_API_KEY.strip(),
-                "Content-Type": "application/json"
-            }
-            brevo_sender = getattr(config, "BREVO_FROM_EMAIL", "") or sender_email
-            payload = {
-                "sender": {"name": sender_name, "email": brevo_sender},
-                "to": [{"email": e} for e in clean_recipients],
-                "subject": subject,
-                "htmlContent": html_content
-            }
-            if text_content:
-                payload["textContent"] = text_content
-
-            r = requests.post(brevo_url, json=payload, headers=headers, timeout=12)
-            if r.status_code in (200, 201):
-                logger.info(f"[EmailService Brevo HTTPS SUCCESS] Sent '{subject}' to {clean_recipients}")
-                return {"success": True, "provider": "Brevo (HTTPS Port 443)", "recipients": clean_recipients}
-            else:
-                logger.warning(f"[EmailService Brevo Warning] Status {r.status_code}: {r.text}. Falling back to SMTP...")
-        except Exception as brevo_err:
-            logger.warning(f"[EmailService Brevo Error] {brevo_err}. Falling back to SMTP...")
 
     # 3. Third priority: Raw SMTP with automatic dual-port and forced IPv4 resolution
     host = config.SMTP_HOST
