@@ -2940,7 +2940,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
             {mode === 'login'
               ? 'Log in to track consignments, request pickups, and book cargo.'
               : mode === 'code'
-              ? 'Instant sign-in with 6-digit email confirmation code.'
+              ? 'Enter the 6-digit confirmation code sent to your email.'
               : 'Create an account to start shipping worldwide.'}
           </p>
         </div>
@@ -2948,75 +2948,91 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
 
       {/* Form sheet */}
       <div className="flex-1 bg-[#F1F4F8] rounded-t-[28px] -mt-5 px-5 pt-6 pb-10 relative">
-        {/* Mode tabs */}
-        <div className="grid grid-cols-3 bg-white rounded-xl border border-gray-200 p-1 mb-5">
-          <button
-            type="button"
-            onClick={() => setMode('login')}
-            className={`py-2 rounded-lg text-[12px] font-semibold transition-all cursor-pointer ${
-              mode === 'login' ? 'bg-[#0D1B2A] text-white shadow-xs' : 'text-gray-400'
-            }`}
-          >
-            Password
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('code')
-              if (!codeEmail && loginEmail) setCodeEmail(loginEmail)
-            }}
-            className={`py-2 rounded-lg text-[12px] font-semibold transition-all cursor-pointer ${
-              mode === 'code' ? 'bg-[#0D1B2A] text-white shadow-xs' : 'text-gray-400'
-            }`}
-          >
-            Email Code
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('signup')}
-            className={`py-2 rounded-lg text-[12px] font-semibold transition-all cursor-pointer ${
-              mode === 'signup' ? 'bg-[#0D1B2A] text-white shadow-xs' : 'text-gray-400'
-            }`}
-          >
-            Sign Up
-          </button>
-        </div>
-
-        {/* Quick Email / Google action button */}
-        {mode !== 'code' && (
-          <>
+        {/* Mode: Default Login Screen (No tabs!) */}
+        {mode === 'login' && (
+          <div>
+            {/* Primary Google Login Button */}
             <button
               type="button"
               onClick={() => {
                 setMode('code')
                 if (!codeEmail && loginEmail) setCodeEmail(loginEmail)
               }}
-              className="w-full bg-white border border-gray-200 rounded-xl py-3 flex items-center justify-center gap-2.5 font-semibold text-[13px] text-[#0D1B2A] active:scale-[0.99] transition-transform shadow-xs cursor-pointer hover:bg-gray-50"
+              className="w-full bg-white border border-gray-200 rounded-xl py-3.5 flex items-center justify-center gap-2.5 font-bold text-[13px] text-[#0D1B2A] active:scale-[0.99] transition-transform shadow-xs cursor-pointer hover:bg-gray-50 mb-4"
             >
-              <IconGoogle size={17} />
-              Continue with Google (Email OTP)
+              <IconGoogle size={18} />
+              Continue with Google
             </button>
 
-            <div className="flex items-center gap-3 my-5">
+            {/* Divider */}
+            <div className="flex items-center gap-3 mb-5">
               <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-[11px] text-gray-400 font-medium">or continue below</span>
+              <span className="text-[11px] text-gray-400 font-medium">or continue with email</span>
               <div className="flex-1 h-px bg-gray-200" />
             </div>
-          </>
+
+            {/* Email & Password Form */}
+            <div className="space-y-4">
+              <div>
+                <FieldLabel required>Email Address</FieldLabel>
+                <TextInput placeholder="you@example.com" value={loginEmail} onChange={setLoginEmail} type="email" />
+              </div>
+              <div>
+                <FieldLabel required>Password</FieldLabel>
+                <PasswordInput placeholder="Enter your password" value={loginPassword} onChange={setLoginPassword} />
+                <div className="flex justify-between items-center mt-2 px-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('code')
+                      setCodeEmail(loginEmail || '')
+                    }}
+                    className="text-[11px] text-blue-600 font-medium cursor-pointer hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('code')
+                      setCodeEmail(loginEmail || '')
+                    }}
+                    className="text-[11px] text-blue-600 font-medium cursor-pointer hover:underline"
+                  >
+                    Sign in with OTP
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={handleLogin}
+                disabled={!loginValid || loading}
+                style={{ fontFamily: 'Jost, sans-serif' }}
+                className="w-full bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 transition-all mt-1 cursor-pointer"
+              >
+                {loading ? 'Logging in...' : 'Log In'}
+              </button>
+
+              <p className="text-center text-xs text-gray-600 pt-2">
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => setMode('signup')}
+                  className="text-blue-600 font-bold hover:underline cursor-pointer"
+                >
+                  Sign Up
+                </button>
+              </p>
+            </div>
+          </div>
         )}
 
-        {/* Mode: Email Code Confirmation */}
+        {/* Mode: Email / Google OTP Verification (No Brevo banner!) */}
         {mode === 'code' && (
           <div className="space-y-4">
-            <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 text-blue-900 text-xs">
-              <span className="font-semibold block mb-0.5">Passwordless Email Sign-In</span>
-              <span>We'll send a 6-digit confirmation code via Brevo email. Enter it below to access your account instantly.</span>
-            </div>
-
             {!codeSent ? (
               <div className="space-y-4">
                 <div>
-                  <FieldLabel required>Registered or Personal Email</FieldLabel>
+                  <FieldLabel required>Google / Registered Email</FieldLabel>
                   <TextInput
                     placeholder="you@example.com"
                     value={codeEmail}
@@ -3069,7 +3085,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
                   disabled={codeOtp.length < 6 || loading}
                   className="w-full bg-[#2563EB] disabled:bg-gray-300 text-white font-semibold text-sm py-3.5 rounded-xl shadow-md shadow-blue-200 transition-all cursor-pointer"
                 >
-                  {loading ? 'Verifying...' : 'Verify & Enter App'}
+                  {loading ? 'Verifying...' : 'Verify & Continue'}
                 </button>
 
                 <div className="text-center pt-1">
@@ -3084,40 +3100,23 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {mode === 'login' ? (
-          <div className="space-y-4">
-            <div>
-              <FieldLabel required>Email Address</FieldLabel>
-              <TextInput placeholder="you@example.com" value={loginEmail} onChange={setLoginEmail} type="email" />
-            </div>
-            <div>
-              <FieldLabel required>Password</FieldLabel>
-              <PasswordInput placeholder="Enter your password" value={loginPassword} onChange={setLoginPassword} />
+            <div className="text-center pt-2">
               <button
                 type="button"
                 onClick={() => {
-                  setMode('code')
-                  setCodeEmail(loginEmail || '')
+                  setMode('login')
+                  setCodeSent(false)
                 }}
-                className="text-[12px] text-blue-600 font-medium mt-2 cursor-pointer hover:underline block"
+                className="text-xs text-gray-500 hover:text-gray-800 font-medium cursor-pointer"
               >
-                Forgot password? Sign in with Email Code
+                ← Back to Log In
               </button>
             </div>
-            <button
-              onClick={handleLogin}
-              disabled={!loginValid || loading}
-              style={{ fontFamily: 'Jost, sans-serif' }}
-              className="w-full bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 transition-all mt-1 cursor-pointer"
-            >
-              {loading ? 'Logging in...' : 'Log In'}
-            </button>
           </div>
-        ) : null}
+        )}
 
+        {/* Mode: Sign Up Registration */}
         {mode === 'signup' && (
           <div className="space-y-4">
             <div>
@@ -3187,6 +3186,17 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
             >
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
+
+            <p className="text-center text-xs text-gray-600 pt-2">
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className="text-blue-600 font-bold hover:underline cursor-pointer"
+              >
+                Log In
+              </button>
+            </p>
           </div>
         )}
 
