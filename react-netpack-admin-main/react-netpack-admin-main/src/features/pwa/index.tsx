@@ -103,46 +103,6 @@ interface TrackingDetails {
 
 // ─── Initial Mock Data & Fallbacks ─────────────────────────────────────────────
 
-const initialShipments: Shipment[] = [
-  {
-    id: '1',
-    tracking: 'NP-20240922-001',
-    destination: 'London, UK',
-    country: 'GB',
-    commodity: 'Pashmina & Woolen Garments',
-    weight: '4.2 kg',
-    status: 'in_progress',
-    date: 'Sep 18, 2024',
-    eta: 'Sep 26, 2024',
-    receiverName: 'Sarah Jenkins',
-    receiverCity: 'London',
-  },
-  {
-    id: '2',
-    tracking: 'NP-20240910-088',
-    destination: 'New York, USA',
-    country: 'US',
-    commodity: 'Handicrafts & Souvenirs',
-    weight: '2.8 kg',
-    status: 'delivered',
-    date: 'Sep 10, 2024',
-    receiverName: 'Michael Chang',
-    receiverCity: 'New York',
-  },
-  {
-    id: '3',
-    tracking: 'NP-20240905-047',
-    destination: 'Tokyo, Japan',
-    country: 'JP',
-    commodity: 'Himalayan Tea & Spices',
-    weight: '1.5 kg',
-    status: 'delivered',
-    date: 'Sep 5, 2024',
-    receiverName: 'Kenji Sato',
-    receiverCity: 'Tokyo',
-  },
-]
-
 const initialNotifications: NotificationItem[] = [
   {
     id: '1',
@@ -589,26 +549,49 @@ const IconEyeOff = ({ size = 16, className = '' }: { size?: number; className?: 
 
 function Header({
   userName,
+  photoUrl,
   unreadCount,
   onBellClick,
   onSignOut,
   onToggleTheme,
+  onProfileClick,
 }: {
   userName?: string
+  photoUrl?: string
   unreadCount: number
   onBellClick: () => void
   onSignOut: () => void
   onToggleTheme?: () => void
+  onProfileClick?: () => void
 }) {
+  const avatarSrc = photoUrl
+    ? photoUrl.startsWith('http') || photoUrl.startsWith('data:')
+      ? photoUrl
+      : `${API_BASE}${photoUrl}`
+    : null
+
   return (
     <header
       className="sticky top-0 z-30 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] px-4 pb-3 flex items-center gap-3 rounded-b-[20px] shadow-lg shadow-black/20"
       style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}
     >
-      {/* Wave greeting */}
-      <div className="text-2xl leading-none select-none">👋</div>
+      {/* Avatar or Initials Button */}
+      <button
+        type="button"
+        onClick={onProfileClick}
+        className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/20 flex items-center justify-center bg-white/10 shrink-0 shadow-xs active:scale-95 transition-transform cursor-pointer"
+        title="View Profile"
+      >
+        {avatarSrc ? (
+          <img src={avatarSrc} alt={userName || 'User'} className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-white font-bold text-sm">
+            {(userName || 'C').charAt(0).toUpperCase()}
+          </span>
+        )}
+      </button>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 cursor-pointer" onClick={onProfileClick} role="button">
         <p className="text-white/60 text-[11px] leading-tight">Welcome back</p>
         <span style={{ fontFamily: 'Jost, sans-serif' }} className="text-white font-700 text-base leading-tight tracking-tight truncate block">
           Hi, {userName || 'Customer'}!
@@ -796,7 +779,7 @@ function HomeScreen({
           </div>
           <div>
             <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-white font-800 text-4xl leading-none">
-              {pending || (shipments.length > 0 ? 1 : 0)}
+              {pending}
             </p>
             <p className="text-white/90 text-[13px] font-medium mt-1">Total Pending</p>
           </div>
@@ -816,7 +799,7 @@ function HomeScreen({
           </div>
           <div>
             <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-white font-800 text-4xl leading-none">
-              {inTransit || (shipments.length > 0 ? 1 : 0)}
+              {inTransit}
             </p>
             <p className="text-white/90 text-[13px] font-medium mt-1">In Transit</p>
           </div>
@@ -2423,54 +2406,140 @@ function ProfileScreen({
   userEmail,
   userPhone,
   userAddress,
+  userCity,
+  photoUrl,
+  customerToken,
   shipmentCount,
   deliveredCount,
   onSignOut,
+  onOpenEditProfile,
+  onProfileUpdated,
 }: {
   userName?: string
   userEmail?: string
   userPhone?: string
   userAddress?: string
+  userCity?: string
+  photoUrl?: string
+  customerToken?: string | null
   shipmentCount: number
   deliveredCount: number
   onSignOut: () => void
+  onOpenEditProfile?: () => void
+  onProfileUpdated?: (updated: any) => void
 }) {
   const { theme, setTheme } = useTheme()
   const currentMode = (theme as ThemeMode) || 'light'
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !customerToken) return
+
+    setUploadingPhoto(true)
+    const formData = new FormData()
+    formData.append('photo', file)
+
+    try {
+      const res = await fetch(`${API_BASE}/api/customer/profile/upload-photo`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${customerToken}` },
+        body: formData,
+      })
+      if (!res.ok) throw new Error('Upload failed')
+      const data = await res.json()
+      if (data.customer) {
+        onProfileUpdated?.(data.customer)
+        toast.success('Profile picture updated!')
+      }
+    } catch (err: any) {
+      toast.error('Failed uploading picture: ' + err.message)
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const avatarSrc = photoUrl
+    ? photoUrl.startsWith('http') || photoUrl.startsWith('data:')
+      ? photoUrl
+      : `${API_BASE}${photoUrl}`
+    : null
 
   const profileFields = [
     { label: 'Full Name', value: userName || 'Customer' },
     { label: 'Email Address', value: userEmail || 'customer@example.com' },
-    { label: 'Phone', value: userPhone || '9869233939' },
-    { label: 'Address Line', value: userAddress || 'Teku-12' },
-    { label: 'City', value: 'Kathmandu' },
-    { label: 'State / Province', value: 'Bagmati Province' },
+    {
+      label: 'Phone',
+      value: userPhone && userPhone !== '+977-9800000000' && userPhone !== '9869233939' ? userPhone : 'Not provided',
+    },
+    {
+      label: 'Address Line',
+      value: userAddress && userAddress !== 'Teku-12' ? userAddress : 'Not provided',
+    },
+    { label: 'City', value: userCity || 'Kathmandu' },
     { label: 'Country', value: 'Nepal' },
   ]
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
-      <div className="px-4 pt-5 pb-4">
-        <h1 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-700 text-[#0D1B2A] tracking-tight">
-          Profile
-        </h1>
-        <p className="text-gray-500 text-xs mt-0.5">Manage your account and preferences.</p>
+      <div className="px-4 pt-5 pb-4 flex items-center justify-between">
+        <div>
+          <h1 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-700 text-[#0D1B2A] tracking-tight">
+            Profile
+          </h1>
+          <p className="text-gray-500 text-xs mt-0.5">Manage your account and preferences.</p>
+        </div>
+        <button
+          onClick={onOpenEditProfile}
+          className="bg-[#0D1B2A] text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl shadow-xs active:scale-95 transition-transform cursor-pointer"
+        >
+          Edit Profile
+        </button>
       </div>
 
       {/* Avatar */}
       <div className="flex flex-col items-center py-4">
         <div className="relative">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-200">
-            <IconUser size={36} className="text-white" />
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarFile}
+          />
+          <div className="w-20 h-20 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-200">
+            {avatarSrc ? (
+              <img src={avatarSrc} alt={userName || 'User'} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-white font-bold text-3xl">
+                {(userName || 'C').charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
-          <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#0D1B2A] rounded-xl flex items-center justify-center border-2 border-[#F1F4F8] shadow-xs cursor-pointer">
-            <IconCamera size={14} className="text-white" />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingPhoto}
+            className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#0D1B2A] rounded-xl flex items-center justify-center border-2 border-[#F1F4F8] shadow-xs cursor-pointer active:scale-90 transition-transform"
+            title="Upload photo"
+          >
+            {uploadingPhoto ? (
+              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <IconCamera size={14} className="text-white" />
+            )}
           </button>
         </div>
         <p style={{ fontFamily: 'Jost, sans-serif' }} className="mt-3 text-base font-700 text-[#0D1B2A]">
           {userName || 'Customer'}
         </p>
         <p className="text-[12px] text-gray-400">{userEmail || 'customer@example.com'}</p>
+        <button
+          onClick={onOpenEditProfile}
+          className="mt-2 text-xs font-semibold text-[#2563EB] hover:underline cursor-pointer flex items-center gap-1"
+        >
+          <IconUser size={13} /> Edit Contact & Address
+        </button>
       </div>
 
       <div className="px-4 space-y-4">
@@ -3081,6 +3150,446 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
   )
 }
 
+// ─── Onboarding & Profile Details Modal ───────────────────────────────────────
+
+function OnboardingModal({
+  customerUser,
+  customerToken,
+  isOpen,
+  mode = 'first_time',
+  onClose,
+  onProfileUpdated,
+}: {
+  customerUser: any
+  customerToken: string | null
+  isOpen: boolean
+  mode?: 'first_time' | 'edit_only'
+  onClose: () => void
+  onProfileUpdated: (updatedUser: any) => void
+}) {
+  const [step, setStep] = useState<'details' | 'tutorial'>('details')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address1, setAddress1] = useState('')
+  const [city, setCity] = useState('Kathmandu')
+  const [accountType, setAccountType] = useState<'individual' | 'business'>('individual')
+  const [organizationName, setOrganizationName] = useState('')
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [tutorialIndex, setTutorialIndex] = useState(0)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (customerUser) {
+      setName(customerUser.name || '')
+      const rawPhone = customerUser.phone || ''
+      setPhone(rawPhone === '+977-9800000000' || rawPhone === '9869233939' ? '' : rawPhone.replace(/^\+977-?/, ''))
+      const rawAddr = customerUser.address1 || ''
+      setAddress1(rawAddr === 'Teku-12' ? '' : rawAddr)
+      setCity(customerUser.city || 'Kathmandu')
+      setPhotoUrl(customerUser.photoUrl || null)
+      if (customerUser.isOrganization) {
+        setAccountType('business')
+        setOrganizationName(customerUser.organizationName || '')
+      }
+    }
+  }, [customerUser, isOpen])
+
+  if (!isOpen) return null
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !customerToken) return
+    setUploadingPhoto(true)
+    const formData = new FormData()
+    formData.append('photo', file)
+
+    try {
+      const res = await fetch(`${API_BASE}/api/customer/profile/upload-photo`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${customerToken}` },
+        body: formData,
+      })
+      if (!res.ok) throw new Error('Failed uploading photo')
+      const data = await res.json()
+      if (data.photoUrl) {
+        setPhotoUrl(data.photoUrl)
+        if (data.customer) onProfileUpdated(data.customer)
+        toast.success('Photo uploaded successfully!')
+      }
+    } catch (err: any) {
+      toast.error('Photo upload failed: ' + err.message)
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const handleSaveDetails = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) {
+      toast.error('Please enter your full name')
+      return
+    }
+    if (!phone.trim()) {
+      toast.error('Please enter your phone number')
+      return
+    }
+    if (!customerToken) return
+
+    setSaving(true)
+    const cleanPhone = phone.trim().startsWith('+977')
+      ? phone.trim()
+      : `+977-${phone.trim().replace(/^0+/, '')}`
+
+    const payload = {
+      name: name.trim(),
+      phone: cleanPhone,
+      address1: address1.trim() || 'Kathmandu, Nepal',
+      city: city.trim() || 'Kathmandu',
+      state: 'Bagmati Province',
+      photoUrl: photoUrl || undefined,
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/customer/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${customerToken}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error('Failed updating profile')
+      const data = await res.json()
+      const updated = data.customer || { ...customerUser, ...payload }
+      onProfileUpdated(updated)
+
+      if (mode === 'edit_only') {
+        toast.success('Profile updated successfully!')
+        onClose()
+      } else {
+        setStep('tutorial')
+      }
+    } catch (err: any) {
+      toast.error('Save failed: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleFinishTutorial = () => {
+    if (customerUser?.id) {
+      localStorage.setItem(`netpack_onboarded_${customerUser.id}`, 'completed')
+    }
+    toast.success('Welcome to NetPack Logistics!')
+    onClose()
+  }
+
+  const tutorialSlides = [
+    {
+      badge: 'Worldwide Air Express',
+      title: 'Global Express Cargo to 200+ Countries',
+      desc: 'Ship pashmina, handicrafts, corporate goods, documents, and parcels worldwide via DHL, FedEx, UPS & Aramex with volume rates.',
+      icon: <IconPlane size={34} className="text-blue-500" />,
+      highlight: 'Express Air Cargo & Customs Clearance Included',
+    },
+    {
+      badge: 'Free Kathmandu Pickup',
+      title: 'Doorstep Courier Rider Pickup',
+      desc: 'No need to visit our cargo terminal. Tap "Request Rider Pickup", and our verified courier rider will collect packages directly from your location.',
+      icon: <IconTruck size={34} className="text-amber-500" />,
+      highlight: 'Same-Day Pickup Across Kathmandu Valley',
+    },
+    {
+      badge: 'Real-Time Transparency',
+      title: 'Live Milestones & Re-weighing Verification',
+      desc: 'Track airport departure flights, warehouse weighing scale verification photos, and customs clearance updates in real time on your dashboard.',
+      icon: <IconBox size={34} className="text-emerald-500" />,
+      highlight: 'Live Milestone Alerts & Air Waybills',
+    },
+  ]
+
+  const avatarSrc = photoUrl
+    ? photoUrl.startsWith('http') || photoUrl.startsWith('data:')
+      ? photoUrl
+      : `${API_BASE}${photoUrl}`
+    : null
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="max-w-[400px] w-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
+        {step === 'details' ? (
+          <>
+            {/* Header */}
+            <div className="bg-[#0D1B2A] text-white p-5 relative shrink-0">
+              {mode === 'edit_only' && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 cursor-pointer"
+                >
+                  <IconClose size={16} />
+                </button>
+              )}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/20">
+                  {mode === 'edit_only' ? 'Profile Management' : 'Step 1 of 2 • Account Setup'}
+                </span>
+              </div>
+              <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-lg font-700">
+                {mode === 'edit_only' ? 'Edit Profile Details' : 'Complete Your Profile'}
+              </h2>
+              <p className="text-xs text-white/70 mt-0.5">
+                {mode === 'edit_only'
+                  ? 'Update your contact and pickup address below.'
+                  : 'Add your details to book express shipments and request doorstep pickups.'}
+              </p>
+            </div>
+
+            {/* Form Content */}
+            <form onSubmit={handleSaveDetails} className="p-5 overflow-y-auto space-y-4 no-scrollbar flex-1">
+              {/* Photo Avatar Upload */}
+              <div className="flex flex-col items-center">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white font-bold text-3xl">
+                        {(name || 'C').charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#0D1B2A] rounded-xl flex items-center justify-center border-2 border-white text-white shadow-xs cursor-pointer active:scale-95"
+                    title="Upload Avatar"
+                  >
+                    {uploadingPhoto ? (
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <IconCamera size={14} />
+                    )}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-2 font-medium">Tap camera to upload profile photo</p>
+              </div>
+
+              {/* Account Type Toggle */}
+              <div>
+                <FieldLabel>Account Type</FieldLabel>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('individual')}
+                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                      accountType === 'individual'
+                        ? 'bg-[#0D1B2A] text-white border-[#0D1B2A]'
+                        : 'bg-white text-gray-600 border-gray-200'
+                    }`}
+                  >
+                    Individual Shipper
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('business')}
+                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                      accountType === 'business'
+                        ? 'bg-[#0D1B2A] text-white border-[#0D1B2A]'
+                        : 'bg-white text-gray-600 border-gray-200'
+                    }`}
+                  >
+                    Cargo Courier / Business
+                  </button>
+                </div>
+              </div>
+
+              {accountType === 'business' && (
+                <div>
+                  <FieldLabel required>Company / Organization Name</FieldLabel>
+                  <TextInput
+                    placeholder="e.g. Himalayan Pashmina Exports"
+                    value={organizationName}
+                    onChange={setOrganizationName}
+                  />
+                </div>
+              )}
+
+              {/* Full Name */}
+              <div>
+                <FieldLabel required>Full Name</FieldLabel>
+                <TextInput placeholder="Your full name" value={name} onChange={setName} />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <FieldLabel required>Mobile Phone Number</FieldLabel>
+                <div className="flex gap-2">
+                  <span className="bg-gray-100 border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-3 py-3 flex items-center shrink-0">
+                    +977
+                  </span>
+                  <input
+                    type="tel"
+                    placeholder="98XXXXXXXX"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Address */}
+              <div>
+                <FieldLabel required>Pickup / Shipping Address</FieldLabel>
+                <TextInput
+                  placeholder="Street / Tole, Ward No."
+                  value={address1}
+                  onChange={setAddress1}
+                />
+              </div>
+
+              {/* City Selection */}
+              <div>
+                <FieldLabel required>City / Region</FieldLabel>
+                <div className="relative">
+                  <select
+                    value={city}
+                    onChange={e => setCity(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl pl-3 pr-9 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none font-medium"
+                  >
+                    <option value="Kathmandu">Kathmandu</option>
+                    <option value="Lalitpur">Lalitpur</option>
+                    <option value="Bhaktapur">Bhaktapur</option>
+                    <option value="Pokhara">Pokhara</option>
+                    <option value="Biratnagar">Biratnagar</option>
+                    <option value="Birgunj">Birgunj</option>
+                    <option value="Butwal">Butwal</option>
+                    <option value="Dharan">Dharan</option>
+                    <option value="Chitwan">Chitwan</option>
+                    <option value="Nepalgunj">Nepalgunj</option>
+                    <option value="Other">Other Region</option>
+                  </select>
+                  <IconChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={saving || !name.trim() || !phone.trim()}
+                  style={{ fontFamily: 'Jost, sans-serif' }}
+                  className="w-full bg-[#2563EB] disabled:bg-gray-300 text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 transition-all cursor-pointer"
+                >
+                  {saving
+                    ? 'Saving Profile...'
+                    : mode === 'edit_only'
+                    ? 'Save Profile Changes'
+                    : 'Save & Continue →'}
+                </button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <>
+            {/* Step 2: Interactive App Walkthrough Tutorial */}
+            <div className="bg-[#0D1B2A] text-white p-5 flex items-center justify-between shrink-0">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/20">
+                Step 2 of 2 • Welcome Tour
+              </span>
+              <button
+                type="button"
+                onClick={handleFinishTutorial}
+                className="text-white/60 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Skip Tour ✕
+              </button>
+            </div>
+
+            {/* Slide Body */}
+            <div className="p-6 flex flex-col items-center text-center space-y-4 flex-1 overflow-y-auto no-scrollbar">
+              <div className="w-18 h-18 rounded-3xl bg-blue-50 flex items-center justify-center shadow-inner mt-2">
+                {tutorialSlides[tutorialIndex].icon}
+              </div>
+
+              <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-gray-100 text-gray-700">
+                {tutorialSlides[tutorialIndex].badge}
+              </span>
+
+              <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-lg font-800 text-[#0D1B2A] leading-snug">
+                {tutorialSlides[tutorialIndex].title}
+              </h2>
+
+              <p className="text-xs text-gray-500 leading-relaxed max-w-[290px]">
+                {tutorialSlides[tutorialIndex].desc}
+              </p>
+
+              <div className="w-full bg-emerald-50 border border-emerald-100 rounded-2xl p-3 flex items-center gap-2 text-left text-xs font-semibold text-emerald-800">
+                <IconCheck size={16} className="text-emerald-600 shrink-0" />
+                <span>{tutorialSlides[tutorialIndex].highlight}</span>
+              </div>
+
+              {/* Dots */}
+              <div className="flex items-center gap-1.5 pt-2">
+                {tutorialSlides.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      i === tutorialIndex ? 'w-6 bg-[#2563EB]' : 'w-2 bg-gray-200'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Navigation buttons */}
+              <div className="w-full pt-3 flex gap-2">
+                {tutorialIndex > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setTutorialIndex(i => i - 1)}
+                    className="px-4 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold text-xs active:bg-gray-50 cursor-pointer"
+                  >
+                    Back
+                  </button>
+                )}
+                {tutorialIndex < tutorialSlides.length - 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setTutorialIndex(i => i + 1)}
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                    className="flex-1 bg-[#2563EB] text-white font-600 text-sm py-3.5 rounded-xl shadow-md shadow-blue-200 transition-all cursor-pointer"
+                  >
+                    Next Feature →
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleFinishTutorial}
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                    className="flex-1 bg-[#0D1B2A] text-white font-700 text-sm py-3.5 rounded-xl shadow-md transition-all cursor-pointer"
+                  >
+                    Explore Dashboard ✨
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Customer PWA Component ──────────────────────────────────────────────
 
 export default function CustomerPWA() {
@@ -3089,8 +3598,8 @@ export default function CustomerPWA() {
   const [activeTrackingId, setActiveTrackingId] = useState('NP-20240922-001')
   const [trackingReturnScreen, setTrackingReturnScreen] = useState<Screen>('home')
 
-  // Real backend state
-  const [shipments, setShipments] = useState<Shipment[]>(initialShipments)
+  // Real backend state: clean empty default so new accounts have 0 consignments
+  const [shipments, setShipments] = useState<Shipment[]>([])
   const [customerToken, setCustomerToken] = useState<string | null>(() => {
     return typeof window !== 'undefined' ? localStorage.getItem('netpack_customer_token') : null
   })
@@ -3108,6 +3617,35 @@ export default function CustomerPWA() {
     return null
   })
 
+  // Onboarding & Profile Edit modal state
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingMode, setOnboardingMode] = useState<'first_time' | 'edit_only'>('first_time')
+
+  const handleProfileUpdated = (updatedUser: any) => {
+    setCustomerUser(updatedUser)
+    localStorage.setItem('netpack_customer_user', JSON.stringify(updatedUser))
+  }
+
+  // Check if onboarding is needed on first login
+  useEffect(() => {
+    if (!customerUser) return
+    const onboardedKey = `netpack_onboarded_${customerUser.id}`
+    const hasCompletedOnboard = localStorage.getItem(onboardedKey) === 'completed'
+    const isPlaceholder =
+      !customerUser.phone ||
+      customerUser.phone === '+977-9800000000' ||
+      customerUser.phone === '9869233939' ||
+      !customerUser.address1 ||
+      customerUser.address1 === 'Teku-12' ||
+      Boolean(customerUser.isNewAccount) ||
+      Boolean(customerUser.isIncomplete)
+
+    if (!hasCompletedOnboard || isPlaceholder) {
+      setOnboardingMode('first_time')
+      setShowOnboarding(true)
+    }
+  }, [customerUser?.id])
+
   // Fetch live customer shipments
   const fetchShipments = () => {
     if (!customerToken) return
@@ -3123,7 +3661,7 @@ export default function CustomerPWA() {
         return res.ok ? res.json() : []
       })
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           const mapped: Shipment[] = data.map(b => ({
             id: String(b.id),
             tracking: b.trackingNumber || `NP-${b.id}`,
@@ -3146,9 +3684,13 @@ export default function CustomerPWA() {
             weightProofImageUrl: b.weightProofImageUrl,
           }))
           setShipments(mapped)
+        } else {
+          setShipments([])
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        setShipments([])
+      })
   }
 
   useEffect(() => {
@@ -3188,6 +3730,20 @@ export default function CustomerPWA() {
             onAuthenticated={(user, token) => {
               setCustomerUser(user)
               setCustomerToken(token)
+              const onboardedKey = `netpack_onboarded_${user.id}`
+              const isPlaceholder =
+                !user.phone ||
+                user.phone === '+977-9800000000' ||
+                user.phone === '9869233939' ||
+                !user.address1 ||
+                user.address1 === 'Teku-12' ||
+                Boolean(user.isNewAccount) ||
+                Boolean(user.isIncomplete)
+
+              if (!localStorage.getItem(onboardedKey) || isPlaceholder) {
+                setOnboardingMode('first_time')
+                setShowOnboarding(true)
+              }
             }}
           />
         ) : (
@@ -3195,10 +3751,12 @@ export default function CustomerPWA() {
             {/* Top Header matching Figma */}
             <Header
               userName={customerUser?.name || 'Customer'}
+              photoUrl={customerUser?.photoUrl}
               unreadCount={2}
               onBellClick={() => setScreen('notifications')}
               onSignOut={handleSignOut}
               onToggleTheme={toggleTheme}
+              onProfileClick={() => setScreen('profile')}
             />
 
             {/* Screen Routing */}
@@ -3248,18 +3806,37 @@ export default function CustomerPWA() {
                   userEmail={customerUser?.email}
                   userPhone={customerUser?.phone}
                   userAddress={customerUser?.address1}
+                  userCity={customerUser?.city}
+                  photoUrl={customerUser?.photoUrl}
+                  customerToken={customerToken}
                   shipmentCount={shipments.length}
                   deliveredCount={deliveredCount}
                   onSignOut={handleSignOut}
+                  onOpenEditProfile={() => {
+                    setOnboardingMode('edit_only')
+                    setShowOnboarding(true)
+                  }}
+                  onProfileUpdated={handleProfileUpdated}
                 />
               )}
             </main>
 
             {/* Bottom Floating Navigation matching Figma */}
             <BottomNav screen={screen} setScreen={setScreen} />
+
+            {/* First-time Onboarding & Profile Details Modal */}
+            <OnboardingModal
+              isOpen={showOnboarding}
+              mode={onboardingMode}
+              customerUser={customerUser}
+              customerToken={customerToken}
+              onClose={() => setShowOnboarding(false)}
+              onProfileUpdated={handleProfileUpdated}
+            />
           </>
         )}
       </div>
     </div>
   )
 }
+

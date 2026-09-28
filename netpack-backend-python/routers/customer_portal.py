@@ -162,6 +162,11 @@ def get_current_customer(
 
 
 def customer_to_dict(customer: Customer) -> Dict[str, Any]:
+    is_incomplete = (
+        not customer.phone
+        or customer.phone == "+977-9800000000"
+        or not customer.address1
+    )
     return {
         "id": customer.id,
         "name": customer.name,
@@ -175,7 +180,8 @@ def customer_to_dict(customer: Customer) -> Dict[str, Any]:
         "countryId": customer.countryId,
         "country": {"id": customer.country.id, "name": customer.country.name} if customer.country else None,
         "photoUrl": getattr(customer, "photoUrl", None),
-        "role": "CUSTOMER"
+        "role": "CUSTOMER",
+        "isIncomplete": is_incomplete
     }
 
 
@@ -273,6 +279,7 @@ def customer_verify_login_code(
 
     # Check if customer exists
     customer = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
+    is_new_account = customer is None
     
     # Check if user exists (Cargo Couriers)
     user = db.query(User).filter(User.email.ilike(clean_email)).first()
@@ -324,10 +331,14 @@ def customer_verify_login_code(
     }
     token = create_access_token(token_payload, is_admin=False, expires_delta=timedelta(days=30))
 
+    resp_customer = customer_to_dict(customer)
+    if is_new_account:
+        resp_customer["isNewAccount"] = True
+
     return {
         "message": "Login successful",
         "token": token,
-        "customer": customer_to_dict(customer)
+        "customer": resp_customer
     }
 
 
