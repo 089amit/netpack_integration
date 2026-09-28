@@ -95,6 +95,10 @@ from fastapi import BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 from database import get_db
 
+@app.post("/api/auth/login", tags=["Auth Aliases"])
+def root_alias_auth_login(payload: admin.LoginRequest, db: Session = Depends(get_db)):
+    return admin.login(payload, db)
+
 @app.post("/api/auth/customer-login", tags=["Customer Portal Aliases"])
 def root_alias_customer_login(payload: customer_portal.CustomerLoginRequest, db: Session = Depends(get_db)):
     return customer_portal.customer_login(payload, db)

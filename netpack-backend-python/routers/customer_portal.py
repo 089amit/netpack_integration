@@ -61,6 +61,7 @@ class CustomerSignupRequest(BaseModel):
     city: Optional[str] = None
     postcode: Optional[str] = None
     countryId: Optional[int] = None
+    country: Optional[str] = None
     photoUrl: Optional[str] = None
 
 
@@ -76,6 +77,7 @@ class CustomerGoogleAuthRequest(BaseModel):
     state: Optional[str] = None
     postcode: Optional[str] = None
     countryId: Optional[int] = None
+    country: Optional[str] = None
 
 
 class CustomerProfileUpdateRequest(BaseModel):
@@ -87,7 +89,32 @@ class CustomerProfileUpdateRequest(BaseModel):
     state: Optional[str] = None
     postcode: Optional[str] = None
     countryId: Optional[int] = None
+    country: Optional[str] = None
     photoUrl: Optional[str] = None
+
+
+# ─── Country Resolution Helper ────────────────────────────────────────────────
+
+def resolve_country(db: Session, country_id: Optional[int] = None, country_name: Optional[str] = None) -> int:
+    """
+    Guarantees a valid, existing countryId in the database.
+    First tries to find by country_name (case-insensitive).
+    Next checks if country_id exists.
+    Falls back to 'Nepal' or the first available country in the database.
+    """
+    if country_name and country_name.strip():
+        c = db.query(Country).filter(Country.name.ilike(country_name.strip())).first()
+        if c:
+            return c.id
+    if country_id:
+        c = db.query(Country).filter(Country.id == country_id).first()
+        if c:
+            return c.id
+    nepal = db.query(Country).filter(Country.name.ilike("Nepal")).first()
+    if nepal:
+        return nepal.id
+    first_c = db.query(Country).first()
+    return first_c.id if first_c else 1
 
 
 # ─── Booking Request Schema ──────────────────────────────────────────────────
@@ -162,6 +189,15 @@ def get_current_customer(
 
 
 def customer_to_dict(customer: Customer) -> Dict[str, Any]:
+    c_name = "Nepal"
+    c_id = customer.countryId or 1
+    try:
+        if customer.country:
+            c_name = customer.country.name
+            c_id = customer.country.id
+    except Exception:
+        pass
+
     is_incomplete = (
         not customer.phone
         or customer.phone == "+977-9800000000"
@@ -174,11 +210,13 @@ def customer_to_dict(customer: Customer) -> Dict[str, Any]:
         "phone": customer.phone,
         "address1": customer.address1,
         "address2": getattr(customer, "address2", None),
-        "city": customer.city,
+        "city": customer.city or "Kathmandu",
         "state": customer.state,
         "postcode": getattr(customer, "postcode", None),
-        "countryId": customer.countryId,
-        "country": {"id": customer.country.id, "name": customer.country.name} if customer.country else None,
+        "countryId": c_id,
+        "country": c_name,              # Clean string name (e.g. "Nepal" or "Germany")
+        "countryName": c_name,          # Clean string name
+        "countryObj": {"id": c_id, "name": c_name},  # Backward compatibility object
         "photoUrl": getattr(customer, "photoUrl", None),
         "role": "CUSTOMER",
         "isIncomplete": is_incomplete
@@ -285,6 +323,7 @@ def customer_verify_login_code(
     user = db.query(User).filter(User.email.ilike(clean_email)).first()
 
     if not customer:
+        nepal_id = resolve_country(db, getattr(user, "countryId", None) if user else None, "Nepal")
         if user:
             # Auto-create linked customer profile for this User
             customer = Customer(
@@ -293,7 +332,7 @@ def customer_verify_login_code(
                 phone=user.phoneNumber or "+977-9800000000",
                 password=user.password,
                 userId=user.id,
-                countryId=user.countryId or 1,
+                countryId=nepal_id,
                 city=user.city or "Kathmandu",
                 address1=user.address1,
                 address2=user.address2,
@@ -310,7 +349,7 @@ def customer_verify_login_code(
                 email=clean_email,
                 phone="+977-9800000000",
                 password=get_password_hash(random_pw),
-                countryId=1,
+                countryId=nepal_id,
                 city="Kathmandu"
             )
         db.add(customer)
@@ -379,7 +418,7 @@ def customer_login(payload: CustomerLoginRequest, db: Session = Depends(get_db))
                 phone=user.phoneNumber or "+977-9800000000",
                 password=user.password,
                 userId=user.id,
-                countryId=user.countryId or 1,
+                countryId=resolve_country(db, user.countryId, "Nepal"),
                 city=user.city or "Kathmandu",
                 address1=user.address1,
                 address2=user.address2,
@@ -433,10 +472,7 @@ def customer_signup(
             detail="An account with this email already exists"
         )
 
-    country_id = payload.countryId
-    if not country_id:
-        nepal = db.query(Country).filter(Country.name.ilike("Nepal")).first()
-        country_id = nepal.id if nepal else 1
+    country_id = resolve_country(db, payload.countryId, payload.country)
 
     hashed_pw = get_password_hash(payload.password)
     customer = Customer(
@@ -452,8 +488,15 @@ def customer_signup(
         photoUrl=payload.photoUrl
     )
     db.add(customer)
-    db.commit()
-    db.refresh(customer)
+    try:
+        db.commit()
+        db.refresh(customer)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Registration failed: {str(e)}"
+        )
 
     # Welcome notification in portal
     welcome_notif = Notification(
@@ -529,18 +572,17 @@ def customer_google_auth(payload: CustomerGoogleAuthRequest, db: Session = Depen
         if payload.postcode and not customer.postcode:
             customer.postcode = payload.postcode
             updated = True
-        if payload.countryId and payload.countryId != customer.countryId:
-            customer.countryId = payload.countryId
-            updated = True
+        if payload.country or payload.countryId:
+            valid_cid = resolve_country(db, payload.countryId, payload.country)
+            if valid_cid != customer.countryId:
+                customer.countryId = valid_cid
+                updated = True
         if updated:
             db.commit()
             db.refresh(customer)
     else:
         # Auto-create customer profile from Google details
-        country_id = payload.countryId
-        if not country_id:
-            nepal = db.query(Country).filter(Country.name.ilike("Nepal")).first()
-            country_id = nepal.id if nepal else 1
+        country_id = resolve_country(db, payload.countryId, payload.country)
 
         # Generate a secure fallback password
         random_pw = "".join(random.choices(string.ascii_letters + string.digits, k=16))
@@ -620,13 +662,21 @@ def update_customer_profile(
         current_customer.state = payload.state.strip() if payload.state else None
     if payload.postcode is not None:
         current_customer.postcode = payload.postcode.strip()
-    if payload.countryId is not None:
-        current_customer.countryId = payload.countryId
+    if payload.country is not None or payload.countryId is not None:
+        valid_cid = resolve_country(db, payload.countryId, payload.country)
+        current_customer.countryId = valid_cid
     if payload.photoUrl is not None:
         current_customer.photoUrl = payload.photoUrl.strip()
 
-    db.commit()
-    db.refresh(current_customer)
+    try:
+        db.commit()
+        db.refresh(current_customer)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unable to update profile: {str(e)}"
+        )
     return {
         "message": "Profile updated successfully",
         "customer": customer_to_dict(current_customer)
@@ -670,6 +720,7 @@ async def upload_customer_photo(
 
 # ─── Customer Booking / Inquiries ────────────────────────────────────────────
 
+@router.post("/enquiry")
 @router.post("/enquiries")
 @router.post("/bookings")
 def create_customer_enquiry(

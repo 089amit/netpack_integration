@@ -68,6 +68,27 @@ def seed_database():
         else:
             print(f"[OK] Rider user already exists: {rider_email}")
 
+        # 2c. Seed Default Cargo Courier / Staff Account
+        courier_email = "courier@netpack.com"
+        courier_user = db.query(User).filter(User.email == courier_email).first()
+        if not courier_user:
+            courier_user = User(
+                email=courier_email,
+                username="courier-01",
+                password=get_password_hash("Courier@123"),
+                fullName="Sita Sharma (Express Cargo)",
+                phoneNumber="+977-9851000000",
+                roleId=created_roles["USER"].id,
+                isActive=True,
+                city="Kathmandu",
+                address1="Dillibazar"
+            )
+            db.add(courier_user)
+            db.commit()
+            print(f"[OK] Default Courier created: {courier_email} / Courier@123")
+        else:
+            print(f"[OK] Courier user already exists: {courier_email}")
+
         # 3. Seed Charges
         if not db.query(TIACharge).first():
             db.add(TIACharge(rate=50.0))
@@ -96,31 +117,58 @@ def seed_database():
             created_zones[z["name"]] = zone
         print("[OK] Shipping zones seeded.")
 
-        # 5. Seed Countries
-        countries_data = [
-            {"name": "United Arab Emirates", "boxWeightLimit": 30.0, "zone": "Zone 1 - Middle East & Gulf"},
-            {"name": "United States", "boxWeightLimit": 30.0, "zone": "Zone 3 - North America"},
-            {"name": "United Kingdom", "boxWeightLimit": 30.0, "zone": "Zone 2 - Europe & UK"},
-            {"name": "Australia", "boxWeightLimit": 25.0, "zone": "Zone 4 - Asia Pacific"},
-            {"name": "India", "boxWeightLimit": 30.0, "zone": "Zone 1 - Middle East & Gulf"},
-            {"name": "Qatar", "boxWeightLimit": 30.0, "zone": "Zone 1 - Middle East & Gulf"},
-            {"name": "Canada", "boxWeightLimit": 30.0, "zone": "Zone 3 - North America"},
-        ]
+        # 5. Seed All 230+ World Countries
+        from countries_data import WORLD_COUNTRIES
+        zone_mapping = {
+            "Zone 1 - Middle East & Gulf": ["United Arab Emirates", "Qatar", "Saudi Arabia", "Kuwait", "Bahrain", "Oman"],
+            "Zone 2 - Europe & UK": ["United Kingdom", "Germany", "France", "Italy", "Spain", "Netherlands", "Switzerland", "Sweden"],
+            "Zone 3 - North America": ["United States", "Canada", "Mexico"],
+            "Zone 4 - Asia Pacific": ["Australia", "Japan", "Singapore", "Malaysia", "China", "Thailand", "South Korea", "New Zealand", "India", "Bangladesh"]
+        }
+        country_to_zone = {}
+        for z_name, c_names in zone_mapping.items():
+            for c_name in c_names:
+                country_to_zone[c_name.lower()] = created_zones.get(z_name)
+
         created_countries = {}
-        for c in countries_data:
-            country = db.query(Country).filter(Country.name == c["name"]).first()
+        seeded_count = 0
+        for c in WORLD_COUNTRIES:
+            c_name = c["name"]
+            country = db.query(Country).filter(Country.name == c_name).first()
             if not country:
+                matched_zone = country_to_zone.get(c_name.lower())
                 country = Country(
-                    name=c["name"],
-                    boxWeightLimit=c["boxWeightLimit"],
-                    zoneId=created_zones[c["zone"]].id,
+                    name=c_name,
+                    boxWeightLimit=c.get("boxWeightLimit", 30.0),
+                    zoneId=matched_zone.id if matched_zone else None,
                     isActive=True
                 )
                 db.add(country)
-                db.commit()
-                db.refresh(country)
-            created_countries[c["name"]] = country
-        print("[OK] Destination countries seeded.")
+                seeded_count += 1
+            created_countries[c_name] = country
+        db.commit()
+        print(f"[OK] World destination countries seeded ({seeded_count} new, {len(WORLD_COUNTRIES)} total).")
+
+        # 5b. Seed Customer Account
+        customer_email = "customer@netpack.com"
+        nepal_c = db.query(Country).filter(Country.name.ilike("Nepal")).first()
+        nepal_id = nepal_c.id if nepal_c else 1
+        if not db.query(Customer).filter(Customer.email == customer_email).first():
+            cust = Customer(
+                name="NetPack Loyal Customer",
+                email=customer_email,
+                phone="+977-9812345678",
+                password=get_password_hash("Customer@123"),
+                address1="Baluwatar Road, Ward 4",
+                address2="Near Embassy",
+                city="Kathmandu",
+                state="Bagmati",
+                countryId=nepal_id,
+                postcode="44600"
+            )
+            db.add(cust)
+            db.commit()
+            print(f"[OK] Default Customer created: {customer_email} / Customer@123")
 
         # 6. Seed Overseas Agents
         agents_data = [

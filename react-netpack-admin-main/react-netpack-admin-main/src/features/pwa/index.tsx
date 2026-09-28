@@ -1015,34 +1015,11 @@ function ShipmentsScreen({
 
 // ─── Rate Enquiry Screen ──────────────────────────────────────────────────────
 
-// ─── Country Options & Dial Codes ─────────────────────────────────────────────
-
-export interface CountryOption {
-  name: string
-  dialCode: string
-  id: number
-}
-
-export const COUNTRY_OPTIONS: CountryOption[] = [
-  { name: 'Nepal', dialCode: '+977', id: 1 },
-  { name: 'United Arab Emirates', dialCode: '+971', id: 2 },
-  { name: 'India', dialCode: '+91', id: 3 },
-  { name: 'United Kingdom', dialCode: '+44', id: 4 },
-  { name: 'United States', dialCode: '+1', id: 5 },
-  { name: 'Australia', dialCode: '+61', id: 6 },
-  { name: 'Canada', dialCode: '+1', id: 7 },
-  { name: 'Germany', dialCode: '+49', id: 8 },
-  { name: 'Japan', dialCode: '+81', id: 9 },
-  { name: 'Singapore', dialCode: '+65', id: 10 },
-  { name: 'China', dialCode: '+86', id: 11 },
-  { name: 'Qatar', dialCode: '+974', id: 12 },
-  { name: 'Malaysia', dialCode: '+60', id: 13 },
-  { name: 'Saudi Arabia', dialCode: '+966', id: 14 },
-  { name: 'Thailand', dialCode: '+66', id: 15 },
-  { name: 'Bangladesh', dialCode: '+880', id: 16 },
-]
-
-export const COUNTRIES = COUNTRY_OPTIONS.map(c => c.name)
+// ─── Country Options & Dial Codes (All 230+ World Countries) ──────────────────
+import { COUNTRY_OPTIONS, COUNTRIES } from './countries'
+import type { CountryOption } from './countries'
+export { COUNTRY_OPTIONS, COUNTRIES }
+export type { CountryOption }
 
 function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
   const [destCountry, setDestCountry] = useState('')
@@ -2473,8 +2450,13 @@ function ProfileScreen({
       : `${API_BASE}${photoUrl}`
     : null
 
+  const countryDisplay =
+    typeof userCountry === 'string'
+      ? userCountry
+      : (userCountry as any)?.name || 'Nepal'
+
   const profileFields = [
-    { label: 'Country', value: userCountry || 'Nepal' },
+    { label: 'Country', value: countryDisplay },
     { label: 'Full Name', value: userName || 'Customer' },
     { label: 'Email Address', value: userEmail || 'customer@example.com' },
     {
@@ -3195,8 +3177,9 @@ function OnboardingModal({
       if (customerUser) {
         setName(customerUser.name || '')
 
-        // Detect country and dial code
-        const userCountryName = customerUser.country || customerUser.countryName || 'Nepal'
+        // Detect country and dial code safely
+        const rawCountry = customerUser.country || customerUser.countryName || 'Nepal'
+        const userCountryName = typeof rawCountry === 'string' ? rawCountry : rawCountry?.name || 'Nepal'
         const matched = COUNTRY_OPTIONS.find(
           c => c.name.toLowerCase() === String(userCountryName).toLowerCase()
         ) || COUNTRY_OPTIONS[0]
@@ -3289,7 +3272,7 @@ function OnboardingModal({
       address2: address2 ? address2.trim() : null,
       city: city.trim() || 'Kathmandu',
       postcode: postcode ? postcode.trim() : null,
-      countryId: matchedOpt.id,
+      countryId: matchedOpt?.id || 1,
       country: selectedCountry,
       photoUrl: photoUrl || undefined,
     }
@@ -3303,7 +3286,10 @@ function OnboardingModal({
         },
         body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error('Failed updating profile')
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        throw new Error(errJson.detail || 'Failed updating profile')
+      }
       const data = await res.json()
       const updated = data.customer || { ...customerUser, ...payload }
       onProfileUpdated(updated)
@@ -3799,6 +3785,19 @@ export default function CustomerPWA() {
 
   useEffect(() => {
     fetchShipments()
+    if (customerToken) {
+      fetch(`${API_BASE}/api/customer/profile`, {
+        headers: { Authorization: `Bearer ${customerToken}` },
+      })
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          if (data && data.id) {
+            setCustomerUser(data)
+            localStorage.setItem('netpack_customer_user', JSON.stringify(data))
+          }
+        })
+        .catch(() => {})
+    }
   }, [customerToken])
 
   const handleSignOut = () => {
@@ -3915,7 +3914,11 @@ export default function CustomerPWA() {
                   userAddress2={customerUser?.address2}
                   userCity={customerUser?.city}
                   userPostcode={customerUser?.postcode}
-                  userCountry={customerUser?.country || customerUser?.countryName || 'Nepal'}
+                  userCountry={
+                    typeof customerUser?.country === 'string'
+                      ? customerUser.country
+                      : customerUser?.country?.name || customerUser?.countryName || 'Nepal'
+                  }
                   photoUrl={customerUser?.photoUrl}
                   customerToken={customerToken}
                   shipmentCount={shipments.length}

@@ -153,3 +153,101 @@ def run_auto_migrations(target_engine):
                         conn.commit()
             except Exception as e:
                 print(f"[Migration Warning] User-to-customer sync check: {e}")
+
+        # 4. Ensure all 230+ world countries are present in countries table
+        if "countries" in table_names:
+            try:
+                from countries_data import WORLD_COUNTRIES
+                existing_country_rows = conn.execute(sa.text("SELECT LOWER(name) FROM countries")).fetchall()
+                existing_country_names = {row[0] for row in existing_country_rows}
+                new_countries = 0
+                for c_item in WORLD_COUNTRIES:
+                    c_name = c_item["name"]
+                    if c_name.lower() not in existing_country_names:
+                        conn.execute(
+                            sa.text("INSERT INTO countries (name, boxWeightLimit, isActive) VALUES (:name, :weight, 1)"),
+                            {"name": c_name, "weight": c_item.get("boxWeightLimit", 30.0)}
+                        )
+                        existing_country_names.add(c_name.lower())
+                        new_countries += 1
+                if new_countries > 0:
+                    conn.commit()
+                    print(f"[Migration] Seeded {new_countries} new countries into database.")
+            except Exception as e:
+                print(f"[Migration Warning] Countries seeding check: {e}")
+
+        # 5. Ensure baseline accounts for all user roles (Admin, Driver, Courier, Customer)
+        if "users" in table_names and "roles" in table_names and "customers" in table_names:
+            try:
+                from services.auth_service import get_password_hash
+                admin_role = conn.execute(sa.text("SELECT id FROM roles WHERE name = 'ADMIN'")).fetchone()
+                pickup_role = conn.execute(sa.text("SELECT id FROM roles WHERE name = 'PICKUP'")).fetchone()
+                user_role = conn.execute(sa.text("SELECT id FROM roles WHERE name = 'USER'")).fetchone()
+                
+                # Find Nepal country ID
+                nepal_country = conn.execute(sa.text("SELECT id FROM countries WHERE LOWER(name) = 'nepal'")).fetchone()
+                nepal_id = nepal_country[0] if nepal_country else 1
+
+                # 5a. Admin Account
+                if admin_role:
+                    adm = conn.execute(sa.text("SELECT id FROM users WHERE LOWER(email) = 'admin@example.com'")).fetchone()
+                    if not adm:
+                        conn.execute(sa.text("""
+                            INSERT INTO users (email, username, password, fullName, phoneNumber, roleId, isActive, countryId, city, address1, createdAt, updatedAt)
+                            VALUES ('admin@example.com', 'admin', :pw, 'System Administrator', '+977-9800000000', :roleId, 1, :countryId, 'Kathmandu', 'Thamel', :now, :now)
+                        """), {
+                            "pw": get_password_hash("Admin@123"),
+                            "roleId": admin_role[0],
+                            "countryId": nepal_id,
+                            "now": now_dt
+                        })
+                        conn.commit()
+                        print("[Migration] Created baseline Admin account: admin@example.com / Admin@123")
+
+                # 5b. Pickup Rider / Driver Account
+                if pickup_role:
+                    drv = conn.execute(sa.text("SELECT id FROM users WHERE LOWER(email) = 'driver@netpack.com'")).fetchone()
+                    if not drv:
+                        conn.execute(sa.text("""
+                            INSERT INTO users (email, username, password, fullName, phoneNumber, roleId, isActive, countryId, city, address1, createdAt, updatedAt)
+                            VALUES ('driver@netpack.com', 'rider-01', :pw, 'Ram Shrestha (Field Rider)', '+977-9841234567', :roleId, 1, :countryId, 'Kathmandu', 'New Road', :now, :now)
+                        """), {
+                            "pw": get_password_hash("Driver@123"),
+                            "roleId": pickup_role[0],
+                            "countryId": nepal_id,
+                            "now": now_dt
+                        })
+                        conn.commit()
+                        print("[Migration] Created baseline Driver account: driver@netpack.com / Driver@123")
+
+                # 5c. Cargo Courier / Staff Account
+                if user_role:
+                    courier = conn.execute(sa.text("SELECT id FROM users WHERE LOWER(email) = 'courier@netpack.com'")).fetchone()
+                    if not courier:
+                        conn.execute(sa.text("""
+                            INSERT INTO users (email, username, password, fullName, phoneNumber, roleId, isActive, countryId, city, address1, createdAt, updatedAt)
+                            VALUES ('courier@netpack.com', 'courier-01', :pw, 'Sita Sharma (Express Cargo)', '+977-9851000000', :roleId, 1, :countryId, 'Kathmandu', 'Dillibazar', :now, :now)
+                        """), {
+                            "pw": get_password_hash("Courier@123"),
+                            "roleId": user_role[0],
+                            "countryId": nepal_id,
+                            "now": now_dt
+                        })
+                        conn.commit()
+                        print("[Migration] Created baseline Courier account: courier@netpack.com / Courier@123")
+
+                # 5d. Customer Account with fully completed profile
+                cust = conn.execute(sa.text("SELECT id FROM customers WHERE LOWER(email) = 'customer@netpack.com'")).fetchone()
+                if not cust:
+                    conn.execute(sa.text("""
+                        INSERT INTO customers (name, email, phone, password, address1, address2, city, state, countryId, postcode, createdAt, updatedAt)
+                        VALUES ('NetPack Loyal Customer', 'customer@netpack.com', '+977-9812345678', :pw, 'Baluwatar Road, Ward 4', 'Near Embassy', 'Kathmandu', 'Bagmati', :countryId, '44600', :now, :now)
+                    """), {
+                        "pw": get_password_hash("Customer@123"),
+                        "countryId": nepal_id,
+                        "now": now_dt
+                    })
+                    conn.commit()
+                    print("[Migration] Created baseline Customer account: customer@netpack.com / Customer@123")
+            except Exception as e:
+                print(f"[Migration Warning] Baseline accounts check: {e}")
