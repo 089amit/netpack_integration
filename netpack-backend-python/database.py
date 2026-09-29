@@ -4,11 +4,18 @@ from config import DATABASE_URL
 
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=connect_args,
-    echo=False
-)
+# Production engine configuration:
+# For PostgreSQL: enable pre-ping to self-heal dropped cloud connections, pool recycle, and sizing
+engine_kwargs = {"echo": False, "connect_args": connect_args}
+if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
+    engine_kwargs.update({
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+        "pool_size": 10,
+        "max_overflow": 20
+    })
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

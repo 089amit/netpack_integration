@@ -873,6 +873,8 @@ def get_customer_shipments(
         linked_shipment = e.shipments[0] if (e.shipments and len(e.shipments) > 0) else None
         
         status_val = linked_shipment.status if linked_shipment else e.status
+        if e.status == "PICKED_UP" and (not linked_shipment or linked_shipment.status in ("PICKED_UP", "PENDING", "ENQUIRY_GENERATED")):
+            status_val = "PICKED_UP"
         hawb_val = linked_shipment.hawbno if linked_shipment else None
         fwd_no = linked_shipment.forwardingNumber if linked_shipment else None
         fwd_company = linked_shipment.forwardingCompany.name if (linked_shipment and linked_shipment.forwardingCompany) else None

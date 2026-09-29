@@ -1,0 +1,1886 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-09-29T06:17:58.277181",
+  "users": [
+    {
+      "id": 1,
+      "email": "admin@example.com",
+      "username": null,
+      "password": "$2b$12$NZN8GLfsoHBVE4GMjZn64uU7aIm0IsSdW8TkKYKK.0flsqIKG4Ava",
+      "fullName": "System Administrator",
+      "phoneNumber": "+977-9800000000",
+      "roleId": 1,
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "email": "amitsilwal85@gmail.com",
+      "username": null,
+      "password": "$2b$12$f8todGZtqv5sY9Tx9M4dZ.kH1rXausKiwRMSQggD/MwcIaQ0.wPPm",
+      "fullName": "Amit Silwal",
+      "phoneNumber": "9869233939",
+      "roleId": 3,
+      "isActive": true
+    },
+    {
+      "id": 3,
+      "email": "driver@netpack.com",
+      "username": "rider-01",
+      "password": "$2b$12$1OTj6wZfBCH0tql9DNPrnOjudRSK3YWuE87dyRvE5n8AhLPIOrSCm",
+      "fullName": "Pickup Driver (Ram Shrestha)",
+      "phoneNumber": "9841234567",
+      "roleId": 5,
+      "isActive": true
+    },
+    {
+      "id": 4,
+      "email": "kuber@driver.com",
+      "username": "Rider01",
+      "password": "$2b$12$hlFr2omEqhZTgaWWa9FNNOF77e/scCcQrA5mZ3wTGOstvpmgoZUgu",
+      "fullName": "Kuber Shah",
+      "phoneNumber": "9761614500",
+      "roleId": 5,
+      "isActive": true
+    },
+    {
+      "id": 5,
+      "email": "courier@netpack.com",
+      "username": "courier-01",
+      "password": "$2b$12$DvMtKM/qGl3mPnpyZGElEeLSS.BUkOTRb8wlHn4ceh/TWlKpiq./.",
+      "fullName": "Sita Sharma (Express Cargo)",
+      "phoneNumber": "+977-9851000000",
+      "roleId": 3,
+      "isActive": true
+    }
+  ],
+  "customers": [
+    {
+      "id": 1,
+      "name": "Sajha Travels & Courier Sewa",
+      "email": "sajhatravel@gmail.com",
+      "phone": "+977 9802723882",
+      "password": null,
+      "countryId": 3,
+      "address1": "Itahari,Sunsari",
+      "address2": "Sunsari",
+      "city": "Sunsari",
+      "state": null,
+      "postcode": "44600",
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 2,
+      "name": "System Administrator",
+      "email": "admin@example.com",
+      "phone": "+977-9800000000",
+      "password": null,
+      "countryId": 1,
+      "address1": null,
+      "address2": null,
+      "city": null,
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": 1
+    },
+    {
+      "id": 3,
+      "name": "Amit Silwal",
+      "email": "amitsilwal85@gmail.com",
+      "phone": "9869233939",
+      "password": null,
+      "countryId": 1,
+      "address1": "",
+      "address2": null,
+      "city": "",
+      "state": "",
+      "postcode": "",
+      "photoUrl": null,
+      "userId": 2
+    },
+    {
+      "id": 4,
+      "name": "Pickup Driver (Ram Shrestha)",
+      "email": "driver@netpack.com",
+      "phone": "9841234567",
+      "password": null,
+      "countryId": 1,
+      "address1": "NetPack Hub, Thamel",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": 3
+    },
+    {
+      "id": 5,
+      "name": "Prashant Sharma",
+      "email": "testcust_999@example.com",
+      "phone": "+977-9812345678",
+      "password": "$2b$12$f8gMLk.nTkyNnG/1XVXHcOppUrgFmXNZK.GvKm4jOeTMdgPSPQutu",
+      "countryId": 128,
+      "address1": "Lazimpat, Kathmandu",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 6,
+      "name": "Prashant Sharma",
+      "email": "testcust_1001@example.com",
+      "phone": "+977-9812345678",
+      "password": "$2b$12$irKveglbFU4BvZSsvCIpiuRPcHjEXiyw55RVwwFHTN12uYy0tOQde",
+      "countryId": 128,
+      "address1": "Lazimpat, Kathmandu",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 7,
+      "name": "Google User",
+      "email": "google_testcust_1001@example.com",
+      "phone": "+977-9800000000",
+      "password": "$2b$12$WTZaemVxEPD6UrgugQg48uRlweNEJs.zBH.Fp/VdRxjdSkt7kLKme",
+      "countryId": 128,
+      "address1": null,
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 8,
+      "name": "Prashant Sharma",
+      "email": "testcust_1005@example.com",
+      "phone": "+977-9812345678",
+      "password": "$2b$12$21URnQr3X/SFKvcC4Y7xpuqEHXG.Y0y2BMaaNiy3LZvvWHjATqeS2",
+      "countryId": 128,
+      "address1": "Lazimpat, Kathmandu",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 9,
+      "name": "Prashant Sharma",
+      "email": "testcust_1006@example.com",
+      "phone": "+977-9812345678",
+      "password": "$2b$12$m6eFWZXp8H6IXc1WIqgJOOp827jcg.C5JZI8LlaTDRZ1zw9ZEPDG6",
+      "countryId": 128,
+      "address1": "Lazimpat, Kathmandu",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 10,
+      "name": "Prashant Sharma",
+      "email": "testcust_1007@example.com",
+      "phone": "+977-9812345678",
+      "password": "$2b$12$Fp213Fnl8cf7vE/HWKLq8.BJ1rSON.cFaBgmLNNE5TukZlUZ.Wlbq",
+      "countryId": 128,
+      "address1": "Lazimpat, Kathmandu",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 11,
+      "name": "Google User",
+      "email": "google_testcust_1007@example.com",
+      "phone": "+977-9800000000",
+      "password": "$2b$12$g4eRUpC4qMZDhTHV5FjcBeYLgJRUxpT/vKNYE4MvqQLb4wL/1oSJu",
+      "countryId": 128,
+      "address1": null,
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 12,
+      "name": "Prashant Sharma",
+      "email": "testcust_1008@example.com",
+      "phone": "+977-9812345678",
+      "password": "$2b$12$HBze1c8pNWuwCbdUqZWAH.Ay4SNY0eMz1n3Ajc1meAmsMOkR6WBRe",
+      "countryId": 128,
+      "address1": "Lazimpat, Kathmandu",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 13,
+      "name": "Google User",
+      "email": "google_testcust_1008@example.com",
+      "phone": "+977-9800000000",
+      "password": "$2b$12$a8QJT2F2DyHPh8hXsvSd1.ILQUCI1bGL1UThq.JXdAVPpHk3/n35S",
+      "countryId": 128,
+      "address1": null,
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 14,
+      "name": "Prashant Sharma",
+      "email": "testcust_1009@example.com",
+      "phone": "+977-9812345678",
+      "password": "$2b$12$O01LdBuO9xx0jEOkVOzlu.snysDyeTIaizRch1ssXwR4ZZ3KNaaWm",
+      "countryId": 128,
+      "address1": "Lazimpat, Kathmandu",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 15,
+      "name": "Google User",
+      "email": "google_testcust_1009@example.com",
+      "phone": "+977-9800000000",
+      "password": "$2b$12$/2j3DNNRMDZS8/uwp.0lw.lGlLFDOv6.BqXD7TK9eNXA1BOxsvQUy",
+      "countryId": 128,
+      "address1": null,
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 16,
+      "name": "CUSTOMER",
+      "email": "customer@gmail.com",
+      "phone": "9801087467",
+      "password": "$2b$12$FMsYApaYaeBHoQxoM3vOuum6QIQ7fX8VMxI0uvCzQfSt0U1ev9XZu",
+      "countryId": 128,
+      "address1": "wonde height, chalkhu marga, teku",
+      "address2": "teku-12, kathmandu",
+      "city": "Kathmandu",
+      "state": "Bagmati",
+      "postcode": "44600",
+      "photoUrl": "https://lh3.googleusercontent.com/a/default-user=s96-c",
+      "userId": null
+    },
+    {
+      "id": 17,
+      "name": "Customer",
+      "email": "customer@example.com",
+      "phone": "9847907557",
+      "password": "$2b$12$kE0njqtznF9PuRuNZWGI1uQgPoq9MtzI0hlm3wDIOHRY2OcE7dcNS",
+      "countryId": 128,
+      "address1": "gongabu,baniyatar",
+      "address2": "shivapuri-8,nuwakot",
+      "city": "Kathmandu",
+      "state": "Bagmati Province",
+      "postcode": null,
+      "photoUrl": "https://lh3.googleusercontent.com/a/default-user=s96-c",
+      "userId": null
+    },
+    {
+      "id": 18,
+      "name": "Kuber Shah",
+      "email": "kuber@driver.com",
+      "phone": "9761614500",
+      "password": null,
+      "countryId": 1,
+      "address1": "",
+      "address2": null,
+      "city": "",
+      "state": "",
+      "postcode": "",
+      "photoUrl": null,
+      "userId": 4
+    },
+    {
+      "id": 19,
+      "name": "Himalayan Handicrafts Export Pvt. Ltd.",
+      "email": "contact@himalayanhandicrafts.com",
+      "phone": "+977-9841234567",
+      "password": "$2b$12$tkrOsIaMHEJWS1xvRkjqUuJYkKiN59fPbylspOKDRjMJCss8m7kgK",
+      "countryId": 1,
+      "address1": "Thamel Marg, Ward 26",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": "44600",
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 20,
+      "name": "Updated Customer",
+      "email": "testcustomer99@example.com",
+      "phone": "+977-9812345678",
+      "password": "$2b$12$3.iTJyu2le0FhwY0TnmgNu5fzfzCzNUK8LoOKf7hXr.d30rOx23c2",
+      "countryId": 1,
+      "address1": "Teku-12",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 21,
+      "name": "NetPack Loyal Customer (Updated)",
+      "email": "customer@netpack.com",
+      "phone": "+49-1512345678",
+      "password": "$2b$12$ilAfDRGb5gnFaQLSBBmm.exFnpVCWPyVxYXazl7wKROnaG8AoPSc.",
+      "countryId": 69,
+      "address1": "Brandenburger Tor 1",
+      "address2": "Mitte",
+      "city": "Berlin",
+      "state": "Bagmati",
+      "postcode": "10117",
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 22,
+      "name": "Sita Sharma (Express Cargo)",
+      "email": "courier@netpack.com",
+      "phone": "+977-9851000000",
+      "password": "$2b$12$DvMtKM/qGl3mPnpyZGElEeLSS.BUkOTRb8wlHn4ceh/TWlKpiq./.",
+      "countryId": 128,
+      "address1": "Dillibazar",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": 5
+    },
+    {
+      "id": 23,
+      "name": "Auto Test User 6642 (Verified)",
+      "email": "autotest_6642@netpacktest.com",
+      "phone": "+81-9098765432",
+      "password": "$2b$12$hB6WzB0bQNh/EtD8.tp72.gzpizTUfSyqYcrtWvjnTpFbGLP7WQIG",
+      "countryId": 90,
+      "address1": "Shinjuku Chome 2",
+      "address2": "Floor 5",
+      "city": "Tokyo",
+      "state": null,
+      "postcode": "160-0022",
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 24,
+      "name": "Auto Test User 8870 (Verified)",
+      "email": "autotest_8870@netpacktest.com",
+      "phone": "+81-9098765432",
+      "password": "$2b$12$WVfFd1mW8MV3HrBZvLQjY.WNXce.LN6sbolEa2wo408NASeH0/G4i",
+      "countryId": 90,
+      "address1": "Shinjuku Chome 2",
+      "address2": "Floor 5",
+      "city": "Tokyo",
+      "state": null,
+      "postcode": "160-0022",
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 25,
+      "name": "User Persona 7628",
+      "email": "user_journey_7628@netpack.com",
+      "phone": "+49-1701234567",
+      "password": "$2b$12$AIZdhYynXm17VrOz1oHhk.jGEg1IV7Aj/rrxtlomELQjBpFd0U2vC",
+      "countryId": 69,
+      "address1": "Kurf\u00fcrstendamm 100",
+      "address2": "Floor 2",
+      "city": "Berlin",
+      "state": null,
+      "postcode": "10711",
+      "photoUrl": null,
+      "userId": null
+    },
+    {
+      "id": 26,
+      "name": "User Persona 5197 (Verified)",
+      "email": "user_journey_5197@netpack.com",
+      "phone": "+49-1709999999",
+      "password": "$2b$12$SRP.MGJSjLUrFHWkxPoYXetXJgg921NR2G/shWvNSd0YK32XpnGCW",
+      "countryId": 69,
+      "address1": "Unter den Linden 5",
+      "address2": "Suite 300",
+      "city": "Berlin",
+      "state": null,
+      "postcode": "10117",
+      "photoUrl": null,
+      "userId": null
+    }
+  ],
+  "enquiries": [
+    {
+      "id": 1,
+      "trackingNumber": "NP-KQYG-I259",
+      "customerId": null,
+      "senderName": "Sajha Travels & Courier Sewa",
+      "senderPhone": "",
+      "senderEmail": "",
+      "senderAddressLine1": "Itahari,Sunsari",
+      "senderCity": "Sunsari",
+      "senderCountry": "United Kingdom",
+      "receiverName": "Sajha Travels & Courier Sewa",
+      "receiverAddressLine1": "Itahari,Sunsari",
+      "receiverCity": "Sunsari",
+      "receiverCountry": "United Kingdom",
+      "receiverTelephone": "+977 9802723882",
+      "receiverEmail": "",
+      "receiverPostcode": "44600",
+      "weight": 160.0,
+      "volumetricWeight": 153.6,
+      "chargeableWeight": 160.0,
+      "noOfBox": 8,
+      "status": "CARRIER_SCANNED",
+      "trackingMode": "MANUAL",
+      "pickupRequired": true,
+      "pickedUpAt": "2026-09-19T14:20:18.934017",
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 3,
+      "destinationLocation": "Sunsari",
+      "createdAt": "2026-09-18T16:36:02.932465",
+      "items": [
+        {
+          "description": "Jacket",
+          "quantity": 100,
+          "weight": 0.0,
+          "unitPrice": 2.0,
+          "totalValue": 200.0
+        },
+        {
+          "description": "Pant",
+          "quantity": 1000,
+          "weight": 0.0,
+          "unitPrice": 0.2,
+          "totalValue": 200.0
+        },
+        {
+          "description": "Shoes",
+          "quantity": 500,
+          "weight": 0.0,
+          "unitPrice": 1.0,
+          "totalValue": 500.0
+        },
+        {
+          "description": "socks",
+          "quantity": 100,
+          "weight": 0.0,
+          "unitPrice": 0.5,
+          "totalValue": 50.0
+        },
+        {
+          "description": "tshirt",
+          "quantity": 50,
+          "weight": 0.0,
+          "unitPrice": 1.0,
+          "totalValue": 50.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-KQYG-I259-1",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 20.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        },
+        {
+          "trackingNumber": "NP-KQYG-I259-2",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 20.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        },
+        {
+          "trackingNumber": "NP-KQYG-I259-3",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 20.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        },
+        {
+          "trackingNumber": "NP-KQYG-I259-4",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 20.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        },
+        {
+          "trackingNumber": "NP-KQYG-I259-5",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 20.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        },
+        {
+          "trackingNumber": "NP-KQYG-I259-6",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 20.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        },
+        {
+          "trackingNumber": "NP-KQYG-I259-7",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 20.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        },
+        {
+          "trackingNumber": "NP-KQYG-I259-8",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 11.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Itahari,Sunsari, Sunsari, Sunsari",
+          "phoneNumber": "+977 9802723882",
+          "note": "Time: Today before 11:00-14:00 | Pick up Van required"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "trackingNumber": "NP-ZXB3-0WID",
+      "customerId": 6,
+      "senderName": "Prashant Sharma",
+      "senderPhone": "+977-9812345678",
+      "senderEmail": "testcust_1001@example.com",
+      "senderAddressLine1": "Lazimpat, Kathmandu",
+      "senderCity": "Kathmandu",
+      "senderCountry": "Nepal",
+      "receiverName": "John Doe",
+      "receiverAddressLine1": "742 Market St, Suite 400",
+      "receiverCity": "San Francisco",
+      "receiverCountry": "United States",
+      "receiverTelephone": "+1-555-0199",
+      "receiverEmail": null,
+      "receiverPostcode": "94103",
+      "weight": 3.5,
+      "volumetricWeight": 1.6,
+      "chargeableWeight": 3.5,
+      "noOfBox": 1,
+      "status": "PICKED_UP",
+      "trackingMode": "MANUAL",
+      "pickupRequired": true,
+      "pickedUpAt": "2026-09-20T08:21:31.101755",
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 2,
+      "destinationLocation": "San Francisco",
+      "createdAt": "2026-09-19T14:57:45.117271",
+      "items": [
+        {
+          "description": "Pashmina Shawls & Handicrafts",
+          "quantity": 1,
+          "weight": 3.5,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-ZXB3-0WID-1",
+          "length": 20.0,
+          "breadth": 20.0,
+          "height": 20.0,
+          "weight": 3.5,
+          "dimensions": "20.0x20.0x20.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Lazimpat, Kathmandu",
+          "phoneNumber": "+977-9812345678",
+          "note": "Preferred: Morning (10:00 AM - 01:00 PM). Ring doorbell at gate"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "trackingNumber": "NP-3G0A-TRPO",
+      "customerId": 10,
+      "senderName": "Prashant Sharma",
+      "senderPhone": "+977-9812345678",
+      "senderEmail": "testcust_1007@example.com",
+      "senderAddressLine1": "Lazimpat, Kathmandu",
+      "senderCity": "Kathmandu",
+      "senderCountry": "Nepal",
+      "receiverName": "John Doe",
+      "receiverAddressLine1": "742 Market St, Suite 400",
+      "receiverCity": "San Francisco",
+      "receiverCountry": "United States",
+      "receiverTelephone": "+1-555-0199",
+      "receiverEmail": null,
+      "receiverPostcode": "94103",
+      "weight": 3.5,
+      "volumetricWeight": 1.6,
+      "chargeableWeight": 3.5,
+      "noOfBox": 1,
+      "status": "PICKED_UP",
+      "trackingMode": "MANUAL",
+      "pickupRequired": true,
+      "pickedUpAt": "2026-09-20T05:18:59.066654",
+      "weightProofImageUrl": "/uploads/pickup_proofs/scale_proof_3_e22e35a3_0.jpg,/uploads/pickup_proofs/scale_proof_3_8636990b_1.jpg,/uploads/pickup_proofs/scale_proof_3_5731eb0f_2.jpg",
+      "pickupNotes": null,
+      "destinationCountry": 2,
+      "destinationLocation": "San Francisco",
+      "createdAt": "2026-09-19T15:02:32.277022",
+      "items": [
+        {
+          "description": "Pashmina Shawls & Handicrafts",
+          "quantity": 1,
+          "weight": 3.5,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-3G0A-TRPO-1",
+          "length": 20.0,
+          "breadth": 20.0,
+          "height": 20.0,
+          "weight": 3.5,
+          "dimensions": "20.0x20.0x20.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Lazimpat, Kathmandu",
+          "phoneNumber": "+977-9812345678",
+          "note": "Preferred: Morning (10:00 AM - 01:00 PM). Ring doorbell at gate"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "trackingNumber": "NP-1FHO-T4LG",
+      "customerId": 12,
+      "senderName": "Prashant Sharma",
+      "senderPhone": "+977-9812345678",
+      "senderEmail": "testcust_1008@example.com",
+      "senderAddressLine1": "Lazimpat, Kathmandu",
+      "senderCity": "Kathmandu",
+      "senderCountry": "Nepal",
+      "receiverName": "John Doe",
+      "receiverAddressLine1": "742 Market St, Suite 400",
+      "receiverCity": "San Francisco",
+      "receiverCountry": "United States",
+      "receiverTelephone": "+1-555-0199",
+      "receiverEmail": null,
+      "receiverPostcode": "94103",
+      "weight": 3.5,
+      "volumetricWeight": null,
+      "chargeableWeight": null,
+      "noOfBox": 1,
+      "status": "PICKED_UP",
+      "trackingMode": "MANUAL",
+      "pickupRequired": true,
+      "pickedUpAt": "2026-09-19T15:03:43.250656",
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 2,
+      "destinationLocation": "San Francisco",
+      "createdAt": "2026-09-19T15:03:43.093027",
+      "items": [
+        {
+          "description": "Pashmina Shawls & Handicrafts",
+          "quantity": 1,
+          "weight": 3.5,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-1FHO-T4LG-B1",
+          "length": 20.0,
+          "breadth": 20.0,
+          "height": 20.0,
+          "weight": 3.5,
+          "dimensions": "Standard Cargo Package (Packed by NetPack)",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Lazimpat, Kathmandu",
+          "phoneNumber": "+977-9812345678",
+          "note": "Preferred: Morning (10:00 AM - 01:00 PM). Ring doorbell at gate"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "trackingNumber": "NP-FGWX-QUPD",
+      "customerId": 14,
+      "senderName": "Prashant Sharma",
+      "senderPhone": "+977-9812345678",
+      "senderEmail": "testcust_1009@example.com",
+      "senderAddressLine1": "Lazimpat, Kathmandu",
+      "senderCity": "Kathmandu",
+      "senderCountry": "Nepal",
+      "receiverName": "John Doe",
+      "receiverAddressLine1": "742 Market St, Suite 400",
+      "receiverCity": "San Francisco",
+      "receiverCountry": "United States",
+      "receiverTelephone": "+1-555-0199",
+      "receiverEmail": null,
+      "receiverPostcode": "94103",
+      "weight": 3.5,
+      "volumetricWeight": null,
+      "chargeableWeight": null,
+      "noOfBox": 1,
+      "status": "IN_TRANSIT",
+      "trackingMode": "API",
+      "pickupRequired": true,
+      "pickedUpAt": "2026-09-19T15:04:08.891300",
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 2,
+      "destinationLocation": "San Francisco",
+      "createdAt": "2026-09-19T15:04:08.739764",
+      "items": [
+        {
+          "description": "Pashmina Shawls & Handicrafts",
+          "quantity": 1,
+          "weight": 3.5,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-FGWX-QUPD-B1",
+          "length": 20.0,
+          "breadth": 20.0,
+          "height": 20.0,
+          "weight": 3.5,
+          "dimensions": "Standard Cargo Package (Packed by NetPack)",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Lazimpat, Kathmandu",
+          "phoneNumber": "+977-9812345678",
+          "note": "Preferred: Morning (10:00 AM - 01:00 PM). Ring doorbell at gate"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "trackingNumber": "NP-GOVE-MP8D",
+      "customerId": 16,
+      "senderName": "CUSTOMER",
+      "senderPhone": "+977-9800000000",
+      "senderEmail": "customer@gmail.com",
+      "senderAddressLine1": "wonde height, teku",
+      "senderCity": "Kathmandu",
+      "senderCountry": "Nepal",
+      "receiverName": "Basanta Kc",
+      "receiverAddressLine1": "FAN COURIER HEAD OFFICE-ROMANIA ROOM NO.15",
+      "receiverCity": "FOW SETFANEST",
+      "receiverCountry": "Romania",
+      "receiverTelephone": "40731527591",
+      "receiverEmail": null,
+      "receiverPostcode": "077175",
+      "weight": 70.0,
+      "volumetricWeight": 57.6,
+      "chargeableWeight": 70.0,
+      "noOfBox": 3,
+      "status": "DELIVERED",
+      "trackingMode": "API",
+      "pickupRequired": true,
+      "pickedUpAt": "2026-09-19T15:19:02.536995",
+      "weightProofImageUrl": "/uploads/pickup_proofs/scale_proof_6_fda061de.jpg",
+      "pickupNotes": "received artificial jewelleries  damaged pictures attached",
+      "destinationCountry": 149,
+      "destinationLocation": "FOW SETFANEST",
+      "createdAt": "2026-09-19T15:16:32.605523",
+      "items": [
+        {
+          "description": "handicraft, artificial jewelleries",
+          "quantity": 1,
+          "weight": 70.0,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-GOVE-MP8D-1",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 30.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        },
+        {
+          "trackingNumber": "NP-GOVE-MP8D-2",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 20.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        },
+        {
+          "trackingNumber": "NP-GOVE-MP8D-3",
+          "length": 60.0,
+          "breadth": 40.0,
+          "height": 40.0,
+          "weight": 20.0,
+          "dimensions": "60.0x40.0x40.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "wonde height, teku",
+          "phoneNumber": "9869233939",
+          "note": "Preferred: Morning (10:00 AM - 01:00 PM)."
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "trackingNumber": "NP-GSYW-6ZTC",
+      "customerId": 17,
+      "senderName": "Customer",
+      "senderPhone": "9847907557",
+      "senderEmail": "customer@example.com",
+      "senderAddressLine1": "gongabu,baniyatar",
+      "senderCity": "Kathmandu",
+      "senderCountry": "Nepal",
+      "receiverName": "Customer",
+      "receiverAddressLine1": "gongabu,baniyatar, shivapuri-8,nuwakot",
+      "receiverCity": "Kathmandu",
+      "receiverCountry": "Nepal",
+      "receiverTelephone": "9847907557",
+      "receiverEmail": null,
+      "receiverPostcode": "",
+      "weight": 50.0,
+      "volumetricWeight": 1.6,
+      "chargeableWeight": 50.0,
+      "noOfBox": 1,
+      "status": "IN_TRANSIT",
+      "trackingMode": "MANUAL",
+      "pickupRequired": false,
+      "pickedUpAt": "2026-09-20T07:31:44.371342",
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 128,
+      "destinationLocation": "Kathmandu",
+      "createdAt": "2026-09-20T06:09:40.733599",
+      "items": [
+        {
+          "description": "Personal Effects & Gifts",
+          "quantity": 1,
+          "weight": 50.0,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-GSYW-6ZTC-1",
+          "length": 20.0,
+          "breadth": 20.0,
+          "height": 20.0,
+          "weight": 50.0,
+          "dimensions": "20.0x20.0x20.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": []
+    },
+    {
+      "id": 8,
+      "trackingNumber": "NP-CWSZ-DTZ3",
+      "customerId": 17,
+      "senderName": "Customer",
+      "senderPhone": "9847907557",
+      "senderEmail": "customer@example.com",
+      "senderAddressLine1": "gongabu,baniyatar",
+      "senderCity": "Kathmandu",
+      "senderCountry": "Nepal",
+      "receiverName": "Sarah Jenkins",
+      "receiverAddressLine1": "42 Baker Street",
+      "receiverCity": "London",
+      "receiverCountry": "United Kingdom",
+      "receiverTelephone": "+44 7911 123456",
+      "receiverEmail": null,
+      "receiverPostcode": "NW1 6XE",
+      "weight": 2.5,
+      "volumetricWeight": null,
+      "chargeableWeight": null,
+      "noOfBox": 1,
+      "status": "ENQUIRY_GENERATED",
+      "trackingMode": "MANUAL",
+      "pickupRequired": true,
+      "pickedUpAt": null,
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 3,
+      "destinationLocation": "London",
+      "createdAt": "2026-09-27T09:45:31.524581",
+      "items": [
+        {
+          "description": "Handmade Woolen Shawls",
+          "quantity": 1,
+          "weight": 2.5,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-CWSZ-DTZ3-B1",
+          "length": 20.0,
+          "breadth": 20.0,
+          "height": 20.0,
+          "weight": 2.5,
+          "dimensions": "Standard Cargo Package (Packed by NetPack)",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Thamel, Kathmandu",
+          "phoneNumber": "+977-9801234567",
+          "note": "Preferred: Tomorrow morning 10 AM. Fragile consignment"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "trackingNumber": "NP-E42N-8VCZ",
+      "customerId": 17,
+      "senderName": "Customer",
+      "senderPhone": "9847907557",
+      "senderEmail": "customer@example.com",
+      "senderAddressLine1": "gongabu,baniyatar",
+      "senderCity": "Kathmandu",
+      "senderCountry": "Nepal",
+      "receiverName": "Sarah Jenkins",
+      "receiverAddressLine1": "42 Baker Street",
+      "receiverCity": "London",
+      "receiverCountry": "United Kingdom",
+      "receiverTelephone": "+44 7911 123456",
+      "receiverEmail": null,
+      "receiverPostcode": "NW1 6XE",
+      "weight": 2.5,
+      "volumetricWeight": null,
+      "chargeableWeight": null,
+      "noOfBox": 1,
+      "status": "ENQUIRY_GENERATED",
+      "trackingMode": "MANUAL",
+      "pickupRequired": true,
+      "pickedUpAt": null,
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 3,
+      "destinationLocation": "London",
+      "createdAt": "2026-09-27T09:45:31.582884",
+      "items": [
+        {
+          "description": "Handmade Woolen Shawls",
+          "quantity": 1,
+          "weight": 2.5,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-E42N-8VCZ-B1",
+          "length": 20.0,
+          "breadth": 20.0,
+          "height": 20.0,
+          "weight": 2.5,
+          "dimensions": "Standard Cargo Package (Packed by NetPack)",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Thamel, Kathmandu",
+          "phoneNumber": "+977-9801234567",
+          "note": "Preferred: Tomorrow morning 10 AM. Fragile consignment"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "trackingNumber": "NP-3JV6-VZ2D",
+      "customerId": 24,
+      "senderName": "Auto Test User 8870",
+      "senderPhone": "+81-9098765432",
+      "senderEmail": "autotest_8870@netpacktest.com",
+      "senderAddressLine1": "Shinjuku Chome 2",
+      "senderCity": "Tokyo",
+      "senderCountry": "Nepal",
+      "receiverName": "Pooja Sharma",
+      "receiverAddressLine1": "Al Rigga Road, Deira",
+      "receiverCity": "Dubai",
+      "receiverCountry": "United Arab Emirates",
+      "receiverTelephone": "+971-501234567",
+      "receiverEmail": null,
+      "receiverPostcode": "00000",
+      "weight": 4.5,
+      "volumetricWeight": null,
+      "chargeableWeight": null,
+      "noOfBox": 1,
+      "status": "ENQUIRY_GENERATED",
+      "trackingMode": "MANUAL",
+      "pickupRequired": true,
+      "pickedUpAt": null,
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 1,
+      "destinationLocation": "Dubai",
+      "createdAt": "2026-09-28T11:36:41.663060",
+      "items": [
+        {
+          "description": "Handicrafts & Organic Herbal Tea",
+          "quantity": 1,
+          "weight": 4.5,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-3JV6-VZ2D-B1",
+          "length": 20.0,
+          "breadth": 20.0,
+          "height": 20.0,
+          "weight": 4.5,
+          "dimensions": "Standard Cargo Package (Packed by NetPack)",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Shinjuku Chome 2, Floor 5",
+          "phoneNumber": "+81-9098765432",
+          "note": "Fragile items packed carefully"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "trackingNumber": "NP-KNJH-MFR8",
+      "customerId": 26,
+      "senderName": "User Persona 5197",
+      "senderPhone": "+49-1709999999",
+      "senderEmail": "user_journey_5197@netpack.com",
+      "senderAddressLine1": "Unter den Linden 5",
+      "senderCity": "Berlin",
+      "senderCountry": "Nepal",
+      "receiverName": "Fatima Al Mansoori",
+      "receiverAddressLine1": "Sheikh Zayed Road, Trade Centre",
+      "receiverCity": "Dubai",
+      "receiverCountry": "United Arab Emirates",
+      "receiverTelephone": "+971-551234567",
+      "receiverEmail": null,
+      "receiverPostcode": "00000",
+      "weight": 3.2,
+      "volumetricWeight": null,
+      "chargeableWeight": null,
+      "noOfBox": 1,
+      "status": "ENQUIRY_GENERATED",
+      "trackingMode": "MANUAL",
+      "pickupRequired": true,
+      "pickedUpAt": null,
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 1,
+      "destinationLocation": "Dubai",
+      "createdAt": "2026-09-28T11:46:29.266988",
+      "items": [
+        {
+          "description": "Pashmina Shawls & Himalayan Coffee",
+          "quantity": 1,
+          "weight": 3.2,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-KNJH-MFR8-B1",
+          "length": 20.0,
+          "breadth": 20.0,
+          "height": 20.0,
+          "weight": 3.2,
+          "dimensions": "Standard Cargo Package (Packed by NetPack)",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Unter den Linden 5",
+          "phoneNumber": "+49-1709999999",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "trackingNumber": "NP-W3IV-EFY7",
+      "customerId": 21,
+      "senderName": "Tester",
+      "senderPhone": "+977-9811111111",
+      "senderEmail": "customer@netpack.com",
+      "senderAddressLine1": "Thamel",
+      "senderCity": "Kathmandu",
+      "senderCountry": "Nepal",
+      "receiverName": "John",
+      "receiverAddressLine1": "Broadway",
+      "receiverCity": "New York",
+      "receiverCountry": "United States",
+      "receiverTelephone": "+1-2025550199",
+      "receiverEmail": null,
+      "receiverPostcode": null,
+      "weight": 6.5,
+      "volumetricWeight": 1.8,
+      "chargeableWeight": 6.5,
+      "noOfBox": 1,
+      "status": "PICKED_UP",
+      "trackingMode": "MANUAL",
+      "pickupRequired": true,
+      "pickedUpAt": "2026-09-28T11:56:48.867170",
+      "weightProofImageUrl": null,
+      "pickupNotes": null,
+      "destinationCountry": 2,
+      "destinationLocation": "New York",
+      "createdAt": "2026-09-28T11:56:42.162270",
+      "items": [
+        {
+          "description": "Test Carpet",
+          "quantity": 1,
+          "weight": 5.0,
+          "unitPrice": 0.0,
+          "totalValue": 0.0
+        }
+      ],
+      "boxes": [
+        {
+          "trackingNumber": "NP-W3IV-EFY7-1",
+          "length": 30.0,
+          "breadth": 20.0,
+          "height": 15.0,
+          "weight": 6.5,
+          "dimensions": "30.0x20.0x15.0",
+          "quantity": 1,
+          "multiplier": 1.0
+        }
+      ],
+      "pickupLocations": [
+        {
+          "location": "Thamel",
+          "phoneNumber": "+977-9811111111",
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "shipments": [
+    {
+      "id": 1,
+      "hawbno": "EUNP 2026 001",
+      "forwardingNumber": "1ZH8997D0411868708",
+      "enquiryId": 1,
+      "customerId": 1,
+      "countryId": 3,
+      "status": "CARRIER_SCANNED",
+      "trackingMode": "MANUAL",
+      "agent": "EUNP",
+      "forwardingCompanyId": 1,
+      "createdAt": "2026-09-18T16:36:15.858002"
+    },
+    {
+      "id": 2,
+      "hawbno": "EUNP 2026 002",
+      "forwardingNumber": "1ZK248B70437525044",
+      "enquiryId": 6,
+      "customerId": 16,
+      "countryId": 149,
+      "status": "DELIVERED",
+      "trackingMode": "API",
+      "agent": "EUNP",
+      "forwardingCompanyId": 1,
+      "createdAt": "2026-09-19T15:21:59.566598"
+    },
+    {
+      "id": 3,
+      "hawbno": "EUNP 2026 003",
+      "forwardingNumber": "0141 5128 7787 61 0",
+      "enquiryId": 5,
+      "customerId": 14,
+      "countryId": 2,
+      "status": "IN_TRANSIT",
+      "trackingMode": "API",
+      "agent": "EUNP",
+      "forwardingCompanyId": null,
+      "createdAt": "2026-09-20T06:37:56.145798"
+    },
+    {
+      "id": 4,
+      "hawbno": null,
+      "forwardingNumber": "",
+      "enquiryId": 7,
+      "customerId": 17,
+      "countryId": 128,
+      "status": "IN_TRANSIT",
+      "trackingMode": "MANUAL",
+      "agent": null,
+      "forwardingCompanyId": null,
+      "createdAt": "2026-09-20T10:49:14.617350"
+    }
+  ],
+  "trackingEvents": [
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "GB",
+      "activity": "Shipper created a label, UPS has not received the package yet.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-14T16:16:29"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "The package is at the clearing agency awaiting final release.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-15T12:52:21"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "Your package is being processed for submission to the Food and Drug Administration (FDA). / The package is at the clearing agency awaiting final release.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-15T16:08:20"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Feltham  GB",
+      "activity": "Arrived at Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-15T17:29:41"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Feltham  GB",
+      "activity": "Departed from Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-15T20:22:00"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Stanford Le Hope  GB",
+      "activity": "Arrived at Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-15T22:05:00"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Stanford Le Hope  GB",
+      "activity": "Departed from Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-16T07:17:00"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Stansted  GB",
+      "activity": "Arrived at Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-16T09:00:00"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "Your package is being processed for submission to the Food and Drug Administration (FDA). / Resolved",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-16T09:45:28"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "A Government Agency requires additional information or documents for clearance. Awaiting information from Customer.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-16T09:45:28"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Stansted  GB",
+      "activity": "Export Scan",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-16T19:50:06"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Stansted  GB",
+      "activity": "Departed from Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-16T20:44:00"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Louisville KY US",
+      "activity": "Arrived at Facility",
+      "country": "US",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-17T00:37:00"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Louisville KY US",
+      "activity": "Import Scan",
+      "country": "US",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-17T11:12:27"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Louisville KY US",
+      "activity": "Warehouse Scan",
+      "country": "US",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-17T11:21:51"
+    },
+    {
+      "trackingNumber": "1ZH8997D0411868708",
+      "shipmentId": 1,
+      "status": "CARRIER_SCANNED",
+      "location": "Louisville KY US",
+      "activity": "We'll contact the sender or receiver about this delivery.",
+      "country": "US",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-18T18:22:08"
+    },
+    {
+      "trackingNumber": "NP-KQYG-I259",
+      "shipmentId": 1,
+      "status": "PICKED_UP",
+      "location": "NetPack Central Warehouse, Kathmandu",
+      "activity": "Cargo picked up and verified at NetPack warehouse. Verified Weight: 160.0 kg (8 boxes).",
+      "country": "Nepal",
+      "source": "WAREHOUSE_PICKUP",
+      "checkpointTime": "2026-09-19T05:46:06.566150"
+    },
+    {
+      "trackingNumber": "NP-KQYG-I259",
+      "shipmentId": 1,
+      "status": "PICKED_UP",
+      "location": "NetPack Central Warehouse, Kathmandu",
+      "activity": "Cargo picked up and verified at NetPack warehouse. Verified Weight: 160.0 kg (8 boxes).",
+      "country": "Nepal",
+      "source": "WAREHOUSE_PICKUP",
+      "checkpointTime": "2026-09-19T14:14:07.278322"
+    },
+    {
+      "trackingNumber": "NP-KQYG-I259",
+      "shipmentId": 1,
+      "status": "PICKED_UP",
+      "location": "NetPack Central Warehouse, Kathmandu",
+      "activity": "Cargo picked up and verified at NetPack warehouse. Verified Weight: 160.0 kg (8 boxes).",
+      "country": "Nepal",
+      "source": "WAREHOUSE_PICKUP",
+      "checkpointTime": "2026-09-19T14:17:59.569041"
+    },
+    {
+      "trackingNumber": "NP-KQYG-I259",
+      "shipmentId": 1,
+      "status": "PICKED_UP",
+      "location": "NetPack Central Warehouse, Kathmandu",
+      "activity": "Cargo picked up and verified at NetPack warehouse. Verified Weight: 160.0 kg (8 boxes).",
+      "country": "Nepal",
+      "source": "WAREHOUSE_PICKUP",
+      "checkpointTime": "2026-09-19T14:20:18.935516"
+    },
+    {
+      "trackingNumber": "NP-GOVE-MP8D",
+      "shipmentId": null,
+      "status": "PICKED_UP",
+      "location": "NetPack Central Warehouse, Kathmandu",
+      "activity": "Cargo picked up and verified at NetPack warehouse. Verified Weight: 70.0 kg (3 boxes).",
+      "country": "Nepal",
+      "source": "WAREHOUSE_PICKUP",
+      "checkpointTime": "2026-09-19T15:19:02.539489"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "GB",
+      "activity": "Shipper created a label, UPS has not received the package yet.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-02T09:20:31"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Feltham  GB",
+      "activity": "Arrived at Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-02T15:24:22"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Feltham  GB",
+      "activity": "Departed from Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-02T19:28:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Stanford Le Hope  GB",
+      "activity": "Arrived at Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-02T22:26:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "Duties or taxes are due on this package.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-03T04:21:09"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "Import charges are due and payable at delivery.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-03T04:21:12"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "Your package has been released by a government agency.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-03T04:49:38"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Stanford Le Hope  GB",
+      "activity": "Departed from Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-03T06:28:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Stansted  GB",
+      "activity": "Arrived at Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-03T09:00:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Stansted  GB",
+      "activity": "Export Scan",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-03T19:27:14"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Stansted  GB",
+      "activity": "Departed from Facility",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-03T20:44:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Louisville KY US",
+      "activity": "Arrived at Facility",
+      "country": "US",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T00:42:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Louisville KY US",
+      "activity": "Departed from Facility",
+      "country": "US",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T04:16:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Sioux Falls SD US",
+      "activity": "Arrived at Facility",
+      "country": "US",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T05:11:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "Receiver's customs broker has been assigned. The shipment is now released to move in transit.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T05:21:05"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Sioux Falls SD US",
+      "activity": "Departed from Facility",
+      "country": "US",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T06:00:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Calgary AB CA",
+      "activity": "Arrived at Facility",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T07:12:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Calgary AB CA",
+      "activity": "Import Scan",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T08:02:29"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Calgary AB CA",
+      "activity": "Processing at UPS Facility",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T08:14:48"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Calgary AB CA",
+      "activity": "Loaded on Delivery Vehicle",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T08:17:39"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "OUT_FOR_DELIVERY",
+      "location": "Calgary AB CA",
+      "activity": "Out For Delivery Today",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T09:58:07"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "DELIVERED",
+      "location": "Calgary AB CA",
+      "activity": "The receiver was not available for delivery. We'll make a second attempt the next business day.",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T12:18:00"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "Import C.O.D. (ICOD) charges have been paid or billed.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T12:52:01"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Carrier Facility",
+      "activity": "Delivery to a UPS Access Point\u2122 location is pending.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-04T20:01:50"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "DELIVERED",
+      "location": "Calgary AB CA",
+      "activity": "The package will be delivered to the UPS Access Point\u2122 location requested by the receiver.",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-05T07:23:43"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Calgary AB CA",
+      "activity": "Your delivery will be rescheduled.",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-05T07:53:04"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "DELIVERED",
+      "location": "Carrier Facility",
+      "activity": "The package cannot be taken to the intended UPS Location. Please select Change My Delivery to make alternate arrangements.",
+      "country": "",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-05T23:00:47"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "DELIVERED",
+      "location": "Calgary AB CA",
+      "activity": "Delivered to UPS Access Point\u2122",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-08T12:10:28"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "CARRIER_SCANNED",
+      "location": "Calgary AB CA",
+      "activity": "UPS Access Point\u2122 possession",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-08T12:27:49"
+    },
+    {
+      "trackingNumber": "1ZK248B70437525044",
+      "shipmentId": 2,
+      "status": "DELIVERED",
+      "location": "CALGARY  CA",
+      "activity": "DELIVERED",
+      "country": "CA",
+      "source": "TRACKINGMORE:UPS",
+      "checkpointTime": "2026-09-08T17:19:27"
+    },
+    {
+      "trackingNumber": "NP-3G0A-TRPO",
+      "shipmentId": null,
+      "status": "PICKED_UP",
+      "location": "NetPack Central Warehouse, Kathmandu",
+      "activity": "Cargo picked up and verified at NetPack warehouse. Verified Weight: 3.5 kg (1 box).",
+      "country": "Nepal",
+      "source": "WAREHOUSE_PICKUP",
+      "checkpointTime": "2026-09-20T05:18:59.068725"
+    },
+    {
+      "trackingNumber": "NP-GSYW-6ZTC",
+      "shipmentId": null,
+      "status": "PICKED_UP",
+      "location": "NetPack Central Warehouse, Kathmandu",
+      "activity": "Cargo picked up and verified at NetPack warehouse. Verified Weight: 50.0 kg (1 box).",
+      "country": "Nepal",
+      "source": "WAREHOUSE_PICKUP",
+      "checkpointTime": "2026-09-20T07:31:44.373534"
+    },
+    {
+      "trackingNumber": "NP-ZXB3-0WID",
+      "shipmentId": null,
+      "status": "PICKED_UP",
+      "location": "NetPack Central Warehouse, Kathmandu",
+      "activity": "Cargo picked up and verified at NetPack warehouse. Verified Weight: 3.5 kg (1 box).",
+      "country": "Nepal",
+      "source": "WAREHOUSE_PICKUP",
+      "checkpointTime": "2026-09-20T08:21:31.103407"
+    },
+    {
+      "trackingNumber": "NP-GSYW-6ZTC",
+      "shipmentId": 4,
+      "status": "IN_TRANSIT",
+      "location": "Tribhuvan International Airport (KTM)",
+      "activity": "Departed Tribhuvan Airport KTM on flight RA-205 to FRA",
+      "country": null,
+      "source": "MANUAL_NOTE",
+      "checkpointTime": "2026-09-20T10:54:54.609865"
+    },
+    {
+      "trackingNumber": "NP-W3IV-EFY7",
+      "shipmentId": null,
+      "status": "PICKED_UP",
+      "location": "NetPack Central Warehouse, Kathmandu",
+      "activity": "Cargo picked up and verified at NetPack warehouse. Verified Weight: 6.5 kg (1 box).",
+      "country": "Nepal",
+      "source": "WAREHOUSE_PICKUP",
+      "checkpointTime": "2026-09-28T11:56:48.868116"
+    }
+  ]
+}

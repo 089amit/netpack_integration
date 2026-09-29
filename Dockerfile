@@ -30,13 +30,16 @@ COPY netpack-backend-python/ ./
 # Copy compiled frontend dist into static/ for FastAPI serving
 COPY --from=frontend-builder /app/frontend/dist ./static
 
-# Ensure persistent uploads directory exists
-RUN mkdir -p uploads
+# Ensure persistent data and uploads directory exists
+RUN mkdir -p /data/uploads /app/uploads
+VOLUME ["/data"]
 
 ENV PORT=8000
 ENV HOST=0.0.0.0
 ENV NODE_ENV=production
+ENV PERSISTENT_DATA_DIR=/data
 
 EXPOSE 8000
 
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+

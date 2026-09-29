@@ -12,6 +12,8 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Scale,
   Boxes,
   X,
@@ -207,7 +209,7 @@ export function ShipmentTrackingDialog({
   const [isExpanded, setIsExpanded] = useState<boolean>(false)
   const [isMilestonesFolded, setIsMilestonesFolded] = useState<boolean>(true)
   const [isPackageDetailsOpen, setIsPackageDetailsOpen] = useState<boolean>(false)
-  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null)
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null)
   const [copied, setCopied] = useState<boolean>(false)
 
   const queryParam = trackingNumber || (enquiryId !== undefined ? String(enquiryId) : null)
@@ -222,21 +224,48 @@ export function ShipmentTrackingDialog({
       .finally(() => setLoading(false))
   }
 
+  const proofImages: string[] = useMemo(() => {
+    if (Array.isArray(liveData?.weightProofImages) && liveData.weightProofImages.length > 0) {
+      return liveData.weightProofImages
+    }
+    if (typeof liveData?.weightProofImageUrl === 'string' && liveData.weightProofImageUrl.trim()) {
+      return liveData.weightProofImageUrl.split(',').map((u: string) => u.trim()).filter(Boolean)
+    }
+    return []
+  }, [liveData?.weightProofImages, liveData?.weightProofImageUrl])
+
   useEffect(() => {
     if (open && queryParam) {
       fetchTracking()
       setIsExpanded(false)
       setIsMilestonesFolded(true)
       setIsPackageDetailsOpen(false)
-      setSelectedPhotoUrl(null)
+      setSelectedPhotoIndex(null)
     }
     if (!open) {
       setLiveData(null)
       setIsExpanded(false)
       setIsPackageDetailsOpen(false)
-      setSelectedPhotoUrl(null)
+      setSelectedPhotoIndex(null)
     }
   }, [open, queryParam])
+
+  useEffect(() => {
+    if (selectedPhotoIndex === null) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedPhotoIndex(null)
+      if (proofImages.length > 1) {
+        if (e.key === 'ArrowLeft') {
+          setSelectedPhotoIndex(prev => (prev !== null && prev > 0 ? prev - 1 : proofImages.length - 1))
+        }
+        if (e.key === 'ArrowRight') {
+          setSelectedPhotoIndex(prev => (prev !== null && prev < proofImages.length - 1 ? prev + 1 : 0))
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedPhotoIndex, proofImages.length])
 
   const handleCopy = (text?: string | null) => {
     if (!text) return
@@ -804,21 +833,34 @@ export function ShipmentTrackingDialog({
                     </div>
 
                     <div className='flex flex-col sm:flex-row items-start gap-4 pt-1'>
-                      {liveData?.weightProofImageUrl && (
-                        <button
-                          type='button'
-                          onClick={() => setSelectedPhotoUrl(`${API_BASE}${liveData.weightProofImageUrl}`)}
-                          className='relative group overflow-hidden rounded-lg border border-border shadow-xs hover:border-primary shrink-0 cursor-pointer text-left'
-                        >
-                          <img
-                            src={`${API_BASE}${liveData.weightProofImageUrl}`}
-                            alt='Weighing Scale Proof'
-                            className='h-24 w-32 object-cover transition-transform group-hover:scale-105'
-                          />
-                          <div className='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-medium'>
-                            Click to Expand
-                          </div>
-                        </button>
+                      {proofImages.length > 0 && (
+                        <div className='flex flex-wrap items-center gap-2 shrink-0'>
+                          {proofImages.map((imgUrl, pIdx) => {
+                            const fullUrl = imgUrl.startsWith('http') ? imgUrl : `${API_BASE}${imgUrl}`
+                            return (
+                              <button
+                                key={pIdx}
+                                type='button'
+                                onClick={() => setSelectedPhotoIndex(pIdx)}
+                                className='relative group overflow-hidden rounded-lg border border-border shadow-xs hover:border-primary shrink-0 cursor-pointer text-left h-20 w-24 sm:h-24 sm:w-28 bg-black/10'
+                              >
+                                <img
+                                  src={fullUrl}
+                                  alt={`Weighing Scale Proof ${pIdx + 1}`}
+                                  className='h-full w-full object-cover transition-transform group-hover:scale-105'
+                                />
+                                <div className='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-medium'>
+                                  View #{pIdx + 1}
+                                </div>
+                                {proofImages.length > 1 && (
+                                  <span className='absolute bottom-1 right-1 bg-black/75 text-[9px] font-mono text-white px-1.5 py-0.5 rounded'>
+                                    #{pIdx + 1}
+                                  </span>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
                       )}
 
                       <div className='space-y-1.5 text-xs flex-1'>
@@ -985,50 +1027,113 @@ export function ShipmentTrackingDialog({
         </div>
 
         {/* ── Scale Photo Lightbox Modal ── */}
-        {selectedPhotoUrl && (
-          <div
-            className='fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in-50 duration-200'
-            onClick={() => setSelectedPhotoUrl(null)}
-          >
+        {/* ── Scale Photo Lightbox Modal ── */}
+        {selectedPhotoIndex !== null && proofImages[selectedPhotoIndex] && (() => {
+          const currentUrl = proofImages[selectedPhotoIndex]
+          const displayUrl = currentUrl.startsWith('http') ? currentUrl : `${API_BASE}${currentUrl}`
+          const hasMultiple = proofImages.length > 1
+
+          return (
             <div
-              className='relative max-w-2xl w-full bg-background rounded-xl p-3 shadow-2xl overflow-hidden'
-              onClick={(e) => e.stopPropagation()}
+              className='fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in-50 duration-200'
+              onClick={() => setSelectedPhotoIndex(null)}
             >
-              <div className='flex items-center justify-between pb-2 mb-2 border-b'>
-                <div className='flex items-center gap-2'>
-                  <Scale className='h-4 w-4 text-primary' />
-                  <span className='text-xs font-bold text-foreground'>Warehouse Weighing Scale Photo Proof</span>
+              <div
+                className='relative max-w-2xl w-full bg-background rounded-xl p-3 sm:p-4 shadow-2xl overflow-hidden space-y-3'
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className='flex items-center justify-between pb-2 border-b'>
+                  <div className='flex items-center gap-2'>
+                    <Scale className='h-4 w-4 text-primary' />
+                    <span className='text-xs font-bold text-foreground'>Warehouse Weighing Scale Photo Proof</span>
+                    {hasMultiple && (
+                      <Badge variant='outline' className='text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'>
+                        Photo {selectedPhotoIndex + 1} of {proofImages.length}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    size='icon'
+                    variant='ghost'
+                    className='h-7 w-7 rounded-full'
+                    onClick={() => setSelectedPhotoIndex(null)}
+                  >
+                    <X className='h-4 w-4' />
+                  </Button>
                 </div>
-                <Button
-                  size='icon'
-                  variant='ghost'
-                  className='h-7 w-7 rounded-full'
-                  onClick={() => setSelectedPhotoUrl(null)}
-                >
-                  <X className='h-4 w-4' />
-                </Button>
-              </div>
-              <div className='overflow-hidden rounded-lg bg-black flex items-center justify-center max-h-[75vh]'>
-                <img
-                  src={selectedPhotoUrl}
-                  alt='Warehouse Scale Proof'
-                  className='max-h-[75vh] max-w-full object-contain'
-                />
-              </div>
-              <div className='pt-2 flex justify-end gap-2'>
-                <a
-                  href={selectedPhotoUrl}
-                  target='_blank'
-                  rel='noreferrer'
-                  className='inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline'
-                >
-                  Open Original Image
-                  <ExternalLink className='h-3.5 w-3.5' />
-                </a>
+
+                <div className='relative overflow-hidden rounded-lg bg-black flex items-center justify-center min-h-[300px] max-h-[70vh] select-none'>
+                  <img
+                    src={displayUrl}
+                    alt={`Warehouse Scale Proof ${selectedPhotoIndex + 1}`}
+                    className='max-h-[70vh] max-w-full object-contain'
+                  />
+
+                  {hasMultiple && (
+                    <>
+                      <button
+                        type='button'
+                        onClick={() => setSelectedPhotoIndex(prev => (prev !== null && prev > 0 ? prev - 1 : proofImages.length - 1))}
+                        className='absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center shadow-lg border border-white/20 cursor-pointer active:scale-95 transition-all'
+                        title='Previous photo'
+                      >
+                        <ChevronLeft className='h-4 w-4' />
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => setSelectedPhotoIndex(prev => (prev !== null && prev < proofImages.length - 1 ? prev + 1 : 0))}
+                        className='absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center shadow-lg border border-white/20 cursor-pointer active:scale-95 transition-all'
+                        title='Next photo'
+                      >
+                        <ChevronRight className='h-4 w-4' />
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Thumbnails strip */}
+                {hasMultiple && (
+                  <div className='flex items-center gap-2 overflow-x-auto py-1 px-1 bg-muted/30 rounded-lg no-scrollbar'>
+                    {proofImages.map((u, idx) => {
+                      const tUrl = u.startsWith('http') ? u : `${API_BASE}${u}`
+                      const isSel = idx === selectedPhotoIndex
+                      return (
+                        <button
+                          key={idx}
+                          type='button'
+                          onClick={() => setSelectedPhotoIndex(idx)}
+                          className={`relative shrink-0 h-12 w-14 rounded-md overflow-hidden border-2 transition-all cursor-pointer ${
+                            isSel ? 'border-primary ring-2 ring-primary/30' : 'border-border opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          <img src={tUrl} alt={`Thumb ${idx + 1}`} className='h-full w-full object-cover' />
+                          <span className='absolute bottom-0 right-0 bg-black/70 text-[9px] font-mono text-white px-1'>
+                            {idx + 1}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div className='pt-1 flex items-center justify-between'>
+                  <span className='text-[11px] text-muted-foreground'>
+                    Scale Weight: <strong className='text-foreground'>{liveData?.weight || 'N/A'} kg</strong>
+                  </span>
+                  <a
+                    href={displayUrl}
+                    target='_blank'
+                    rel='noreferrer'
+                    className='inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline'
+                  >
+                    Open Original Image
+                    <ExternalLink className='h-3.5 w-3.5' />
+                  </a>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </DialogContent>
     </Dialog>
   )

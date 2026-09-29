@@ -46,7 +46,7 @@ interface Shipment {
   country: string
   commodity: string
   weight: string
-  status: 'in_progress' | 'delivered' | 'pending'
+  status: 'in_progress' | 'delivered' | 'pending' | 'picked_up'
   date: string
   eta?: string
   receiverName?: string
@@ -77,7 +77,7 @@ interface TrackingDetails {
   carrier: string
   carrierTracking: string
   carrierUrl: string
-  status: 'in_progress' | 'delivered' | 'pending'
+  status: 'in_progress' | 'delivered' | 'pending' | 'picked_up'
   statusLabel: string
   heroTitle: string
   heroSubtitle: string
@@ -362,6 +362,18 @@ const IconChevronUp = ({ size = 16, className = '' }: { size?: number; className
   </svg>
 )
 
+const IconChevronLeft = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polyline points="15 18 9 12 15 6"/>
+  </svg>
+)
+
+const IconChevronRight = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polyline points="9 18 15 12 9 6"/>
+  </svg>
+)
+
 const IconPlane = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.3c.4-.2.6-.6.5-1.1z" />
@@ -604,19 +616,27 @@ function BottomNav({ screen, setScreen }: { screen: Screen; setScreen: (s: Scree
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: Shipment['status'] }) {
-  if (status === 'in_progress') {
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-        In Transit
-      </span>
-    )
-  }
   if (status === 'delivered') {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
         <IconCheck size={10} />
         Delivered
+      </span>
+    )
+  }
+  if (status === 'picked_up') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+        <IconBox size={10} />
+        Picked Up
+      </span>
+    )
+  }
+  if (status === 'in_progress') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+        In Transit
       </span>
     )
   }
@@ -635,8 +655,24 @@ function ShipmentCard({ s, onClick }: { s: Shipment; onClick: () => void }) {
       onClick={onClick}
       className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-xs p-4 flex gap-3 active:scale-[0.99] hover:border-blue-200 transition-all cursor-pointer"
     >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${s.status === 'in_progress' ? 'bg-blue-50' : 'bg-emerald-50'}`}>
-        {s.status === 'in_progress' ? <IconTruck size={18} className="text-blue-500 animate-float" /> : <IconCheck size={16} className="text-emerald-500" />}
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+        s.status === 'delivered'
+          ? 'bg-emerald-50'
+          : s.status === 'picked_up'
+          ? 'bg-blue-50'
+          : s.status === 'in_progress'
+          ? 'bg-amber-50'
+          : 'bg-gray-50'
+      }`}>
+        {s.status === 'delivered' ? (
+          <IconCheck size={16} className="text-emerald-500" />
+        ) : s.status === 'picked_up' ? (
+          <IconBox size={18} className="text-blue-600" />
+        ) : s.status === 'in_progress' ? (
+          <IconTruck size={18} className="text-amber-500 animate-float" />
+        ) : (
+          <IconDocument size={18} className="text-gray-400" />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
@@ -1150,29 +1186,77 @@ function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
 // ─── Tracking Screen (Dedicated Live Tracking) ────────────────────────────────
 
 function ScalePhotoModal({
+  photoUrls,
   photoUrl,
+  initialIndex = 0,
   weight,
   trackingNumber,
   onClose,
 }: {
-  photoUrl: string
+  photoUrls?: string[]
+  photoUrl?: string
+  initialIndex?: number
   weight?: string
   trackingNumber?: string
   onClose: () => void
 }) {
+  const images = useMemo(() => {
+    if (photoUrls && photoUrls.length > 0) return photoUrls
+    if (photoUrl) return [photoUrl]
+    return []
+  }, [photoUrls, photoUrl])
+
+  const [currentIndex, setCurrentIndex] = useState(initialIndex)
+
+  useEffect(() => {
+    setCurrentIndex(initialIndex)
+  }, [initialIndex])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (images.length > 1) {
+        if (e.key === 'ArrowLeft') {
+          setCurrentIndex(prev => (prev > 0 ? prev - 1 : images.length - 1))
+        }
+        if (e.key === 'ArrowRight') {
+          setCurrentIndex(prev => (prev < images.length - 1 ? prev + 1 : 0))
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [images.length, onClose])
+
+  if (images.length === 0) return null
+
+  const currentPhoto = images[currentIndex] || images[0] || ''
+  const displayUrl = currentPhoto.startsWith('http') ? currentPhoto : `${API_BASE}${currentPhoto}`
+  const hasMultiple = images.length > 1
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200" onClick={onClose}>
+      <div
+        className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
+        onClick={e => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-4 py-3.5 border-b border-gray-100 flex items-center justify-between bg-white">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
               <IconScale size={16} />
             </div>
             <div>
-              <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-sm font-700 text-[#0D1B2A] leading-tight">
-                Verified Scale Proof
-              </p>
+              <div className="flex items-center gap-2">
+                <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-sm font-700 text-[#0D1B2A] leading-tight">
+                  Verified Weight & Proof
+                </p>
+                {hasMultiple && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Photo {currentIndex + 1} of {images.length}
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] text-gray-400 font-mono mt-0.5">{trackingNumber}</p>
             </div>
           </div>
@@ -1184,22 +1268,84 @@ function ScalePhotoModal({
           </button>
         </div>
 
-        {/* Photo Container */}
-        <div className="relative bg-[#0A0E14] flex items-center justify-center overflow-hidden min-h-[260px] max-h-[420px]">
+        {/* Photo Container with Carousel Controls */}
+        <div className="relative bg-[#0A0E14] flex items-center justify-center overflow-hidden min-h-[280px] max-h-[440px] select-none">
           <img
-            src={photoUrl}
-            alt="Warehouse Scale Proof"
-            className="w-full h-full object-contain"
+            key={displayUrl}
+            src={displayUrl}
+            alt={`Weight Proof ${currentIndex + 1}`}
+            className="w-full h-full object-contain max-h-[440px]"
           />
+
+          {/* Navigation Arrows for Multiple Photos */}
+          {hasMultiple && (
+            <>
+              <button
+                type="button"
+                onClick={() => setCurrentIndex(prev => (prev > 0 ? prev - 1 : images.length - 1))}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md flex items-center justify-center shadow-lg border border-white/20 active:scale-95 transition-all cursor-pointer"
+                title="Previous photo"
+              >
+                <IconChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentIndex(prev => (prev < images.length - 1 ? prev + 1 : 0))}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md flex items-center justify-center shadow-lg border border-white/20 active:scale-95 transition-all cursor-pointer"
+                title="Next photo"
+              >
+                <IconChevronRight size={18} />
+              </button>
+            </>
+          )}
+
+          {/* Scale Weight Pill */}
           {weight && (
-            <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1 rounded-xl border border-white/20 shadow-md">
-              Scale Weight: <span className="text-emerald-400 font-bold">{weight}</span>
+            <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1 rounded-xl border border-white/20 shadow-md flex items-center gap-1.5">
+              <span>Verified Weight:</span>
+              <span className="text-emerald-400 font-bold">{weight}</span>
             </div>
           )}
+
+          {/* Direct Link to open full-res */}
+          <a
+            href={displayUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-md text-white/80 hover:text-white text-[10px] font-medium px-2.5 py-1 rounded-xl border border-white/20 shadow-md flex items-center gap-1 transition-colors"
+          >
+            <span>Full Size</span>
+            <IconExternalLink size={11} />
+          </a>
         </div>
 
+        {/* Thumbnail Selector Strip (when 2+ photos) */}
+        {hasMultiple && (
+          <div className="px-4 py-2.5 bg-gray-900 border-t border-gray-800 flex items-center gap-2 overflow-x-auto no-scrollbar">
+            {images.map((url, idx) => {
+              const thumbUrl = url.startsWith('http') ? url : `${API_BASE}${url}`
+              const isSelected = idx === currentIndex
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`relative shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                    isSelected ? 'border-emerald-500 scale-105 shadow-md' : 'border-white/20 opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <img src={thumbUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                  <span className="absolute bottom-0 right-0 bg-black/70 text-[9px] font-mono text-white px-1 rounded-tl">
+                    {idx + 1}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Details Footer */}
-        <div className="p-4 bg-gray-50/80 border-t border-gray-100 space-y-2 text-xs">
+        <div className="p-4 bg-gray-50/90 border-t border-gray-100 space-y-2 text-xs">
           <div className="flex items-center justify-between text-gray-500">
             <span>Certification:</span>
             <span className="font-semibold text-emerald-600">NetPack Intake Digital Scale #01</span>
@@ -1211,7 +1357,7 @@ function ScalePhotoModal({
           <button
             onClick={onClose}
             style={{ fontFamily: 'Jost, sans-serif' }}
-            className="w-full mt-2 py-2.5 bg-[#0D1B2A] text-white rounded-xl font-600 text-xs active:scale-98 transition-transform cursor-pointer"
+            className="w-full mt-2 py-2.5 bg-[#0D1B2A] hover:bg-[#1a2f47] text-white rounded-xl font-600 text-xs active:scale-98 transition-all cursor-pointer"
           >
             Close Preview
           </button>
@@ -1234,7 +1380,7 @@ function TrackingScreen({
   const [isFolded, setIsFolded] = useState(true)
   const [isBoxesOpen, setIsBoxesOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null)
+  const [previewPhotoIndex, setPreviewPhotoIndex] = useState<number | null>(null)
   const stepperScrollRef = useRef<HTMLDivElement>(null)
   const activeStepRef = useRef<HTMLDivElement>(null)
 
@@ -1254,7 +1400,7 @@ function TrackingScreen({
       .then(liveRes => {
         if (liveRes && liveRes.trackingNumber) {
           // Map backend tracking response
-          const statusStr = (liveRes.status || '').toUpperCase()
+          const statusStr = (liveRes.currentStatus || liveRes.status || '').toUpperCase()
           let stageIdx = 3
           if (statusStr.includes('DELIVERED')) stageIdx = 6
           else if (statusStr.includes('CARRIER') || statusStr.includes('OUT_FOR_DELIVERY')) stageIdx = 5
@@ -1263,8 +1409,47 @@ function TrackingScreen({
           else if (statusStr.includes('PACK') || statusStr.includes('CREATED')) stageIdx = 2
           else if (statusStr.includes('PICK')) stageIdx = 1
 
-          const proofImg = liveRes.weightProofImageUrl || (liveRes.weightProofImages && liveRes.weightProofImages[0]) || undefined
-          const proofImgs = liveRes.weightProofImages || (proofImg ? [proofImg] : [])
+          let proofImgs: string[] = []
+          if (Array.isArray(liveRes.weightProofImages) && liveRes.weightProofImages.length > 0) {
+            proofImgs = liveRes.weightProofImages
+          } else if (typeof liveRes.weightProofImageUrl === 'string' && liveRes.weightProofImageUrl.trim()) {
+            proofImgs = liveRes.weightProofImageUrl.split(',').map((u: string) => u.trim()).filter(Boolean)
+          }
+          const proofImg = proofImgs[0] || liveRes.weightProofImageUrl || undefined
+
+          let statusLabel = 'In Transit (Air Cargo)'
+          let heroTitle = 'Air Cargo in Flight'
+          let heroSubtitle = `En route to ${liveRes.destination || 'Destination'} • Verified Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`
+
+          if (statusStr.includes('DELIVERED')) {
+            statusLabel = 'Delivered'
+            heroTitle = 'Delivered to Consignee'
+            heroSubtitle = `Delivered to ${liveRes.receiverName || 'Consignee'} • ${liveRes.destination || 'Destination'}`
+          } else if (statusStr.includes('CARRIER') || statusStr.includes('OUT_FOR_DELIVERY')) {
+            statusLabel = 'Out for Delivery'
+            heroTitle = 'Carrier Out for Delivery'
+            heroSubtitle = `Handed over to ${liveRes.forwardingCompany || 'Courier'} for final delivery`
+          } else if (statusStr.includes('HUB') || statusStr.includes('CUSTOMS')) {
+            statusLabel = 'Arrived at Hub'
+            heroTitle = 'Customs & Hub Processing'
+            heroSubtitle = `Processing at ${liveRes.destination || 'Destination'} cargo terminal`
+          } else if (statusStr.includes('TRANSIT')) {
+            statusLabel = 'In Transit (Air Cargo)'
+            heroTitle = 'Air Cargo in Flight'
+            heroSubtitle = `En route to ${liveRes.destination || 'Destination'} • KTM Departure`
+          } else if (statusStr.includes('PACK') || statusStr.includes('CREATED')) {
+            statusLabel = 'Shipment Created'
+            heroTitle = 'Airway Bill Generated'
+            heroSubtitle = `Export clearance prepared at Kathmandu Hub • Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`
+          } else if (statusStr.includes('PICK')) {
+            statusLabel = 'Cargo Picked Up'
+            heroTitle = 'Cargo Picked Up'
+            heroSubtitle = `Picked up by NetPack courier • Verified Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`
+          } else if (statusStr.includes('PENDING') || statusStr.includes('ENQUIRY')) {
+            statusLabel = 'Enquiry Registered'
+            heroTitle = 'Booking Confirmed'
+            heroSubtitle = `Awaiting pickup rider assignment • Kathmandu`
+          }
 
           setData({
             tracking: liveRes.trackingNumber,
@@ -1274,10 +1459,14 @@ function TrackingScreen({
             carrierUrl: liveRes.forwardingCompany?.toUpperCase().includes('FEDEX')
               ? 'https://www.fedex.com/fedextrack/'
               : 'https://www.dhl.com/en/express/tracking.html',
-            status: statusStr.includes('DELIVERED') ? 'delivered' : 'in_progress',
-            statusLabel: statusStr.includes('DELIVERED') ? 'Delivered' : 'In Transit (Air Cargo)',
-            heroTitle: statusStr.includes('DELIVERED') ? 'Delivered to Consignee' : 'Air Cargo in Flight',
-            heroSubtitle: `En route to ${liveRes.destination || 'Destination'} • Verified Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`,
+            status: statusStr.includes('DELIVERED')
+              ? 'delivered'
+              : statusStr.includes('PICK')
+              ? 'picked_up'
+              : 'in_progress',
+            statusLabel,
+            heroTitle,
+            heroSubtitle,
             stageIndex: stageIdx,
             weight: `${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`,
             volumetricWeight: `${liveRes.volumetricWeight || '3.0'} kg`,
@@ -1285,14 +1474,21 @@ function TrackingScreen({
             origin: liveRes.origin || 'Kathmandu (KTM)',
             destination: liveRes.destination || 'International Destination',
             commodity: liveRes.commodity || 'Express Air Cargo',
-            boxes: [
-              {
-                boxNumber: 1,
-                dimensions: '40 × 30 × 20 cm',
-                weight: `${liveRes.weight || '3.5'} kg`,
-                items: [{ item: liveRes.commodity || 'Cargo Consignment', pieces: 1 }],
-              },
-            ],
+            boxes: liveRes.boxes && liveRes.boxes.length > 0
+              ? liveRes.boxes.map((b: any, i: number) => ({
+                  boxNumber: b.boxNumber || i + 1,
+                  dimensions: b.dimensions || (b.length && b.breadth && b.height ? `${b.length} × ${b.breadth} × ${b.height} cm` : 'Standard Box'),
+                  weight: `${b.weight || liveRes.weight || '3.5'} kg`,
+                  items: b.items && b.items.length > 0 ? b.items : [{ item: liveRes.commodity || 'Cargo Consignment', pieces: 1 }],
+                }))
+              : [
+                  {
+                    boxNumber: 1,
+                    dimensions: '40 × 30 × 20 cm',
+                    weight: `${liveRes.weight || '3.5'} kg`,
+                    items: [{ item: liveRes.commodity || 'Cargo Consignment', pieces: 1 }],
+                  },
+                ],
             checkpoints: liveRes.checkpoints && liveRes.checkpoints.length > 0
               ? liveRes.checkpoints.map((cp: any) => ({
                   activity: cp.activity || cp.status?.replace(/_/g, ' ') || 'Checkpoint Scanned',
@@ -1577,14 +1773,16 @@ function TrackingScreen({
                             <p className={`text-[11px] leading-snug mt-0.5 ${isActive || isCompleted ? 'text-white/55' : 'text-white/20'}`}>
                               {stg.desc}
                             </p>
-                            {(sIdx === 1 || sIdx === 2) && data.weightProofImageUrl && (
+                            {(sIdx === 1 || sIdx === 2) && ((data.weightProofImages && data.weightProofImages.length > 0) || data.weightProofImageUrl) && (
                               <button
                                 type="button"
-                                onClick={() => setPreviewPhotoUrl(data.weightProofImageUrl!)}
+                                onClick={() => setPreviewPhotoIndex(0)}
                                 className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-400/30 text-[10px] font-semibold transition-all cursor-pointer"
                               >
                                 <IconScale size={12} />
-                                <span>View Verified Scale Image ({data.weight})</span>
+                                <span>
+                                  View Verified Proof ({data.weightProofImages && data.weightProofImages.length > 1 ? `${data.weightProofImages.length} Photos` : data.weight})
+                                </span>
                               </button>
                             )}
                           </div>
@@ -1596,63 +1794,96 @@ function TrackingScreen({
               </div>
 
               {/* Warehouse Verified Weight Scale Photo Card */}
-              {data.weightProofImageUrl && (
-                <div className="rounded-2xl border border-emerald-100 bg-white p-3.5 shadow-2xs space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <IconScale size={15} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-[#0D1B2A] leading-tight">Warehouse Verified Weight</p>
-                        <p className="text-[10px] text-gray-400">Electronic Scale Calibration Proof</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      {data.weight} Certified
-                    </span>
-                  </div>
+              {((data.weightProofImages && data.weightProofImages.length > 0) || data.weightProofImageUrl) && (() => {
+                const photos = (data.weightProofImages && data.weightProofImages.length > 0)
+                  ? data.weightProofImages
+                  : (data.weightProofImageUrl ? [data.weightProofImageUrl] : [])
 
-                  <div className="flex items-center gap-3 bg-emerald-50/40 p-2.5 rounded-xl border border-emerald-100/60">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewPhotoUrl(data.weightProofImageUrl!)}
-                      className="relative group overflow-hidden rounded-xl border border-emerald-200 shadow-2xs shrink-0 cursor-pointer"
-                    >
-                      <img
-                        src={data.weightProofImageUrl.startsWith('http') ? data.weightProofImageUrl : `${API_BASE}${data.weightProofImageUrl}`}
-                        alt="Scale Proof"
-                        className="h-18 w-24 object-cover transition-transform group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
-                        Inspect Photo
+                return (
+                  <div className="rounded-2xl border border-emerald-100 bg-white p-3.5 shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                          <IconScale size={15} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-[#0D1B2A] leading-tight">Warehouse Verified Weight</p>
+                          <p className="text-[10px] text-gray-400">Electronic Scale Calibration Proof</p>
+                        </div>
                       </div>
-                    </button>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-gray-500">Gross Weight:</span>
-                        <span className="font-bold text-[#0D1B2A]">{data.weight}</span>
+                      <div className="flex items-center gap-1.5">
+                        {photos.length > 1 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                            {photos.length} Photos
+                          </span>
+                        )}
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {data.weight} Certified
+                        </span>
                       </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-gray-500">Volumetric:</span>
-                        <span className="font-medium text-gray-700">{data.volumetricWeight}</span>
+                    </div>
+
+                    {/* Photo Thumbnails Gallery */}
+                    <div className="bg-emerald-50/40 p-2.5 rounded-xl border border-emerald-100/60 space-y-2.5">
+                      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                        {photos.map((imgUrl, pIdx) => {
+                          const fullUrl = imgUrl.startsWith('http') ? imgUrl : `${API_BASE}${imgUrl}`
+                          return (
+                            <button
+                              key={pIdx}
+                              type="button"
+                              onClick={() => setPreviewPhotoIndex(pIdx)}
+                              className="relative group overflow-hidden rounded-xl border border-emerald-200 shadow-2xs shrink-0 cursor-pointer h-20 w-24 bg-black/10"
+                            >
+                              <img
+                                src={fullUrl}
+                                alt={`Proof ${pIdx + 1}`}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
+                                View #{pIdx + 1}
+                              </div>
+                              {photos.length > 1 && (
+                                <span className="absolute bottom-1 right-1 bg-black/75 text-[9px] font-mono text-white px-1.5 py-0.5 rounded-md backdrop-blur-xs">
+                                  #{pIdx + 1}
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
                       </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-gray-500">Chargeable:</span>
-                        <span className="font-bold text-emerald-700">{data.chargeableWeight}</span>
+
+                      <div className="pt-1 border-t border-emerald-100/80 space-y-1">
+                        <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
+                          <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
+                            <span className="text-gray-400 block text-[10px]">Gross Weight:</span>
+                            <span className="font-bold text-[#0D1B2A]">{data.weight}</span>
+                          </div>
+                          <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
+                            <span className="text-gray-400 block text-[10px]">Volumetric:</span>
+                            <span className="font-medium text-gray-700">{data.volumetricWeight}</span>
+                          </div>
+                          <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
+                            <span className="text-gray-400 block text-[10px]">Chargeable:</span>
+                            <span className="font-bold text-emerald-700">{data.chargeableWeight}</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-1 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewPhotoIndex(0)}
+                            className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Inspect {photos.length > 1 ? `All ${photos.length} Verified Photos` : 'Scale Proof Photo'}</span>
+                            <IconArrowRight size={11} />
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewPhotoUrl(data.weightProofImageUrl!)}
-                        className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer pt-0.5"
-                      >
-                        <span>View Scale Proof Photo</span>
-                        <IconArrowRight size={11} />
-                      </button>
                     </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {/* Overseas Courier Leg Card */}
               <div className="rounded-xl border border-gray-100 p-3.5 bg-white shadow-2xs space-y-2">
@@ -1802,12 +2033,19 @@ function TrackingScreen({
       </div>
 
       {/* Scale Proof Photo Lightbox Modal */}
-      {previewPhotoUrl && (
+      {previewPhotoIndex !== null && (
         <ScalePhotoModal
-          photoUrl={previewPhotoUrl.startsWith('http') ? previewPhotoUrl : `${API_BASE}${previewPhotoUrl}`}
+          photoUrls={
+            data.weightProofImages && data.weightProofImages.length > 0
+              ? data.weightProofImages
+              : data.weightProofImageUrl
+              ? [data.weightProofImageUrl]
+              : []
+          }
+          initialIndex={previewPhotoIndex}
           weight={data.weight}
           trackingNumber={data.tracking}
-          onClose={() => setPreviewPhotoUrl(null)}
+          onClose={() => setPreviewPhotoIndex(null)}
         />
       )}
     </div>
@@ -3762,6 +4000,8 @@ export default function CustomerPWA() {
             status:
               (b.status || '').toUpperCase() === 'DELIVERED'
                 ? 'delivered'
+                : (b.status || '').toUpperCase() === 'PICKED_UP'
+                ? 'picked_up'
                 : (b.status || '').toUpperCase() === 'PENDING' || (b.status || '').toUpperCase() === 'ENQUIRY_GENERATED'
                 ? 'pending'
                 : 'in_progress',
@@ -3770,7 +4010,11 @@ export default function CustomerPWA() {
               : 'Recent',
             receiverName: b.receiverName,
             receiverCity: b.receiverCity,
-            weightProofImages: b.weightProofImages || (b.weightProofImageUrl ? [b.weightProofImageUrl] : []),
+            weightProofImages: Array.isArray(b.weightProofImages) && b.weightProofImages.length > 0
+              ? b.weightProofImages
+              : b.weightProofImageUrl
+              ? b.weightProofImageUrl.split(',').map((u: string) => u.trim()).filter(Boolean)
+              : [],
             weightProofImageUrl: b.weightProofImageUrl,
           }))
           setShipments(mapped)

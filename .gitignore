@@ -47,6 +47,8 @@ uploads/
 *.db
 *.sqlite
 *.sqlite3
+backups/
+netpack-backend-python/backups/
 
 # ─── IDE & OS ────────────────────────────────────────────────────────────────
 .vscode/

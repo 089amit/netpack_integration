@@ -714,12 +714,12 @@ export default function PickupRiderPWA() {
           length: b.length || 30,
           breadth: b.breadth || 20,
           height: b.height || 20,
-          weight: b.weight || '',
+          weight: b.weight != null && b.weight !== '' ? String(b.weight) : (pickup.boxes.length === 1 && pickup.weight ? String(pickup.weight) : ''),
           quantity: b.quantity || 1,
         }))
       )
     } else {
-      setBoxes([{ length: 30, breadth: 20, height: 20, weight: '', quantity: 1 }])
+      setBoxes([{ length: 30, breadth: 20, height: 20, weight: pickup.weight ? String(pickup.weight) : '', quantity: 1 }])
     }
     setIsWeighModalOpen(true)
   }
@@ -756,13 +756,29 @@ export default function PickupRiderPWA() {
 
   const handleRemoveBox = (idx: number) => {
     if (boxes.length <= 1) return
-    setBoxes((prev) => prev.filter((_, i) => i !== idx))
+    setBoxes((prev) => {
+      const next = prev.filter((_, i) => i !== idx)
+      // Recalculate total if box weights are present
+      const sumWt = next.reduce((acc, b) => acc + (parseFloat(String(b.weight)) || 0), 0)
+      if (sumWt > 0) {
+        setActualWeight(String(Number(sumWt.toFixed(2))))
+      }
+      return next
+    })
   }
 
   const handleUpdateBox = (idx: number, field: keyof BoxItem, value: any) => {
     setBoxes((prev) => {
       const next = [...prev]
       next[idx] = { ...next[idx], [field]: value }
+
+      // If box weight was entered, auto-sum total actual weight
+      if (field === 'weight') {
+        const sumWt = next.reduce((acc, b) => acc + (parseFloat(String(b.weight)) || 0), 0)
+        if (sumWt > 0) {
+          setActualWeight(String(Number(sumWt.toFixed(2))))
+        }
+      }
       return next
     })
   }
@@ -791,7 +807,17 @@ export default function PickupRiderPWA() {
     try {
       const formData = new FormData()
       formData.append('actualWeight', String(wt))
-      formData.append('boxesJson', JSON.stringify(boxes))
+      
+      const boxesPayload = boxes.map((b, idx) => ({
+        id: b.id,
+        length: parseFloat(String(b.length)) || 0,
+        breadth: parseFloat(String(b.breadth)) || 0,
+        height: parseFloat(String(b.height)) || 0,
+        weight: parseFloat(String(b.weight)) || (wt / boxes.length),
+        quantity: parseInt(String(b.quantity)) || 1,
+        trackingNumber: `${selectedPickup.trackingNumber || 'BOX'}-${idx + 1}`,
+      }))
+      formData.append('boxesJson', JSON.stringify(boxesPayload))
       if (riderNotes.trim()) {
         formData.append('pickupNotes', riderNotes.trim())
       }
@@ -1807,14 +1833,14 @@ export default function PickupRiderPWA() {
                     <span className='font-mono font-bold text-muted-foreground text-xs shrink-0'>
                       #{idx + 1}
                     </span>
-                    <div className='grid grid-cols-3 gap-1.5 flex-1'>
+                    <div className='grid grid-cols-4 gap-1.5 flex-1'>
                       <div>
                         <span className='text-[9px] text-muted-foreground uppercase'>L (cm)</span>
                         <Input
                           type='number'
                           value={b.length}
                           onChange={(e) => handleUpdateBox(idx, 'length', e.target.value)}
-                          className='h-8 bg-background border-input text-xs text-foreground'
+                          className='h-8 bg-background border-input text-xs text-foreground px-1.5'
                         />
                       </div>
                       <div>
@@ -1823,7 +1849,7 @@ export default function PickupRiderPWA() {
                           type='number'
                           value={b.breadth}
                           onChange={(e) => handleUpdateBox(idx, 'breadth', e.target.value)}
-                          className='h-8 bg-background border-input text-xs text-foreground'
+                          className='h-8 bg-background border-input text-xs text-foreground px-1.5'
                         />
                       </div>
                       <div>
@@ -1832,7 +1858,18 @@ export default function PickupRiderPWA() {
                           type='number'
                           value={b.height}
                           onChange={(e) => handleUpdateBox(idx, 'height', e.target.value)}
-                          className='h-8 bg-background border-input text-xs text-foreground'
+                          className='h-8 bg-background border-input text-xs text-foreground px-1.5'
+                        />
+                      </div>
+                      <div>
+                        <span className='text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase'>Wt (kg)</span>
+                        <Input
+                          type='number'
+                          step='0.1'
+                          placeholder='kg'
+                          value={b.weight}
+                          onChange={(e) => handleUpdateBox(idx, 'weight', e.target.value)}
+                          className='h-8 bg-background border-input text-xs text-foreground font-semibold px-1.5 focus-visible:ring-emerald-500'
                         />
                       </div>
                     </div>

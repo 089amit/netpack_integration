@@ -620,6 +620,8 @@ class TrackingRegistry:
             ))
 
         current_status = (shipment.status if shipment else None) or (enquiry.status if enquiry else "PENDING")
+        if enquiry and enquiry.status == "PICKED_UP" and (not shipment or shipment.status in ("PICKED_UP", "PENDING", "ENQUIRY_GENERATED")):
+            current_status = "PICKED_UP"
 
         # In API mode, automatically resolve and persist status to CARRIER_SCANNED if courier scans exist
         if tracking_mode == "API" and has_carrier_events and current_status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "PENDING", "SHIPMENT_CREATED"):
@@ -680,6 +682,7 @@ class TrackingRegistry:
             "enquiryId": enquiry.id if enquiry else None,
             "trackingNumber": (enquiry.trackingNumber if enquiry else None) or (shipment.hawbno if shipment else identifier),
             "hawbNumber": shipment.hawbno if shipment else None,
+            "status": current_status,
             "currentStatus": current_status,
             "trackingMode": tracking_mode,
             "pickupRequired": is_pickup_required,

@@ -17,6 +17,13 @@ try:
 except Exception as _seed_err:
     print(f"[Startup Warning] Automatic database seed check: {_seed_err}")
 
+# Auto-restore data from persistent snapshot if running on fresh container
+try:
+    from backup_restore_service import restore_database_backup_if_empty, create_database_backup
+    restore_database_backup_if_empty()
+except Exception as _restore_err:
+    print(f"[Startup Warning] Automatic database restore check: {_restore_err}")
+
 
 app = FastAPI(
     title="NetPack Logistics API (Python)",
@@ -80,6 +87,24 @@ app.include_router(email_sender.router)
 app.include_router(tracking.router)
 app.include_router(custom_manifest.router)
 app.include_router(website_content.router)
+
+@app.on_event("shutdown")
+def on_shutdown_backup():
+    try:
+        from backup_restore_service import create_database_backup
+        create_database_backup()
+    except Exception as e:
+        print(f"[Shutdown Warning] Failed writing backup snapshot: {e}")
+
+# Database snapshot export endpoint
+@app.get("/api/admin/backup-database", tags=["Admin"])
+def export_database_snapshot():
+    try:
+        from backup_restore_service import create_database_backup, LATEST_BACKUP_PATH
+        path_str = create_database_backup()
+        return {"status": "success", "message": "Database snapshotted successfully", "file": path_str}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 # Custom hook router for future Python project integrations
 @app.get("/api/integrations/status", tags=["Integrations"])

@@ -2,7 +2,19 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOADS_DIR = BASE_DIR / "uploads"
+
+# Check for persistent volume mount (e.g. Railway volume /data or custom PERSISTENT_DATA_DIR)
+# This prevents data loss across rebuilds and redeployments on containerized platforms!
+PERSISTENT_ENV_DIR = os.getenv("PERSISTENT_DATA_DIR")
+if PERSISTENT_ENV_DIR:
+    DATA_DIR = Path(PERSISTENT_ENV_DIR).resolve()
+elif os.path.isdir("/data") and os.access("/data", os.W_OK):
+    DATA_DIR = Path("/data").resolve()
+else:
+    DATA_DIR = BASE_DIR
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+UPLOADS_DIR = DATA_DIR / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Load environment variables from .env file if present
@@ -22,8 +34,11 @@ PORT = int(os.getenv("PORT", 8000))
 HOST = os.getenv("HOST", "0.0.0.0")
 NODE_ENV = os.getenv("NODE_ENV", "development")
 
-# SQLite by default for zero-config local operation; PostgreSQL when on Railway
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'netpack.db'}")
+# Persistent Database URL:
+# 1. Cloud PostgreSQL (Railway / Supabase / Neon / Render) takes highest priority when set
+# 2. If SQLite, persists in DATA_DIR (/data/netpack.db on Railway, or local netpack.db)
+DEFAULT_SQLITE_PATH = DATA_DIR / "netpack.db"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     # SQLAlchemy 2.0 requires postgresql:// instead of legacy postgres://
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
