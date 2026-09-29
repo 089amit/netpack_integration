@@ -6,23 +6,41 @@ import config
 from database import engine, Base, run_auto_migrations
 import models # Ensure all models are registered
 
-# Create database tables automatically and apply migrations
-Base.metadata.create_all(bind=engine)
-run_auto_migrations(engine)
+import time
 
-# Automatically seed baseline roles, default admin, rider, and shipping zones if absent
-try:
-    from seed import seed_database
-    seed_database()
-except Exception as _seed_err:
-    print(f"[Startup Warning] Automatic database seed check: {_seed_err}")
+def init_db_with_retry(max_retries=10, delay=2):
+    """Retries connecting to database on container boot (handles cloud Postgres startup delay)."""
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"[Database] Synchronizing schema (attempt {attempt}/{max_retries})...")
+            Base.metadata.create_all(bind=engine)
+            run_auto_migrations(engine)
+            print("[Database] Schema synchronized successfully.")
+            
+            # Automatically seed baseline roles, default admin, rider, and shipping zones if absent
+            try:
+                from seed import seed_database
+                seed_database()
+            except Exception as _seed_err:
+                print(f"[Startup Warning] Automatic database seed check: {_seed_err}")
 
-# Auto-restore data from persistent snapshot if running on fresh container
-try:
-    from backup_restore_service import restore_database_backup_if_empty, create_database_backup
-    restore_database_backup_if_empty()
-except Exception as _restore_err:
-    print(f"[Startup Warning] Automatic database restore check: {_restore_err}")
+            # Auto-restore data from persistent snapshot if running on fresh container
+            try:
+                from backup_restore_service import restore_database_backup_if_empty
+                restore_database_backup_if_empty()
+            except Exception as _restore_err:
+                print(f"[Startup Warning] Automatic database restore check: {_restore_err}")
+                
+            return True
+        except Exception as e:
+            print(f"[Database Warning] Connection attempt {attempt} failed: {e}")
+            if attempt == max_retries:
+                print("[Database Error] Could not connect to database after max retries. Starting FastAPI anyway to allow diagnostics.")
+                return False
+            time.sleep(delay)
+    return False
+
+init_db_with_retry()
 
 
 app = FastAPI(

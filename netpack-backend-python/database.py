@@ -63,6 +63,10 @@ def run_auto_migrations(target_engine):
                         conn.execute(sa.text(f"ALTER TABLE enquiries ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 print(f"[Migration Warning] Enquiries column check: {e}")
 
         # 1b. Add trackingMode to shipments table if needed
@@ -73,6 +77,10 @@ def run_auto_migrations(target_engine):
                     conn.execute(sa.text("ALTER TABLE shipments ADD COLUMN trackingMode VARCHAR(20) DEFAULT 'MANUAL'"))
                 conn.commit()
             except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 print(f"[Migration Warning] Shipments column check: {e}")
 
         # 1c. Add photoUrl to customers table if needed
@@ -83,6 +91,10 @@ def run_auto_migrations(target_engine):
                     conn.execute(sa.text("ALTER TABLE customers ADD COLUMN photoUrl VARCHAR(500)"))
                 conn.commit()
             except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 print(f"[Migration Warning] Customers column check: {e}")
 
         # 2. Ensure baseline roles exist
@@ -98,6 +110,10 @@ def run_auto_migrations(target_engine):
                         conn.commit()
                         print(f"[Migration] Added '{r_name}' role to roles table.")
             except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 print(f"[Migration Warning] Role check: {e}")
 
         # 2b. Automatically correct any accounts that were erroneously assigned ADMIN during public signup
@@ -117,6 +133,10 @@ def run_auto_migrations(target_engine):
                     """), {"user_role_id": user_role_id, "admin_role_id": admin_role_id})
                     conn.commit()
             except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 print(f"[Migration Warning] Auto-downgrade accidentally elevated signup users: {e}")
 
         # 3. Ensure all Users are also present in Customers table
@@ -159,6 +179,10 @@ def run_auto_migrations(target_engine):
                         })
                         conn.commit()
             except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 print(f"[Migration Warning] User-to-customer sync check: {e}")
 
         # 4. Ensure all 230+ world countries are present in countries table
@@ -181,6 +205,10 @@ def run_auto_migrations(target_engine):
                     conn.commit()
                     print(f"[Migration] Seeded {new_countries} new countries into database.")
             except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 print(f"[Migration Warning] Countries seeding check: {e}")
 
         # 5. Ensure baseline accounts for all user roles (Admin, Driver, Courier, Customer)
@@ -257,4 +285,8 @@ def run_auto_migrations(target_engine):
                     conn.commit()
                     print("[Migration] Created baseline Customer account: customer@netpack.com / Customer@123")
             except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 print(f"[Migration Warning] Baseline accounts check: {e}")
