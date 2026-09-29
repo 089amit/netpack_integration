@@ -2014,11 +2014,6 @@ function TrackingScreen({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-1">
                           <p className="text-xs font-semibold text-[#0D1B2A] leading-tight">{cp.activity}</p>
-                          {cp.source && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 shrink-0">
-                              {cp.source}
-                            </span>
-                          )}
                         </div>
                         <p className="text-[11px] text-gray-500 mt-0.5">{cp.location}</p>
                         <p className="text-[10px] text-gray-400 mt-1">{cp.time}</p>

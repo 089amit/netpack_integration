@@ -27,7 +27,7 @@ import {
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { useTasks } from '../context/tasks-context'
 import { generateInvoicePDF } from './invoice-pdf'
-import { generateShippingLabelPDF } from './shipping-label-pdf'
+import { ShippingLabelDialog } from './shipping-label-dialog'
 
 interface DataTableRowActionsProps<
   TData extends { id: string | number; status?: string },
@@ -41,6 +41,7 @@ export function DataTableRowActions<
   const task = row.original
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [showShippingLabelModal, setShowShippingLabelModal] = useState(false)
   const [enquiryData, setEnquiryData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
@@ -121,84 +122,6 @@ export function DataTableRowActions<
           : '',
       },
     })
-  }
-
-  // DEMO: Generate shipping label with hardcoded values matching the image
-  const handleDemoShippingLabel = async () => {
-    function formatAddress(data: {
-      line1?: string
-      line2?: string
-      city?: string
-      state?: string
-      postcode?: string
-      country?: string
-    }) {
-      const parts = [
-        data.line1,
-        data.line2,
-        data.city,
-        data.state,
-        data.postcode,
-        data.country,
-      ]
-        .filter(Boolean)
-        .map((p) => p!.trim())
-
-      // Remove duplicates
-      const uniqueParts = [...new Set(parts)]
-
-      return uniqueParts.join(', ')
-    }
-    if (!task?.id) return
-    try {
-      const res = await fetch(
-        `${ENQUIRY_ENDPOINTS.GET_BY_ID_ENQUIRY}/${task.id}`
-      )
-      if (!res.ok) throw new Error('Failed to fetch enquiry details')
-      const data = await res.json()
-      await generateShippingLabelPDF({
-        labels: data.boxes.map((box: any, index: number) => ({
-          date: data.createdAt,
-          sender: {
-            name: data.senderName,
-            address: formatAddress({
-              line1: data.senderAddressLine1,
-              line2: data.senderAddressLine2,
-              city: data.senderCity,
-              postcode: data.senderPostcode,
-              country: data.senderCountry,
-            }),
-            phone: data.senderPhone,
-          },
-
-          receiver: {
-            name: data.receiverName,
-            address: formatAddress({
-              line1: data.receiverAddressLine1,
-              line2: data.receiverAddressLine2,
-              city: data.receiverCity,
-              state: data.receiverState,
-              postcode: data.receiverPostcode,
-              country: data.receiverCountry,
-            }),
-            phone: data.receiverTelephone,
-          },
-
-          packageDetails: {
-            weight: box.weight + ' kg',
-            dimensions: `${box.length}x${box.breadth}x${box.height}`,
-          },
-
-          additionalInfo: {
-            boxNumber: `Box ${index + 1}/${data.boxes.length}`,
-          },
-          trackingNumber: data.trackingNumber,
-        })),
-      })
-    } catch (err) {
-      console.log(err)
-      toast.error('Failed to generate shipping label', { duration: 3000 })
-    }
   }
 
   const handleDelete = async () => {
@@ -739,7 +662,7 @@ export function DataTableRowActions<
                 Generate Invoice
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={handleDemoShippingLabel}>
+              <DropdownMenuItem onClick={() => setShowShippingLabelModal(true)}>
                 Generate Shipping Label
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -970,6 +893,13 @@ export function DataTableRowActions<
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 100x150mm Interactive Shipping Label Web Preview & Print Dialog */}
+      <ShippingLabelDialog
+        open={showShippingLabelModal}
+        onOpenChange={setShowShippingLabelModal}
+        enquiryId={task?.id}
+      />
     </>
   )
 }

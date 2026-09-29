@@ -693,7 +693,6 @@ export function ShipmentTrackingDialog({
               <div className='relative pl-6 before:absolute before:left-[7px] before:top-2.5 before:bottom-2.5 before:w-[2px] before:bg-slate-200 dark:before:bg-slate-800'>
                 {displayedItems.map(({ cp, originalIdx }, loopIdx) => {
                   const isTopItem = originalIdx === 0
-                  const isManualNoteEvent = cp.source === 'MANUAL_NOTE' || (cp.source && cp.source.includes('MANUAL'))
                   const isSelfDropEvent = cp.source === 'COUNTER_DROPOFF'
 
                   return (
@@ -717,11 +716,6 @@ export function ShipmentTrackingDialog({
                           <span className='font-bold text-sm text-foreground leading-snug'>
                             {cp.activity}
                           </span>
-                          {isManualNoteEvent && (
-                            <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border-amber-300'>
-                              Manual Operator Note
-                            </Badge>
-                          )}
                           {isSelfDropEvent && (
                             <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'>
                               Self Drop

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Printer } from 'lucide-react'
 import http from '@/utils/http'
 import { SHIPMENT_ENDPOINT } from '@/constants/endpoint'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { ShippingLabelDialog } from '@/features/tasks/components/shipping-label-dialog'
 
 interface Props {
   open: boolean
@@ -28,6 +30,7 @@ export function GetShipmentInfoDrawer({
 }: Props) {
   const [shipmentData, setShipmentData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [showShippingLabel, setShowShippingLabel] = useState(false)
 
   useEffect(() => {
     if (open && currentRow?.id) {
@@ -345,12 +348,27 @@ export function GetShipmentInfoDrawer({
           )}
         </ScrollArea>
 
-        <div className='mt-4 flex justify-end px-4'>
+        <div className='mt-4 flex items-center justify-between px-4'>
+          <Button
+            type='button'
+            className='bg-red-600 hover:bg-red-700 text-white gap-1.5'
+            onClick={() => setShowShippingLabel(true)}
+          >
+            <Printer className='w-4 h-4' />
+            Print Shipping Label
+          </Button>
+
           <Button variant='outline' onClick={() => onOpenChange(false)}>
             Close
           </Button>
         </div>
       </SheetContent>
+
+      <ShippingLabelDialog
+        open={showShippingLabel}
+        onOpenChange={setShowShippingLabel}
+        shipmentId={currentRow?.id}
+      />
     </Sheet>
   )
 }

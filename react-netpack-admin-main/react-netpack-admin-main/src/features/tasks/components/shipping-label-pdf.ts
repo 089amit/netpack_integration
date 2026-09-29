@@ -1,433 +1,498 @@
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
-import oldLogoUrl from '@/assets/alzerianlogo.png'
 import logoTextUrl from '@/assets/name.png'
+import { getBarcodeDataUrl } from './barcode-utils'
+import { ShippingLabelData, ShippingLabelBoxData } from './shipping-label-card'
 
-export interface ShippingLabelSenderReceiver {
-  name?: string
-  address?: string
-  phone?: string
+/**
+ * Loads an image from a URL as an HTMLImageElement
+ */
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(null)
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
 }
 
-export interface ShippingLabelPackageDetails {
-  weight?: string
-  dimensions?: string
-  contents?: string
-  value?: string
-  hsCode?: string
-  countryOfOrigin?: string
-}
+/**
+ * Generates an international courier standard 100mm x 150mm (4" x 6") PDF.
+ * Each box in the shipment generates one dedicated 100x150mm page.
+ */
+export async function generateShippingLabel100x150PDF(
+  data: ShippingLabelData,
+  options?: { autoDownload?: boolean; filename?: string }
+): Promise<jsPDF> {
+  const { autoDownload = false, filename } = options || {}
 
-export interface ShippingLabelAdditionalInfo {
-  insurance?: string
-  signatureRequired?: string
-  specialInstructions?: string
-}
+  // 100mm x 150mm portrait document
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: [100, 150],
+  })
 
-export interface ShippingLabelOptions {
-  sender?: ShippingLabelSenderReceiver
-  receiver?: ShippingLabelSenderReceiver
-  packageDetails?: ShippingLabelPackageDetails
-  additionalInfo?: ShippingLabelAdditionalInfo
-  date?: string
-  fragile?: boolean | string
-  handleWithCareMessage?: string
-  labelNumberFetcher: () => Promise<string>
-  trackingNumber?: string | null
-}
+  const logoImg = await loadImage(logoTextUrl)
 
-export async function generateShippingLabelPDF(options: any) {
-  const { labels = [] } = options
+  const boxes: ShippingLabelBoxData[] =
+    data.boxes && data.boxes.length > 0
+      ? data.boxes
+      : [
+          {
+            boxNumber: 1,
+            totalBoxes: 1,
+            weight: data.totalWeight || 'N/A',
+          },
+        ]
 
-  const doc = new jsPDF('p', 'mm', 'a4')
-  const pageWidth = 210
+  const totalBoxes = boxes.length
 
-  // 3 labels per A4 page
-  const labelH = 97
-  const labelGap = 1
-  const pageMarginY = 1
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-  const setFill = (r: number, g: number, b: number) => doc.setFillColor(r, g, b)
-  const setDraw = (r: number, g: number, b: number) => doc.setDrawColor(r, g, b)
-  const setColor = (r: number, g: number, b: number) =>
-    doc.setTextColor(r, g, b)
-
-  const setDash = (pattern: number[]) => {
-    const d = doc as any
-    if (d.setLineDash) d.setLineDash(pattern, 0)
-    else if (d.setLineDashPattern) d.setLineDashPattern(pattern, 0)
-  }
-
-  const setOpacity = (val: number) => {
-    const d = doc as any
-    if (d.setGState && d.GState) {
-      d.setGState(new d.GState({ opacity: val, 'fill-opacity': val }))
+  for (let i = 0; i < totalBoxes; i++) {
+    const box = boxes[i]
+    if (i > 0) {
+      doc.addPage([100, 150], 'portrait')
     }
-  }
 
-  const loadImg = (src: string): Promise<HTMLImageElement> =>
-    new Promise((res) => {
-      const img = new Image()
-      img.onload = () => res(img)
-      img.onerror = () => res(img)
-      img.src = src
-    })
+    const boxTracking =
+      box.boxTrackingNumber || data.trackingNumber || 'NP-TRACK-PENDING'
+    const boxNoStr = `BOX ${box.boxNumber || i + 1} OF ${totalBoxes}`
 
-  const logoName = await loadImg(logoTextUrl)
-  const oldLogo = await loadImg(oldLogoUrl)
-
-  // Render wrapped lines, returns Y of last line
-  const wrappedText = (
-    text: string,
-    x: number,
-    y: number,
-    maxW: number,
-    fontSize: number,
-    lineGap: number,
-    bold = false
-  ): number => {
-    doc.setFontSize(fontSize)
-    doc.setFont('helvetica', bold ? 'bold' : 'normal')
-    const lines: string[] = doc.splitTextToSize(text || '', maxW)
-    lines.forEach((line, idx) => doc.text(line, x, y + idx * lineGap))
-    return y + (lines.length - 1) * lineGap
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LABEL LOOP
-  // ═══════════════════════════════════════════════════════════════════════════
-  for (let i = 0; i < labels.length; i++) {
-    const label = labels[i]
-    const posOnPage = i % 3
-    const Y = pageMarginY + posOnPage * (labelH + labelGap)
-
-    if (i > 0 && posOnPage === 0) doc.addPage()
+    // ── Setup Dimensions & Margins ──
+    const margin = 3
+    const cardW = 100 - margin * 2 // 94 mm
+    const cardH = 150 - margin * 2 // 144 mm
+    const startX = margin
+    const startY = margin
 
     // Outer border
-    setDraw(190, 190, 190)
+    doc.setDrawColor(0, 0, 0)
     doc.setLineWidth(0.4)
-    doc.rect(5, Y, pageWidth - 10, labelH, 'S')
+    doc.rect(startX, startY, cardW, cardH, 'S')
+
+    // Helper functions
+    const setFill = (r: number, g: number, b: number) => doc.setFillColor(r, g, b)
+    const setDraw = (r: number, g: number, b: number) => doc.setDrawColor(r, g, b)
+    const setColor = (r: number, g: number, b: number) => doc.setTextColor(r, g, b)
+
+    let currentY = startY
 
     // =========================================================================
-    // ZONE A · RED TOP RULE
+    // 1. TOP HEADER: LOGO, BRAND, BOX COUNTER, ORIGIN
     // =========================================================================
-    setFill(220, 30, 30)
-    doc.rect(5, Y, pageWidth - 10, 2.5, 'F')
-
-    // =========================================================================
-    // ZONE B · META ROW
-    // NETPACK LOGISTICS left  |  Date centre  |  BOX right
-    // =========================================================================
-    const metaY = Y + 2.5
-    const metaH = 11
-
+    const headerH = 12
     setFill(255, 255, 255)
-    doc.rect(5, metaY, pageWidth - 10, metaH, 'F')
+    doc.rect(startX, currentY, cardW, headerH, 'F')
 
-    // NETPACK LOGISTICS — left
-    setColor(15, 15, 15)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8.5)
-    if (logoName.complete && logoName.naturalWidth > 0) {
-      const logoW = 30
-      const logoH = logoW * (logoName.naturalHeight / logoName.naturalWidth)
-
-      doc.addImage(oldLogo, 'PNG', 10, metaY + 2, logoW, logoH)
+    // Logo & Brand
+    if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+      const logoW = 28
+      const logoH = logoW * (logoImg.naturalHeight / logoImg.naturalWidth)
+      try {
+        doc.addImage(logoImg, 'PNG', startX + 2, currentY + 1.5, logoW, Math.min(logoH, 9))
+      } catch (e) {
+        // Fallback text if addImage fails
+        setColor(220, 30, 30)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11)
+        doc.text('NETPACK', startX + 3, currentY + 5)
+      }
+    } else {
+      setColor(220, 30, 30)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text('NETPACK LOGISTICS', startX + 3, currentY + 5)
+      setColor(80, 80, 80)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.5)
+      doc.text('WORLDWIDE EXPRESS COURIER', startX + 3, currentY + 8.5)
     }
 
-    // Date — centred
-    // Date — centred
-    const rawDate = label.date || labels[0]?.date || new Date().toISOString()
+    // Box Counter Badge (black rectangle with white text)
+    const badgeW = 24
+    const badgeH = 5
+    const badgeX = startX + cardW - badgeW - 2
+    const badgeY = currentY + 2
+    setFill(0, 0, 0)
+    doc.rect(badgeX, badgeY, badgeW, badgeH, 'F')
+
+    setColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7.5)
+    doc.text(boxNoStr, badgeX + badgeW / 2, badgeY + 3.6, { align: 'center' })
+
+    // Origin Gateway
+    setColor(70, 70, 70)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.5)
+    doc.text('ORIGIN: KTM / NP', badgeX + badgeW / 2, badgeY + 8.5, { align: 'center' })
+
+    currentY += headerH
+
+    // Line below header
+    setDraw(0, 0, 0)
+    doc.setLineWidth(0.3)
+    doc.line(startX, currentY, startX + cardW, currentY)
+
+    // =========================================================================
+    // 2. SUBHEADER: SERVICE & DATE
+    // =========================================================================
+    const subH = 5
+    setFill(245, 245, 245)
+    doc.rect(startX, currentY, cardW, subH, 'F')
+
+    setColor(30, 30, 30)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.text(`SERVICE: ${data.serviceType || 'PRIORITY AIR CARGO'}`, startX + 3, currentY + 3.5)
+
+    const rawDate = data.date || new Date().toISOString()
     const formattedDate = new Date(rawDate).toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
     })
-    setColor(60, 60, 60)
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.text(`Date: ${formattedDate}`, pageWidth / 2, metaY + metaH / 2 + 1.5, {
+    doc.text(`DATE: ${formattedDate}`, startX + cardW - 3, currentY + 3.5, { align: 'right' })
+
+    currentY += subH
+    doc.line(startX, currentY, startX + cardW, currentY)
+
+    // =========================================================================
+    // 3. MASTER BARCODE (Code 128)
+    // =========================================================================
+    const barcodeSectionH = 18
+    setFill(255, 255, 255)
+    doc.rect(startX, currentY, cardW, barcodeSectionH, 'F')
+
+    try {
+      const barcodeDataUrl = await getBarcodeDataUrl(boxTracking, {
+        height: 50,
+        moduleWidth: 2,
+        quietZone: 8,
+        color: '#000000',
+        backgroundColor: '#ffffff',
+        includeText: false,
+      })
+      doc.addImage(barcodeDataUrl, 'PNG', startX + 6, currentY + 1.5, cardW - 12, 10.5)
+    } catch (err) {
+      console.error('Barcode PDF render error:', err)
+    }
+
+    setColor(0, 0, 0)
+    doc.setFont('courier', 'bold')
+    doc.setFontSize(10.5)
+    doc.text(boxTracking, startX + cardW / 2, currentY + 15.5, {
       align: 'center',
+      charSpace: 0.8,
     })
 
-    // BOX X OF Y — right, auto-calculated
-    const boxLabel = `BOX ${i + 1} OF ${labels.length}`
-    setColor(220, 30, 30)
+    currentY += barcodeSectionH
+    doc.line(startX, currentY, startX + cardW, currentY)
+
+    // =========================================================================
+    // 4. SHIP FROM (SENDER) - Compact
+    // =========================================================================
+    const senderH = 17
+    setFill(250, 250, 250)
+    doc.rect(startX, currentY, cardW, senderH, 'F')
+
+    setColor(100, 100, 100)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5)
+    doc.text('SHIP FROM (SENDER):', startX + 3, currentY + 3.8)
+
+    doc.text(`TEL: ${data.sender.phone || 'N/A'}`, startX + cardW - 3, currentY + 3.8, { align: 'right' })
+
+    setColor(20, 20, 20)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8.5)
-    doc.text(boxLabel, pageWidth - 10, metaY + metaH / 2 + 1.5, {
-      align: 'right',
-    })
+    doc.text(data.sender.name || 'NetPack Logistics Shipper', startX + 3, currentY + 7.5)
 
-    // Bottom rule
-    setDraw(210, 210, 210)
-    doc.setLineWidth(0.3)
-    doc.line(5, metaY + metaH, pageWidth - 5, metaY + metaH)
+    const senderAddr = [
+      data.sender.addressLine1,
+      data.sender.addressLine2,
+      data.sender.city,
+      data.sender.state,
+      data.sender.postcode,
+      data.sender.country || 'Nepal',
+    ]
+      .filter(Boolean)
+      .join(', ')
 
-    // =========================================================================
-    // ZONE C · BODY  15% | 65% | 20%
-    // =========================================================================
-    const bodyTop = metaY + metaH + 4
-    const hwcH = 11
-    const footerH = 7
-    const bodyBot = Y + labelH - hwcH - footerH
-    const bodyH = bodyBot - bodyTop
-
-    const innerL = 6
-    const innerW = pageWidth - 12
-
-    const col1W = Math.round(innerW * 0.15) // ~29.7 mm  QR
-    const col2W = Math.round(innerW * 0.65) // ~128.7 mm Ship info
-    const col3W = innerW - col1W - col2W // ~39.6 mm  Package
-
-    const col1L = innerL
-    const col2L = col1L + col1W
-    const col3L = col2L + col2W
-    const div1X = col2L
-    const div2X = col3L
-
-    // Vertical dividers
-    setDraw(210, 210, 210)
-    doc.setLineWidth(0.3)
-    doc.line(div1X, bodyTop - 1, div1X, bodyBot)
-    doc.line(div2X, bodyTop - 1, div2X, bodyBot)
-
-    // Watermark
-    if (logoName.complete && logoName.naturalWidth > 0) {
-      const wmW = 65
-      const wmH = wmW * (logoName.naturalHeight / logoName.naturalWidth)
-      const wmX = (pageWidth - wmW) / 2
-      const wmY = bodyTop + (bodyH - wmH) / 2
-      setOpacity(0.06)
-      doc.addImage(logoName, 'PNG', wmX, wmY, wmW, wmH)
-      setOpacity(1)
-    }
-
-    // ── COL 1 · QR centred ───────────────────────────────────────────────────
-    const qrSize = Math.min(col1W - 4, 34)
-    const qrX = col1L + (col1W - qrSize) / 2
-    const qrY = bodyTop + 3
-
-    const qrPayload = JSON.stringify({
-      name: label.receiver?.name || '',
-      phone: label.receiver?.phone || '',
-      address: label.receiver?.address || '',
-    })
-    const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-      width: 200,
-      margin: 1,
-      color: { dark: '#000000', light: '#ffffff' },
-    })
-
-    setDraw(200, 200, 200)
-    doc.setLineWidth(0.4)
-    doc.rect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, 'S')
-    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize)
-
-    setColor(170, 170, 170)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(5.5)
-    doc.text('SCAN TO VERIFY', col1L + col1W / 2, qrY + qrSize + 5, {
-      align: 'center',
-      charSpace: 0.4,
-    })
-
-    // ── COL 2 · SHIP FROM (top, subdued) → SHIP TO (below, bold/large) ───────
-    const c2Pad = 5
-    const c2X = col2L + c2Pad
-    const c2MaxW = col2W - c2Pad - 4
-
-    let rvY = bodyTop + 1
-
-    // ── SHIP FROM — top, smaller ─────────────────────────────────────────────
-    setColor(110, 110, 110)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7)
-    doc.text('SHIP FROM', c2X, rvY)
-    rvY += 5.5
-
-    // Sender name
-    setColor(50, 50, 50)
-    rvY =
-      wrappedText(label.sender?.name || '', c2X, rvY, c2MaxW, 10, 5.5, true) +
-      3.5
-
-    // Sender address
-    setColor(120, 120, 120)
-    rvY =
-      wrappedText(
-        label.sender?.address || '',
-        c2X,
-        rvY,
-        c2MaxW,
-        8,
-        4.5,
-        false
-      ) + 3
-
-    // Sender phone
-    setColor(50, 50, 50)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    doc.text(`Tel: ${label.sender?.phone || ''}`, c2X, rvY)
-    rvY += 6
-
-    // Dashed separator
-    setDash([2, 2])
-    setDraw(190, 190, 190)
-    doc.setLineWidth(0.3)
-    doc.line(c2X, rvY, div2X - 3, rvY)
-    setDash([])
-    rvY += 6
-
-    // ── SHIP TO — below, prominent ───────────────────────────────────────────
-    setColor(220, 30, 30)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    doc.text('SHIP TO', c2X, rvY)
-    rvY += 6
-
-    // Receiver name — largest text on label
-    setColor(10, 10, 10)
-    rvY =
-      wrappedText(label.receiver?.name || '', c2X, rvY, c2MaxW, 14, 7, true) + 4
-
-    // Receiver address
     setColor(70, 70, 70)
-    rvY =
-      wrappedText(
-        label.receiver?.address || '',
-        c2X,
-        rvY,
-        c2MaxW,
-        9,
-        5,
-        false
-      ) + 4
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    const senderLines = doc.splitTextToSize(senderAddr, cardW - 6)
+    doc.text(senderLines.slice(0, 2), startX + 3, currentY + 11.5)
 
-    // Receiver phone
-    setColor(10, 10, 10)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9.5)
-    doc.text(`Tel: ${label.receiver?.phone || ''}`, c2X, rvY)
+    currentY += senderH
+    doc.line(startX, currentY, startX + cardW, currentY)
 
-    // Tracking Number
-    if (label.trackingNumber) {
-      rvY += 6
-      setColor(10, 10, 10)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(9)
-      doc.text(`Tracking No: ${label.trackingNumber}`, c2X, rvY)
-    }
+    // =========================================================================
+    // 5. SHIP TO (CONSIGNEE - HERO SECTION)
+    // =========================================================================
+    const receiverH = 34
+    setFill(255, 255, 255)
+    doc.rect(startX, currentY, cardW, receiverH, 'F')
 
-    // ── COL 3 · PACKAGE DETAILS ───────────────────────────────────────────────
-    const c3Pad = 4
-    const c3X = col3L + c3Pad
-    const c3MaxW = col3W - c3Pad - 2
-
-    let pkY = bodyTop + 1
-
+    // Consignee Header + Destination Country Pill
     setColor(220, 30, 30)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(7.5)
-    doc.text('PACKAGE', c3X, pkY)
-    pkY += 4
-    doc.text('DETAILS', c3X, pkY)
-    pkY += 8
+    doc.text('SHIP TO (CONSIGNEE):', startX + 3, currentY + 4)
 
-    const pkgRows: [string, string][] = [
-      ['WEIGHT', label.packageDetails?.weight || 'N/A'],
-      ['DIMENSIONS', label.packageDetails?.dimensions || 'N/A'],
-      ['SERVICE', 'Priority Mail'],
-    ]
+    const destCountry = (data.receiver.country || 'INTERNATIONAL').toUpperCase()
+    const countryW = Math.max(doc.getTextWidth(destCountry) + 6, 26)
+    const countryH = 5.5
+    const countryX = startX + cardW - countryW - 3
+    const countryY = currentY + 1.2
 
-    pkgRows.forEach(([key, value]) => {
-      setColor(160, 160, 160)
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(6.5)
-      doc.text(key, c3X, pkY)
-      pkY += 5
-
-      setColor(10, 10, 10)
-      pkY = wrappedText(value, c3X, pkY, c3MaxW, 10.5, 5, true) + 7
-    })
-
-    // =========================================================================
-    // ZONE D · HANDLE WITH CARE
-    // =========================================================================
-    const hwcY = bodyBot
-    setFill(245, 245, 245)
-    doc.rect(5, hwcY, pageWidth - 10, hwcH, 'F')
-    setDraw(210, 210, 210)
-    doc.setLineWidth(0.3)
-    doc.line(5, hwcY, pageWidth - 5, hwcY)
-
-    setFill(220, 30, 30)
-    const bW = 5,
-      bH = 8,
-      bGap = 2
-    for (let b = 0; b < 4; b++) {
-      doc.rect(10 + b * (bW + bGap), hwcY + 1.5, bW, bH, 'F')
-    }
-    const barsR = pageWidth - 10 - (4 * bW + 3 * bGap)
-    for (let b = 0; b < 4; b++) {
-      doc.rect(barsR + b * (bW + bGap), hwcY + 1.5, bW, bH, 'F')
-    }
-
-    setColor(15, 15, 15)
+    setFill(0, 0, 0)
+    doc.rect(countryX, countryY, countryW, countryH, 'F')
+    setColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9.5)
+    doc.setFontSize(9)
+    doc.text(destCountry, countryX + countryW / 2, countryY + 4, { align: 'center' })
 
-    const hwcText = 'HANDLE WITH CARE'
-    const hwcSpacing = 1.2
-    const hwcNormalWidth = doc.getTextWidth(hwcText)
-    const hwcTotalWidth = hwcNormalWidth + (hwcText.length - 1) * hwcSpacing
-    const hwcX = (pageWidth - hwcTotalWidth) / 2
+    // Consignee Name (large bold)
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text(data.receiver.name || 'CONSIGNEE NAME', startX + 3, currentY + 10)
 
-    doc.text(hwcText, hwcX, hwcY + hwcH / 2 + 1.2, {
-      charSpace: hwcSpacing,
-    })
+    // Consignee Address
+    const receiverAddr = [
+      data.receiver.addressLine1,
+      data.receiver.addressLine2,
+      data.receiver.city,
+      data.receiver.state,
+      data.receiver.postcode,
+    ]
+      .filter(Boolean)
+      .join(', ')
 
-    // =========================================================================
-    // ZONE E · FOOTER
-    // =========================================================================
-    const ftY = hwcY + hwcH
-    setDraw(210, 210, 210)
-    doc.setLineWidth(0.3)
-    doc.line(5, ftY, pageWidth - 5, ftY)
-
-    setColor(160, 160, 160)
+    setColor(40, 40, 40)
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6.5)
+    doc.setFontSize(8)
+    const receiverLines = doc.splitTextToSize(receiverAddr, cardW - 6)
+    doc.text(receiverLines.slice(0, 3), startX + 3, currentY + 14.5)
 
-    const ftText =
-      'NETPACK LOGISTIC  |   015339942  |  KATHMANDU, NEPAL  |  www.netpacklogistic.com'
-    const ftSpacing = 0.2
-    const ftNormalWidth = doc.getTextWidth(ftText)
-    const ftTotalWidth = ftNormalWidth + (ftText.length - 1) * ftSpacing
-    const ftX = (pageWidth - ftTotalWidth) / 2
+    // Receiver Destination & Telephone line
+    const rBottomY = currentY + receiverH - 3
+    setDraw(200, 200, 200)
+    doc.line(startX + 3, rBottomY - 4, startX + cardW - 3, rBottomY - 4)
 
-    doc.text(ftText, ftX, ftY + 4.5, {
-      charSpace: ftSpacing,
-    })
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.text(`DEST: ${destCountry}`, startX + 3, rBottomY)
+    doc.text(`TEL: ${data.receiver.phone || 'N/A'}`, startX + cardW - 3, rBottomY, { align: 'right' })
+
+    currentY += receiverH
+    setDraw(0, 0, 0)
+    doc.line(startX, currentY, startX + cardW, currentY)
 
     // =========================================================================
-    // CUT LINE
+    // 6. SPECIFICATIONS & CUSTOMS GRID
     // =========================================================================
-    if (posOnPage < 2 && i < labels.length - 1) {
-      const cutY = Y + labelH + labelGap / 2
-      setDash([3, 3])
-      setDraw(180, 180, 180)
-      doc.setLineWidth(0.4)
-      doc.line(3, cutY, pageWidth - 3, cutY)
-      setDash([])
-      setColor(180, 180, 180)
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(6.5)
-      doc.text('cut here', pageWidth / 2, cutY + 1.5, { align: 'center' })
+    const specsH = 14
+    setFill(255, 255, 255)
+    doc.rect(startX, currentY, cardW, specsH, 'F')
+
+    const colW = cardW / 4
+    // Vertical dividers
+    for (let c = 1; c < 4; c++) {
+      doc.line(startX + c * colW, currentY, startX + c * colW, currentY + specsH)
     }
+
+    const actualWt = box.weight
+      ? `${parseFloat(String(box.weight)).toFixed(2)} KG`
+      : data.totalWeight
+      ? `${parseFloat(String(data.totalWeight)).toFixed(2)} KG`
+      : 'N/A'
+
+    const dimsStr =
+      box.dimensions ||
+      (box.length && box.breadth && box.height
+        ? `${box.length}x${box.breadth}x${box.height}`
+        : 'N/A')
+
+    const commodityStr = box.commodity || data.commodity || 'COURIER CARGO'
+    const customsValStr = box.declaredValue
+      ? `${box.currency || data.currency || 'USD'} ${box.declaredValue}`
+      : 'NVD'
+
+    // Col 1: Actual Wt
+    setColor(100, 100, 100)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6)
+    doc.text('ACTUAL WT', startX + colW * 0.5, currentY + 4, { align: 'center' })
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.text(actualWt, startX + colW * 0.5, currentY + 9.5, { align: 'center' })
+
+    // Col 2: Dimensions
+    setColor(100, 100, 100)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6)
+    doc.text('DIMS (CM)', startX + colW * 1.5, currentY + 4, { align: 'center' })
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.text(dimsStr, startX + colW * 1.5, currentY + 9.5, { align: 'center' })
+
+    // Col 3: Commodity
+    setColor(100, 100, 100)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6)
+    doc.text('COMMODITY', startX + colW * 2.5, currentY + 4, { align: 'center' })
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    const commLines = doc.splitTextToSize(commodityStr.toUpperCase(), colW - 2)
+    doc.text(commLines[0] || 'CARGO', startX + colW * 2.5, currentY + 9.5, { align: 'center' })
+
+    // Col 4: Customs Val
+    setColor(100, 100, 100)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6)
+    doc.text('CUSTOMS VAL', startX + colW * 3.5, currentY + 4, { align: 'center' })
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7.5)
+    doc.text(customsValStr, startX + colW * 3.5, currentY + 9.5, { align: 'center' })
+
+    currentY += specsH
+    doc.line(startX, currentY, startX + cardW, currentY)
+
+    // =========================================================================
+    // 7. ROUTING & 2D QR CODE
+    // =========================================================================
+    const routingH = 22
+    setFill(255, 255, 255)
+    doc.rect(startX, currentY, cardW, routingH, 'F')
+
+    // QR Code
+    const trackingUrl =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/track?tracking=${encodeURIComponent(boxTracking)}`
+        : `https://netpacklogistic.com/track?tracking=${encodeURIComponent(boxTracking)}`
+
+    try {
+      const qrDataUrl = await QRCode.toDataURL(trackingUrl, {
+        width: 160,
+        margin: 1,
+        color: { dark: '#000000', light: '#ffffff' },
+      })
+      doc.addImage(qrDataUrl, 'PNG', startX + 3, currentY + 2, 17, 17)
+    } catch (err) {
+      console.error('QR code error in PDF:', err)
+    }
+
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5)
+    doc.text('SCAN TO TRACK', startX + 22, currentY + 6.5)
+    setColor(100, 100, 100)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6)
+    doc.text('Live PWA tracking status', startX + 22, currentY + 10.5)
+    doc.text('Door-to-door transit events', startX + 22, currentY + 14.5)
+
+    // Compliance Badges (Right side)
+    const badgeBoxX = startX + 56
+    const badgeBoxW = cardW - 56 - 3
+    setDraw(0, 0, 0)
+    doc.rect(badgeBoxX, currentY + 3, badgeBoxW, 6.5, 'S')
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6)
+    doc.text('SECURITY SCREENED - SPX', badgeBoxX + badgeBoxW / 2, currentY + 7.2, { align: 'center' })
+
+    doc.rect(badgeBoxX, currentY + 11.5, badgeBoxW, 6.5, 'S')
+    doc.text('NON-DG / PASSENGER & CARGO', badgeBoxX + badgeBoxW / 2, currentY + 15.7, { align: 'center' })
+
+    currentY += routingH
+    doc.line(startX, currentY, startX + cardW, currentY)
+
+    // =========================================================================
+    // 8. HAZARD & FRAGILE BANNER
+    // =========================================================================
+    const hazardH = 8
+    setFill(0, 0, 0)
+    doc.rect(startX, currentY, cardW, hazardH, 'F')
+
+    setColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.text('▲  HANDLE WITH CARE  ▲', startX + 4, currentY + 5.2)
+
+    setColor(255, 240, 100)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5)
+    doc.text('FRAGILE • KEEP DRY • THIS WAY UP ↑↑', startX + cardW - 4, currentY + 5.2, { align: 'right' })
+
+    currentY += hazardH
+
+    // =========================================================================
+    // 9. FOOTER
+    // =========================================================================
+    const footerH = cardH - (currentY - startY)
+    setFill(245, 245, 245)
+    doc.rect(startX, currentY, cardW, footerH, 'F')
+
+    setColor(90, 90, 90)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(5.5)
+    doc.text(
+      'NETPACK LOGISTICS LTD.  |  TEL: +977-1-5339942  |  KATHMANDU, NEPAL  |  WWW.NETPACKLOGISTIC.COM',
+      startX + cardW / 2,
+      currentY + footerH / 2 + 1,
+      { align: 'center' }
+    )
   }
 
-  doc.save('shipping-labels.pdf')
+  if (autoDownload) {
+    const saveName = filename || `shipping-label-${data.trackingNumber || 'consignment'}-100x150mm.pdf`
+    doc.save(saveName)
+  }
+
+  return doc
+}
+
+/**
+ * Backwards compatibility helper for existing callers.
+ * Now points to the 100x150mm international standard generator.
+ */
+export async function generateShippingLabelPDF(options: any) {
+  const { labels = [] } = options
+  if (!labels.length) return
+
+  const first = labels[0]
+  const adaptedData: ShippingLabelData = {
+    trackingNumber: first.trackingNumber || 'NP-PENDING',
+    date: first.date,
+    sender: {
+      name: first.sender?.name,
+      addressLine1: first.sender?.address,
+      phone: first.sender?.phone,
+    },
+    receiver: {
+      name: first.receiver?.name,
+      addressLine1: first.receiver?.address,
+      phone: first.receiver?.phone,
+    },
+    boxes: labels.map((l: any, idx: number) => ({
+      boxNumber: idx + 1,
+      totalBoxes: labels.length,
+      weight: l.packageDetails?.weight?.replace(' kg', ''),
+      dimensions: l.packageDetails?.dimensions,
+    })),
+  }
+
+  return generateShippingLabel100x150PDF(adaptedData, { autoDownload: true })
 }

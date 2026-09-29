@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
-import { Scale, Camera } from 'lucide-react'
+import { Scale, Camera, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import http from '@/utils/http'
 import { useCheckRole } from '@/utils/role-utils'
@@ -18,6 +18,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ShippingLabelDialog } from './shipping-label-dialog'
 
 interface Props {
   open: boolean
@@ -33,6 +34,7 @@ export function GetEnquiryInfoDrawer({
   const [enquiryData, setEnquiryData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [pickupLocations, setPickupLocations] = useState<any[]>([])
+  const [showShippingLabel, setShowShippingLabel] = useState(false)
   const [updating, setUpdating] = useState(false)
   const isPickup = useCheckRole('Pickup')
 
@@ -501,12 +503,27 @@ export function GetEnquiryInfoDrawer({
           )}
         </ScrollArea>
 
-        <div className='mt-4 flex justify-end px-4'>
+        <div className='mt-4 flex items-center justify-between px-4'>
+          <Button
+            type='button'
+            className='bg-red-600 hover:bg-red-700 text-white gap-1.5'
+            onClick={() => setShowShippingLabel(true)}
+          >
+            <Printer className='w-4 h-4' />
+            Print Shipping Label
+          </Button>
+
           <Button variant='outline' onClick={() => onOpenChange(false)}>
             Close
           </Button>
         </div>
       </SheetContent>
+
+      <ShippingLabelDialog
+        open={showShippingLabel}
+        onOpenChange={setShowShippingLabel}
+        enquiryId={currentRow?.id}
+      />
     </Sheet>
   )
 }
