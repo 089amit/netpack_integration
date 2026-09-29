@@ -36,12 +36,33 @@ NODE_ENV = os.getenv("NODE_ENV", "development")
 
 # Persistent Database URL:
 # 1. Cloud PostgreSQL (Railway / Supabase / Neon / Render) takes highest priority when set
-# 2. If SQLite, persists in DATA_DIR (/data/netpack.db on Railway, or local netpack.db)
-DEFAULT_SQLITE_PATH = DATA_DIR / "netpack.db"
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    # SQLAlchemy 2.0 requires postgresql:// instead of legacy postgres://
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# Checks DATABASE_URL, DATABASE_PRIVATE_URL, POSTGRES_URL, or discrete POSTGRES_* environment variables
+raw_db_url = (
+    os.getenv("DATABASE_URL")
+    or os.getenv("DATABASE_PRIVATE_URL")
+    or os.getenv("DATABASE_PUBLIC_URL")
+    or os.getenv("POSTGRES_URL")
+    or os.getenv("POSTGRESQL_URL")
+)
+
+if not raw_db_url and os.getenv("POSTGRES_HOST") and os.getenv("POSTGRES_PASSWORD"):
+    pg_user = os.getenv("POSTGRES_USER", "postgres")
+    pg_pass = os.getenv("POSTGRES_PASSWORD", "")
+    pg_host = os.getenv("POSTGRES_HOST", "localhost")
+    pg_port = os.getenv("POSTGRES_PORT", "5432")
+    pg_db = os.getenv("POSTGRES_DB", "railway")
+    raw_db_url = f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
+
+if raw_db_url:
+    DATABASE_URL = raw_db_url.strip()
+    if DATABASE_URL.startswith("postgres://"):
+        # SQLAlchemy 2.0 requires postgresql:// instead of legacy postgres://
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    print(f"[Database] Configured PostgreSQL database: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'connected'}")
+else:
+    DEFAULT_SQLITE_PATH = DATA_DIR / "netpack.db"
+    DATABASE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
+    print(f"[Database] Using SQLite at: {DEFAULT_SQLITE_PATH}")
 
 JWT_SECRET = os.getenv("JWT_SECRET", "netpack_customer_jwt_secret_key_2026")
 JWT_ADMIN_SECRET = os.getenv("JWT_ADMIN_SECRET", "netpack_admin_jwt_secret_key_2026")
