@@ -56,8 +56,9 @@ if not raw_db_url and os.getenv("POSTGRES_HOST") and os.getenv("POSTGRES_PASSWOR
 if raw_db_url:
     DATABASE_URL = raw_db_url.strip()
     if DATABASE_URL.startswith("postgres://"):
-        # SQLAlchemy 2.0 requires postgresql:// instead of legacy postgres://
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
     print(f"[Database] Configured PostgreSQL database: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'connected'}")
 else:
     DEFAULT_SQLITE_PATH = DATA_DIR / "netpack.db"
