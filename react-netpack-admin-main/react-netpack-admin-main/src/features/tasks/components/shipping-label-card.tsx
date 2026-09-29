@@ -190,46 +190,35 @@ export const ShippingLabelCard: React.FC<ShippingLabelCardProps> = ({
         {/* ================= HEADER SECTION ================= */}
         <div className='border-b-[1.5px] border-black bg-white'>
           {/* Top Brand & Gateway Bar */}
-          <div className='flex items-center justify-between px-2 py-1.5 border-b border-gray-300'>
-            <div className='flex items-center gap-1.5'>
+          <div className='flex items-center justify-between px-2.5 py-1.5 border-b border-black'>
+            {/* Logo Section: ONLY NetPack logo */}
+            <div className='flex items-center'>
               <img
                 src={logoTextUrl}
-                alt='NetPack'
-                className='h-6 max-w-[110px] object-contain'
+                alt='NetPack Logistic'
+                className='h-7 max-w-[130px] object-contain'
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none'
+                  const fallback = e.currentTarget.parentElement?.querySelector('.logo-fallback') as HTMLElement
+                  if (fallback) fallback.style.display = 'block'
                 }}
               />
-              <div>
-                <span className='font-black tracking-tighter text-[13px] uppercase block leading-none text-red-600'>
-                  NETPACK LOGISTICS
-                </span>
-                <span className='text-[8px] font-bold tracking-wider text-gray-700 block uppercase'>
-                  Worldwide Express Courier
-                </span>
-              </div>
+              <span className='logo-fallback hidden font-black tracking-tight text-[15px] uppercase text-[#0c2340]'>
+                NETPACK LOGISTIC
+              </span>
             </div>
 
-            <div className='text-right'>
+            {/* Right Meta: Box Counter, Origin & Date */}
+            <div className='text-right flex flex-col items-end gap-0.5'>
               <span className='inline-block bg-black text-white text-[10px] font-black px-2 py-0.5 rounded-xs tracking-wider'>
                 {boxNoStr}
               </span>
-              <div className='text-[8px] font-semibold text-gray-600 mt-0.5'>
+              <div className='text-[8px] font-semibold text-gray-600'>
                 ORIGIN: <strong className='text-black'>KTM / NP</strong>
               </div>
-            </div>
-          </div>
-
-          {/* Subheader: Service Type & Date */}
-          <div className='flex items-center justify-between px-2 py-1 bg-gray-100/80 text-[9px] font-bold border-b border-black'>
-            <div className='flex items-center gap-1 text-gray-800'>
-              <span>SERVICE:</span>
-              <span className='bg-red-600 text-white px-1.5 py-0.2 rounded-xs font-black uppercase text-[8.5px] tracking-wide'>
-                {data.serviceType || 'PRIORITY AIR CARGO'}
-              </span>
-            </div>
-            <div className='text-gray-700'>
-              DATE: <span className='font-mono font-bold text-black'>{formattedDate}</span>
+              <div className='text-[7.5px] font-medium text-gray-600'>
+                DATE: <span className='font-mono font-bold text-black'>{formattedDate}</span>
+              </div>
             </div>
           </div>
 
@@ -254,7 +243,7 @@ export const ShippingLabelCard: React.FC<ShippingLabelCardProps> = ({
               <span className='font-mono font-semibold text-gray-600'>TEL: {data.sender.phone || 'N/A'}</span>
             </div>
             <div className='font-bold text-[10px] text-gray-900 truncate'>
-              {data.sender.name || 'NetPack Logistics Shipper'}
+              {data.sender.name || 'NetPack Logistic Shipper'}
             </div>
             <div className='text-[8.5px] text-gray-700 line-clamp-2 leading-tight'>
               {senderAddressParts.join(', ')}

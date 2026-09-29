@@ -179,7 +179,7 @@ export const ShippingLabelDialog: React.FC<ShippingLabelDialogProps> = ({
       date: data.createdAt || enq.createdAt,
       serviceType: data.serviceName || 'EXPRESS AIR CARGO',
       sender: {
-        name: enq.senderName || 'NetPack Logistics',
+        name: enq.senderName || 'NetPack Logistic',
         phone: enq.senderPhone,
         addressLine1: enq.senderAddressLine1,
         addressLine2: enq.senderAddressLine2,

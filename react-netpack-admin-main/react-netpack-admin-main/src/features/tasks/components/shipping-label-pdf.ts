@@ -82,52 +82,58 @@ export async function generateShippingLabel100x150PDF(
     // =========================================================================
     // 1. TOP HEADER: LOGO, BRAND, BOX COUNTER, ORIGIN
     // =========================================================================
-    const headerH = 12
+    const headerH = 14
     setFill(255, 255, 255)
     doc.rect(startX, currentY, cardW, headerH, 'F')
 
-    // Logo & Brand
+    // Logo & Brand (Only NetPack Logo)
     if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
-      const logoW = 28
+      const logoW = 32
       const logoH = logoW * (logoImg.naturalHeight / logoImg.naturalWidth)
       try {
-        doc.addImage(logoImg, 'PNG', startX + 2, currentY + 1.5, logoW, Math.min(logoH, 9))
+        doc.addImage(logoImg, 'PNG', startX + 2, currentY + 1.5, logoW, Math.min(logoH, 11))
       } catch (e) {
         // Fallback text if addImage fails
-        setColor(220, 30, 30)
+        setColor(12, 35, 64)
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(11)
-        doc.text('NETPACK', startX + 3, currentY + 5)
+        doc.setFontSize(13)
+        doc.text('NETPACK LOGISTIC', startX + 3, currentY + 7.5)
       }
     } else {
-      setColor(220, 30, 30)
+      setColor(12, 35, 64)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      doc.text('NETPACK LOGISTICS', startX + 3, currentY + 5)
-      setColor(80, 80, 80)
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(6.5)
-      doc.text('WORLDWIDE EXPRESS COURIER', startX + 3, currentY + 8.5)
+      doc.setFontSize(13)
+      doc.text('NETPACK LOGISTIC', startX + 3, currentY + 7.5)
     }
 
     // Box Counter Badge (black rectangle with white text)
     const badgeW = 24
-    const badgeH = 5
+    const badgeH = 4.8
     const badgeX = startX + cardW - badgeW - 2
-    const badgeY = currentY + 2
+    const badgeY = currentY + 1.2
     setFill(0, 0, 0)
     doc.rect(badgeX, badgeY, badgeW, badgeH, 'F')
 
     setColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(7.5)
-    doc.text(boxNoStr, badgeX + badgeW / 2, badgeY + 3.6, { align: 'center' })
+    doc.text(boxNoStr, badgeX + badgeW / 2, badgeY + 3.4, { align: 'center' })
 
     // Origin Gateway
     setColor(70, 70, 70)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(6.5)
-    doc.text('ORIGIN: KTM / NP', badgeX + badgeW / 2, badgeY + 8.5, { align: 'center' })
+    doc.text('ORIGIN: KTM / NP', badgeX + badgeW / 2, badgeY + 8, { align: 'center' })
+
+    // Date
+    const rawDate = data.date || new Date().toISOString()
+    const formattedDate = new Date(rawDate).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+    doc.setFontSize(6)
+    doc.text(`DATE: ${formattedDate}`, badgeX + badgeW / 2, badgeY + 11.5, { align: 'center' })
 
     currentY += headerH
 
@@ -137,31 +143,7 @@ export async function generateShippingLabel100x150PDF(
     doc.line(startX, currentY, startX + cardW, currentY)
 
     // =========================================================================
-    // 2. SUBHEADER: SERVICE & DATE
-    // =========================================================================
-    const subH = 5
-    setFill(245, 245, 245)
-    doc.rect(startX, currentY, cardW, subH, 'F')
-
-    setColor(30, 30, 30)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7)
-    doc.text(`SERVICE: ${data.serviceType || 'PRIORITY AIR CARGO'}`, startX + 3, currentY + 3.5)
-
-    const rawDate = data.date || new Date().toISOString()
-    const formattedDate = new Date(rawDate).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-    doc.setFont('helvetica', 'normal')
-    doc.text(`DATE: ${formattedDate}`, startX + cardW - 3, currentY + 3.5, { align: 'right' })
-
-    currentY += subH
-    doc.line(startX, currentY, startX + cardW, currentY)
-
-    // =========================================================================
-    // 3. MASTER BARCODE (Code 128)
+    // 2. MASTER BARCODE (Code 128)
     // =========================================================================
     const barcodeSectionH = 18
     setFill(255, 255, 255)
@@ -209,7 +191,7 @@ export async function generateShippingLabel100x150PDF(
     setColor(20, 20, 20)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8.5)
-    doc.text(data.sender.name || 'NetPack Logistics Shipper', startX + 3, currentY + 7.5)
+    doc.text(data.sender.name || 'NetPack Logistic Shipper', startX + 3, currentY + 7.5)
 
     const senderAddr = [
       data.sender.addressLine1,
@@ -449,7 +431,7 @@ export async function generateShippingLabel100x150PDF(
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(5.5)
     doc.text(
-      'NETPACK LOGISTICS LTD.  |  TEL: +977-1-5339942  |  KATHMANDU, NEPAL  |  WWW.NETPACKLOGISTIC.COM',
+      'NETPACK LOGISTIC LTD.  |  TEL: +977-1-5339942  |  KATHMANDU, NEPAL  |  WWW.NETPACKLOGISTIC.COM',
       startX + cardW / 2,
       currentY + footerH / 2 + 1,
       { align: 'center' }
