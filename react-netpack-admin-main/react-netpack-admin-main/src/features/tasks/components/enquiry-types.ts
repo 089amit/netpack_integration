@@ -1,4 +1,5 @@
 export interface ItemRow {
+  id?: string | number
   description: string
   weight: string
   value: string

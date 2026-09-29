@@ -53,6 +53,8 @@ interface Shipment {
   receiverCity?: string
   weightProofImages?: string[]
   weightProofImageUrl?: string
+  riderName?: string
+  riderPhone?: string
 }
 
 interface NotificationItem {
@@ -95,6 +97,8 @@ interface TrackingDetails {
     items: Array<{ item: string; pieces: number }>
   }>
   checkpoints: CheckpointItem[]
+  riderName?: string
+  riderPhone?: string
   weightProofImageUrl?: string
   weightProofImages?: string[]
 }
@@ -503,6 +507,12 @@ const IconEyeOff = ({ size = 16, className = '' }: { size?: number; className?: 
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a13.16 13.16 0 0 1-3.17 4.34M6.61 6.61C3.63 8.36 1 12 1 12s4 8 11 8a9.26 9.26 0 0 0 5.39-1.61M1 1l22 22"/>
     <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+  </svg>
+)
+
+const IconPhone = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
   </svg>
 )
 
@@ -1401,13 +1411,19 @@ function TrackingScreen({
         if (liveRes && liveRes.trackingNumber) {
           // Map backend tracking response
           const statusStr = (liveRes.currentStatus || liveRes.status || '').toUpperCase()
-          let stageIdx = 3
+          const isActualPickedUp = statusStr === 'PICKED_UP' || (statusStr.includes('PICK') && !statusStr.includes('ASSIGNED'))
+          const riderName = liveRes.riderName || liveRes.pickupStaffName || ''
+          const riderPhone = liveRes.riderPhone || liveRes.pickupStaffPhone || ''
+          const isRiderAssigned = Boolean(statusStr.includes('ASSIGNED') || riderName)
+
+          let stageIdx = 0
           if (statusStr.includes('DELIVERED')) stageIdx = 6
           else if (statusStr.includes('CARRIER') || statusStr.includes('OUT_FOR_DELIVERY')) stageIdx = 5
           else if (statusStr.includes('HUB') || statusStr.includes('CUSTOMS')) stageIdx = 4
           else if (statusStr.includes('TRANSIT')) stageIdx = 3
           else if (statusStr.includes('PACK') || statusStr.includes('CREATED')) stageIdx = 2
-          else if (statusStr.includes('PICK')) stageIdx = 1
+          else if (isActualPickedUp) stageIdx = 1
+          else stageIdx = 0
 
           let proofImgs: string[] = []
           if (Array.isArray(liveRes.weightProofImages) && liveRes.weightProofImages.length > 0) {
@@ -1441,11 +1457,18 @@ function TrackingScreen({
             statusLabel = 'Shipment Created'
             heroTitle = 'Airway Bill Generated'
             heroSubtitle = `Export clearance prepared at Kathmandu Hub • Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`
-          } else if (statusStr.includes('PICK')) {
+          } else if (isActualPickedUp) {
             statusLabel = 'Cargo Picked Up'
             heroTitle = 'Cargo Picked Up'
             heroSubtitle = `Picked up by NetPack courier • Verified Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`
-          } else if (statusStr.includes('PENDING') || statusStr.includes('ENQUIRY')) {
+          } else if (isRiderAssigned) {
+            statusLabel = 'Rider Assigned'
+            heroTitle = 'Pickup Rider Assigned'
+            const contactText = riderPhone ? ` • Contact: ${riderPhone}` : ''
+            heroSubtitle = riderName
+              ? `Rider: ${riderName}${contactText} • Heading to pickup address`
+              : 'Pickup rider has been assigned and is heading to your address'
+          } else {
             statusLabel = 'Enquiry Registered'
             heroTitle = 'Booking Confirmed'
             heroSubtitle = `Awaiting pickup rider assignment • Kathmandu`
@@ -1461,9 +1484,9 @@ function TrackingScreen({
               : 'https://www.dhl.com/en/express/tracking.html',
             status: statusStr.includes('DELIVERED')
               ? 'delivered'
-              : statusStr.includes('PICK')
+              : isActualPickedUp
               ? 'picked_up'
-              : 'in_progress',
+              : 'pending',
             statusLabel,
             heroTitle,
             heroSubtitle,
@@ -1474,6 +1497,8 @@ function TrackingScreen({
             origin: liveRes.origin || 'Kathmandu (KTM)',
             destination: liveRes.destination || 'International Destination',
             commodity: liveRes.commodity || 'Express Air Cargo',
+            riderName: riderName || undefined,
+            riderPhone: riderPhone || undefined,
             boxes: liveRes.boxes && liveRes.boxes.length > 0
               ? liveRes.boxes.map((b: any, i: number) => ({
                   boxNumber: b.boxNumber || i + 1,
@@ -1525,8 +1550,16 @@ function TrackingScreen({
     }
   }
 
+  const isAssignedRider = Boolean(data.riderName || data.statusLabel === 'Rider Assigned')
   const milestones = [
-    { label: 'Enquiry', title: 'Enquiry Generated', desc: 'Consignment booking registered with NetPack', Icon: IconDocument },
+    {
+      label: 'Enquiry',
+      title: isAssignedRider ? 'Rider Assigned for Pickup' : 'Enquiry Generated',
+      desc: data.riderName
+        ? `Rider: ${data.riderName}${data.riderPhone ? ` (${data.riderPhone})` : ''} assigned for doorstep pickup`
+        : 'Consignment booking registered with NetPack',
+      Icon: isAssignedRider ? IconTruck : IconDocument,
+    },
     { label: 'Picked Up', title: 'Cargo Picked Up', desc: 'Verified & weighed at Central Teku warehouse', Icon: IconBox },
     { label: 'Created', title: 'Shipment Created', desc: 'HAWB allocated & export clearance prepared', Icon: IconTag },
     { label: 'In Transit', title: 'In Transit (Air Cargo)', desc: `Departed KTM on flight to ${data.destination}`, Icon: IconPlane },
@@ -1792,6 +1825,48 @@ function TrackingScreen({
                   </div>
                 )}
               </div>
+
+              {/* Assigned Rider for Pickup Milestone Banner Card */}
+              {data.stageIndex === 0 && Boolean(data.riderName || data.statusLabel === 'Rider Assigned') && (
+                <div className="rounded-2xl border border-blue-200/80 bg-gradient-to-br from-blue-50/90 via-sky-50/50 to-indigo-50/60 p-4 shadow-sm animate-in fade-in-50 duration-200 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <IconTruck size={20} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-600 text-white shadow-2xs">
+                            Rider Assigned for Pickup
+                          </span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        </div>
+                        <h3 style={{ fontFamily: 'Jost, sans-serif' }} className="font-700 text-sm text-[#0D1B2A] mt-1">
+                          {data.riderName || 'NetPack Dedicated Courier'}
+                        </h3>
+                        {data.riderPhone && (
+                          <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                            {data.riderPhone}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {data.riderPhone && (
+                      <a
+                        href={`tel:${data.riderPhone}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 shrink-0"
+                      >
+                        <IconPhone size={14} />
+                        <span>Call Rider</span>
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-blue-200/60 text-[11px] text-blue-900/80">
+                    <span>Assigned for doorstep pickup & scale weighing</span>
+                    <span className="font-semibold text-blue-700">En Route</span>
+                  </div>
+                </div>
+              )}
 
               {/* Warehouse Verified Weight Scale Photo Card */}
               {((data.weightProofImages && data.weightProofImages.length > 0) || data.weightProofImageUrl) && (() => {
@@ -4002,7 +4077,9 @@ export default function CustomerPWA() {
                 ? 'delivered'
                 : (b.status || '').toUpperCase() === 'PICKED_UP'
                 ? 'picked_up'
-                : (b.status || '').toUpperCase() === 'PENDING' || (b.status || '').toUpperCase() === 'ENQUIRY_GENERATED'
+                : (b.status || '').toUpperCase() === 'PENDING' ||
+                  (b.status || '').toUpperCase() === 'ENQUIRY_GENERATED' ||
+                  (b.status || '').toUpperCase() === 'ASSIGNED_FOR_PICKUP'
                 ? 'pending'
                 : 'in_progress',
             date: b.createdAt
@@ -4010,6 +4087,8 @@ export default function CustomerPWA() {
               : 'Recent',
             receiverName: b.receiverName,
             receiverCity: b.receiverCity,
+            riderName: b.riderName,
+            riderPhone: b.riderPhone,
             weightProofImages: Array.isArray(b.weightProofImages) && b.weightProofImages.length > 0
               ? b.weightProofImages
               : b.weightProofImageUrl

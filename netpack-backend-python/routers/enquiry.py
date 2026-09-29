@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Header
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Header, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any, Dict
+import math
+from datetime import datetime
 from database import get_db
 from models.enquiry import Enquiry, EnquiryItem, Box, BoxItem, PickupLocationEnquiry
 from models.shipment import Shipment
@@ -123,7 +125,14 @@ def format_enquiry_response(e: Enquiry) -> Dict[str, Any]:
                         "enquiryItemId": bi.enquiryItemId,
                         "quantity": bi.quantity,
                         "enquiryItem": {
-                            "description": bi.enquiryItem.description if bi.enquiryItem else None
+                            "id": bi.enquiryItem.id if bi.enquiryItem else None,
+                            "description": bi.enquiryItem.description if bi.enquiryItem else None,
+                            "weight": bi.enquiryItem.weight if bi.enquiryItem else None,
+                            "value": bi.enquiryItem.value if bi.enquiryItem else None,
+                            "quantity": bi.enquiryItem.quantity if bi.enquiryItem else None,
+                            "unitPrice": bi.enquiryItem.unitPrice if bi.enquiryItem else None,
+                            "hsCode": bi.enquiryItem.hsCode if bi.enquiryItem else None,
+                            "totalValue": bi.enquiryItem.totalValue if bi.enquiryItem else None
                         }
                     } for bi in b.items
                 ]
@@ -464,40 +473,212 @@ def update_enquiry(
     if not e:
         raise HTTPException(status_code=404, detail="Enquiry not found")
 
-    if payload.senderName is not None: e.senderName = payload.senderName
-    if payload.senderPhone is not None: e.senderPhone = payload.senderPhone
-    if payload.senderEmail is not None: e.senderEmail = payload.senderEmail
-    if payload.senderAddressLine1 is not None: e.senderAddressLine1 = payload.senderAddressLine1
-    if payload.senderCity is not None: e.senderCity = payload.senderCity
-    if payload.senderPostcode is not None: e.senderPostcode = payload.senderPostcode
+    sender = payload.sender or {}
+    receiver = payload.receiver or {}
 
-    if payload.receiverName is not None: e.receiverName = payload.receiverName
-    if payload.receiverTelephone is not None: e.receiverTelephone = payload.receiverTelephone
-    if payload.receiverEmail is not None: e.receiverEmail = payload.receiverEmail
-    if payload.receiverAddressLine1 is not None: e.receiverAddressLine1 = payload.receiverAddressLine1
-    if payload.receiverCity is not None: e.receiverCity = payload.receiverCity
-    if payload.receiverPostcode is not None: e.receiverPostcode = payload.receiverPostcode
-    if payload.receiverCountry is not None: e.receiverCountry = payload.receiverCountry
+    # Update sender
+    sender_name = payload.senderName or sender.get("name")
+    if sender_name is not None: e.senderName = sender_name
+    sender_phone = payload.senderPhone or payload.phoneNumber or sender.get("telephone")
+    if sender_phone is not None: e.senderPhone = sender_phone
+    sender_email = payload.senderEmail or sender.get("email")
+    if sender_email is not None: e.senderEmail = sender_email
+    sender_addr1 = payload.senderAddressLine1 or sender.get("addressLine1")
+    if sender_addr1 is not None: e.senderAddressLine1 = sender_addr1
+    sender_addr2 = payload.senderAddressLine2 or sender.get("addressLine2")
+    if sender_addr2 is not None: e.senderAddressLine2 = sender_addr2
+    sender_city = payload.senderCity or sender.get("city")
+    if sender_city is not None:
+        e.senderCity = sender_city
+        e.senderLocation = sender_city
+    sender_postcode = payload.senderPostcode or sender.get("postcode")
+    if sender_postcode is not None:
+        e.senderPostcode = sender_postcode
+        e.senderPostcodeCity = sender_postcode
+    sender_country = payload.senderCountry or sender.get("country")
+    if sender_country is not None: e.senderCountry = sender_country
 
-    if payload.weight is not None: e.weight = payload.weight
-    if payload.noOfBox is not None: e.noOfBox = payload.noOfBox
-    if payload.estimatedRate is not None: e.estimatedRate = payload.estimatedRate
-    if payload.finalRate is not None: e.finalRate = payload.finalRate
+    # Update receiver
+    rec_name = payload.receiverName or receiver.get("name")
+    if rec_name is not None: e.receiverName = rec_name
+    rec_phone = payload.receiverTelephone or receiver.get("telephone")
+    if rec_phone is not None: e.receiverTelephone = rec_phone
+    rec_email = payload.receiverEmail or receiver.get("email")
+    if rec_email is not None: e.receiverEmail = rec_email
+    rec_addr1 = payload.receiverAddressLine1 or receiver.get("addressLine1")
+    if rec_addr1 is not None: e.receiverAddressLine1 = rec_addr1
+    rec_addr2 = payload.receiverAddressLine2 or receiver.get("addressLine2")
+    if rec_addr2 is not None: e.receiverAddressLine2 = rec_addr2
+    rec_city = payload.receiverCity or receiver.get("city")
+    if rec_city is not None:
+        e.receiverCity = rec_city
+        e.receiverLocation = rec_city
+    rec_state = payload.receiverState or receiver.get("state")
+    if rec_state is not None: e.receiverState = rec_state
+    rec_postcode = payload.receiverPostcode or receiver.get("postcode")
+    if rec_postcode is not None:
+        e.receiverPostcode = rec_postcode
+        e.receiverPostcodeCity = rec_postcode
+    rec_country = payload.receiverCountry or receiver.get("country")
+    if rec_country is not None: e.receiverCountry = rec_country
+    rec_comp = payload.receivercompanyName or receiver.get("companyName")
+    if rec_comp is not None: e.receivercompanyName = rec_comp
+
+    # Update destination country & location
+    dest_country_id = getattr(payload, "destinationCountry", None) or getattr(payload, "destinationCountryId", None) or getattr(payload, "receiverCountryId", None)
+    if dest_country_id:
+        try:
+            e.destinationCountry = int(dest_country_id)
+        except (ValueError, TypeError):
+            pass
+    elif rec_country:
+        c = db.query(Country).filter(Country.name.ilike(rec_country.strip())).first()
+        if c:
+            e.destinationCountry = c.id
+
+    if payload.destinationLocation:
+        e.destinationLocation = payload.destinationLocation
+    elif rec_city or rec_country:
+        e.destinationLocation = rec_city or rec_country
+
+    if payload.currency: e.currency = payload.currency
+    if payload.estimatedRate is not None: e.estimatedRate = _to_float(payload.estimatedRate)
+    if payload.finalRate is not None: e.finalRate = _to_float(payload.finalRate)
     if payload.status is not None:
         e.status = payload.status
         for s in e.shipments:
             s.status = payload.status
 
+    # 1. Update Items if provided
+    created_items = []
+    if payload.items is not None and len(payload.items) > 0:
+        db.query(EnquiryItem).filter(EnquiryItem.enquiryId == e.id).delete()
+        db.flush()
+
+        for itm in payload.items:
+            unit_price = _to_float(itm.unitPrice)
+            qty = _to_int(itm.quantity, default=1)
+            total_val = _to_float(itm.totalValue) or (unit_price * qty) or _to_float(itm.value)
+            ei = EnquiryItem(
+                enquiryId=e.id,
+                description=itm.description or "General Goods",
+                weight=_to_float(itm.weight),
+                value=_to_float(itm.value) or total_val,
+                quantity=qty,
+                unitPrice=unit_price,
+                hsCode=itm.hsCode,
+                totalValue=total_val
+            )
+            db.add(ei)
+            created_items.append(ei)
+        db.flush()
+    else:
+        created_items = e.items
+
+    # 2. Update Boxes if provided
+    if payload.boxes is not None and len(payload.boxes) > 0:
+        db.query(Box).filter(Box.enquiryId == e.id).delete()
+        db.flush()
+
+        total_actual_wt = 0.0
+        total_vol_wt = 0.0
+
+        for idx, b in enumerate(payload.boxes, 1):
+            b_weight = _to_float(getattr(b, "weight", None) if not isinstance(b, dict) else b.get("weight"), 0.0)
+            b_len = _to_float(getattr(b, "length", None) if not isinstance(b, dict) else b.get("length"), 30.0)
+            b_brd = _to_float(getattr(b, "breadth", None) if not isinstance(b, dict) else b.get("breadth"), 20.0)
+            b_hgt = _to_float(getattr(b, "height", None) if not isinstance(b, dict) else b.get("height"), 20.0)
+            b_mult = _to_float(getattr(b, "multiplier", None) if not isinstance(b, dict) else b.get("multiplier"), 1.0)
+            b_qty = _to_int(getattr(b, "quantity", None) if not isinstance(b, dict) else b.get("quantity"), 1)
+            b_val = _to_float(getattr(b, "value", None) if not isinstance(b, dict) else b.get("value"), 0.0)
+            b_dim = getattr(b, "dimensions", None) if not isinstance(b, dict) else b.get("dimensions")
+            if not b_dim and b_len and b_brd and b_hgt:
+                b_dim = f"{b_len}x{b_brd}x{b_hgt}"
+
+            total_actual_wt += (b_weight * b_qty)
+            total_vol_wt += ((b_len * b_brd * b_hgt) / 5000.0) * b_qty
+
+            box = Box(
+                enquiryId=e.id,
+                trackingNumber=getattr(b, "trackingNumber", None) if not isinstance(b, dict) else b.get("trackingNumber") or f"{e.trackingNumber or 'NP'}-{idx}",
+                weight=b_weight,
+                dimensions=b_dim or "30x20x20",
+                length=b_len,
+                breadth=b_brd,
+                height=b_hgt,
+                multiplier=b_mult,
+                quantity=b_qty,
+                value=b_val
+            )
+            db.add(box)
+            db.flush()
+
+            # Attach items to box
+            raw_items = (getattr(b, "items", None) if not isinstance(b, dict) else b.get("items")) or []
+            raw_selections = (getattr(b, "itemSelections", None) if not isinstance(b, dict) else b.get("itemSelections")) or []
+
+            if raw_selections:
+                for sel in raw_selections:
+                    sel_item_id = sel.get("itemId") if isinstance(sel, dict) else getattr(sel, "itemId", None)
+                    sel_qty = _to_int(sel.get("quantity") if isinstance(sel, dict) else getattr(sel, "quantity", 1), 1)
+                    target_ei_id = None
+                    try:
+                        idx_val = int(sel_item_id)
+                        if 0 <= idx_val < len(created_items):
+                            target_ei_id = created_items[idx_val].id
+                    except (ValueError, TypeError):
+                        pass
+                    if not target_ei_id:
+                        try:
+                            act_id = int(sel_item_id)
+                            target_ei_id = act_id
+                        except (ValueError, TypeError):
+                            pass
+                    if target_ei_id:
+                        db.add(BoxItem(boxId=box.id, enquiryItemId=target_ei_id, quantity=sel_qty))
+            elif raw_items:
+                for bi in raw_items:
+                    bi_item_id = bi.get("enquiryItemId") if isinstance(bi, dict) else getattr(bi, "enquiryItemId", None)
+                    bi_qty = _to_int(bi.get("quantity") if isinstance(bi, dict) else getattr(bi, "quantity", 1), 1)
+                    if bi_item_id:
+                        db.add(BoxItem(boxId=box.id, enquiryItemId=int(bi_item_id), quantity=bi_qty))
+
+        e.noOfBox = len(payload.boxes)
+        e.weight = round(total_actual_wt, 2) if total_actual_wt > 0 else (e.weight or 1.0)
+        e.volumetricWeight = round(total_vol_wt, 2)
+        calc_cw = max(total_actual_wt, total_vol_wt)
+        if calc_cw < 10:
+            e.chargeableWeight = round(math.ceil(calc_cw * 2) / 2, 2)
+        else:
+            e.chargeableWeight = round(math.ceil(calc_cw), 2)
+        e.isPacked = True
+        e.packedAt = datetime.utcnow()
+    else:
+        if payload.weight is not None:
+            e.weight = _to_float(payload.weight)
+        if payload.noOfBox is not None:
+            e.noOfBox = _to_int(payload.noOfBox)
+
+    # 3. Update Pickup Locations
     if payload.pickupLocations is not None:
         db.query(PickupLocationEnquiry).filter(PickupLocationEnquiry.enquiryId == e.id).delete()
         for pl in payload.pickupLocations:
-            if pl.location:
+            loc_val = getattr(pl, "location", None) if not isinstance(pl, dict) else pl.get("location")
+            phone_val = getattr(pl, "phoneNumber", None) if not isinstance(pl, dict) else pl.get("phoneNumber")
+            note_val = getattr(pl, "note", None) if not isinstance(pl, dict) else pl.get("note")
+            if loc_val:
                 db.add(PickupLocationEnquiry(
                     enquiryId=e.id,
-                    location=pl.location,
-                    phoneNumber=pl.phoneNumber,
-                    note=pl.note
+                    location=loc_val,
+                    phoneNumber=phone_val,
+                    note=note_val
                 ))
+
+    # Synchronize linked shipments if any
+    for s in e.shipments:
+        if e.weight: s.weight = e.weight
+        if e.volumetricWeight: s.volumetricWeight = e.volumetricWeight
+        if e.chargeableWeight: s.chargeableWeight = e.chargeableWeight
 
     db.commit()
     db.refresh(e)
@@ -544,18 +725,100 @@ def delete_enquiry(id: int, db: Session = Depends(get_db)):
     return {"message": "Enquiry deleted successfully"}
 
 @router.post("/item/addBoxItem")
-def add_box_item(payload: AddBoxItemRequest, db: Session = Depends(get_db)):
-    existing = db.query(BoxItem).filter(
-        BoxItem.boxId == payload.boxId,
-        BoxItem.enquiryItemId == payload.enquiryItemId
-    ).first()
-    if existing:
-        existing.quantity = payload.quantity
-    else:
-        bi = BoxItem(boxId=payload.boxId, enquiryItemId=payload.enquiryItemId, quantity=payload.quantity)
-        db.add(bi)
-    db.commit()
-    return {"message": "Box item linked successfully"}
+def add_box_item(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    enquiry_id = payload.get("enquiryId")
+    boxes_data = payload.get("boxes")
+
+    # If payload is batch boxes assignment for an enquiry from EnquiryMutateDrawer:
+    if enquiry_id and boxes_data is not None:
+        try:
+            e_id = int(enquiry_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid enquiryId")
+        e = db.query(Enquiry).filter(Enquiry.id == e_id).first()
+        if not e:
+            raise HTTPException(status_code=404, detail="Enquiry not found")
+
+        # Clear existing boxes for this enquiry
+        db.query(Box).filter(Box.enquiryId == e.id).delete()
+        db.flush()
+
+        total_weight = 0.0
+        total_vol = 0.0
+        for idx, b_info in enumerate(boxes_data, 1):
+            w = _to_float(b_info.get("weight"), 0.0)
+            total_weight += w
+            val = _to_float(b_info.get("value"), 0.0)
+            qty = _to_int(b_info.get("quantity"), 1)
+            b_len = _to_float(b_info.get("length"), 30.0)
+            b_brd = _to_float(b_info.get("breadth"), 20.0)
+            b_hgt = _to_float(b_info.get("height"), 20.0)
+            dims = b_info.get("dimensions") or f"{b_len}x{b_brd}x{b_hgt}"
+            total_vol += ((b_len * b_brd * b_hgt) / 5000.0) * qty
+
+            new_box = Box(
+                enquiryId=e.id,
+                trackingNumber=f"{e.trackingNumber or 'NP'}-{idx}",
+                weight=w,
+                dimensions=dims,
+                length=b_len,
+                breadth=b_brd,
+                height=b_hgt,
+                multiplier=1.0,
+                quantity=qty,
+                value=val
+            )
+            db.add(new_box)
+            db.flush()
+
+            # Attach items
+            item_ids = b_info.get("itemIds") or []
+            for item_id_str in item_ids:
+                try:
+                    ei_id = int(item_id_str)
+                    db.add(BoxItem(boxId=new_box.id, enquiryItemId=ei_id, quantity=qty))
+                except (ValueError, TypeError):
+                    pass
+
+        if total_weight > 0:
+            e.weight = round(total_weight, 2)
+        e.noOfBox = len(boxes_data)
+        e.volumetricWeight = round(total_vol, 2)
+        calc_cw = max(total_weight, total_vol)
+        if calc_cw < 10:
+            e.chargeableWeight = round(math.ceil(calc_cw * 2) / 2, 2)
+        else:
+            e.chargeableWeight = round(math.ceil(calc_cw), 2)
+        e.isPacked = True
+        e.packedAt = datetime.utcnow()
+
+        for s in e.shipments:
+            s.weight = e.weight
+            s.volumetricWeight = e.volumetricWeight
+            s.chargeableWeight = e.chargeableWeight
+
+        db.commit()
+        db.refresh(e)
+        return {"message": "Boxes and items assigned successfully", "boxesCount": len(boxes_data)}
+
+    # Fallback to single BoxItem link:
+    box_id = payload.get("boxId")
+    enquiry_item_id = payload.get("enquiryItemId")
+    quantity = payload.get("quantity", 1)
+    if box_id and enquiry_item_id:
+        existing = db.query(BoxItem).filter(
+            BoxItem.boxId == int(box_id),
+            BoxItem.enquiryItemId == int(enquiry_item_id)
+        ).first()
+        if existing:
+            existing.quantity = int(quantity)
+        else:
+            bi = BoxItem(boxId=int(box_id), enquiryItemId=int(enquiry_item_id), quantity=int(quantity))
+            db.add(bi)
+        db.commit()
+        return {"message": "Box item linked successfully"}
+
+    raise HTTPException(status_code=400, detail="Invalid payload: enquiryId+boxes or boxId+enquiryItemId required")
 
 @router.post("/surchargecheck")
 def check_area_surcharge(payload: Dict[str, Any], db: Session = Depends(get_db)):

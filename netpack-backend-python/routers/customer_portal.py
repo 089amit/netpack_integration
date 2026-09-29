@@ -912,6 +912,8 @@ def get_customer_shipments(
             "trackingMode": getattr(e, "trackingMode", "MANUAL") or "MANUAL",
             "isPickupRequired": getattr(e, "pickupRequired", True),
             "isPacked": is_packed,
+            "riderName": (e.pickupStaff.fullName or e.pickupStaff.username) if e.pickupStaff else None,
+            "riderPhone": e.pickupStaff.phoneNumber if e.pickupStaff else None,
             "pickedUpAt": e.pickedUpAt.isoformat() if e.pickedUpAt else None,
             "createdAt": e.createdAt.isoformat() if e.createdAt else None,
             "updatedAt": (linked_shipment.updatedAt.isoformat() if (linked_shipment and linked_shipment.updatedAt) else (e.updatedAt.isoformat() if e.updatedAt else None))

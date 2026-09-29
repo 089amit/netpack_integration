@@ -1,8 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Any, Dict
 from datetime import datetime
 
 class ItemSchema(BaseModel):
+    model_config = ConfigDict(extra="allow")
     id: Optional[int] = None
     description: Optional[str] = None
     weight: Optional[Any] = None
@@ -12,17 +13,14 @@ class ItemSchema(BaseModel):
     hsCode: Optional[str] = None
     totalValue: Optional[Any] = None
 
-    class Config:
-        extra = "allow"
-
 class BoxItemSchema(BaseModel):
-    enquiryItemId: int
-    quantity: int = 1
-
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
+    enquiryItemId: Optional[Any] = None
+    itemId: Optional[Any] = None
+    quantity: Optional[Any] = 1
 
 class BoxSchema(BaseModel):
+    model_config = ConfigDict(extra="allow")
     id: Optional[int] = None
     trackingNumber: Optional[str] = None
     weight: Optional[Any] = None
@@ -34,19 +32,16 @@ class BoxSchema(BaseModel):
     quantity: Optional[Any] = None
     value: Optional[Any] = None
     items: Optional[List[BoxItemSchema]] = None
-
-    class Config:
-        extra = "allow"
+    itemSelections: Optional[List[Dict[str, Any]]] = None
 
 class PickupLocationSchema(BaseModel):
+    model_config = ConfigDict(extra="allow")
     location: str
     phoneNumber: Optional[str] = None
     note: Optional[str] = None
 
-    class Config:
-        extra = "allow"
-
 class EnquiryCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     customerId: Optional[Any] = None
     receiverName: Optional[str] = None
     receiverAddressLine1: Optional[str] = None
@@ -71,6 +66,7 @@ class EnquiryCreateRequest(BaseModel):
 
     destinationLocation: Optional[str] = None
     destinationCountry: Optional[Any] = None
+    destinationCountryId: Optional[Any] = None
     pinCode: Optional[Any] = None
     noOfBox: Optional[Any] = None
     weight: Optional[Any] = None
@@ -87,13 +83,12 @@ class EnquiryCreateRequest(BaseModel):
     boxes: Optional[List[BoxSchema]] = None
     pickupLocations: Optional[List[PickupLocationSchema]] = None
 
-    class Config:
-        extra = "allow"
-
 class EnquiryStatusUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     status: str
 
 class AddBoxItemRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     boxId: int
     enquiryItemId: int
     quantity: int = 1

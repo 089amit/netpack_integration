@@ -424,7 +424,29 @@ class TrackingRegistry:
 
         # 1.5. Cargo Picked Up OR Self Drop Counter Handover
         if is_pickup_required:
-            is_picked_up = (enquiry and (enquiry.pickedUpAt or enquiry.status == "PICKED_UP" or enquiry.weightProofImageUrl)) or (shipment and shipment.status in ("PICKED_UP", "PACKED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))
+            is_picked_up = bool(
+                (enquiry and (enquiry.pickedUpAt or enquiry.status == "PICKED_UP" or enquiry.weightProofImageUrl)) or
+                (shipment and shipment.status in ("PICKED_UP", "PACKED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))
+            )
+
+            # Rider assigned milestone: Rider assigned and heading for collection
+            is_assigned_for_pickup = bool(
+                enquiry and (enquiry.status == "ASSIGNED_FOR_PICKUP" or enquiry.pickedUpBy) and not is_picked_up
+            )
+            if is_assigned_for_pickup:
+                r_user = enquiry.pickupStaff if enquiry else None
+                r_name = (r_user.fullName or r_user.username or "Field Courier") if r_user else "Field Courier"
+                r_phone = (r_user.phoneNumber or "") if r_user else ""
+                phone_tag = f" (Contact: {r_phone})" if r_phone else ""
+                checkpoints.append(TrackingCheckpoint(
+                    timestamp=enquiry.updatedAt or (created_at + timedelta(minutes=15)),
+                    location="Kathmandu Dispatch",
+                    status="ASSIGNED_FOR_PICKUP",
+                    activity=f"Pickup Rider {r_name} assigned for doorstep cargo collection{phone_tag}",
+                    country="Nepal",
+                    source="DISPATCH_ROUTING"
+                ))
+
             if is_picked_up:
                 pickup_ts = (enquiry.pickedUpAt if (enquiry and enquiry.pickedUpAt) else None) or (created_at + timedelta(hours=2))
                 checkpoints.append(TrackingCheckpoint(
@@ -437,14 +459,16 @@ class TrackingRegistry:
                 ))
         else:
             # Self-drop / counter drop-off
-            checkpoints.append(TrackingCheckpoint(
-                timestamp=created_at + timedelta(minutes=30),
-                location="NetPack Central Warehouse / Intake Counter",
-                status="PICKED_UP",
-                activity="Consignment Dropped Off at Counter by Customer (Self Drop)",
-                country="Nepal",
-                source="COUNTER_DROPOFF"
-            ))
+            is_picked_up = bool(enquiry and (enquiry.status == "PICKED_UP" or enquiry.weightProofImageUrl)) or bool(shipment)
+            if is_picked_up:
+                checkpoints.append(TrackingCheckpoint(
+                    timestamp=created_at + timedelta(minutes=30),
+                    location="NetPack Central Warehouse / Intake Counter",
+                    status="PICKED_UP",
+                    activity="Consignment Dropped Off at Counter by Customer (Self Drop)",
+                    country="Nepal",
+                    source="COUNTER_DROPOFF"
+                ))
 
         # 2. Shipment Created (After Packing & Weight/Dims verification)
         if shipment and shipment.createdAt:
@@ -655,6 +679,7 @@ class TrackingRegistry:
         # Delivered (top) -> Out for delivery -> Carrier Scanned -> Arrived at Hub -> In Transit -> Shipment Created -> Picked Up -> Enquiry Generated (bottom)
         STAGE_ORDER = {
             "ENQUIRY_GENERATED": 10,
+            "ASSIGNED_FOR_PICKUP": 12,
             "PICKED_UP": 15,
             "SHIPMENT_CREATED": 20,
             "IN_TRANSIT": 30,
@@ -675,6 +700,10 @@ class TrackingRegistry:
 
         proof_images = [u.strip() for u in (enquiry.weightProofImageUrl or "").split(",") if u.strip()] if enquiry else []
         is_weight_verified = bool(proof_images or (enquiry and (enquiry.volumetricWeight or enquiry.chargeableWeight)))
+
+        rider_staff = enquiry.pickupStaff if (enquiry and enquiry.pickupStaff) else None
+        rider_name = (rider_staff.fullName or rider_staff.username) if rider_staff else None
+        rider_phone = rider_staff.phoneNumber if rider_staff else None
 
         return {
             "found": True,
@@ -704,6 +733,10 @@ class TrackingRegistry:
             "weightProofImages": proof_images,
             "pickedUpAt": enquiry.pickedUpAt.isoformat() if (enquiry and enquiry.pickedUpAt) else None,
             "pickupNotes": enquiry.pickupNotes if enquiry else None,
+            "riderName": rider_name,
+            "riderPhone": rider_phone,
+            "pickupStaffName": rider_name,
+            "pickupStaffPhone": rider_phone,
             "boxes": [
                 {
                     "boxNumber": idx,

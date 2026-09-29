@@ -94,6 +94,9 @@ def format_pickup_item(e: Enquiry) -> Dict[str, Any]:
         "pickedUpAt": e.pickedUpAt.isoformat() if e.pickedUpAt else None,
         "pickedUpBy": e.pickedUpBy,
         "pickupStaffName": staff_name,
+        "pickupStaffPhone": e.pickupStaff.phoneNumber if e.pickupStaff else None,
+        "riderName": staff_name,
+        "riderPhone": e.pickupStaff.phoneNumber if e.pickupStaff else None,
         "pickupNotes": e.pickupNotes,
         "createdAt": e.createdAt.isoformat() if e.createdAt else None,
         "updatedAt": e.updatedAt.isoformat() if e.updatedAt else None,
@@ -128,6 +131,8 @@ def format_pickup_item(e: Enquiry) -> Dict[str, Any]:
 class PickupStatusUpdate(BaseModel):
     status: str
     riderName: Optional[str] = None
+    riderPhone: Optional[str] = None
+    riderId: Optional[int] = None
     riderNotes: Optional[str] = None
 
 
@@ -311,6 +316,18 @@ def update_pickup_status(
         raise HTTPException(status_code=404, detail="Pickup task / Enquiry not found")
 
     e.status = payload.status
+
+    if payload.riderId:
+        e.pickedUpBy = payload.riderId
+    elif requester.user_id:
+        e.pickedUpBy = requester.user_id
+
+    # If rider phone is provided and pickedUpBy is set, ensure rider phone is updated in DB
+    if payload.riderPhone and e.pickedUpBy:
+        r_user = db.query(User).filter(User.id == e.pickedUpBy).first()
+        if r_user and (not r_user.phoneNumber or payload.riderPhone != r_user.phoneNumber):
+            r_user.phoneNumber = payload.riderPhone
+
     if payload.riderNotes:
         tag = f"[Rider {payload.riderName or 'Staff'}]: {payload.riderNotes}"
         e.pickupNotes = f"{e.pickupNotes}\n{tag}".strip() if e.pickupNotes else tag

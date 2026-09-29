@@ -675,6 +675,8 @@ export default function PickupRiderPWA() {
   const handleStartRoute = async (pickup: any) => {
     try {
       const riderDisplayName = riderUser?.name || 'Field Rider'
+      const riderPhone = riderUser?.phone || ''
+      const riderId = riderUser?.id || null
       const res = await fetch(`${API_BASE}/api/pickups/${pickup.id}/status`, {
         method: 'PATCH',
         headers: {
@@ -684,6 +686,8 @@ export default function PickupRiderPWA() {
         body: JSON.stringify({
           status: 'ASSIGNED_FOR_PICKUP',
           riderName: riderDisplayName,
+          riderPhone: riderPhone,
+          riderId: riderId,
           riderNotes: `Rider ${riderDisplayName} accepted pickup and is heading to customer location.`,
         }),
       }).then((r) => r.json())

@@ -46,6 +46,7 @@ import { ReceiverSection } from './receiver-section'
 import { SenderSection } from './sender-section'
 
 interface ItemRow {
+  id?: string | number
   description: string
   weight: string
   value: string
@@ -418,6 +419,7 @@ export function EnquiryModalForm({
         const parsedItems: ItemRow[] =
           Array.isArray(data.items) && data.items.length > 0
             ? data.items.map((item: any) => ({
+                id: item.id,
                 description: item.description || '',
                 weight: item.weight?.toString() || '',
                 value: item.value?.toString() || '',
@@ -458,23 +460,35 @@ export function EnquiryModalForm({
                 // Map box.items to itemSelections using the index of the item in parsedItems
                 itemSelections: Array.isArray(box.items)
                   ? box.items.map((boxItem: any) => {
-                      // Find the index of the item in parsedItems that matches boxItem.enquiryItemId
-                      const itemId = parsedItems.findIndex(
-                        (item: any) =>
-                          item.description ===
-                            boxItem.enquiryItem?.description &&
-                          parseFloat(item.weight) ===
-                            boxItem.enquiryItem?.weight &&
-                          parseFloat(item.value) ===
-                            boxItem.enquiryItem?.value &&
-                          parseFloat(item.quantity) ===
-                            boxItem.enquiryItem?.quantity &&
-                          parseFloat(item.unitPrice) ===
-                            boxItem.enquiryItem?.unitPrice &&
-                          item.hsCode === boxItem.enquiryItem?.hsCode
-                      )
+                      // Match by item ID first
+                      let itemIdx = -1
+                      const targetId = boxItem.enquiryItemId || boxItem.enquiryItem?.id
+                      if (targetId !== undefined && targetId !== null) {
+                        itemIdx = parsedItems.findIndex(
+                          (item: any) => item.id !== undefined && String(item.id) === String(targetId)
+                        )
+                      }
+                      // Fallback: match by description and attributes
+                      if (itemIdx === -1) {
+                        itemIdx = parsedItems.findIndex(
+                          (item: any) =>
+                            item.description === boxItem.enquiryItem?.description &&
+                            parseFloat(item.weight) === boxItem.enquiryItem?.weight &&
+                            parseFloat(item.value) === boxItem.enquiryItem?.value &&
+                            parseFloat(item.quantity) === boxItem.enquiryItem?.quantity &&
+                            parseFloat(item.unitPrice) === boxItem.enquiryItem?.unitPrice &&
+                            item.hsCode === boxItem.enquiryItem?.hsCode
+                        )
+                      }
+                      // Fallback: match by numeric index if passed directly
+                      if (itemIdx === -1 && boxItem.itemId !== undefined) {
+                        const parsed = parseInt(String(boxItem.itemId))
+                        if (!isNaN(parsed) && parsed >= 0 && parsed < parsedItems.length) {
+                          itemIdx = parsed
+                        }
+                      }
                       return {
-                        itemId: itemId !== -1 ? String(itemId) : '0',
+                        itemId: itemIdx !== -1 ? String(itemIdx) : '0',
                         quantity: boxItem.quantity || 0,
                       }
                     })

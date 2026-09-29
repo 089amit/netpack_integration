@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-// import { showSubmittedData } from '@/utils/show-submitted-data'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
 import http from '@/utils/http'
 import { ENQUIRY_ENDPOINTS } from '@/constants/endpoint'
@@ -85,6 +86,8 @@ function MultiSelectCheckbox({
 }
 
 export function EnquiryMutateDrawer({ open, onOpenChange, currentRow }: Props) {
+  const queryClient = useQueryClient()
+  const [submitting, setSubmitting] = useState(false)
   const form = useForm<EnquiryForm>({
     resolver: zodResolver(formSchema),
     defaultValues: { boxes: [] },
@@ -104,6 +107,7 @@ export function EnquiryMutateDrawer({ open, onOpenChange, currentRow }: Props) {
       const enquiryId = String(currentRow.id)
       form.setValue('enquiryId', enquiryId)
 
+      // Fetch items for selection options
       http
         .get<any>(`${ENQUIRY_ENDPOINTS.GET_ENQUIRY_ITEM}/${enquiryId}`)
         .then((res) => {
@@ -114,18 +118,46 @@ export function EnquiryMutateDrawer({ open, onOpenChange, currentRow }: Props) {
           setItemOptions(options)
         })
         .catch(() => setItemOptions([]))
+
+      // Also fetch existing boxes if any
+      http
+        .get<any>(`${ENQUIRY_ENDPOINTS.GET_BY_ID_ENQUIRY}/${enquiryId}`)
+        .then((res) => {
+          if (res && Array.isArray(res.boxes) && res.boxes.length > 0) {
+            const prefilledBoxes = res.boxes.map((b: any) => ({
+              itemIds: Array.isArray(b.items)
+                ? b.items.map((bi: any) => String(bi.enquiryItemId || bi.enquiryItem?.id || bi.id)).filter(Boolean)
+                : [],
+              quantity: b.quantity || 1,
+              weight: Number(b.weight) || 0,
+              value: Number(b.value) || 0,
+            }))
+            replace(prefilledBoxes)
+          } else {
+            replace([])
+          }
+        })
+        .catch(() => {})
     } else {
       setItemOptions([])
       replace([])
     }
-  }, [open, currentRow, replace])
+  }, [open, currentRow, replace, form])
 
-  const onSubmit = (data: EnquiryForm) => {
-    console.log('Submit form data:', data)
-    http.post(ENQUIRY_ENDPOINTS.ADD_BOX_ITEM, data)
-    // TODO: API call here
-    form.reset()
-    onOpenChange(false)
+  const onSubmit = async (data: EnquiryForm) => {
+    try {
+      setSubmitting(true)
+      await http.post(ENQUIRY_ENDPOINTS.ADD_BOX_ITEM, data)
+      toast.success('Boxes and items saved successfully!')
+      queryClient.invalidateQueries({ queryKey: ['getallenquiry'] })
+      form.reset()
+      onOpenChange(false)
+    } catch (err: any) {
+      console.error('Failed to assign box items:', err)
+      toast.error(err?.response?.data?.detail || err?.message || 'Failed to save box assignments')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -263,8 +295,8 @@ export function EnquiryMutateDrawer({ open, onOpenChange, currentRow }: Props) {
           <SheetClose asChild>
             <Button variant='outline'>Close</Button>
           </SheetClose>
-          <Button form='enquiry-form' type='submit'>
-            Save changes
+          <Button form='enquiry-form' type='submit' disabled={submitting}>
+            {submitting ? 'Saving...' : 'Save changes'}
           </Button>
         </SheetFooter>
       </SheetContent>
