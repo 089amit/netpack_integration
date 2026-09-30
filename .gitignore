@@ -47,6 +47,8 @@ uploads/
 *.db
 *.sqlite
 *.sqlite3
+*.pre_migration_backup
+*.sql
 backups/
 netpack-backend-python/backups/
 

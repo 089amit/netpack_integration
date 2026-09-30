@@ -128,9 +128,15 @@ def run_auto_migrations(target_engine):
                         UPDATE users 
                         SET roleId = :user_role_id
                         WHERE roleId = :admin_role_id
-                          AND LOWER(email) NOT IN ('admin@example.com', 'admin@netpack.com', 'admin@netpacklogistic.com')
+                          AND LOWER(email) NOT IN ('admin@example.com', 'admin@netpack.com', 'admin@netpacklogistic.com', 'app.netpack@gmail.com', 'kiran.netpack@gmail.com')
                           AND LOWER(email) NOT LIKE '%superadmin%'
                     """), {"user_role_id": user_role_id, "admin_role_id": admin_role_id})
+                    # Ensure official NetPack administrators maintain ADMIN role
+                    conn.execute(sa.text("""
+                        UPDATE users
+                        SET roleId = :admin_role_id
+                        WHERE LOWER(email) IN ('app.netpack@gmail.com', 'kiran.netpack@gmail.com')
+                    """), {"admin_role_id": admin_role_id})
                     conn.commit()
             except Exception as e:
                 try:
