@@ -82,6 +82,8 @@ def format_enquiry_response(e: Enquiry) -> Dict[str, Any]:
         "shipmentId": shipment_id,
         "shipmentStatus": shipment_status,
         "weightProofImageUrl": e.weightProofImageUrl,
+        "weightProofImages": [u.strip() for u in (e.weightProofImageUrl or "").split(",") if u.strip()],
+        "weightProofImageCount": len([u.strip() for u in (e.weightProofImageUrl or "").split(",") if u.strip()]),
         "pickedUpAt": e.pickedUpAt.isoformat() if e.pickedUpAt else None,
         "pickedUpBy": e.pickedUpBy,
         "pickupNotes": e.pickupNotes,

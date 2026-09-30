@@ -188,13 +188,15 @@ export function WeighPickupModal({
       }))
       formData.append('boxesJson', JSON.stringify(boxesPayload))
 
-      // Multiple scale and box photos
+      // Send retained existing photos
+      if (existingImages.length > 0) {
+        formData.append('existingImagesJson', JSON.stringify(existingImages))
+      }
+
+      // Multiple new scale and box photos
       selectedImages.forEach((file) => {
         formData.append('scaleImages', file)
       })
-      if (selectedImages.length > 0) {
-        formData.append('scaleImage', selectedImages[0])
-      }
 
       const token = localStorage.getItem('token')
       const res = await fetch(

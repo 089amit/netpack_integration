@@ -125,24 +125,6 @@ export const ShippingLabelCard: React.FC<ShippingLabelCardProps> = ({
         year: 'numeric',
       })
 
-  // Format addresses cleanly
-  const senderAddressParts = [
-    data.sender.addressLine1,
-    data.sender.addressLine2,
-    data.sender.city,
-    data.sender.state,
-    data.sender.postcode,
-    data.sender.country || 'Nepal',
-  ].filter(Boolean)
-
-  const receiverAddressParts = [
-    data.receiver.addressLine1,
-    data.receiver.addressLine2,
-    data.receiver.city,
-    data.receiver.state,
-    data.receiver.postcode,
-  ].filter(Boolean)
-
   // Determine destination country display
   const destCountry = (data.receiver.country || 'INTERNATIONAL').toUpperCase()
 
@@ -153,14 +135,34 @@ export const ShippingLabelCard: React.FC<ShippingLabelCardProps> = ({
     ? `${parseFloat(String(data.totalWeight)).toFixed(2)} KG`
     : 'N/A'
 
-  const dimsStr =
-    box.dimensions ||
-    (box.length && box.breadth && box.height
-      ? `${box.length}×${box.breadth}×${box.height} CM`
-      : 'N/A')
+  // Format spaced tracking number for display under barcode (e.g. "Z F R J P 3 O Z Q")
+  const cleanTracking = trackingNo.replace(/\s+/g, '')
+  const spacedTracking = cleanTracking.split('').join(' ')
+
+  // Formatted consignee address lines matching mockup
+  const consigneeLine1 = data.receiver.addressLine1 || '[Street / Tole, Ward No.]'
+  const consigneeLine2 = [data.receiver.addressLine2, data.receiver.city].filter(Boolean).join(', ') || '[City, District]'
+  const stateAndPostcode = [data.receiver.state, data.receiver.postcode].filter(Boolean).join(', ')
+  const consigneeLine3 = stateAndPostcode ? `${stateAndPostcode}, ${destCountry}` : `[Province, Postal Code], ${destCountry}`
+
+  // Dimensions string (e.g. 55x35x35)
+  const dimsVal =
+    box.length && box.breadth && box.height
+      ? `${box.length}x${box.breadth}x${box.height}`
+      : box.dimensions
+      ? box.dimensions.replace(/×/g, 'x').replace(/\s*CM\s*/gi, '')
+      : '55x35x35'
+
+  // Customs value string (e.g. NVD or USD 50)
+  const customsVal = box.declaredValue
+    ? `${box.currency || data.currency || 'USD'} ${box.declaredValue}`
+    : 'NVD'
+
+  // Commodity string
+  const commodityVal = (box.commodity || data.commodity || 'COURIER CARGO').toUpperCase()
 
   // Generate SVG barcode
-  const barcodeSvgHtml = generateBarcodeSvg(trackingNo, {
+  const barcodeSvgHtml = generateBarcodeSvg(cleanTracking, {
     height: 48,
     moduleWidth: 2,
     quietZone: 8,
@@ -171,200 +173,205 @@ export const ShippingLabelCard: React.FC<ShippingLabelCardProps> = ({
 
   return (
     <div
-      className={`shipping-label-page relative bg-white text-black font-sans box-border select-none border border-black shadow-sm ${className}`}
+      className={`shipping-label-page relative bg-white text-black font-sans box-border select-none shadow-sm ${className}`}
       style={{
         width: '100mm',
         height: '150mm',
         maxWidth: '100mm',
         maxHeight: '150mm',
-        padding: '3mm',
+        padding: '2.5mm',
         transform: scale !== 1 ? `scale(${scale})` : undefined,
         transformOrigin: 'top center',
         pageBreakAfter: 'always',
         breakAfter: 'page',
       }}
     >
-      {/* Container with thin black border conforming to courier standards */}
-      <div className='w-full h-full border-[1.5px] border-black flex flex-col justify-between overflow-hidden bg-white text-[11px] leading-tight'>
+      {/* Outer border conforming to user mockup */}
+      <div className='w-full h-full border-[2px] border-black flex flex-col justify-between overflow-hidden bg-white text-[11px] leading-tight'>
         
-        {/* ================= HEADER SECTION ================= */}
-        <div className='border-b-[1.5px] border-black bg-white'>
-          {/* Top Brand & Gateway Bar */}
-          <div className='flex items-center justify-between px-2.5 py-1.5 border-b border-black'>
-            {/* Logo Section: ONLY NetPack logo */}
-            <div className='flex items-center'>
-              <img
-                src={logoTextUrl}
-                alt='NetPack Logistic'
-                className='h-7 max-w-[130px] object-contain'
-                onError={(e) => {
-                  (e.currentTarget as HTMLElement).style.display = 'none'
-                  const fallback = e.currentTarget.parentElement?.querySelector('.logo-fallback') as HTMLElement
-                  if (fallback) fallback.style.display = 'block'
-                }}
-              />
-              <span className='logo-fallback hidden font-black tracking-tight text-[15px] uppercase text-[#0c2340]'>
-                NETPACK LOGISTIC
-              </span>
-            </div>
-
-            {/* Right Meta: Box Counter, Origin & Date */}
-            <div className='text-right flex flex-col items-end gap-0.5'>
-              <span className='inline-block bg-black text-white text-[10px] font-black px-2 py-0.5 rounded-xs tracking-wider'>
-                {boxNoStr}
-              </span>
-              <div className='text-[8px] font-semibold text-gray-600'>
-                ORIGIN: <strong className='text-black'>KTM / NP</strong>
-              </div>
-              <div className='text-[7.5px] font-medium text-gray-600'>
-                DATE: <span className='font-mono font-bold text-black'>{formattedDate}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* PRIMARY BARCODE (Code 128) */}
-          <div className='px-2 py-1.5 flex flex-col items-center justify-center bg-white'>
-            <div
-              className='w-full flex justify-center [&>svg]:w-full [&>svg]:max-w-[88mm] [&>svg]:h-[11mm]'
-              dangerouslySetInnerHTML={{ __html: barcodeSvgHtml }}
+        {/* ================= 1. HEADER SECTION ================= */}
+        <div className='flex items-center justify-between px-3 py-2 border-b-[2px] border-black bg-white'>
+          {/* Left: Netpack Logo */}
+          <div className='flex items-center'>
+            <img
+              src={logoTextUrl}
+              alt='NETPACK'
+              className='h-8 max-w-[135px] object-contain'
+              onError={(e) => {
+                (e.currentTarget as HTMLElement).style.display = 'none'
+                const fallback = e.currentTarget.parentElement?.querySelector('.logo-fallback') as HTMLElement
+                if (fallback) fallback.style.display = 'block'
+              }}
             />
-            <div className='font-mono font-black text-[12px] tracking-[2.5px] mt-0.5 text-black text-center'>
-              {trackingNo}
+            <span className='logo-fallback hidden font-black tracking-wider text-[22px] uppercase text-[#1B365D] font-serif'>
+              NETPACK
+            </span>
+          </div>
+
+          {/* Right: Box Count, Origin, Date */}
+          <div className='text-right flex flex-col items-end'>
+            <div className='bg-black text-white text-[11px] font-black px-2.5 py-0.5 tracking-wider uppercase mb-0.5'>
+              {boxNoStr}
+            </div>
+            <div className='text-[8.5px] font-semibold text-gray-700 tracking-wide'>
+              ORIGIN: <strong className='text-black font-bold'>KTM / NP</strong>
+            </div>
+            <div className='text-[8px] font-semibold text-gray-700 tracking-wide'>
+              DATE: <span className='font-mono font-bold text-black'>{formattedDate}</span>
             </div>
           </div>
         </div>
 
-        {/* ================= ADDRESSES SECTION ================= */}
-        <div className='flex-1 border-b-[1.5px] border-black flex flex-col'>
-          {/* SHIP FROM (Shipper / Origin) - Compact */}
-          <div className='px-2 py-1 border-b border-gray-400 bg-gray-50/50'>
-            <div className='flex items-center justify-between text-[8px] font-black text-gray-500 uppercase tracking-wider mb-0.5'>
-              <span>SHIP FROM (SENDER):</span>
-              <span className='font-mono font-semibold text-gray-600'>TEL: {data.sender.phone || 'N/A'}</span>
+        {/* ================= 2. BARCODE SECTION ================= */}
+        <div className='border-b-[2px] border-black py-2 px-3 flex flex-col items-center justify-center bg-white'>
+          <div
+            className='w-full flex justify-center [&>svg]:w-full [&>svg]:max-w-[90mm] [&>svg]:h-[13mm]'
+            dangerouslySetInnerHTML={{ __html: barcodeSvgHtml }}
+          />
+          <div className='font-mono font-bold text-[13px] tracking-[4px] mt-1 text-black text-center uppercase'>
+            {spacedTracking}
+          </div>
+        </div>
+
+        {/* ================= 3. SHIP FROM (SENDER) ================= */}
+        <div className='border-b-[2px] border-black px-3 py-1.5 bg-[#f5f5f5]'>
+          <div className='flex items-center justify-between text-[9px] font-bold text-gray-700 uppercase tracking-wider'>
+            <span>SHIP FROM (SENDER):</span>
+            <span className='font-mono font-bold text-black'>
+              TEL: {data.sender.phone || '015339942'}
+            </span>
+          </div>
+          <div className='font-black text-[15px] text-black tracking-tight mt-0.5 uppercase truncate'>
+            {data.sender.company || data.sender.name || 'DANFE LOGISTICS'}
+          </div>
+        </div>
+
+        {/* ================= 4. SHIP TO (CONSIGNEE) ================= */}
+        <div className='border-b-[2px] border-black px-3 py-1.5 flex flex-col justify-between flex-1 bg-white'>
+          {/* Header Row: Red SHIP TO + Black Country Badge */}
+          <div className='flex items-center justify-between'>
+            <div className='text-[10px] font-black text-[#D32F2F] uppercase tracking-wider'>
+              SHIP TO (CONSIGNEE):
             </div>
-            <div className='font-bold text-[10px] text-gray-900 truncate'>
-              {data.sender.name || 'NetPack Logistic Shipper'}
-            </div>
-            <div className='text-[8.5px] text-gray-700 line-clamp-2 leading-tight'>
-              {senderAddressParts.join(', ')}
+            <div className='bg-black text-white text-[12px] font-black px-3 py-0.5 tracking-wider uppercase'>
+              {destCountry}
             </div>
           </div>
 
-          {/* SHIP TO (Consignee / Destination - HERO PROMINENT SECTION) */}
-          <div className='flex-1 px-2.5 py-1.5 flex flex-col justify-between bg-white'>
-            {/* Destination Country Banner */}
-            <div className='flex items-center justify-between border-b-[1.5px] border-black pb-1 mb-1'>
-              <div className='text-[8.5px] font-black text-red-600 uppercase tracking-widest flex items-center gap-1'>
-                <span className='inline-block w-1.5 h-1.5 bg-red-600 rounded-full' />
-                SHIP TO (CONSIGNEE)
+          {/* Consignee Name */}
+          <div className='font-black text-[17px] text-black leading-tight tracking-tight mt-0.5 uppercase'>
+            {data.receiver.name || 'Dinesh Basnet'}
+          </div>
+
+          {/* Consignee Structured Address Lines */}
+          <div className='text-[10px] text-black font-semibold leading-tight my-1 space-y-0.5'>
+            <div>{consigneeLine1}</div>
+            <div>{consigneeLine2}</div>
+            <div>{consigneeLine3}</div>
+          </div>
+
+          {/* Bottom Dest, Tel & Email */}
+          <div className='border-t border-black/40 pt-1'>
+            <div className='flex items-center justify-between text-[10.5px] font-bold text-black'>
+              <div>
+                DEST: <span className='font-black uppercase'>{destCountry}</span>
               </div>
-              <div className='bg-black text-white font-black text-[13px] px-2.5 py-0.5 tracking-wider uppercase rounded-xs'>
-                {destCountry}
+              <div>
+                TEL: <span className='font-mono font-bold'>{data.receiver.phone || '+61 425 625 963'}</span>
               </div>
             </div>
-
-            {/* Consignee Name - Largest address text */}
-            <div className='font-black text-[13px] leading-tight text-black tracking-tight uppercase line-clamp-1'>
-              {data.receiver.name || 'CONSIGNEE NAME'}
-            </div>
-
-            {/* Consignee Full Address */}
-            <div className='font-semibold text-[10px] text-gray-800 line-clamp-3 leading-snug my-0.5'>
-              {receiverAddressParts.join(', ')}
-            </div>
-
-            {/* Destination Country Full Line & Phone */}
-            <div className='pt-1 border-t border-dashed border-gray-300 flex items-center justify-between text-[9.5px]'>
-              <div className='font-black text-black uppercase tracking-wide'>
-                DESTINATION: <span className='underline font-black'>{destCountry}</span>
-              </div>
-              <div className='font-bold font-mono text-black'>
-                TEL: <span className='font-black'>{data.receiver.phone || 'N/A'}</span>
-              </div>
+            <div className='text-[10px] font-bold text-black mt-0.5 truncate'>
+              EMAIL: <span className='font-mono font-semibold'>{data.receiver.email || '[consignee email]'}</span>
             </div>
           </div>
         </div>
 
-        {/* ================= SPECIFICATIONS & CUSTOMS GRID ================= */}
-        <div className='border-b-[1.5px] border-black bg-white'>
-          <div className='grid grid-cols-4 divide-x divide-black text-center border-b border-black text-[8px] font-bold'>
-            <div className='p-1'>
-              <span className='text-gray-500 block uppercase text-[7px]'>ACTUAL WT</span>
-              <span className='font-black text-[10px] font-mono'>{actualWt}</span>
+        {/* ================= 5. 4-COLUMN SPECS GRID ================= */}
+        <div className='border-b-[2px] border-black bg-white'>
+          <div className='grid grid-cols-4 divide-x-[2px] divide-black text-center'>
+            <div className='py-1.5 px-0.5'>
+              <div className='text-[7.5px] font-bold text-gray-600 uppercase tracking-tight'>ACTUAL WT</div>
+              <div className='font-black text-[12px] font-mono mt-0.5'>{actualWt}</div>
             </div>
-            <div className='p-1'>
-              <span className='text-gray-500 block uppercase text-[7px]'>DIMENSIONS</span>
-              <span className='font-bold text-[8.5px] font-mono truncate block'>{dimsStr}</span>
+            <div className='py-1.5 px-0.5'>
+              <div className='text-[7.5px] font-bold text-gray-600 uppercase tracking-tight'>DIMS (CM)</div>
+              <div className='font-black text-[11px] font-mono mt-0.5 truncate'>{dimsVal}</div>
             </div>
-            <div className='p-1'>
-              <span className='text-gray-500 block uppercase text-[7px]'>COMMODITY</span>
-              <span className='font-bold text-[8.5px] truncate block uppercase'>
-                {box.commodity || data.commodity || 'COURIER CARGO'}
-              </span>
+            <div className='py-1.5 px-0.5'>
+              <div className='text-[7.5px] font-bold text-gray-600 uppercase tracking-tight'>COMMODITY</div>
+              <div className='font-bold text-[9.5px] mt-0.5 truncate uppercase'>{commodityVal}</div>
             </div>
-            <div className='p-1 bg-gray-50'>
-              <span className='text-gray-500 block uppercase text-[7px]'>CUSTOMS VAL</span>
-              <span className='font-black text-[9.5px] font-mono'>
-                {box.declaredValue ? `${box.currency || data.currency || 'USD'} ${box.declaredValue}` : 'NVD'}
-              </span>
+            <div className='py-1.5 px-0.5'>
+              <div className='text-[7.5px] font-bold text-gray-600 uppercase tracking-tight'>CUSTOMS VAL</div>
+              <div className='font-black text-[12px] font-mono mt-0.5'>{customsVal}</div>
             </div>
           </div>
         </div>
 
-        {/* ================= ROUTING & 2D QR VERIFICATION SECTION ================= */}
-        <div className='p-1.5 flex items-center justify-between gap-2 bg-white border-b border-black'>
-          {/* 2D QR Code */}
-          <div className='flex items-center gap-1.5 flex-shrink-0'>
+        {/* ================= 6. SCAN & COMPLIANCE BOX ================= */}
+        <div className='p-2 flex items-center justify-between gap-3 bg-white border-b-[2px] border-black'>
+          {/* QR Code + SCAN TO TRACK */}
+          <div className='flex items-center gap-2'>
             {qrCodeDataUrl ? (
               <img
                 src={qrCodeDataUrl}
-                alt='Live Track QR'
-                className='w-[16mm] h-[16mm] border border-gray-400 p-0.5 object-contain'
+                alt='Scan Track'
+                className='w-[15mm] h-[15mm] object-contain shrink-0'
               />
             ) : (
-              <div className='w-[16mm] h-[16mm] border border-gray-400 flex items-center justify-center text-[7px] text-gray-400'>
-                QR CODE
+              <div className='w-[15mm] h-[15mm] border border-black flex items-center justify-center text-[7px]'>
+                QR
               </div>
             )}
-            <div className='flex flex-col text-[7px] font-bold text-gray-600 leading-tight'>
-              <span className='text-black font-black uppercase text-[7.5px]'>SCAN TO TRACK</span>
-              <span>LIVE CARGO STATUS</span>
-              <span className='text-gray-400 font-mono'>PWA / MOBILE</span>
+            <div className='font-black text-[12px] text-black tracking-wide leading-tight uppercase'>
+              SCAN TO TRACK
             </div>
           </div>
 
-          {/* Security & Aviation Compliance Badges */}
-          <div className='flex-1 flex flex-col justify-center gap-1 text-[7.5px] font-bold'>
-            <div className='border border-black px-1.5 py-0.5 rounded-xs flex items-center justify-between bg-gray-50'>
-              <span className='text-gray-700'>SECURITY SCREENING:</span>
-              <span className='font-black text-black uppercase'>SPX / CLEARED</span>
+          {/* Security Compliance Badges */}
+          <div className='flex flex-col gap-1.5 flex-1 max-w-[50mm]'>
+            <div className='border-[1.5px] border-black py-1 px-1.5 text-center font-black text-[8px] tracking-wider uppercase text-black'>
+              SECURITY SCREENED - SPX
             </div>
-            <div className='border border-black px-1.5 py-0.5 rounded-xs flex items-center justify-between'>
-              <span className='text-gray-700'>CARGO TYPE:</span>
-              <span className='font-black text-black uppercase'>GEN / NON-DG</span>
+            <div className='border-[1.5px] border-black py-1 px-1.5 text-center font-black text-[7.5px] tracking-wider uppercase text-black'>
+              NON-DG / PASSENGER & CARGO
             </div>
           </div>
         </div>
 
-        {/* ================= HAZARD & HANDLING BANNER ================= */}
-        <div className='bg-black text-white px-2 py-1 flex items-center justify-between text-[9px] font-black tracking-wider uppercase'>
-          <div className='flex items-center gap-1'>
-            <span>▲</span>
-            <span>HANDLE WITH CARE</span>
+        {/* ================= 7. SOLID BLACK HANDLING BAR ================= */}
+        <div className='bg-black text-white px-2.5 py-1.5 flex items-center justify-between'>
+          {/* THIS SIDE UP with Double Up Arrows */}
+          <div className='flex items-center gap-1.5'>
+            <svg className='w-5 h-5 text-white fill-current shrink-0' viewBox='0 0 24 24'>
+              <path d='M4 11l4-5 4 5H9v7H7v-7H4zm10 0l4-5 4 5h-3v7h-2v-7h-3z' />
+            </svg>
+            <span className='font-black text-[9px] tracking-wider leading-tight text-white uppercase text-left'>
+              THIS SIDE<br />UP
+            </span>
           </div>
-          <div className='text-[8px] font-bold tracking-normal text-yellow-300'>
-            FRAGILE • KEEP DRY • THIS WAY UP ↑↑
+
+          {/* Vertical white divider */}
+          <div className='h-6 w-[1.5px] bg-white/70 mx-1' />
+
+          {/* FRAGILE in vibrant yellow/gold */}
+          <div className='font-black text-[14px] tracking-[2px] text-[#FFD700] uppercase text-center flex-1'>
+            FRAGILE
           </div>
-          <div className='flex items-center gap-1'>
-            <span>▲</span>
+
+          {/* Vertical white divider */}
+          <div className='h-6 w-[1.5px] bg-white/70 mx-1' />
+
+          {/* HANDLE WITH CARE */}
+          <div className='font-black text-[9px] tracking-wider leading-tight text-white uppercase text-right'>
+            HANDLE<br />WITH CARE
           </div>
         </div>
 
-        {/* ================= FOOTER ================= */}
-        <div className='px-2 py-0.5 bg-gray-100 flex items-center justify-between text-[7px] font-semibold text-gray-600'>
-          <span>NETPACK LOGISTIC GATEWAY • KATHMANDU</span>
-          <span className='font-mono'>TEL: +977-1-5339942</span>
-          <span>WWW.NETPACKLOGISTIC.COM</span>
+        {/* ================= 8. FOOTER ================= */}
+        <div className='py-1 px-2 text-center text-[7px] text-black font-semibold leading-tight bg-white'>
+          <div>NETPACK LOGISTIC | TEL: +977-1-5339942 | KATHMANDU, NEPAL</div>
+          <div className='text-gray-700'>www.netpacklogistic.com | admin@netpacklogistic.com</div>
         </div>
 
       </div>

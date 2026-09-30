@@ -12,7 +12,7 @@ from sqlalchemy import func
 
 import config
 from database import get_db
-from models.enquiry import Enquiry, Box, PickupLocationEnquiry
+from models.enquiry import Enquiry, Box, BoxItem, PickupLocationEnquiry
 from models.shipment import Shipment, TrackingEvent
 from models.user import User, Role
 from schemas.auth import RiderLoginRequest, TokenValidationRequest
@@ -36,15 +36,24 @@ def format_pickup_item(e: Enquiry) -> Dict[str, Any]:
     shipment = e.shipments[0] if e.shipments else None
     staff_name = e.pickupStaff.fullName if e.pickupStaff else (e.pickupStaff.email if e.pickupStaff else None)
 
-    # Compile sender address string
-    address_parts = [
+    # Compile sender address string with all available components
+    sender_parts = [
         e.senderAddressLine1,
         e.senderAddressLine2,
-        e.senderCity,
         e.senderLocation,
-        e.senderPostcode
+        e.senderCity,
+        getattr(e, 'senderState', None),
+        e.senderCountry,
+        e.senderPostcode or e.senderPostcodeCity
     ]
-    sender_address_full = ", ".join([p for p in address_parts if p])
+    cleaned_sender_parts = []
+    seen = set()
+    for sp in sender_parts:
+        if sp and str(sp).strip() and str(sp).strip().lower() not in seen:
+            seen.add(str(sp).strip().lower())
+            cleaned_sender_parts.append(str(sp).strip())
+
+    sender_address_full = ", ".join(cleaned_sender_parts)
 
     commodity = None
     if getattr(e, "items", None) and len(e.items) > 0:
@@ -56,13 +65,20 @@ def format_pickup_item(e: Enquiry) -> Dict[str, Any]:
     pickup_phone_override = None
     preferred_time = None
     if getattr(e, "pickupLocations", None) and len(e.pickupLocations) > 0:
-        pl = e.pickupLocations[0]
-        if pl.location:
-            pickup_address_override = pl.location
-        if pl.phoneNumber:
-            pickup_phone_override = pl.phoneNumber
-        if pl.note:
-            preferred_time = pl.note
+        for pl in e.pickupLocations:
+            if pl.location and pl.location.strip():
+                pickup_address_override = pl.location.strip()
+            if pl.phoneNumber and pl.phoneNumber.strip():
+                pickup_phone_override = pl.phoneNumber.strip()
+            if pl.note and pl.note.strip():
+                preferred_time = pl.note.strip()
+            if pickup_address_override:
+                break
+
+    # If specific pickup location not given, fallback to full combined sender address details
+    resolved_pickup_address = pickup_address_override or sender_address_full or "Kathmandu, Nepal"
+
+    proof_images = [u.strip() for u in (e.weightProofImageUrl or "").split(",") if u.strip()]
 
     return {
         "id": e.id,
@@ -74,9 +90,14 @@ def format_pickup_item(e: Enquiry) -> Dict[str, Any]:
         "senderName": e.senderName or (e.customer.name if e.customer else "Sender"),
         "senderPhone": e.senderPhone or (e.customer.phone if e.customer else None),
         "senderEmail": e.senderEmail or (e.customer.email if e.customer else None),
-        "senderAddress": sender_address_full or "Address upon request",
+        "senderAddress": sender_address_full or "Kathmandu, Nepal",
+        "senderAddressLine1": e.senderAddressLine1,
+        "senderAddressLine2": e.senderAddressLine2,
+        "senderLocation": e.senderLocation,
         "senderCity": e.senderCity or e.senderLocation,
-        "pickupAddress": pickup_address_override or sender_address_full or "Address upon request",
+        "senderCountry": e.senderCountry,
+        "senderPostcode": e.senderPostcode or e.senderPostcodeCity,
+        "pickupAddress": resolved_pickup_address,
         "pickupPhone": pickup_phone_override or e.senderPhone or (e.customer.phone if e.customer else None),
         "preferredTime": preferred_time,
         "commodity": commodity or "General Consignment",
@@ -84,13 +105,19 @@ def format_pickup_item(e: Enquiry) -> Dict[str, Any]:
         "receiverName": e.receiverName,
         "receiverPhone": e.receiverTelephone,
         "receiverCountry": e.receiverCountry or (e.country.name if e.country else None),
-        "receiverCity": e.receiverCity,
+        "receiverCity": e.receiverCity or e.receiverLocation,
+        "receiverAddressLine1": e.receiverAddressLine1,
+        "receiverAddressLine2": e.receiverAddressLine2,
+        "receiverPostcode": e.receiverPostcode or e.receiverPostcodeCity,
+        "receiverEmail": e.receiverEmail,
         "noOfBox": e.noOfBox or (len(e.boxes) if e.boxes else 1),
         "weight": e.weight,
         "volumetricWeight": e.volumetricWeight,
         "chargeableWeight": e.chargeableWeight,
-        "weightProofImageUrl": ([u.strip() for u in (e.weightProofImageUrl or "").split(",") if u.strip()] or [None])[0],
-        "weightProofImages": [u.strip() for u in (e.weightProofImageUrl or "").split(",") if u.strip()],
+        "weightProofImageUrl": proof_images[0] if proof_images else None,
+        "weightProofImages": proof_images,
+        "weightProofImageCount": len(proof_images),
+        "rawWeightProofImageUrl": e.weightProofImageUrl,
         "pickedUpAt": e.pickedUpAt.isoformat() if e.pickedUpAt else None,
         "pickedUpBy": e.pickedUpBy,
         "pickupStaffName": staff_name,
@@ -467,14 +494,15 @@ async def pickup_and_weigh(
     actualWeight: float = Form(...),
     boxesJson: Optional[str] = Form(None),
     pickupNotes: Optional[str] = Form(None),
+    existingImagesJson: Optional[str] = Form(None),
     scaleImage: Optional[UploadFile] = File(None),
     scaleImages: Optional[List[UploadFile]] = File(None),
     db: Session = Depends(get_db)
 ):
     """
     Marks an enquiry as PICKED_UP, records actual warehouse weight,
-    updates box dimensions, uploads weighing scale and box proof photos,
-    and creates a TrackingEvent milestone.
+    updates box dimensions in place (preserving referential integrity with BoxItems),
+    uploads weighing scale and box proof photos, and creates a TrackingEvent milestone.
     """
     e = db.query(Enquiry).filter(Enquiry.id == id).first()
     if not e:
@@ -482,16 +510,25 @@ async def pickup_and_weigh(
 
     # 1. Handle scale & box proof image upload(s)
     saved_urls = []
-    if e.weightProofImageUrl:
+    if existingImagesJson:
+        try:
+            parsed_existing = json.loads(existingImagesJson)
+            if isinstance(parsed_existing, list):
+                saved_urls.extend([str(u).strip() for u in parsed_existing if u and str(u).strip()])
+        except Exception:
+            pass
+    elif e.weightProofImageUrl:
         saved_urls.extend([u.strip() for u in e.weightProofImageUrl.split(",") if u.strip()])
 
     all_upload_files: List[UploadFile] = []
     if scaleImages:
         for f in scaleImages:
-            if f and f.filename:
+            if f and f.filename and f.filename != "null":
                 all_upload_files.append(f)
-    if scaleImage and scaleImage.filename:
-        all_upload_files.append(scaleImage)
+    if scaleImage and scaleImage.filename and scaleImage.filename != "null":
+        # Only add if not already in all_upload_files (e.g. weigh modal sends both)
+        if not any(f.filename == scaleImage.filename for f in all_upload_files):
+            all_upload_files.append(scaleImage)
 
     for idx, img_file in enumerate(all_upload_files):
         ext = os.path.splitext(img_file.filename)[1].lower()
@@ -516,7 +553,7 @@ async def pickup_and_weigh(
 
     scale_image_urls_str = ",".join(deduped_urls) if deduped_urls else None
 
-    # 2. Parse & Update Boxes and compute Volumetric Weight
+    # 2. Parse & Update Boxes in-place and compute Volumetric Weight
     total_volumetric_weight = 0.0
     parsed_boxes = []
     if boxesJson:
@@ -525,10 +562,10 @@ async def pickup_and_weigh(
         except Exception:
             parsed_boxes = []
 
+    existing_boxes = db.query(Box).filter(Box.enquiryId == e.id).order_by(Box.id).all()
+
     if parsed_boxes:
-        # Clear existing boxes if replacing with new verified box details
-        db.query(Box).filter(Box.enquiryId == e.id).delete()
-        for idx, b_data in enumerate(parsed_boxes, 1):
+        for idx, b_data in enumerate(parsed_boxes):
             length = float(b_data.get("length") or 0.0)
             breadth = float(b_data.get("breadth") or b_data.get("width") or 0.0)
             height = float(b_data.get("height") or 0.0)
@@ -540,24 +577,46 @@ async def pickup_and_weigh(
             vol_wt = ((length * breadth * height) / 5000.0) * qty * multiplier
             total_volumetric_weight += vol_wt
 
-            box_rec = Box(
-                enquiryId=e.id,
-                trackingNumber=b_data.get("trackingNumber") or f"{e.trackingNumber}-{idx}",
-                weight=box_weight,
-                dimensions=f"{length}x{breadth}x{height}",
-                length=length,
-                breadth=breadth,
-                height=height,
-                multiplier=multiplier,
-                quantity=qty
-            )
-            db.add(box_rec)
+            box_trk = b_data.get("trackingNumber") or f"{e.trackingNumber or 'BOX'}-{idx + 1}"
+
+            if idx < len(existing_boxes):
+                # Update existing box in-place so BoxItem foreign keys are NEVER broken
+                box_rec = existing_boxes[idx]
+                box_rec.trackingNumber = box_trk
+                box_rec.weight = box_weight
+                box_rec.dimensions = f"{length}x{breadth}x{height}"
+                box_rec.length = length
+                box_rec.breadth = breadth
+                box_rec.height = height
+                box_rec.multiplier = multiplier
+                box_rec.quantity = qty
+            else:
+                # Add new additional box
+                box_rec = Box(
+                    enquiryId=e.id,
+                    trackingNumber=box_trk,
+                    weight=box_weight,
+                    dimensions=f"{length}x{breadth}x{height}",
+                    length=length,
+                    breadth=breadth,
+                    height=height,
+                    multiplier=multiplier,
+                    quantity=qty
+                )
+                db.add(box_rec)
+
+        # If box count decreased, reassign any box_items to existing_boxes[0] before removing extra boxes
+        if len(parsed_boxes) < len(existing_boxes) and len(existing_boxes) > 0:
+            primary_box_id = existing_boxes[0].id
+            for extra_box in existing_boxes[len(parsed_boxes):]:
+                db.query(BoxItem).filter(BoxItem.boxId == extra_box.id).update({"boxId": primary_box_id})
+                db.delete(extra_box)
 
         e.noOfBox = len(parsed_boxes)
     else:
         # Use existing boxes or default 1 box
-        if e.boxes:
-            for b in e.boxes:
+        if existing_boxes:
+            for b in existing_boxes:
                 vol_wt = (((b.length or 0) * (b.breadth or 0) * (b.height or 0)) / 5000.0) * (b.quantity or 1)
                 total_volumetric_weight += vol_wt
         else:

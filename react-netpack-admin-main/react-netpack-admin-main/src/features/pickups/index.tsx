@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Camera,
   ChevronRight,
+  ChevronLeft,
   Eye,
   LayoutGrid,
   List,
@@ -42,6 +43,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -73,7 +75,32 @@ export default function PickupsDashboard() {
   const [isWeighModalOpen, setIsWeighModalOpen] = useState<boolean>(false)
   const [trackingDialogOpen, setTrackingDialogOpen] = useState<boolean>(false)
   const [trackingItem, setTrackingItem] = useState<any>(null)
-  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null)
+  const [galleryPhotos, setGalleryPhotos] = useState<string[]>([])
+  const [galleryIndex, setGalleryIndex] = useState<number>(0)
+  const [galleryTitle, setGalleryTitle] = useState<string>('')
+
+  // Helper to extract clean array of all photo URLs
+  const getPickupPhotos = (pickup: any): string[] => {
+    if (Array.isArray(pickup?.weightProofImages) && pickup.weightProofImages.length > 0) {
+      return pickup.weightProofImages.filter(Boolean)
+    }
+    if (typeof pickup?.weightProofImageUrl === 'string' && pickup.weightProofImageUrl.trim()) {
+      return pickup.weightProofImageUrl
+        .split(',')
+        .map((u: string) => u.trim())
+        .filter(Boolean)
+    }
+    return []
+  }
+
+  const handleOpenPhotoGallery = (pickup: any) => {
+    const photos = getPickupPhotos(pickup)
+    if (photos.length > 0) {
+      setGalleryPhotos(photos)
+      setGalleryIndex(0)
+      setGalleryTitle(`${pickup.trackingNumber || 'Consignment'} - Scale & Box Proof Photos`)
+    }
+  }
 
   const fetchPickupsData = async () => {
     setLoading(true)
@@ -445,38 +472,53 @@ export default function PickupsDashboard() {
                       )}
                     </div>
 
-                    {/* Weighing Scale Proof Photo Preview */}
-                    {pickup.weightProofImageUrl ? (
-                      <div className='flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-50/30 p-2 dark:bg-emerald-950/20'>
-                        <button
-                          type='button'
-                          onClick={() => setPreviewPhotoUrl(pickup.weightProofImageUrl)}
-                          className='relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-emerald-300 shadow-xs group cursor-pointer'
-                        >
-                          <img
-                            src={pickup.weightProofImageUrl}
-                            alt='Scale Proof'
-                            className='h-full w-full object-cover transition-transform group-hover:scale-105'
-                          />
-                          <div className='absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white'>
-                            <Eye className='h-3.5 w-3.5' />
-                          </div>
-                        </button>
-                        <div className='flex-1 text-[11px] overflow-hidden'>
-                          <div className='font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1'>
-                            <Camera className='h-3.5 w-3.5' />
-                            <span>Scale Proof Verified</span>
-                          </div>
+                    {/* Weighing Scale Proof Photos Preview */}
+                    {(() => {
+                      const photos = getPickupPhotos(pickup)
+                      if (photos.length === 0) return null
+                      const firstPhoto = photos[0]
+                      const totalCount = photos.length
+
+                      return (
+                        <div className='flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-50/40 p-2 dark:bg-emerald-950/20'>
                           <button
                             type='button'
-                            onClick={() => setPreviewPhotoUrl(pickup.weightProofImageUrl)}
-                            className='text-primary hover:underline font-medium text-[11px]'
+                            onClick={() => handleOpenPhotoGallery(pickup)}
+                            className='relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-emerald-300 shadow-xs group cursor-pointer'
                           >
-                            Click to view full photo
+                            <img
+                              src={firstPhoto}
+                              alt='Scale Proof'
+                              className='h-full w-full object-cover transition-transform group-hover:scale-105'
+                            />
+                            {totalCount > 1 && (
+                              <div className='absolute bottom-0 right-0 bg-black/80 text-white font-mono text-[9px] font-bold px-1 rounded-tl-xs'>
+                                +{totalCount - 1}
+                              </div>
+                            )}
+                            <div className='absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white'>
+                              <Eye className='h-3.5 w-3.5' />
+                            </div>
                           </button>
+                          <div className='flex-1 text-[11px] overflow-hidden'>
+                            <div className='font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5'>
+                              <Camera className='h-3.5 w-3.5 shrink-0' />
+                              <span>Scale Proof Verified</span>
+                              <Badge className='ml-auto bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 text-[10px] px-1.5 py-0 font-bold border-none'>
+                                {totalCount} {totalCount === 1 ? 'Photo' : 'Photos'}
+                              </Badge>
+                            </div>
+                            <button
+                              type='button'
+                              onClick={() => handleOpenPhotoGallery(pickup)}
+                              className='text-primary hover:underline font-medium text-[11px] mt-0.5'
+                            >
+                              Click to view all {totalCount} {totalCount === 1 ? 'photo' : 'photos'}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ) : null}
+                      )
+                    })()}
                   </CardContent>
 
                   <CardFooter className='flex gap-2 p-4 pt-1 border-t bg-muted/10'>
@@ -591,21 +633,39 @@ export default function PickupsDashboard() {
                         {pickup.weight ? `${pickup.weight} kg` : '-'}
                       </TableCell>
                       <TableCell>
-                        {pickup.weightProofImageUrl ? (
-                          <button
-                            type='button'
-                            onClick={() => setPreviewPhotoUrl(pickup.weightProofImageUrl)}
-                            className='relative h-9 w-9 rounded-md border overflow-hidden cursor-pointer hover:opacity-80'
-                          >
-                            <img
-                              src={pickup.weightProofImageUrl}
-                              alt='Proof'
-                              className='h-full w-full object-cover'
-                            />
-                          </button>
-                        ) : (
-                          <span className='text-[11px] text-muted-foreground'>None</span>
-                        )}
+                        {(() => {
+                          const photos = getPickupPhotos(pickup)
+                          if (photos.length === 0) {
+                            return <span className='text-[11px] text-muted-foreground'>None</span>
+                          }
+                          const firstPhoto = photos[0]
+                          const totalCount = photos.length
+                          return (
+                            <button
+                              type='button'
+                              onClick={() => handleOpenPhotoGallery(pickup)}
+                              className='relative group flex items-center gap-1.5 cursor-pointer text-left'
+                              title={`View all ${totalCount} scale proof photos`}
+                            >
+                              <div className='relative h-9 w-9 rounded-md border border-emerald-400/60 overflow-hidden shrink-0 shadow-xs'>
+                                <img
+                                  src={firstPhoto}
+                                  alt='Proof'
+                                  className='h-full w-full object-cover transition-transform group-hover:scale-105'
+                                />
+                                {totalCount > 1 && (
+                                  <div className='absolute bottom-0 right-0 bg-black/80 text-white font-mono text-[8px] font-bold px-0.5 rounded-tl-xs'>
+                                    +{totalCount - 1}
+                                  </div>
+                                )}
+                              </div>
+                              <span className='inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-500/20'>
+                                <Camera className='h-3 w-3' />
+                                <span>{totalCount}</span>
+                              </span>
+                            </button>
+                          )
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Badge className={badgeCfg.cls}>
@@ -666,27 +726,86 @@ export default function PickupsDashboard() {
         />
       )}
 
-      {/* Lightbox / Zoom Dialog for Weighing Scale Proof Photo */}
+      {/* Multi-Photo Lightbox / Gallery Dialog */}
       <Dialog
-        open={!!previewPhotoUrl}
-        onOpenChange={(open) => !open && setPreviewPhotoUrl(null)}
+        open={galleryPhotos.length > 0}
+        onOpenChange={(open) => !open && setGalleryPhotos([])}
       >
-        <DialogContent className='max-w-3xl overflow-hidden p-2 sm:rounded-xl'>
-          <DialogHeader className='p-2 pb-0'>
-            <DialogTitle className='text-sm font-bold flex items-center gap-1.5'>
-              <Camera className='h-4 w-4 text-primary' />
-              Weighing Scale Proof Photo (Verified at Warehouse)
-            </DialogTitle>
+        <DialogContent className='max-w-4xl overflow-hidden p-3 sm:rounded-2xl bg-card border-border'>
+          <DialogHeader className='p-2 pb-0 flex flex-row items-center justify-between'>
+            <div>
+              <DialogTitle className='text-sm font-bold flex items-center gap-1.5'>
+                <Camera className='h-4 w-4 text-primary' />
+                <span>{galleryTitle || 'Weighing Scale & Box Proof Photos'}</span>
+              </DialogTitle>
+              <DialogDescription className='text-xs text-muted-foreground'>
+                Photo {galleryIndex + 1} of {galleryPhotos.length} captured during pickup verification
+              </DialogDescription>
+            </div>
+            <Badge className='bg-primary/10 text-primary border-primary/30 text-xs font-mono font-bold px-2 py-0.5'>
+              {galleryPhotos.length} Total {galleryPhotos.length === 1 ? 'Photo' : 'Photos'}
+            </Badge>
           </DialogHeader>
-          <div className='flex max-h-[75vh] items-center justify-center overflow-auto rounded-lg bg-black/90 p-1'>
-            {previewPhotoUrl && (
+
+          {/* Main Full-Size Image Preview */}
+          <div className='relative flex max-h-[70vh] min-h-[300px] items-center justify-center overflow-hidden rounded-xl bg-black/95 p-2 my-2'>
+            {galleryPhotos[galleryIndex] && (
               <img
-                src={previewPhotoUrl}
-                alt='Weighing Scale Proof Full'
-                className='max-h-[70vh] w-auto object-contain'
+                src={galleryPhotos[galleryIndex]}
+                alt={`Proof photo ${galleryIndex + 1}`}
+                className='max-h-[66vh] w-auto max-w-full object-contain rounded'
               />
             )}
+
+            {/* Previous Photo Button */}
+            {galleryPhotos.length > 1 && (
+              <Button
+                type='button'
+                variant='secondary'
+                size='icon'
+                onClick={() => setGalleryIndex((prev) => (prev > 0 ? prev - 1 : galleryPhotos.length - 1))}
+                className='absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20'
+              >
+                <ChevronLeft className='h-6 w-6' />
+              </Button>
+            )}
+
+            {/* Next Photo Button */}
+            {galleryPhotos.length > 1 && (
+              <Button
+                type='button'
+                variant='secondary'
+                size='icon'
+                onClick={() => setGalleryIndex((prev) => (prev < galleryPhotos.length - 1 ? prev + 1 : 0))}
+                className='absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20'
+              >
+                <ChevronRight className='h-6 w-6' />
+              </Button>
+            )}
           </div>
+
+          {/* Thumbnails Row */}
+          {galleryPhotos.length > 1 && (
+            <div className='flex items-center justify-center gap-2 overflow-x-auto py-1 px-2'>
+              {galleryPhotos.map((url, idx) => (
+                <button
+                  key={idx}
+                  type='button'
+                  onClick={() => setGalleryIndex(idx)}
+                  className={`relative h-14 w-14 rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
+                    galleryIndex === idx
+                      ? 'border-primary ring-2 ring-primary/40 scale-105'
+                      : 'border-border/60 opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <img src={url} alt={`Thumb ${idx + 1}`} className='h-full w-full object-cover' />
+                  <span className='absolute bottom-0 right-0 bg-black/70 text-white text-[9px] font-mono px-1 rounded-tl'>
+                    #{idx + 1}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

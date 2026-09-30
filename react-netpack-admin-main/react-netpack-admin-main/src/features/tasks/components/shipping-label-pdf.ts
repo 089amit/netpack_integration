@@ -21,6 +21,7 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 /**
  * Generates an international courier standard 100mm x 150mm (4" x 6") PDF.
  * Each box in the shipment generates one dedicated 100x150mm page.
+ * Styled to pixel-perfect match the NetPack standard shipping label mockup.
  */
 export async function generateShippingLabel100x150PDF(
   data: ShippingLabelData,
@@ -69,7 +70,7 @@ export async function generateShippingLabel100x150PDF(
 
     // Outer border
     doc.setDrawColor(0, 0, 0)
-    doc.setLineWidth(0.4)
+    doc.setLineWidth(0.5)
     doc.rect(startX, startY, cardW, cardH, 'S')
 
     // Helper functions
@@ -80,35 +81,34 @@ export async function generateShippingLabel100x150PDF(
     let currentY = startY
 
     // =========================================================================
-    // 1. TOP HEADER: LOGO, BRAND, BOX COUNTER, ORIGIN
+    // 1. TOP HEADER: LOGO, BRAND, BOX COUNTER, ORIGIN, DATE (Height: 13mm)
     // =========================================================================
-    const headerH = 14
+    const headerH = 13
     setFill(255, 255, 255)
     doc.rect(startX, currentY, cardW, headerH, 'F')
 
-    // Logo & Brand (Only NetPack Logo)
+    // Logo & Brand (NetPack Logo)
     if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
       const logoW = 32
       const logoH = logoW * (logoImg.naturalHeight / logoImg.naturalWidth)
       try {
-        doc.addImage(logoImg, 'PNG', startX + 2, currentY + 1.5, logoW, Math.min(logoH, 11))
-      } catch (e) {
-        // Fallback text if addImage fails
-        setColor(12, 35, 64)
+        doc.addImage(logoImg, 'PNG', startX + 2, currentY + 1.5, logoW, Math.min(logoH, 10))
+      } catch {
+        setColor(27, 54, 93)
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(13)
-        doc.text('NETPACK LOGISTIC', startX + 3, currentY + 7.5)
+        doc.setFontSize(14)
+        doc.text('NETPACK', startX + 3, currentY + 7.5)
       }
     } else {
-      setColor(12, 35, 64)
+      setColor(27, 54, 93)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(13)
-      doc.text('NETPACK LOGISTIC', startX + 3, currentY + 7.5)
+      doc.setFontSize(14)
+      doc.text('NETPACK', startX + 3, currentY + 7.5)
     }
 
-    // Box Counter Badge (black rectangle with white text)
-    const badgeW = 24
-    const badgeH = 4.8
+    // Right-aligned Box Counter Badge (black rectangle with white text)
+    const badgeW = 26
+    const badgeH = 4.6
     const badgeX = startX + cardW - badgeW - 2
     const badgeY = currentY + 1.2
     setFill(0, 0, 0)
@@ -117,13 +117,16 @@ export async function generateShippingLabel100x150PDF(
     setColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(7.5)
-    doc.text(boxNoStr, badgeX + badgeW / 2, badgeY + 3.4, { align: 'center' })
+    doc.text(boxNoStr, badgeX + badgeW / 2, badgeY + 3.2, { align: 'center' })
 
     // Origin Gateway
-    setColor(70, 70, 70)
+    setColor(80, 80, 80)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(6.5)
-    doc.text('ORIGIN: KTM / NP', badgeX + badgeW / 2, badgeY + 8, { align: 'center' })
+    doc.text('ORIGIN: ', badgeX + badgeW - 14, badgeY + 7.5, { align: 'right' })
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.text('KTM / NP', badgeX + badgeW, badgeY + 7.5, { align: 'right' })
 
     // Date
     const rawDate = data.date || new Date().toISOString()
@@ -132,33 +135,41 @@ export async function generateShippingLabel100x150PDF(
       month: 'short',
       year: 'numeric',
     })
-    doc.setFontSize(6)
-    doc.text(`DATE: ${formattedDate}`, badgeX + badgeW / 2, badgeY + 11.5, { align: 'center' })
+    setColor(80, 80, 80)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.2)
+    doc.text('DATE: ', badgeX + badgeW - 17, badgeY + 11, { align: 'right' })
+    setColor(0, 0, 0)
+    doc.setFont('courier', 'bold')
+    doc.text(formattedDate, badgeX + badgeW, badgeY + 11, { align: 'right' })
 
     currentY += headerH
 
     // Line below header
     setDraw(0, 0, 0)
-    doc.setLineWidth(0.3)
+    doc.setLineWidth(0.4)
     doc.line(startX, currentY, startX + cardW, currentY)
 
     // =========================================================================
-    // 2. MASTER BARCODE (Code 128)
+    // 2. MASTER BARCODE (Code 128) (Height: 16mm)
     // =========================================================================
-    const barcodeSectionH = 18
+    const barcodeSectionH = 16
     setFill(255, 255, 255)
     doc.rect(startX, currentY, cardW, barcodeSectionH, 'F')
 
+    const cleanTracking = boxTracking.replace(/\s+/g, '')
+    const spacedTracking = cleanTracking.split('').join(' ')
+
     try {
-      const barcodeDataUrl = await getBarcodeDataUrl(boxTracking, {
-        height: 50,
+      const barcodeDataUrl = await getBarcodeDataUrl(cleanTracking, {
+        height: 48,
         moduleWidth: 2,
         quietZone: 8,
         color: '#000000',
         backgroundColor: '#ffffff',
         includeText: false,
       })
-      doc.addImage(barcodeDataUrl, 'PNG', startX + 6, currentY + 1.5, cardW - 12, 10.5)
+      doc.addImage(barcodeDataUrl, 'PNG', startX + 5, currentY + 1, cardW - 10, 9.5)
     } catch (err) {
       console.error('Barcode PDF render error:', err)
     }
@@ -166,69 +177,54 @@ export async function generateShippingLabel100x150PDF(
     setColor(0, 0, 0)
     doc.setFont('courier', 'bold')
     doc.setFontSize(10.5)
-    doc.text(boxTracking, startX + cardW / 2, currentY + 15.5, {
+    doc.text(spacedTracking, startX + cardW / 2, currentY + 14, {
       align: 'center',
-      charSpace: 0.8,
     })
 
     currentY += barcodeSectionH
     doc.line(startX, currentY, startX + cardW, currentY)
 
     // =========================================================================
-    // 4. SHIP FROM (SENDER) - Compact
+    // 3. SHIP FROM (SENDER) (Height: 11mm)
     // =========================================================================
-    const senderH = 17
-    setFill(250, 250, 250)
+    const senderH = 11
+    setFill(245, 245, 245)
     doc.rect(startX, currentY, cardW, senderH, 'F')
 
-    setColor(100, 100, 100)
+    setColor(90, 90, 90)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(6.5)
+    doc.setFontSize(6.8)
     doc.text('SHIP FROM (SENDER):', startX + 3, currentY + 3.8)
 
-    doc.text(`TEL: ${data.sender.phone || 'N/A'}`, startX + cardW - 3, currentY + 3.8, { align: 'right' })
+    setColor(0, 0, 0)
+    doc.setFont('courier', 'bold')
+    doc.text(`TEL: ${data.sender.phone || '015339942'}`, startX + cardW - 3, currentY + 3.8, { align: 'right' })
 
-    setColor(20, 20, 20)
+    setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8.5)
-    doc.text(data.sender.name || 'NetPack Logistic Shipper', startX + 3, currentY + 7.5)
-
-    const senderAddr = [
-      data.sender.addressLine1,
-      data.sender.addressLine2,
-      data.sender.city,
-      data.sender.state,
-      data.sender.postcode,
-      data.sender.country || 'Nepal',
-    ]
-      .filter(Boolean)
-      .join(', ')
-
-    setColor(70, 70, 70)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
-    const senderLines = doc.splitTextToSize(senderAddr, cardW - 6)
-    doc.text(senderLines.slice(0, 2), startX + 3, currentY + 11.5)
+    doc.setFontSize(10.5)
+    const senderName = (data.sender.company || data.sender.name || 'DANFE LOGISTICS').toUpperCase()
+    doc.text(senderName, startX + 3, currentY + 8.5)
 
     currentY += senderH
     doc.line(startX, currentY, startX + cardW, currentY)
 
     // =========================================================================
-    // 5. SHIP TO (CONSIGNEE - HERO SECTION)
+    // 4. SHIP TO (CONSIGNEE - HERO SECTION) (Height: 37mm)
     // =========================================================================
-    const receiverH = 34
+    const receiverH = 37
     setFill(255, 255, 255)
     doc.rect(startX, currentY, cardW, receiverH, 'F')
 
-    // Consignee Header + Destination Country Pill
-    setColor(220, 30, 30)
+    // Consignee Header (Red) + Destination Country Badge (Solid Black)
+    setColor(211, 47, 47)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(7.5)
-    doc.text('SHIP TO (CONSIGNEE):', startX + 3, currentY + 4)
+    doc.text('SHIP TO (CONSIGNEE):', startX + 3, currentY + 4.2)
 
     const destCountry = (data.receiver.country || 'INTERNATIONAL').toUpperCase()
-    const countryW = Math.max(doc.getTextWidth(destCountry) + 6, 26)
-    const countryH = 5.5
+    const countryW = Math.max(doc.getTextWidth(destCountry) + 8, 28)
+    const countryH = 5
     const countryX = startX + cardW - countryW - 3
     const countryY = currentY + 1.2
 
@@ -236,56 +232,62 @@ export async function generateShippingLabel100x150PDF(
     doc.rect(countryX, countryY, countryW, countryH, 'F')
     setColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.text(destCountry, countryX + countryW / 2, countryY + 4, { align: 'center' })
+    doc.setFontSize(8.5)
+    doc.text(destCountry, countryX + countryW / 2, countryY + 3.6, { align: 'center' })
 
     // Consignee Name (large bold)
     setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.text(data.receiver.name || 'CONSIGNEE NAME', startX + 3, currentY + 10)
+    doc.setFontSize(12)
+    doc.text((data.receiver.name || 'Dinesh Basnet').toUpperCase(), startX + 3, currentY + 10)
 
-    // Consignee Address
-    const receiverAddr = [
-      data.receiver.addressLine1,
-      data.receiver.addressLine2,
-      data.receiver.city,
-      data.receiver.state,
-      data.receiver.postcode,
-    ]
-      .filter(Boolean)
-      .join(', ')
+    // Structured 3-Line Address
+    const consigneeLine1 = data.receiver.addressLine1 || '[Street / Tole, Ward No.]'
+    const consigneeLine2 = [data.receiver.addressLine2, data.receiver.city].filter(Boolean).join(', ') || '[City, District]'
+    const stateAndPostcode = [data.receiver.state, data.receiver.postcode].filter(Boolean).join(', ')
+    const consigneeLine3 = stateAndPostcode ? `${stateAndPostcode}, ${destCountry}` : `[Province, Postal Code], ${destCountry}`
 
-    setColor(40, 40, 40)
+    setColor(20, 20, 20)
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    const receiverLines = doc.splitTextToSize(receiverAddr, cardW - 6)
-    doc.text(receiverLines.slice(0, 3), startX + 3, currentY + 14.5)
+    doc.setFontSize(7.8)
+    doc.text(consigneeLine1, startX + 3, currentY + 15)
+    doc.text(consigneeLine2, startX + 3, currentY + 19)
+    doc.text(consigneeLine3, startX + 3, currentY + 23)
 
-    // Receiver Destination & Telephone line
-    const rBottomY = currentY + receiverH - 3
-    setDraw(200, 200, 200)
-    doc.line(startX + 3, rBottomY - 4, startX + cardW - 3, rBottomY - 4)
+    // Thin separator above contact details
+    setDraw(180, 180, 180)
+    doc.setLineWidth(0.2)
+    doc.line(startX + 3, currentY + 26, startX + cardW - 3, currentY + 26)
 
+    // DEST and TEL
     setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
-    doc.text(`DEST: ${destCountry}`, startX + 3, rBottomY)
-    doc.text(`TEL: ${data.receiver.phone || 'N/A'}`, startX + cardW - 3, rBottomY, { align: 'right' })
+    doc.text(`DEST: ${destCountry}`, startX + 3, currentY + 30)
+
+    doc.setFont('courier', 'bold')
+    doc.text(`TEL: ${data.receiver.phone || '+61 425 625 963'}`, startX + cardW - 3, currentY + 30, { align: 'right' })
+
+    // EMAIL
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7.5)
+    doc.text('EMAIL: ', startX + 3, currentY + 34.5)
+    doc.setFont('courier', 'normal')
+    doc.text(data.receiver.email || 'dinesh.basnet@example.com', startX + 14, currentY + 34.5)
 
     currentY += receiverH
     setDraw(0, 0, 0)
+    doc.setLineWidth(0.4)
     doc.line(startX, currentY, startX + cardW, currentY)
 
     // =========================================================================
-    // 6. SPECIFICATIONS & CUSTOMS GRID
+    // 5. 4-COLUMN SPECS GRID (Height: 13mm)
     // =========================================================================
-    const specsH = 14
+    const specsH = 13
     setFill(255, 255, 255)
     doc.rect(startX, currentY, cardW, specsH, 'F')
 
     const colW = cardW / 4
-    // Vertical dividers
     for (let c = 1; c < 4; c++) {
       doc.line(startX + c * colW, currentY, startX + c * colW, currentY + specsH)
     }
@@ -296,67 +298,67 @@ export async function generateShippingLabel100x150PDF(
       ? `${parseFloat(String(data.totalWeight)).toFixed(2)} KG`
       : 'N/A'
 
-    const dimsStr =
-      box.dimensions ||
-      (box.length && box.breadth && box.height
+    const dimsVal =
+      box.length && box.breadth && box.height
         ? `${box.length}x${box.breadth}x${box.height}`
-        : 'N/A')
+        : box.dimensions
+        ? box.dimensions.replace(/×/g, 'x').replace(/\s*CM\s*/gi, '')
+        : '55x35x35'
 
-    const commodityStr = box.commodity || data.commodity || 'COURIER CARGO'
-    const customsValStr = box.declaredValue
+    const commodityVal = (box.commodity || data.commodity || 'COURIER CARGO').toUpperCase()
+    const customsVal = box.declaredValue
       ? `${box.currency || data.currency || 'USD'} ${box.declaredValue}`
       : 'NVD'
 
     // Col 1: Actual Wt
     setColor(100, 100, 100)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6)
-    doc.text('ACTUAL WT', startX + colW * 0.5, currentY + 4, { align: 'center' })
-    setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    doc.text(actualWt, startX + colW * 0.5, currentY + 9.5, { align: 'center' })
+    doc.setFontSize(6.2)
+    doc.text('ACTUAL WT', startX + colW * 0.5, currentY + 3.8, { align: 'center' })
+    setColor(0, 0, 0)
+    doc.setFont('courier', 'bold')
+    doc.setFontSize(9)
+    doc.text(actualWt, startX + colW * 0.5, currentY + 9, { align: 'center' })
 
     // Col 2: Dimensions
     setColor(100, 100, 100)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6)
-    doc.text('DIMS (CM)', startX + colW * 1.5, currentY + 4, { align: 'center' })
-    setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7)
-    doc.text(dimsStr, startX + colW * 1.5, currentY + 9.5, { align: 'center' })
+    doc.setFontSize(6.2)
+    doc.text('DIMS (CM)', startX + colW * 1.5, currentY + 3.8, { align: 'center' })
+    setColor(0, 0, 0)
+    doc.setFont('courier', 'bold')
+    doc.setFontSize(8)
+    doc.text(dimsVal, startX + colW * 1.5, currentY + 9, { align: 'center' })
 
     // Col 3: Commodity
     setColor(100, 100, 100)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6)
-    doc.text('COMMODITY', startX + colW * 2.5, currentY + 4, { align: 'center' })
-    setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7)
-    const commLines = doc.splitTextToSize(commodityStr.toUpperCase(), colW - 2)
-    doc.text(commLines[0] || 'CARGO', startX + colW * 2.5, currentY + 9.5, { align: 'center' })
-
-    // Col 4: Customs Val
-    setColor(100, 100, 100)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6)
-    doc.text('CUSTOMS VAL', startX + colW * 3.5, currentY + 4, { align: 'center' })
+    doc.setFontSize(6.2)
+    doc.text('COMMODITY', startX + colW * 2.5, currentY + 3.8, { align: 'center' })
     setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(7.5)
-    doc.text(customsValStr, startX + colW * 3.5, currentY + 9.5, { align: 'center' })
+    doc.text(commodityVal, startX + colW * 2.5, currentY + 9, { align: 'center' })
+
+    // Col 4: Customs Val
+    setColor(100, 100, 100)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.2)
+    doc.text('CUSTOMS VAL', startX + colW * 3.5, currentY + 3.8, { align: 'center' })
+    setColor(0, 0, 0)
+    doc.setFont('courier', 'bold')
+    doc.setFontSize(9)
+    doc.text(customsVal, startX + colW * 3.5, currentY + 9, { align: 'center' })
 
     currentY += specsH
     doc.line(startX, currentY, startX + cardW, currentY)
 
     // =========================================================================
-    // 7. ROUTING & 2D QR CODE
+    // 6. SCAN & COMPLIANCE BOX (Height: 23mm)
     // =========================================================================
-    const routingH = 22
+    const scanH = 23
     setFill(255, 255, 255)
-    doc.rect(startX, currentY, cardW, routingH, 'F')
+    doc.rect(startX, currentY, cardW, scanH, 'F')
 
     // QR Code
     const trackingUrl =
@@ -370,70 +372,107 @@ export async function generateShippingLabel100x150PDF(
         margin: 1,
         color: { dark: '#000000', light: '#ffffff' },
       })
-      doc.addImage(qrDataUrl, 'PNG', startX + 3, currentY + 2, 17, 17)
+      doc.addImage(qrDataUrl, 'PNG', startX + 3, currentY + 3.5, 16, 16)
     } catch (err) {
       console.error('QR code error in PDF:', err)
     }
 
+    // "SCAN TO TRACK" text
     setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(6.5)
-    doc.text('SCAN TO TRACK', startX + 22, currentY + 6.5)
-    setColor(100, 100, 100)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6)
-    doc.text('Live PWA tracking status', startX + 22, currentY + 10.5)
-    doc.text('Door-to-door transit events', startX + 22, currentY + 14.5)
+    doc.setFontSize(9)
+    doc.text('SCAN TO TRACK', startX + 21, currentY + 12.5)
 
-    // Compliance Badges (Right side)
-    const badgeBoxX = startX + 56
-    const badgeBoxW = cardW - 56 - 3
+    // Security Compliance Badges (Right side)
+    const badgeBoxX = startX + 53
+    const badgeBoxW = cardW - 53 - 3
     setDraw(0, 0, 0)
-    doc.rect(badgeBoxX, currentY + 3, badgeBoxW, 6.5, 'S')
+    doc.setLineWidth(0.35)
+
+    // Badge 1: SECURITY SCREENED - SPX
+    doc.rect(badgeBoxX, currentY + 4, badgeBoxW, 6.2, 'S')
     setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(6)
-    doc.text('SECURITY SCREENED - SPX', badgeBoxX + badgeBoxW / 2, currentY + 7.2, { align: 'center' })
+    doc.setFontSize(6.8)
+    doc.text('SECURITY SCREENED - SPX', badgeBoxX + badgeBoxW / 2, currentY + 8.2, { align: 'center' })
 
-    doc.rect(badgeBoxX, currentY + 11.5, badgeBoxW, 6.5, 'S')
-    doc.text('NON-DG / PASSENGER & CARGO', badgeBoxX + badgeBoxW / 2, currentY + 15.7, { align: 'center' })
+    // Badge 2: NON-DG / PASSENGER & CARGO
+    doc.rect(badgeBoxX, currentY + 12.5, badgeBoxW, 6.2, 'S')
+    doc.setFontSize(6.4)
+    doc.text('NON-DG / PASSENGER & CARGO', badgeBoxX + badgeBoxW / 2, currentY + 16.7, { align: 'center' })
 
-    currentY += routingH
+    currentY += scanH
     doc.line(startX, currentY, startX + cardW, currentY)
 
     // =========================================================================
-    // 8. HAZARD & FRAGILE BANNER
+    // 7. SOLID BLACK HANDLING BAR (Height: 12mm)
     // =========================================================================
-    const hazardH = 8
+    const handlingH = 12
     setFill(0, 0, 0)
-    doc.rect(startX, currentY, cardW, hazardH, 'F')
+    doc.rect(startX, currentY, cardW, handlingH, 'F')
+
+    // Section 1 (Left): THIS SIDE UP with vector double arrows
+    setFill(255, 255, 255)
+    // Arrow 1
+    doc.triangle(startX + 6, currentY + 2.5, startX + 4.5, currentY + 5.5, startX + 7.5, currentY + 5.5, 'F')
+    doc.rect(startX + 5.5, currentY + 5.5, 1, 2.5, 'F')
+    // Arrow 2
+    doc.triangle(startX + 10, currentY + 2.5, startX + 8.5, currentY + 5.5, startX + 11.5, currentY + 5.5, 'F')
+    doc.rect(startX + 9.5, currentY + 5.5, 1, 2.5, 'F')
 
     setColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    doc.text('▲  HANDLE WITH CARE  ▲', startX + 4, currentY + 5.2)
+    doc.setFontSize(7)
+    doc.text('THIS SIDE', startX + 13.5, currentY + 5.2)
+    doc.text('UP', startX + 13.5, currentY + 8.6)
 
-    setColor(255, 240, 100)
+    // Vertical white divider 1
+    setDraw(255, 255, 255)
+    doc.setLineWidth(0.3)
+    doc.line(startX + 30, currentY + 1.5, startX + 30, currentY + handlingH - 1.5)
+
+    // Section 2 (Center): FRAGILE in vibrant yellow
+    setColor(255, 215, 0)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(6.5)
-    doc.text('FRAGILE • KEEP DRY • THIS WAY UP ↑↑', startX + cardW - 4, currentY + 5.2, { align: 'right' })
+    doc.setFontSize(12)
+    doc.text('FRAGILE', startX + 49, currentY + 7.5, { align: 'center' })
 
-    currentY += hazardH
+    // Vertical white divider 2
+    doc.line(startX + 67, currentY + 1.5, startX + 67, currentY + handlingH - 1.5)
+
+    // Section 3 (Right): HANDLE WITH CARE
+    setColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.8)
+    doc.text('HANDLE', startX + 81, currentY + 5.2, { align: 'center' })
+    doc.text('WITH CARE', startX + 81, currentY + 8.6, { align: 'center' })
+
+    currentY += handlingH
 
     // =========================================================================
-    // 9. FOOTER
+    // 8. FOOTER (Remaining height: 16mm)
     // =========================================================================
     const footerH = cardH - (currentY - startY)
-    setFill(245, 245, 245)
+    setFill(255, 255, 255)
     doc.rect(startX, currentY, cardW, footerH, 'F')
+
+    setColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5)
+    doc.text(
+      'NETPACK LOGISTIC | TEL: +977-1-5339942 | KATHMANDU, NEPAL',
+      startX + cardW / 2,
+      currentY + 5.5,
+      { align: 'center' }
+    )
 
     setColor(90, 90, 90)
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(5.5)
+    doc.setFontSize(6)
     doc.text(
-      'NETPACK LOGISTIC LTD.  |  TEL: +977-1-5339942  |  KATHMANDU, NEPAL  |  WWW.NETPACKLOGISTIC.COM',
+      'www.netpacklogistic.com | admin@netpacklogistic.com',
       startX + cardW / 2,
-      currentY + footerH / 2 + 1,
+      currentY + 9.5,
       { align: 'center' }
     )
   }

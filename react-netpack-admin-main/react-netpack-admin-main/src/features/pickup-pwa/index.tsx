@@ -841,22 +841,23 @@ export default function PickupRiderPWA() {
           ...(riderToken ? { Authorization: `Bearer ${riderToken}` } : {}),
         },
         body: formData,
-      }).then((r) => r.json())
+      })
+      const resJson = await res.json().catch(() => ({}))
 
-      if (res?.pickup) {
+      if (res.ok && resJson?.pickup) {
         playSuccessChime()
         toast.success(
           `Cargo verified at ${wt} kg! Marked as PICKED UP and logged in warehouse tracking.`
         )
-        setPickups((prev) => prev.map((p) => (p.id === selectedPickup.id ? res.pickup : p)))
+        setPickups((prev) => prev.map((p) => (p.id === selectedPickup.id ? resJson.pickup : p)))
         setIsWeighModalOpen(false)
         setActiveTab('picked_up')
         fetchPickups(false)
       } else {
-        toast.error(res?.detail || 'Failed to complete pickup verification')
+        toast.error(resJson?.detail || 'Failed to complete pickup verification')
       }
     } catch (err: any) {
-      toast.error('Server error submitting pickup verification')
+      toast.error(err?.message || 'Server error submitting pickup verification')
     } finally {
       setSubmittingWeigh(false)
     }
@@ -1434,7 +1435,28 @@ export default function PickupRiderPWA() {
                 !!p.shipmentId
 
               const isInRoute = p.status === 'ASSIGNED_FOR_PICKUP' && !isDone
-              const addressToNavigate = p.pickupAddress || p.senderAddress || 'Kathmandu'
+
+              // Combine all available sender address details when pickup location is not explicitly set
+              const combinedSenderAddress = [
+                p.senderAddressLine1,
+                p.senderAddressLine2,
+                p.senderLocation,
+                p.senderCity,
+                p.senderCountry,
+                p.senderPostcode,
+              ]
+                .map((s) => (typeof s === 'string' ? s.trim() : ''))
+                .filter(Boolean)
+                .filter((val, idx, arr) => arr.indexOf(val) === idx)
+                .join(', ')
+
+              const addressToNavigate =
+                p.pickupAddress &&
+                p.pickupAddress.trim() &&
+                p.pickupAddress !== 'Address upon request'
+                  ? p.pickupAddress
+                  : combinedSenderAddress || p.senderAddress || 'Kathmandu, Nepal'
+
               const phoneToCall = p.pickupPhone || p.senderPhone
 
               return (
@@ -1451,7 +1473,7 @@ export default function PickupRiderPWA() {
                   <CardHeader className='p-3.5 pb-2'>
                     <div className='flex items-start justify-between gap-2'>
                       {/* Tracking & Time */}
-                      <div className='space-y-1'>
+                      <div className='space-y-1 min-w-0 flex-1'>
                         <div className='flex items-center gap-1.5'>
                           <span
                             className='font-mono text-xs font-black tracking-wider text-primary cursor-pointer hover:underline flex items-center gap-1'
@@ -1473,11 +1495,24 @@ export default function PickupRiderPWA() {
 
                         {/* Customer / Sender Name */}
                         <div
-                          className='text-base font-extrabold text-foreground leading-tight flex items-center gap-1.5'
+                          className='text-base font-extrabold text-foreground leading-tight flex items-center gap-1.5 truncate'
                           style={{ fontFamily: 'Jost, sans-serif' }}
                         >
                           {p.senderName || 'Customer Sender'}
                         </div>
+
+                        {/* Recipient / Consignee ("To: Name (Destination)") */}
+                        {(p.receiverName || p.receiverCountry) && (
+                          <div className='text-xs text-muted-foreground flex items-center flex-wrap gap-1 font-medium'>
+                            <span className='font-semibold text-muted-foreground'>To:</span>
+                            <span className='font-bold text-foreground'>{p.receiverName || 'Consignee'}</span>
+                            {(p.receiverCountry || p.receiverCity) && (
+                              <span className='text-muted-foreground text-[11px]'>
+                                ({[p.receiverCity, p.receiverCountry].filter(Boolean).join(', ')})
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Status Badge */}
@@ -1728,6 +1763,12 @@ export default function PickupRiderPWA() {
             <div className='p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between'>
               <div>
                 <div className='font-bold text-foreground'>{selectedPickup?.senderName}</div>
+                {selectedPickup?.receiverName && (
+                  <div className='text-[11px] text-muted-foreground'>
+                    To: <strong className='text-foreground'>{selectedPickup.receiverName}</strong>
+                    {selectedPickup.receiverCountry ? ` (${selectedPickup.receiverCountry})` : ''}
+                  </div>
+                )}
                 <div className='text-[11px] text-muted-foreground'>{selectedPickup?.commodity || 'Cargo'}</div>
               </div>
               <Badge variant='outline' className='font-mono text-primary border-border'>
