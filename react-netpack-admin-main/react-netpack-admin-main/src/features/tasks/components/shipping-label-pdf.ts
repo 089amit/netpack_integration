@@ -1,22 +1,9 @@
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
-import logoTextUrl from '@/assets/name.png'
+import { NETPACK_LOGO_DATA_URL } from './netpack-logo-base64'
 import { getBarcodeDataUrl } from './barcode-utils'
 import { ShippingLabelData, ShippingLabelBoxData } from './shipping-label-card'
 
-/**
- * Loads an image from a URL as an HTMLImageElement
- */
-function loadImage(src: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    if (typeof window === 'undefined') return resolve(null)
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => resolve(img)
-    img.onerror = () => resolve(null)
-    img.src = src
-  })
-}
 
 /**
  * Generates an international courier standard 100mm x 150mm (4" x 6") PDF.
@@ -35,8 +22,6 @@ export async function generateShippingLabel100x150PDF(
     unit: 'mm',
     format: [100, 150],
   })
-
-  const logoImg = await loadImage(logoTextUrl)
 
   const boxes: ShippingLabelBoxData[] =
     data.boxes && data.boxes.length > 0
@@ -87,23 +72,16 @@ export async function generateShippingLabel100x150PDF(
     setFill(255, 255, 255)
     doc.rect(startX, currentY, cardW, headerH, 'F')
 
-    // Logo & Brand (NetPack Logo)
-    if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
-      const logoW = 32
-      const logoH = logoW * (logoImg.naturalHeight / logoImg.naturalWidth)
-      try {
-        doc.addImage(logoImg, 'PNG', startX + 2, currentY + 1.5, logoW, Math.min(logoH, 10))
-      } catch {
-        setColor(27, 54, 93)
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(14)
-        doc.text('NETPACK', startX + 3, currentY + 7.5)
-      }
-    } else {
-      setColor(27, 54, 93)
+    // Official NetPack Algerian Wordmark Logo (Aspect Ratio: 1307 / 206 = ~6.345)
+    const logoW = 50
+    const logoH = 50 * (206 / 1307) // ~7.88 mm
+    try {
+      doc.addImage(NETPACK_LOGO_DATA_URL, 'PNG', startX + 2, currentY + 2.5, logoW, logoH)
+    } catch {
+      setColor(0, 1, 97)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(14)
-      doc.text('NETPACK', startX + 3, currentY + 7.5)
+      doc.setFontSize(16)
+      doc.text('NETPACK', startX + 3, currentY + 8.5)
     }
 
     // Right-aligned Box Counter Badge (black rectangle with white text)

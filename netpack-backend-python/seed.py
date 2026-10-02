@@ -18,7 +18,7 @@ def seed_database():
 
     try:
         # 1. Seed Roles
-        roles_to_seed = ["ADMIN", "OPERATION", "USER", "CUSTOMER", "PICKUP"]
+        roles_to_seed = ["ADMIN", "OPERATIONS", "USER", "CUSTOMER", "PICKUP"]
         created_roles = {}
         for r_name in roles_to_seed:
             role = db.query(Role).filter(Role.name == r_name).first()

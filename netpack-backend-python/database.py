@@ -100,7 +100,7 @@ def run_auto_migrations(target_engine):
         # 2. Ensure baseline roles exist
         if "roles" in table_names:
             try:
-                for r_name in ["ADMIN", "OPERATION", "USER", "CUSTOMER", "PICKUP"]:
+                for r_name in ["ADMIN", "OPERATIONS", "USER", "CUSTOMER", "PICKUP"]:
                     r = conn.execute(sa.text("SELECT id FROM roles WHERE name = :name"), {"name": r_name}).fetchone()
                     if not r:
                         conn.execute(
@@ -115,6 +115,28 @@ def run_auto_migrations(target_engine):
                 except Exception:
                     pass
                 print(f"[Migration Warning] Role check: {e}")
+
+        # 2a. Unify OPERATION and OPERATIONS into single OPERATIONS role
+        if "roles" in table_names and "users" in table_names:
+            try:
+                ops_role = conn.execute(sa.text("SELECT id FROM roles WHERE UPPER(name) = 'OPERATIONS'")).fetchone()
+                op_role = conn.execute(sa.text("SELECT id FROM roles WHERE UPPER(name) = 'OPERATION'")).fetchone()
+                if op_role:
+                    if not ops_role:
+                        conn.execute(sa.text("UPDATE roles SET name = 'OPERATIONS' WHERE id = :op_id"), {"op_id": op_role[0]})
+                        conn.commit()
+                        print("[Migration] Renamed 'OPERATION' role to 'OPERATIONS'.")
+                    else:
+                        conn.execute(sa.text("UPDATE users SET roleId = :ops_id WHERE roleId = :op_id"), {"ops_id": ops_role[0], "op_id": op_role[0]})
+                        conn.execute(sa.text("DELETE FROM roles WHERE id = :op_id"), {"op_id": op_role[0]})
+                        conn.commit()
+                        print("[Migration] Merged 'OPERATION' into 'OPERATIONS' and removed redundant role.")
+            except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                print(f"[Migration Warning] Unify OPERATIONS role: {e}")
 
         # 2b. Automatically correct any accounts that were erroneously assigned ADMIN during public signup
         if "users" in table_names and "roles" in table_names:

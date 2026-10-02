@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
-import logoTextUrl from '@/assets/name.png'
+import { NETPACK_LOGO_DATA_URL } from './netpack-logo-base64'
 import { generateBarcodeSvg } from './barcode-utils'
 
 export interface ShippingLabelBoxData {
@@ -191,21 +191,13 @@ export const ShippingLabelCard: React.FC<ShippingLabelCardProps> = ({
         
         {/* ================= 1. HEADER SECTION ================= */}
         <div className='flex items-center justify-between px-3 py-2 border-b-[2px] border-black bg-white'>
-          {/* Left: Netpack Logo */}
+          {/* Left: Netpack Official Logo (Algerian font matching mockup) */}
           <div className='flex items-center'>
             <img
-              src={logoTextUrl}
+              src={NETPACK_LOGO_DATA_URL}
               alt='NETPACK'
-              className='h-8 max-w-[135px] object-contain'
-              onError={(e) => {
-                (e.currentTarget as HTMLElement).style.display = 'none'
-                const fallback = e.currentTarget.parentElement?.querySelector('.logo-fallback') as HTMLElement
-                if (fallback) fallback.style.display = 'block'
-              }}
+              className='h-8 max-w-[155px] object-contain'
             />
-            <span className='logo-fallback hidden font-black tracking-wider text-[22px] uppercase text-[#1B365D] font-serif'>
-              NETPACK
-            </span>
           </div>
 
           {/* Right: Box Count, Origin, Date */}

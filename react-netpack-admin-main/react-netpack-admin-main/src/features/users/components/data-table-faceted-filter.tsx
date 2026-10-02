@@ -288,11 +288,16 @@ export function RolesFilterExample<TData, TValue>({
       console.log('API response:', res)
 
       const rolesArray: Role[] = res?.roles ?? []
-      const rolesData = rolesArray.map((r) => ({
-        label: r.name,
-        value: r.name,
-        id: r.id,
-      }))
+      const rolesData = rolesArray
+        .filter((r) => {
+          const upper = r.name?.toUpperCase()
+          return upper !== 'CUSTOMER' && upper !== 'OPERATION'
+        })
+        .map((r) => ({
+          label: r.name,
+          value: r.name,
+          id: r.id,
+        }))
       setRoles(rolesData)
     } catch (error) {
       console.error('Failed to fetch roles', error)

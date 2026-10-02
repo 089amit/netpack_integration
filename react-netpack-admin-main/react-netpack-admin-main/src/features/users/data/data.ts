@@ -18,8 +18,8 @@ export const userTypes = [
     icon: IconShield,
   },
   {
-    label: 'OPERATION',
-    value: 'OPERATION',
+    label: 'OPERATIONS',
+    value: 'OPERATIONS',
     icon: IconUserShield,
   },
   {

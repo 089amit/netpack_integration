@@ -129,7 +129,10 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
       const res = await http.get<any>(USER_ROLE.GET_ALL_ROLES)
       const rolesArray = res?.roles || []
       const rolesData = rolesArray
-        .filter((r: any) => r.name?.toUpperCase() !== 'CUSTOMER')
+        .filter((r: any) => {
+          const upper = r.name?.toUpperCase()
+          return upper !== 'CUSTOMER' && upper !== 'OPERATION'
+        })
         .map((r: any) => ({
           label: r.name,
           value: r.name,
