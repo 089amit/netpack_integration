@@ -75,6 +75,7 @@ export function TasksMutateDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pastMilestones, setPastMilestones] = useState<any[]>([])
   const [isBreakHawbOpen, setIsBreakHawbOpen] = useState(false)
+  const [shipmentDetails, setShipmentDetails] = useState<any>(null)
 
   const defaultValues: ShipmentForm = {
     id: currentRow?.id ?? '',
@@ -196,6 +197,7 @@ export function TasksMutateDrawer({
           )
           const data = response.data
           if (data) {
+            setShipmentDetails(data)
             form.reset({
               id: data.id?.toString() ?? '',
               status: data.status ?? 'PENDING',
@@ -222,6 +224,8 @@ export function TasksMutateDrawer({
         } catch (error) {
           console.error('❌ Error fetching shipment data:', error)
         }
+      } else if (!open) {
+        setShipmentDetails(null)
       }
     }
 
@@ -414,6 +418,27 @@ export function TasksMutateDrawer({
     }
   }
 
+  const boxesList =
+    shipmentDetails?.boxDetails ||
+    shipmentDetails?.boxes ||
+    (currentRow as any)?.boxDetails ||
+    (currentRow as any)?.boxes ||
+    []
+  const boxesCount =
+    boxesList.length > 0
+      ? boxesList.length
+      : (currentRow as any)?.totalEnquiryBoxes || 1
+  const totalBoxesWeight =
+    boxesList.length > 0
+      ? Math.round(
+          boxesList.reduce(
+            (acc: number, b: any) =>
+              acc + (parseFloat(String(b.weight || 0)) || 0),
+            0
+          ) * 100
+        ) / 100
+      : parseFloat(String((currentRow as any)?.weight || 0)) || 0
+
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -456,9 +481,7 @@ export function TasksMutateDrawer({
                     Reciver Name
                   </p>
                   <p className='text-foreground/90 mt-0.5 font-semibold'>
-                    {currentRow?.reciverName ||
-                      currentRow?.reciverName ||
-                      'N/A'}
+                    {currentRow?.reciverName || 'N/A'}
                   </p>
                 </div>
                 <div>
@@ -467,6 +490,19 @@ export function TasksMutateDrawer({
                   </p>
                   <p className='text-foreground/90 mt-0.5 font-semibold'>
                     {currentRow?.senderOrganization || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className='text-muted-foreground text-[10px] font-medium tracking-wider uppercase'>
+                    Number of Boxes
+                  </p>
+                  <p className='text-foreground/90 mt-0.5 font-semibold flex items-center gap-1.5'>
+                    <span>{boxesCount} Box{boxesCount === 1 ? '' : 'es'}</span>
+                    {totalBoxesWeight > 0 && (
+                      <span className='text-xs font-normal text-muted-foreground'>
+                        ({totalBoxesWeight} KG)
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -862,10 +898,14 @@ export function TasksMutateDrawer({
     <BreakHawbDialog
       open={isBreakHawbOpen}
       onOpenChange={setIsBreakHawbOpen}
-      shipment={currentRow}
+      shipment={shipmentDetails || currentRow}
       onSuccess={() => {
-        onSuccess?.()
+        setIsBreakHawbOpen(false)
         onOpenChange(false)
+        onSuccess?.()
+        if (typeof window !== 'undefined') {
+          window.location.reload()
+        }
       }}
     />
   </>

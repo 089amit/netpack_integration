@@ -586,6 +586,10 @@ class TrackingRegistry:
         # 4. Scans updated after scanned by carrier (follow milestone by TrackingMore API) or manual operator notes
         if shipment and shipment.trackingEvents:
             for te in shipment.trackingEvents:
+                # Avoid displaying internal HAWB break/split milestones to keep tracking timeline clean
+                if te.status == "HAWB_SPLIT" or "partition" in (te.activity or "").lower():
+                    continue
+
                 te_status = te.status or "CARRIER_SCANNED"
                 te_source = te.source or "CARRIER"
                 if "MANUAL" in te_source:
@@ -622,6 +626,9 @@ class TrackingRegistry:
                 db.refresh(shipment)
                 checkpoints = [cp for cp in checkpoints if not (cp.source and ("TRACKINGMORE" in cp.source or "CARRIER" in cp.source or cp.source == "CARRIER_API"))]
                 for te in shipment.trackingEvents:
+                    if te.status == "HAWB_SPLIT" or "partition" in (te.activity or "").lower():
+                        continue
+
                     te_status = te.status or "CARRIER_SCANNED"
                     te_source = te.source or "CARRIER"
                     src_label = f"CARRIER:{te.courierCode.upper()}" if te.courierCode else ("CARRIER_API" if ("CARRIER" in te_source or "TRACKINGMORE" in te_source) else te_source)
@@ -736,6 +743,17 @@ class TrackingRegistry:
         rider_name = (rider_staff.fullName or rider_staff.username) if rider_staff else None
         rider_phone = rider_staff.phoneNumber if rider_staff else None
 
+        # All boxes across consignment with box-wise tracking details
+        raw_all_boxes = []
+        if enquiry and enquiry.boxes:
+            raw_all_boxes = enquiry.boxes
+        elif shipment and shipment.boxes:
+            raw_all_boxes = shipment.boxes
+        elif shipment and shipment.enquiry and shipment.enquiry.boxes:
+            raw_all_boxes = shipment.enquiry.boxes
+
+        box_to_idx = {b.id: idx for idx, b in enumerate(raw_all_boxes, 1)}
+
         # Sibling shipments / Partitioned HAWBs
         sibling_shipments = []
         if enquiry:
@@ -751,6 +769,13 @@ class TrackingRegistry:
             sib_prov = self.get_provider_for_carrier(sib_fc)
             sib_boxes = sib.boxes or []
             sib_wt = round(sum((b.weight or 0.0) for b in sib_boxes), 2)
+
+            assigned_box_nums = sorted([box_to_idx[b.id] for b in sib_boxes if b.id in box_to_idx])
+            if assigned_box_nums:
+                box_numbers_display = f"Box {', '.join(str(n) for n in assigned_box_nums)}"
+            else:
+                box_numbers_display = f"Box 1-{len(sib_boxes)}" if len(sib_boxes) > 0 else ""
+
             hawbs_data.append({
                 "id": sib.id,
                 "hawbno": sib.hawbno or f"Shipment #{sib.id}",
@@ -759,16 +784,11 @@ class TrackingRegistry:
                 "status": sib.status,
                 "boxCount": len(sib_boxes),
                 "totalWeight": sib_wt,
+                "assignedBoxNumbers": assigned_box_nums,
+                "boxNumbersDisplay": box_numbers_display,
                 "carrierCode": sib_prov.code,
                 "carrierTrackingUrl": sib_prov.get_tracking_url(sib.forwardingNumber) if sib.forwardingNumber else None
             })
-
-        # All boxes across consignment with box-wise tracking details
-        raw_all_boxes = []
-        if enquiry and enquiry.boxes:
-            raw_all_boxes = enquiry.boxes
-        elif shipment and shipment.boxes:
-            raw_all_boxes = shipment.boxes
 
         total_box_count = len(raw_all_boxes) or 1
         formatted_tracking_boxes = []

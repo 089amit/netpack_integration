@@ -276,7 +276,13 @@ export function ShipmentTrackingDialog({
 
   const effectiveStatus = liveData?.currentStatus || currentStatus
   const statusCfg = getStatusConfig(effectiveStatus)
-  const checkpoints: CheckpointItem[] = liveData?.checkpoints || []
+  const checkpoints: CheckpointItem[] = useMemo(() => {
+    return (liveData?.checkpoints || []).filter(
+      (cp: any) =>
+        cp.status !== 'HAWB_SPLIT' &&
+        !String(cp.activity || '').toLowerCase().includes('partition')
+    )
+  }, [liveData?.checkpoints])
   const progressPercent = getProgressPercent(effectiveStatus)
 
   const displayForwardingCompany = liveData?.forwardingCompany || forwardingCompanyName || 'UPS'
@@ -678,9 +684,12 @@ export function ShipmentTrackingDialog({
 
                       <div className='flex items-center justify-between gap-2 pt-1 border-t text-[11px]'>
                         <div>
-                          <span className='text-muted-foreground block text-[10px]'>Carrier Forwarding No:</span>
+                          <span className='text-muted-foreground block text-[10px]'>Carrier Forwarding & Boxes:</span>
                           <span className='font-mono font-bold text-foreground'>
-                            {h.forwardingNumber || 'Pending assignment'}
+                            {h.forwardingNumber || 'Pending'} &rarr;{' '}
+                            <span className='text-primary font-bold'>
+                              {h.boxNumbersDisplay || (h.assignedBoxNumbers?.length ? `Box ${h.assignedBoxNumbers.join(', ')}` : `Box 1-${h.boxCount}`)}
+                            </span>
                           </span>
                         </div>
 
@@ -703,47 +712,113 @@ export function ShipmentTrackingDialog({
             </div>
           )}
 
-          {/* ── OVERSEAS COURIER LEG CARD ── */}
-          {(displayForwardingNumber || liveData?.forwardingCompany) && (
+          {/* ── OVERSEAS COURIER LEG & CARRIER FORWARDING WITH BOXES ── */}
+          {(displayForwardingNumber || (liveData?.hawbs && liveData.hawbs.some((h: any) => h.forwardingNumber)) || liveData?.forwardingCompany) && (
             <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>
               <div className='flex items-center justify-between border-b pb-2.5'>
                 <div className='flex items-center gap-2'>
                   <Truck className='h-4 w-4 text-indigo-500' />
                   <span className='text-xs font-bold uppercase tracking-wider text-foreground'>
-                    Overseas Courier Delivery Leg
+                    Carrier Forwarding & Box Numbers
                   </span>
                 </div>
                 <Badge variant='outline' className='bg-indigo-50 dark:bg-indigo-950 font-bold text-xs text-indigo-700 dark:text-indigo-300'>
                   {displayForwardingCompany}
                 </Badge>
               </div>
-              <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1'>
-                <div>
-                  <span className='text-muted-foreground text-[11px] block'>Carrier Tracking / Forwarding No:</span>
-                  <div className='flex items-center gap-1.5 mt-0.5'>
-                    <span className='font-mono font-bold text-sm text-foreground'>{displayForwardingNumber || 'Assigned'}</span>
-                    {displayForwardingNumber && (
-                      <button
-                        type='button'
-                        onClick={() => handleCopy(displayForwardingNumber)}
-                        className='text-muted-foreground hover:text-primary cursor-pointer'
-                        title='Copy carrier number'
+
+              <div className='space-y-2 pt-1'>
+                {liveData?.hawbs && liveData.hawbs.length > 1 ? (
+                  liveData.hawbs.map((h: any, idx: number) => {
+                    const fwdCompany = h.forwardingCompany || displayForwardingCompany || 'Carrier'
+                    const fwdNo = h.forwardingNumber || 'Pending assignment'
+                    const boxesDisplay = h.boxNumbersDisplay || (h.assignedBoxNumbers?.length ? `Box ${h.assignedBoxNumbers.join(', ')}` : `Box 1-${h.boxCount}`)
+                    const isCurrent = h.hawbno === (liveData.hawbNumber || hawbNumber)
+
+                    return (
+                      <div
+                        key={h.id || idx}
+                        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg border transition-all text-xs ${
+                          isCurrent
+                            ? 'bg-primary/5 border-primary/40 ring-1 ring-primary/20'
+                            : 'bg-muted/20 border-border/80'
+                        }`}
                       >
-                        <Copy className='h-3.5 w-3.5' />
-                      </button>
+                        <div className='flex items-center gap-2 flex-wrap'>
+                          <span className='font-semibold text-foreground'>
+                            {fwdCompany} Forwarding Number:
+                          </span>
+                          <span className='font-mono font-bold text-primary'>
+                            {fwdNo}
+                          </span>
+                          {h.forwardingNumber && (
+                            <button
+                              type='button'
+                              onClick={() => handleCopy(h.forwardingNumber)}
+                              className='text-muted-foreground hover:text-primary cursor-pointer'
+                              title='Copy carrier forwarding number'
+                            >
+                              <Copy className='h-3.5 w-3.5' />
+                            </button>
+                          )}
+                          <span className='text-muted-foreground font-bold'>&rarr;</span>
+                          <Badge variant='secondary' className='font-bold font-mono text-xs px-2 py-0.5'>
+                            {boxesDisplay}
+                          </Badge>
+                          <span className='text-[11px] text-muted-foreground'>
+                            ({h.totalWeight} KG)
+                          </span>
+                        </div>
+
+                        {h.carrierTrackingUrl && (
+                          <a
+                            href={h.carrierTrackingUrl}
+                            target='_blank'
+                            rel='noreferrer'
+                            className='inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline self-start sm:self-auto shrink-0'
+                          >
+                            Track <ExternalLink className='h-3 w-3' />
+                          </a>
+                        )}
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg border bg-muted/20 border-border/80 text-xs'>
+                    <div className='flex items-center gap-2 flex-wrap'>
+                      <span className='font-semibold text-foreground'>
+                        {displayForwardingCompany} Forwarding Number:
+                      </span>
+                      <span className='font-mono font-bold text-primary'>
+                        {displayForwardingNumber || 'Assigned'}
+                      </span>
+                      {displayForwardingNumber && (
+                        <button
+                          type='button'
+                          onClick={() => handleCopy(displayForwardingNumber)}
+                          className='text-muted-foreground hover:text-primary cursor-pointer'
+                          title='Copy carrier forwarding number'
+                        >
+                          <Copy className='h-3.5 w-3.5' />
+                        </button>
+                      )}
+                      <span className='text-muted-foreground font-bold'>&rarr;</span>
+                      <Badge variant='secondary' className='font-bold font-mono text-xs px-2 py-0.5'>
+                        {liveData?.pieces ? `Box 1-${liveData.pieces}` : 'All Boxes'}
+                      </Badge>
+                    </div>
+
+                    {carrierUrl && (
+                      <a
+                        href={carrierUrl}
+                        target='_blank'
+                        rel='noreferrer'
+                        className='inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline self-start sm:self-auto shrink-0'
+                      >
+                        Track <ExternalLink className='h-3 w-3' />
+                      </a>
                     )}
                   </div>
-                </div>
-                {carrierUrl && (
-                  <a
-                    href={carrierUrl}
-                    target='_blank'
-                    rel='noreferrer'
-                    className='inline-flex items-center gap-1.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 px-3.5 py-2 rounded-lg transition-colors'
-                  >
-                    Track on Carrier Website
-                    <ExternalLink className='h-3.5 w-3.5' />
-                  </a>
                 )}
               </div>
             </div>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { Row } from '@tanstack/react-table'
 import { IconTrash } from '@tabler/icons-react'
-import { Printer, Scissors } from 'lucide-react'
+import { Printer } from 'lucide-react'
 import { ShipmentItem } from '@/type/shipment'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { shipmentFormSchema } from '@/features/shipment/data/schema'
 import { ShippingLabelDialog } from '@/features/tasks/components/shipping-label-dialog'
-import { BreakHawbDialog } from './break-hawb-dialog'
 import { useTasks } from '../context/shipments-context'
 
 interface DataTableRowActionsProps<TData> {
@@ -27,7 +26,6 @@ export function DataTableRowActions<TData>({
   const parsedTask = shipmentFormSchema.safeParse(row.original)
   const task = parsedTask.success ? parsedTask.data : (row.original as any)
   const [showShippingLabel, setShowShippingLabel] = useState(false)
-  const [showBreakHawb, setShowBreakHawb] = useState(false)
 
   const { setOpen, setCurrentRow } = useTasks()
 
@@ -67,15 +65,6 @@ export function DataTableRowActions<TData>({
           </DropdownMenuItem>
 
           <DropdownMenuItem
-            onClick={() => setShowBreakHawb(true)}
-          >
-            Break HAWB
-            <DropdownMenuShortcut>
-              <Scissors size={15} />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
             onClick={() => {
               setCurrentRow({
                 ...task,
@@ -110,17 +99,6 @@ export function DataTableRowActions<TData>({
         open={showShippingLabel}
         onOpenChange={setShowShippingLabel}
         shipmentId={task?.id}
-      />
-
-      <BreakHawbDialog
-        open={showBreakHawb}
-        onOpenChange={setShowBreakHawb}
-        shipment={row.original}
-        onSuccess={() => {
-          if (typeof window !== 'undefined') {
-            window.location.reload()
-          }
-        }}
       />
     </>
   )

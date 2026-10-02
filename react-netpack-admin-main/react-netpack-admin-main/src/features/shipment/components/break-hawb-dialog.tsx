@@ -11,20 +11,26 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Scissors,
-  Plus,
-  Trash2,
   Package,
   Truck,
   AlertCircle,
   CheckCircle2,
   Boxes,
   Loader2,
-  Info,
+  Building2,
+  Layers,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import http from '@/utils/http'
-import { SHIPMENT_ENDPOINT } from '@/constants/endpoint'
+import { SHIPMENT_ENDPOINT, AGENTS_ENDPOINTS } from '@/constants/endpoint'
 import { ShipmentItem } from '@/type/shipment'
 
 interface HawbBucket {
@@ -50,21 +56,35 @@ export function BreakHawbDialog({
 }: BreakHawbDialogProps) {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [loadingHawbs, setLoadingHawbs] = useState(false)
   const [boxes, setBoxes] = useState<any[]>([])
+  const [agents, setAgents] = useState<any[]>([])
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('')
+  const [breakCount, setBreakCount] = useState<string>('2')
   const [buckets, setBuckets] = useState<HawbBucket[]>([])
 
-  // Load fresh shipment details and boxes on open
+  // Load fresh shipment details, boxes, and available overseas agents on open
   useEffect(() => {
     if (!open || !shipment?.id) return
 
     let isMounted = true
-    const fetchShipmentBoxes = async () => {
+    const fetchInitialData = async () => {
       setLoading(true)
       try {
-        const res: any = await http.get(`${SHIPMENT_ENDPOINT.ALL_SHIPMENTS}/${shipment.id}`)
-        const data = res?.data || res
+        const [shipmentRes, agentsRes] = await Promise.all([
+          http.get<any>(`${SHIPMENT_ENDPOINT.ALL_SHIPMENTS}/${shipment.id}`),
+          http.get<any>(AGENTS_ENDPOINTS.GET_ALL_AGENTS).catch(() => ({ data: [] })),
+        ])
 
         if (!isMounted) return
+
+        const data = shipmentRes?.data || shipmentRes
+        const rawAgents = Array.isArray(agentsRes?.data)
+          ? agentsRes.data
+          : Array.isArray(agentsRes)
+          ? agentsRes
+          : []
+        setAgents(rawAgents)
 
         const rawBoxes =
           Array.isArray(data?.boxDetails) && data.boxDetails.length > 0
@@ -79,55 +99,116 @@ export function BreakHawbDialog({
 
         setBoxes(rawBoxes)
 
-        // Try to fetch next sequence preview for Bucket 2 if agent exists
-        let nextHawbPreview = ''
-        const agentId = data?.agentId || shipment?.agentId || data?.agent || shipment?.agent
-        if (agentId) {
-          try {
-            const nextRes: any = await http.get(
-              SHIPMENT_ENDPOINT.GET_AGENT_SHIPMENT_HAWBNO(agentId)
-            )
-            nextHawbPreview = nextRes?.hawbno || ''
-          } catch (e) {
-            console.warn('Could not prefetch next sequential HAWB:', e)
-          }
+        // Pre-select agent if shipment already has one
+        const currentAgentCode = data?.agent || shipment?.agent
+        const currentAgentId = data?.agentId || shipment?.agentId
+
+        let matchedAgent = null
+        if (currentAgentId) {
+          matchedAgent = rawAgents.find((a: any) => String(a.id) === String(currentAgentId))
+        }
+        if (!matchedAgent && currentAgentCode) {
+          matchedAgent = rawAgents.find(
+            (a: any) => String(a.code).toUpperCase() === String(currentAgentCode).toUpperCase()
+          )
         }
 
-        // Initialize 2 buckets: Bucket 1 (Original) and Bucket 2 (New)
-        // With NO default box threshold: all boxes initially in bucket 1, or unassigned for operator selection
-        const origHawb = data?.hawbNumber || data?.hawbno || shipment?.hawbNumber || shipment?.hawbno || ''
-        const origFwd = data?.forwardingNumber || shipment?.forwardingNumber || ''
+        const agentToSet = matchedAgent ? String(matchedAgent.id) : (rawAgents[0] ? String(rawAgents[0].id) : '')
+        setSelectedAgentId(agentToSet)
 
-        setBuckets([
-          {
-            id: 'bucket-1',
-            isOriginal: true,
-            hawbNumber: origHawb,
-            forwardingNumber: origFwd,
-            boxIds: [],
-          },
-          {
-            id: 'bucket-2',
-            isOriginal: false,
-            hawbNumber: nextHawbPreview || `${origHawb ? `${origHawb}-P2` : 'NEW-HAWB-2'}`,
-            forwardingNumber: '',
-            boxIds: [],
-          },
-        ])
+        // Default break count is 2 (or 2 if multiple boxes)
+        const initialCount = 2
+        setBreakCount(String(initialCount))
+
+        if (agentToSet) {
+          fetchSerialHawbs(agentToSet, initialCount, data)
+        }
       } catch (err: any) {
-        console.error('Failed fetching shipment boxes for break HAWB:', err)
+        console.error('Failed fetching data for break HAWB:', err)
         toast.error('Failed to load shipment packages')
       } finally {
         if (isMounted) setLoading(false)
       }
     }
 
-    fetchShipmentBoxes()
+    fetchInitialData()
 
     return () => {
       isMounted = false
     }
   }, [open, shipment?.id])
+
+  // Fetch sequential serial HAWBs for the selected agent and count
+  const fetchSerialHawbs = async (
+    agentId: string,
+    count: number,
+    existingShipmentData?: any
+  ) => {
+    if (!agentId || count < 2) return
+    setLoadingHawbs(true)
+    try {
+      const activeShipment = existingShipmentData || shipment
+      const res: any = await http.get(
+        SHIPMENT_ENDPOINT.GET_AGENT_SHIPMENT_HAWBNO(agentId, count)
+      )
+      const data = res?.data || res
+      const hawbnos: string[] = Array.isArray(data?.hawbnos) && data.hawbnos.length > 0
+        ? data.hawbnos
+        : [data?.hawbno || activeShipment?.hawbNumber || 'HAWB-1']
+
+      // Ensure we have enough sequential numbers
+      const generatedBuckets: HawbBucket[] = []
+      const origHawb = hawbnos[0] || activeShipment?.hawbNumber || activeShipment?.hawbno || 'HAWB-1'
+      const origFwd = activeShipment?.forwardingNumber || ''
+
+      // Retain existing box assignments where valid
+      const existingAssignments = new Map<number, string>()
+      buckets.forEach((b) => {
+        b.boxIds.forEach((bid) => existingAssignments.set(bid, b.id))
+      })
+
+      for (let i = 0; i < count; i++) {
+        const bucketId = `bucket-${i + 1}`
+        const hawbNum = hawbnos[i] || `${origHawb}-P${i + 1}`
+        const isOrig = i === 0
+
+        // Restore boxes assigned to this index if already assigned
+        const previousBucket = buckets[i]
+        const boxIds = previousBucket ? previousBucket.boxIds : []
+
+        generatedBuckets.push({
+          id: bucketId,
+          isOriginal: isOrig,
+          hawbNumber: hawbNum,
+          forwardingNumber: isOrig ? origFwd : (previousBucket?.forwardingNumber || ''),
+          boxIds: boxIds,
+        })
+      }
+
+      setBuckets(generatedBuckets)
+    } catch (err) {
+      console.warn('Could not auto-generate serial HAWBs:', err)
+      toast.error('Could not auto-generate sequential HAWBs. Please check agent')
+    } finally {
+      setLoadingHawbs(false)
+    }
+  }
+
+  // Handle agent selection change
+  const handleAgentChange = (newAgentId: string) => {
+    setSelectedAgentId(newAgentId)
+    const count = parseInt(breakCount, 10) || 2
+    fetchSerialHawbs(newAgentId, count)
+  }
+
+  // Handle number of HAWBs selection change
+  const handleCountChange = (newCountStr: string) => {
+    setBreakCount(newCountStr)
+    const count = parseInt(newCountStr, 10) || 2
+    if (selectedAgentId) {
+      fetchSerialHawbs(selectedAgentId, count)
+    }
+  }
 
   // Total boxes in consignment
   const totalBoxesCount = boxes.length
@@ -146,29 +227,18 @@ export function BreakHawbDialog({
   const assignedCount = assignedBoxMap.size
   const isAllBoxesAssigned = totalBoxesCount > 0 && assignedCount === totalBoxesCount
 
-  // Helper to calculate total weight and volumetric weight for a bucket
+  // Helper to calculate total weight for a bucket
   const getBucketWeights = (bucketBoxIds: number[]) => {
     let actualWeight = 0
-    let volWeight = 0
-
     for (const bid of bucketBoxIds) {
       const b = boxes.find((bx) => bx.id === bid)
       if (b) {
         const wt = parseFloat(String(b.weight || 0))
         if (!isNaN(wt)) actualWeight += wt
-
-        const l = parseFloat(String(b.length || 0))
-        const br = parseFloat(String(b.breadth || 0))
-        const h = parseFloat(String(b.height || 0))
-        if (!isNaN(l) && !isNaN(br) && !isNaN(h) && l > 0 && br > 0 && h > 0) {
-          volWeight += (l * br * h) / 5000
-        }
       }
     }
-
     return {
       actualWeight: Math.round(actualWeight * 100) / 100,
-      volWeight: Math.round(volWeight * 100) / 100,
     }
   }
 
@@ -177,57 +247,21 @@ export function BreakHawbDialog({
     setBuckets((prev) =>
       prev.map((b) => {
         if (b.id === targetBucketId) {
-          // Toggle assignment
           if (b.boxIds.includes(boxId)) {
+            // Already in this bucket, keep or unselect
             return { ...b, boxIds: b.boxIds.filter((id) => id !== boxId) }
           } else {
             return { ...b, boxIds: [...b.boxIds, boxId] }
           }
         } else {
-          // Remove from other buckets to prevent duplicate assignment
+          // Remove from all other buckets
           return { ...b, boxIds: b.boxIds.filter((id) => id !== boxId) }
         }
       })
     )
   }
 
-  // Add another HAWB bucket
-  const handleAddBucket = async () => {
-    const newIdx = buckets.length + 1
-    const newBucketId = `bucket-${Date.now()}`
-
-    let previewHawb = ''
-    const agentId = shipment?.agentId || shipment?.agent
-    if (agentId) {
-      try {
-        const nextRes: any = await http.get(
-          SHIPMENT_ENDPOINT.GET_AGENT_SHIPMENT_HAWBNO(agentId)
-        )
-        previewHawb = nextRes?.hawbno || ''
-      } catch (e) {
-        console.warn(e)
-      }
-    }
-
-    const baseHawb = buckets[0]?.hawbNumber || shipment?.hawbNumber || 'HAWB'
-    setBuckets((prev) => [
-      ...prev,
-      {
-        id: newBucketId,
-        isOriginal: false,
-        hawbNumber: previewHawb || `${baseHawb}-P${newIdx}`,
-        forwardingNumber: '',
-        boxIds: [],
-      },
-    ])
-  }
-
-  // Remove a non-original bucket
-  const handleRemoveBucket = (bucketId: string) => {
-    setBuckets((prev) => prev.filter((b) => b.id !== bucketId))
-  }
-
-  // Update bucket field (hawbNumber, forwardingNumber)
+  // Update bucket fields (hawbNumber, forwardingNumber)
   const handleUpdateBucketField = (
     bucketId: string,
     field: 'hawbNumber' | 'forwardingNumber',
@@ -248,14 +282,22 @@ export function BreakHawbDialog({
     for (let i = 0; i < buckets.length; i++) {
       const b = buckets[i]
       if (b.boxIds.length === 0) {
-        toast.error(`HAWB #${i + 1} has 0 boxes assigned. Each HAWB must have at least 1 box`)
+        toast.error(`HAWB #${i + 1} (${b.hawbNumber || 'HAWB'}) has 0 boxes assigned. Each HAWB must have at least 1 box`)
+        return
+      }
+      if (!b.hawbNumber || !b.hawbNumber.trim()) {
+        toast.error(`HAWB #${i + 1} must have a valid HAWB number`)
         return
       }
     }
 
+    const selectedAgentObj = agents.find((a) => String(a.id) === String(selectedAgentId))
+    const agentCodeToSubmit = selectedAgentObj?.code || shipment?.agent || undefined
+
     setSubmitting(true)
     try {
       const payload = {
+        agent: agentCodeToSubmit,
         hawbGroups: buckets.map((b) => ({
           isOriginal: b.isOriginal,
           hawbNumber: b.hawbNumber.trim() || undefined,
@@ -273,8 +315,15 @@ export function BreakHawbDialog({
         toast.success(
           res.message || `Successfully partitioned into ${buckets.length} HAWBs!`
         )
-        onSuccess?.()
         onOpenChange(false)
+        onSuccess?.()
+
+        // Redirect/reload shipments tab with partitioned HAWBs
+        if (typeof window !== 'undefined') {
+          setTimeout(() => {
+            window.location.reload()
+          }, 300)
+        }
       }
     } catch (err: any) {
       console.error('Error breaking HAWB:', err)
@@ -299,6 +348,16 @@ export function BreakHawbDialog({
     return Math.round(total * 100) / 100
   }, [boxes])
 
+  // Generate options for number of breaks: minimum 2, up to max boxes (or minimum 2 to 5)
+  const breakCountOptions = useMemo(() => {
+    const maxSplits = Math.max(2, Math.min(totalBoxesCount || 4, 10))
+    const opts: number[] = []
+    for (let i = 2; i <= maxSplits; i++) {
+      opts.push(i)
+    }
+    return opts
+  }, [totalBoxesCount])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden'>
@@ -317,34 +376,23 @@ export function BreakHawbDialog({
                   </Badge>
                 </DialogTitle>
                 <DialogDescription className='text-xs text-muted-foreground mt-0.5'>
-                  Partition boxes into separate HAWBs for international courier & air cargo carrier limits.
+                  Partition boxes across multiple HAWBs for international carrier limits.
                 </DialogDescription>
               </div>
             </div>
 
-            <Button
-              type='button'
-              variant='outline'
-              size='sm'
-              onClick={handleAddBucket}
-              className='h-8 text-xs font-semibold gap-1.5 shrink-0 bg-background hover:bg-muted'
-            >
-              <Plus className='h-3.5 w-3.5 text-primary' />
-              <span>Add Another HAWB</span>
-            </Button>
+            <div className='text-right'>
+              <span className='text-muted-foreground text-[10px] uppercase font-bold tracking-wider block'>
+                Master Tracking
+              </span>
+              <span className='font-mono font-bold text-foreground text-xs'>
+                {masterTrackingNo}
+              </span>
+            </div>
           </div>
 
           {/* Consignment Overview Banner */}
           <div className='mt-3.5 p-3 rounded-lg bg-background border flex flex-wrap items-center justify-between gap-3 text-xs'>
-            <div>
-              <span className='text-muted-foreground text-[10px] uppercase font-bold tracking-wider block'>
-                In-House Master Tracking
-              </span>
-              <span className='font-mono font-bold text-foreground text-sm'>
-                {masterTrackingNo}
-              </span>
-            </div>
-
             <div>
               <span className='text-muted-foreground text-[10px] uppercase font-bold tracking-wider block'>
                 Shipper / Destination
@@ -402,41 +450,89 @@ export function BreakHawbDialog({
             </div>
           ) : (
             <>
-              {/* Info banner */}
-              <div className='rounded-lg bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-900 p-3 flex items-start gap-2.5 text-xs text-sky-900 dark:text-sky-200'>
-                <Info className='h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5' />
-                <div className='space-y-0.5 leading-snug'>
-                  <span className='font-semibold'>Manual Box Allocation & Tracking Independence:</span> Select which boxes belong to each HAWB below. Total weight calculates automatically. Each HAWB gets its own carrier forwarding number and label piece sequence, while in-house master tracking ({masterTrackingNo}) remains unified.
+              {/* ── STEP 1 & 2: Agent Selection & Number of Breaks ── */}
+              <div className='rounded-xl border bg-muted/20 p-4 space-y-3.5 shadow-2xs'>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  {/* Agent Selector */}
+                  <div className='space-y-1.5 text-left'>
+                    <label className='text-xs font-bold text-foreground flex items-center gap-1.5'>
+                      <Building2 className='h-3.5 w-3.5 text-primary' />
+                      1. Select Overseas Agent:
+                    </label>
+                    <Select
+                      value={selectedAgentId}
+                      onValueChange={handleAgentChange}
+                    >
+                      <SelectTrigger className='w-full h-9 bg-background text-xs font-semibold'>
+                        <SelectValue placeholder='Choose overseas agent...' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agents.map((ag) => (
+                          <SelectItem key={ag.id} value={String(ag.id)}>
+                            <span className='font-mono font-bold text-primary mr-1.5'>{ag.code}</span>
+                            <span>{ag.name || ag.companyName || ag.city || 'Agent'}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Number of HAWB Breaks Selector */}
+                  {selectedAgentId && (
+                    <div className='space-y-1.5 text-left'>
+                      <label className='text-xs font-bold text-foreground flex items-center gap-1.5'>
+                        <Layers className='h-3.5 w-3.5 text-primary' />
+                        2. Break into How Many HAWBs:
+                      </label>
+                      <Select
+                        value={breakCount}
+                        onValueChange={handleCountChange}
+                      >
+                        <SelectTrigger className='w-full h-9 bg-background text-xs font-semibold'>
+                          <SelectValue placeholder='Select number of HAWBs...' />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {breakCountOptions.map((num) => (
+                            <SelectItem key={num} value={String(num)}>
+                              {num} HAWBs {num === 2 ? '(2-way split)' : `(${num}-way split)`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* HAWB Buckets */}
-              <div className='space-y-4'>
-                <div className='flex items-center justify-between'>
-                  <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
-                    Configured HAWBs ({buckets.length})
-                  </span>
-                  <span className='text-[11px] text-muted-foreground'>
-                    Click the HAWB buttons on each box below to assign
-                  </span>
-                </div>
+              {/* ── STEP 3: Auto-Generated Sequential HAWBs ── */}
+              {buckets.length > 0 && (
+                <div className='space-y-3'>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5'>
+                      Sequential HAWBs ({buckets.length})
+                    </span>
+                    {loadingHawbs && (
+                      <span className='text-xs text-primary font-medium flex items-center gap-1 animate-pulse'>
+                        <Loader2 className='h-3 w-3 animate-spin' />
+                        Updating serial numbers...
+                      </span>
+                    )}
+                  </div>
 
-                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                  {buckets.map((b, bIdx) => {
-                    const { actualWeight, volWeight } = getBucketWeights(b.boxIds)
+                  <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                    {buckets.map((b, bIdx) => {
+                      const { actualWeight } = getBucketWeights(b.boxIds)
 
-                    return (
-                      <div
-                        key={b.id}
-                        className={`rounded-xl border p-4 space-y-3.5 transition-all ${
-                          b.isOriginal
-                            ? 'bg-card border-border shadow-xs'
-                            : 'bg-card border-primary/30 shadow-xs ring-1 ring-primary/20'
-                        }`}
-                      >
-                        {/* Bucket Header */}
-                        <div className='flex items-center justify-between gap-2 border-b pb-2.5'>
-                          <div className='flex items-center gap-2'>
+                      return (
+                        <div
+                          key={b.id}
+                          className={`rounded-xl border p-4 space-y-3 transition-all ${
+                            b.isOriginal
+                              ? 'bg-card border-border shadow-2xs'
+                              : 'bg-card border-primary/40 shadow-2xs ring-1 ring-primary/20'
+                          }`}
+                        >
+                          <div className='flex items-center justify-between border-b pb-2'>
                             <Badge
                               variant='outline'
                               className={`text-[10px] font-bold px-2 py-0.5 ${
@@ -447,192 +543,121 @@ export function BreakHawbDialog({
                             >
                               {b.isOriginal ? 'HAWB 1 (Original)' : `HAWB ${bIdx + 1} (New)`}
                             </Badge>
+
+                            <div className='text-xs font-semibold text-muted-foreground'>
+                              {b.boxIds.length} Box{b.boxIds.length === 1 ? '' : 'es'} |{' '}
+                              <strong className='text-foreground'>{actualWeight} KG</strong>
+                            </div>
                           </div>
 
-                          {!b.isOriginal && buckets.length > 2 && (
-                            <button
-                              type='button'
-                              onClick={() => handleRemoveBucket(b.id)}
-                              className='text-muted-foreground hover:text-destructive transition-colors p-1 rounded-md'
-                              title='Remove this HAWB bucket'
-                            >
-                              <Trash2 className='h-3.5 w-3.5' />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* HAWB Number Input */}
-                        <div className='space-y-1 text-left'>
-                          <label className='text-[11px] font-semibold text-muted-foreground'>
-                            HAWB Number:
-                          </label>
-                          <Input
-                            value={b.hawbNumber}
-                            onChange={(e) =>
-                              handleUpdateBucketField(b.id, 'hawbNumber', e.target.value)
-                            }
-                            placeholder='Enter HAWB Number (e.g. AUNP 2026 022)'
-                            className='h-8 text-xs font-mono font-bold'
-                          />
-                        </div>
-
-                        {/* Carrier Forwarding Number Input */}
-                        <div className='space-y-1 text-left'>
-                          <label className='text-[11px] font-semibold text-muted-foreground flex items-center justify-between'>
-                            <span className='flex items-center gap-1.5'>
-                              <Truck className='h-3 w-3 text-primary' />
-                              Carrier Forwarding Number:
-                            </span>
-                            <span className='text-[10px] font-normal text-muted-foreground'>
-                              DHL / FedEx / Aramex
-                            </span>
-                          </label>
-                          <Input
-                            value={b.forwardingNumber}
-                            onChange={(e) =>
-                              handleUpdateBucketField(b.id, 'forwardingNumber', e.target.value)
-                            }
-                            placeholder='e.g. 7812345678 or carrier tracking'
-                            className='h-8 text-xs font-mono'
-                          />
-                        </div>
-
-                        {/* Weight & Piece Badge for this HAWB */}
-                        <div className='rounded-lg bg-muted/40 p-2.5 flex items-center justify-between gap-2 text-xs border border-border/60'>
-                          <div className='flex items-center gap-1.5'>
-                            <Package className='h-3.5 w-3.5 text-primary' />
-                            <span className='font-bold text-foreground'>
-                              {b.boxIds.length} {b.boxIds.length === 1 ? 'Box' : 'Boxes'}
-                            </span>
+                          {/* HAWB Number (Auto-Populated Serially) */}
+                          <div className='space-y-1 text-left'>
+                            <label className='text-[11px] font-semibold text-muted-foreground'>
+                              HAWB Number:
+                            </label>
+                            <Input
+                              value={b.hawbNumber}
+                              onChange={(e) =>
+                                handleUpdateBucketField(b.id, 'hawbNumber', e.target.value)
+                              }
+                              placeholder='e.g. UKNP 2026 046'
+                              className='h-8 text-xs font-mono font-bold'
+                            />
                           </div>
-                          <div className='flex items-center gap-2 text-[11px] font-medium'>
-                            <span className='text-muted-foreground'>
-                              Total Weight: <strong className='text-foreground'>{actualWeight} KG</strong>
-                            </span>
-                            {volWeight > 0 && (
-                              <span className='text-muted-foreground border-l pl-2'>
-                                Vol: {volWeight} KG
+
+                          {/* Carrier Forwarding Number */}
+                          <div className='space-y-1 text-left'>
+                            <label className='text-[11px] font-semibold text-muted-foreground flex items-center justify-between'>
+                              <span className='flex items-center gap-1.5'>
+                                <Truck className='h-3 w-3 text-primary' />
+                                Carrier Forwarding Number:
                               </span>
-                            )}
+                              <span className='text-[10px] font-normal text-muted-foreground'>
+                                UPS / DHL / Aramex
+                              </span>
+                            </label>
+                            <Input
+                              value={b.forwardingNumber}
+                              onChange={(e) =>
+                                handleUpdateBucketField(b.id, 'forwardingNumber', e.target.value)
+                              }
+                              placeholder='e.g. 1Z9999999999999999'
+                              className='h-8 text-xs font-mono'
+                            />
                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Package Allocation Matrix */}
-              <div className='space-y-3 pt-2'>
-                <div className='flex items-center justify-between'>
-                  <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5'>
-                    <Boxes className='h-3.5 w-3.5 text-primary' />
-                    Select HAWB for Each Package ({boxes.length} Total)
-                  </span>
-                  <span className='text-[11px] text-muted-foreground'>
-                    Click a HAWB button to assign that box
-                  </span>
-                </div>
+              {/* ── STEP 4: Box Allocation (Clean & Minimalist: Only Box Number and Weight) ── */}
+              {buckets.length > 0 && (
+                <div className='space-y-3 pt-2'>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5'>
+                      <Boxes className='h-3.5 w-3.5 text-primary' />
+                      Assign Boxes to HAWBs (Select Box &rarr; Choose HAWB)
+                    </span>
+                    <span className='text-[11px] text-muted-foreground'>
+                      Only box number and weight shown
+                    </span>
+                  </div>
 
-                <div className='divide-y rounded-xl border bg-card overflow-hidden shadow-2xs'>
-                  {boxes.map((bx, idx) => {
-                    const currentBucketId = assignedBoxMap.get(bx.id)
-                    const currentBucketIndex = buckets.findIndex((b) => b.id === currentBucketId)
-                    const assignedBucket = buckets.find((b) => b.id === currentBucketId)
+                  <div className='divide-y rounded-xl border bg-card overflow-hidden shadow-2xs'>
+                    {boxes.map((bx, idx) => {
+                      const currentBucketId = assignedBoxMap.get(bx.id)
+                      const isAssigned = !!currentBucketId
 
-                    const dimsStr =
-                      bx.dimensions ||
-                      (bx.length && bx.breadth && bx.height
-                        ? `${bx.length} x ${bx.breadth} x ${bx.height} cm`
-                        : 'Standard Size')
-
-                    return (
-                      <div
-                        key={bx.id}
-                        className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-colors ${
-                          currentBucketId ? 'bg-background' : 'bg-muted/15'
-                        }`}
-                      >
-                        {/* Package Details */}
-                        <div className='space-y-1'>
-                          <div className='flex items-center gap-2 flex-wrap'>
+                      return (
+                        <div
+                          key={bx.id}
+                          className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-colors ${
+                            isAssigned ? 'bg-background' : 'bg-muted/15'
+                          }`}
+                        >
+                          {/* ONLY Box Number and Weight */}
+                          <div className='flex items-center gap-3'>
                             <span className='font-bold text-foreground text-sm'>
                               Box #{bx.boxNumber || idx + 1}
                             </span>
-                            {bx.trackingNumber && (
-                              <span className='font-mono text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded'>
-                                {bx.trackingNumber}
-                              </span>
-                            )}
-                            {assignedBucket ? (
-                              <Badge
-                                variant='outline'
-                                className={`text-[10px] font-semibold py-0 h-4.5 px-2 ${
-                                  assignedBucket.isOriginal
-                                    ? 'bg-muted border-border text-foreground'
-                                    : 'bg-primary/10 border-primary/40 text-primary'
-                                }`}
-                              >
-                                Assigned to {assignedBucket.hawbNumber || `HAWB #${currentBucketIndex + 1}`}
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant='outline'
-                                className='text-[10px] font-semibold py-0 h-4.5 px-2 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border-amber-300'
-                              >
-                                Unassigned
-                              </Badge>
-                            )}
+                            <Badge
+                              variant='secondary'
+                              className='text-xs font-bold font-mono px-2.5 py-0.5'
+                            >
+                              {bx.weight ? `${bx.weight} KG` : '0 KG'}
+                            </Badge>
                           </div>
 
-                          <div className='flex items-center gap-3 text-[11px] text-muted-foreground'>
-                            <span>
-                              <strong className='text-foreground font-semibold'>Weight:</strong>{' '}
-                              {bx.weight ? `${bx.weight} KG` : 'N/A'}
-                            </span>
-                            <span>•</span>
-                            <span>
-                              <strong className='text-foreground font-semibold'>Dimensions:</strong>{' '}
-                              {dimsStr}
-                            </span>
-                            {bx.items && bx.items.length > 0 && (
-                              <>
-                                <span>•</span>
-                                <span className='truncate max-w-[200px]'>
-                                  {bx.items.map((it: any) => it?.enquiryItem?.description || it?.description || 'Item').join(', ')}
-                                </span>
-                              </>
-                            )}
+                          {/* HAWB Selection Buttons */}
+                          <div className='flex items-center gap-1.5 flex-wrap'>
+                            {buckets.map((b, bIdx) => {
+                              const isSelected = b.boxIds.includes(bx.id)
+
+                              return (
+                                <button
+                                  key={b.id}
+                                  type='button'
+                                  onClick={() => handleAssignBox(bx.id, b.id)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                                      : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                                  }`}
+                                >
+                                  {isSelected && <CheckCircle2 className='inline h-3 w-3 mr-1 stroke-[2.5]' />}
+                                  {b.isOriginal ? 'HAWB 1' : `HAWB ${bIdx + 1}`}
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
-
-                        {/* HAWB Selector Buttons */}
-                        <div className='flex items-center gap-1.5 shrink-0'>
-                          {buckets.map((b, bIdx) => {
-                            const isSelected = b.boxIds.includes(bx.id)
-
-                            return (
-                              <button
-                                key={b.id}
-                                type='button'
-                                onClick={() => handleAssignBox(bx.id, b.id)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                                    : 'bg-background hover:bg-muted text-muted-foreground border-border'
-                                }`}
-                              >
-                                {isSelected && <CheckCircle2 className='inline h-3 w-3 mr-1 stroke-[2.5]' />}
-                                {b.isOriginal ? 'HAWB 1' : `HAWB ${bIdx + 1}`}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>
@@ -643,7 +668,7 @@ export function BreakHawbDialog({
             {isAllBoxesAssigned ? (
               <span className='text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5'>
                 <CheckCircle2 className='h-4 w-4' />
-                All {totalBoxesCount} packages allocated across {buckets.length} HAWBs
+                All {totalBoxesCount} packages assigned across {buckets.length} HAWBs
               </span>
             ) : (
               <span className='text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1.5'>
@@ -675,12 +700,12 @@ export function BreakHawbDialog({
               {submitting ? (
                 <>
                   <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                  <span>Partitioning HAWBs...</span>
+                  <span>Breaking HAWBs...</span>
                 </>
               ) : (
                 <>
                   <Scissors className='h-3.5 w-3.5' />
-                  <span>Confirm Break into {buckets.length} HAWBs</span>
+                  <span>Okay (Confirm Break into {buckets.length} HAWBs)</span>
                 </>
               )}
             </Button>

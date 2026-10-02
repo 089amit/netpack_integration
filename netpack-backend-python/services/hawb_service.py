@@ -12,7 +12,7 @@ def generate_tracking_number() -> str:
     p2 = "".join(random.choices(chars, k=4))
     return f"NP-{p1}-{p2}"
 
-def compute_next_hawb_for_agent(db: Session, agent_code: str, year_optional: Optional[int] = None) -> Dict[str, Any]:
+def compute_next_hawb_for_agent(db: Session, agent_code: str, year_optional: Optional[int] = None, count: int = 1) -> Dict[str, Any]:
     year = year_optional or datetime.utcnow().year
     start_of_year = datetime(year, 1, 1)
     start_of_next_year = datetime(year + 1, 1, 1)
@@ -37,13 +37,20 @@ def compute_next_hawb_for_agent(db: Session, agent_code: str, year_optional: Opt
             continue
 
     next_sequence = max_sequence + 1
-    padded_seq = str(next_sequence).zfill(3)
-    hawbno = f"{agent_code} {year} {padded_seq}"
+    safe_count = max(1, count)
+    hawbnos = []
+    for i in range(safe_count):
+        seq = next_sequence + i
+        padded_seq = str(seq).zfill(3)
+        hawbnos.append(f"{agent_code} {year} {padded_seq}")
 
     return {
         "year": year,
         "nextSequence": next_sequence,
-        "hawbno": hawbno,
+        "hawbno": hawbnos[0],
+        "hawbnos": hawbnos,
+        "count": safe_count,
         "agent": agent_code,
         "agentCode": agent_code
     }
+

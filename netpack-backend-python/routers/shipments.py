@@ -528,6 +528,7 @@ def create_multiple_shipments_from_enquiries(payload: Any = Body(...), db: Sessi
 def get_agent_shipment_hawbno(
     agentId: Optional[str] = Query(None),
     agentCode: Optional[str] = Query(None),
+    count: Optional[int] = Query(1),
     db: Session = Depends(get_db)
 ):
     code = agentCode
@@ -542,7 +543,7 @@ def get_agent_shipment_hawbno(
     if not code:
         code = "NET"
 
-    res = compute_next_hawb_for_agent(db, code)
+    res = compute_next_hawb_for_agent(db, code, count=count or 1)
     return res
 
 @router.get("/location-history")
@@ -818,6 +819,7 @@ class HawbBreakGroup(BaseModel):
 
 
 class BreakHawbRequest(BaseModel):
+    agent: Optional[str] = None
     hawbGroups: List[HawbBreakGroup]
 
 
@@ -825,11 +827,11 @@ class BreakHawbRequest(BaseModel):
 def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depends(get_db)):
     """
     Partitions boxes of a shipment across multiple HAWBs.
-    - Updates original shipment with its chosen boxes, hawbNumber, and carrier forwardingNumber.
+    - Updates original shipment with its chosen boxes, hawbNumber, carrier forwardingNumber, and agent.
     - Creates new Shipment records for new HAWB groups with auto-computed or custom HAWB numbers,
       cloning metadata from the parent shipment.
     - Synchronizes box tracking numbers (e.g. {hawbno}-{pieceIndex}).
-    - Adds audit tracking event checkpoints for transparent tracking.
+    - Avoids adding cluttering internal HAWB split milestone events to tracking timeline.
     """
     shipment = db.query(Shipment).filter(Shipment.id == id).first()
     if not shipment:
@@ -861,6 +863,10 @@ def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depend
                 raise HTTPException(status_code=400, detail=f"Box ID {bid} is assigned to more than one HAWB group")
             assigned_box_ids.add(bid)
 
+    # Update agent if selected in wizard
+    if payload.agent and payload.agent.strip():
+        shipment.agent = payload.agent.strip()
+
     # Find the original group
     original_groups = [g for g in payload.hawbGroups if g.isOriginal]
     new_groups = [g for g in payload.hawbGroups if not g.isOriginal]
@@ -889,10 +895,12 @@ def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depend
     for n_idx, grp in enumerate(new_groups, 1):
         target_hawb = None
         seq_num = None
+        target_agent = payload.agent.strip() if (payload.agent and payload.agent.strip()) else shipment.agent
+
         if grp.hawbNumber and grp.hawbNumber.strip():
             target_hawb = grp.hawbNumber.strip()
-        elif shipment.agent:
-            hawb_res = compute_next_hawb_for_agent(db, shipment.agent)
+        elif target_agent:
+            hawb_res = compute_next_hawb_for_agent(db, target_agent)
             target_hawb = hawb_res["hawbno"]
             seq_num = hawb_res["nextSequence"]
         else:
@@ -905,7 +913,7 @@ def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depend
             forwardingCompanyId=shipment.forwardingCompanyId,
             serviceId=shipment.serviceId,
             mawbId=shipment.mawbId,
-            agent=shipment.agent,
+            agent=target_agent,
             status=shipment.status,
             trackingMode=shipment.trackingMode or "MANUAL",
             hawbno=target_hawb,
@@ -926,30 +934,7 @@ def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depend
         for pl in shipment.pickupLocations:
             db.add(ShipmentPickUpLocation(shipmentId=new_shipment.id, location=pl.location))
 
-        # Add milestone checkpoint for the new shipment
-        db.add(TrackingEvent(
-            shipmentId=new_shipment.id,
-            trackingNumber=new_shipment.hawbno or str(new_shipment.id),
-            status="SHIPMENT_CREATED",
-            location="Kathmandu, Nepal",
-            activity=f"HAWB {new_shipment.hawbno} created (partitioned from {shipment.hawbno}) with {len(grp.boxIds)} packages",
-            checkpointTime=datetime.utcnow(),
-            source="INTERNAL"
-        ))
-
         created_shipments.append(new_shipment)
-
-    # Milestone note on original shipment
-    new_hawbs_str = ", ".join([s.hawbno for s in created_shipments if s.id != shipment.id and s.hawbno])
-    db.add(TrackingEvent(
-        shipmentId=shipment.id,
-        trackingNumber=shipment.hawbno or str(shipment.id),
-        status=shipment.status,
-        location="Kathmandu, Nepal",
-        activity=f"Shipment partitioned: retained {len(original_group.boxIds)} packages; partitioned into {new_hawbs_str}",
-        checkpointTime=datetime.utcnow(),
-        source="INTERNAL"
-    ))
 
     db.commit()
 
@@ -961,4 +946,5 @@ def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depend
         "message": f"Successfully broke shipment into {len(created_shipments)} HAWBs",
         "shipments": [format_shipment_response(s, db) for s in created_shipments]
     }
+
 

@@ -69,8 +69,8 @@ export const SHIPMENT_ENDPOINT = {
 
   PUSH_TO_SHIPMENT: (enquiryId: number | string) =>
     `${BASE_URL}/shipments/from-enquiry/${enquiryId}`,
-  GET_AGENT_SHIPMENT_HAWBNO: (agentId: number | string) =>
-    `${BASE_URL}/shipments/getagentshipmentHAWBNO?agentId=${agentId}`,
+  GET_AGENT_SHIPMENT_HAWBNO: (agentId: number | string, count: number = 1) =>
+    `${BASE_URL}/shipments/getagentshipmentHAWBNO?agentId=${agentId}&count=${count}`,
   BULK_STATUS_CHANGE: `${BASE_URL}/shipments/bulk-status-change`,
   GET_BY_ID: (id: number | string) => `${BASE_URL}/shipments/getById/${id}`,
   BATCH_ADD_NOTE: `${BASE_URL}/shipments/batch-add-note`,
