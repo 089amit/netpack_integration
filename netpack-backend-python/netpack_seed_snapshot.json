@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "exportedAt": "2026-10-02T08:33:22.938024",
+  "exportedAt": "2026-10-02T08:42:53.455257",
   "users": [
     {
       "id": 1,
@@ -3024,7 +3024,7 @@
       "name": "Demo Customer",
       "email": "customer@example.com",
       "phone": "+977-9801234567",
-      "password": "$2b$12$0elTFHkpZxqhn.z2idi0FubWZ.eNwRMpbUHm5ztS5oxBf9Lq2IJ2q",
+      "password": "$2b$12$Bw4KatmocPiRZewwJyiq8uIi3LfIfnQnMnMlvCPD4g2dnWue.3qDq",
       "countryId": 184,
       "address1": "Thamel Marg, Ward 26",
       "address2": null,
@@ -3039,7 +3039,7 @@
       "name": "Himalayan Handicrafts Export Pvt. Ltd.",
       "email": "contact@himalayanhandicrafts.com",
       "phone": "+977-9841234567",
-      "password": "$2b$12$6OL2cOVfJEZ3OW4kRrdRwOstlFFPN/LbzkGOJSodJLORqPeG8n28S",
+      "password": "$2b$12$WCRceN/gM4cRjY8oMYw/B.KsrJIwimjUIJOXspjAXc/ACM2JCidDG",
       "countryId": 184,
       "address1": "Thamel Marg, Ward 26",
       "address2": null,

@@ -390,43 +390,6 @@ def resolve_valid_country_id(db: Session, enquiry: Enquiry) -> Optional[int]:
     return None
 
 
-def resolve_agent_and_hawb(db: Session, enquiry: Enquiry) -> tuple[Optional[str], Optional[str], Optional[int]]:
-    """Resolves matching overseas agent and computes the next sequential HAWB number."""
-    agent_code = None
-    country_name = enquiry.country.name if enquiry.country else ""
-    if not country_name and enquiry.destinationCountry:
-        c = db.query(Country).filter(Country.id == enquiry.destinationCountry).first()
-        if c:
-            country_name = c.name
-    if not country_name:
-        country_name = enquiry.destinationLocation or enquiry.receiverCountry or ""
-
-    if country_name:
-        agent_match = db.query(Agent).filter(
-            (Agent.country.ilike(f"%{country_name}%")) | 
-            (Agent.name.ilike(f"%{country_name}%"))
-        ).first()
-        if agent_match:
-            agent_code = agent_match.code
-
-    # Fallback to default active agent
-    if not agent_code:
-        def_agent = db.query(Agent).filter(Agent.isActive == True).first() or db.query(Agent).first()
-        if def_agent:
-            agent_code = def_agent.code
-
-    if agent_code:
-        try:
-            hawb_res = compute_next_hawb_for_agent(db, agent_code)
-            return agent_code, hawb_res["hawbno"], hawb_res["nextSequence"]
-        except Exception as err:
-            print(f"[Warning] Failed compute_next_hawb_for_agent: {err}")
-            year = datetime.utcnow().year
-            return agent_code, f"{agent_code} {year} {enquiry.id:03d}", enquiry.id
-
-    return None, None, None
-
-
 @router.post("/from-enquiry/{enquiryId}")
 def create_shipment_from_enquiry(enquiryId: int, db: Session = Depends(get_db)):
     enquiry = db.query(Enquiry).filter(Enquiry.id == enquiryId).first()
@@ -435,23 +398,10 @@ def create_shipment_from_enquiry(enquiryId: int, db: Session = Depends(get_db)):
 
     existing = db.query(Shipment).filter(Shipment.enquiryId == enquiry.id).first()
     if existing:
-        # If existing shipment has no HAWB, assign one
-        if not existing.hawbno:
-            agent_code, hawb_no, agent_seq = resolve_agent_and_hawb(db, enquiry)
-            if hawb_no:
-                existing.agent = agent_code
-                existing.hawbno = hawb_no
-                existing.agentShipmentNumber = agent_seq
-                try:
-                    db.commit()
-                    db.refresh(existing)
-                except Exception:
-                    db.rollback()
         return {"message": "Shipment already exists for this enquiry", "shipment": format_shipment_response(existing, db)}
 
     cust_id = resolve_valid_customer_id(db, enquiry)
     cntry_id = resolve_valid_country_id(db, enquiry)
-    agent_code, hawb_no, agent_seq = resolve_agent_and_hawb(db, enquiry)
 
     try:
         shipment = Shipment(
@@ -459,9 +409,9 @@ def create_shipment_from_enquiry(enquiryId: int, db: Session = Depends(get_db)):
             customerId=cust_id,
             countryId=cntry_id,
             status="SHIPMENT_CREATED",
-            agent=agent_code,
-            hawbno=hawb_no,
-            agentShipmentNumber=agent_seq
+            agent=None,
+            hawbno=None,
+            agentShipmentNumber=None
         )
         db.add(shipment)
         db.commit()
@@ -471,12 +421,10 @@ def create_shipment_from_enquiry(enquiryId: int, db: Session = Depends(get_db)):
         print(f"[Error] Failed to create shipment from enquiry {enquiryId}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create shipment: {str(e)}")
 
-    # Associate enquiry boxes to shipment & synchronize piece barcodes
+    # Associate enquiry boxes to shipment
     if enquiry.boxes:
-        for idx, b in enumerate(enquiry.boxes, 1):
+        for b in enquiry.boxes:
             b.shipmentId = shipment.id
-            if not b.trackingNumber and shipment.hawbno:
-                b.trackingNumber = f"{shipment.hawbno}-{idx}"
         try:
             db.commit()
         except Exception:
@@ -531,35 +479,24 @@ def create_multiple_shipments_from_enquiries(payload: Any = Body(...), db: Sessi
             if not s:
                 cust_id = resolve_valid_customer_id(db, enquiry)
                 cntry_id = resolve_valid_country_id(db, enquiry)
-                agent_code, hawb_no, agent_seq = resolve_agent_and_hawb(db, enquiry)
 
                 s = Shipment(
                     enquiryId=enquiry.id,
                     customerId=cust_id,
                     countryId=cntry_id,
                     status="SHIPMENT_CREATED",
-                    agent=agent_code,
-                    hawbno=hawb_no,
-                    agentShipmentNumber=agent_seq
+                    agent=None,
+                    hawbno=None,
+                    agentShipmentNumber=None
                 )
                 db.add(s)
                 db.commit()
                 db.refresh(s)
-            else:
-                if not s.hawbno:
-                    agent_code, hawb_no, agent_seq = resolve_agent_and_hawb(db, enquiry)
-                    if hawb_no:
-                        s.agent = agent_code
-                        s.hawbno = hawb_no
-                        s.agentShipmentNumber = agent_seq
-                        db.commit()
 
-            # Associate all enquiry boxes with shipment & set piece barcode
+            # Associate all enquiry boxes with shipment
             if enquiry.boxes:
-                for idx, b in enumerate(enquiry.boxes, 1):
+                for b in enquiry.boxes:
                     b.shipmentId = s.id
-                    if not b.trackingNumber and s.hawbno:
-                        b.trackingNumber = f"{s.hawbno}-{idx}"
                 db.commit()
 
             # Copy pickup locations safely if none exist
