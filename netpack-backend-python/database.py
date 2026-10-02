@@ -312,9 +312,59 @@ def run_auto_migrations(target_engine):
                     })
                     conn.commit()
                     print("[Migration] Created baseline Customer account: customer@netpack.com / Customer@123")
+
+                # 5e. Ensure customer with id=1 exists for walk-in shippers and fallback
+                c1 = conn.execute(sa.text("SELECT id FROM customers WHERE id = 1")).fetchone()
+                if not c1:
+                    conn.execute(sa.text("""
+                        INSERT INTO customers (id, name, phone, email, countryId, address1, city, createdAt, updatedAt)
+                        VALUES (1, 'NetPack Walk-in / Direct Shipper', '+977-01-5339942', 'walkin@netpacklogistic.com', :countryId, 'Kathmandu Operations HQ', 'Kathmandu', :now, :now)
+                    """), {
+                        "countryId": nepal_id,
+                        "now": now_dt
+                    })
+                    conn.commit()
+                    print("[Migration] Created fallback default customer (id=1) for walk-in shippers.")
             except Exception as e:
                 try:
                     conn.rollback()
                 except Exception:
                     pass
                 print(f"[Migration Warning] Baseline accounts check: {e}")
+
+        # 6. Synchronize all PostgreSQL table sequences to prevent UniqueViolation on newly inserted records
+        is_pg = "postgresql" in str(target_engine.url).lower() or "postgres" in str(target_engine.url).lower()
+        if is_pg:
+            try:
+                conn.execute(sa.text("""
+                    DO $$
+                    DECLARE
+                        r RECORD;
+                        seq_name TEXT;
+                        max_id BIGINT;
+                    BEGIN
+                        FOR r IN 
+                            SELECT table_name 
+                            FROM information_schema.tables 
+                            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+                        LOOP
+                            BEGIN
+                                seq_name := pg_get_serial_sequence(r.table_name, 'id');
+                                IF seq_name IS NOT NULL THEN
+                                    EXECUTE format('SELECT COALESCE(MAX(id), 0) + 1 FROM %I', r.table_name) INTO max_id;
+                                    EXECUTE format('SELECT setval(%L, %s, false)', seq_name, max_id);
+                                END IF;
+                            EXCEPTION WHEN OTHERS THEN
+                                NULL;
+                            END;
+                        END LOOP;
+                    END $$;
+                """))
+                conn.commit()
+                print("[Migration] Synchronized all PostgreSQL serial sequences to MAX(id) + 1.")
+            except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                print(f"[Migration Warning] PostgreSQL sequence resync: {e}")

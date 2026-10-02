@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "exportedAt": "2026-10-02T08:21:16.107156",
+  "exportedAt": "2026-10-02T08:33:22.938024",
   "users": [
     {
       "id": 1,
@@ -1084,6 +1084,21 @@
     }
   ],
   "customers": [
+    {
+      "id": 1,
+      "name": "NetPack Walk-in / Direct Shipper",
+      "email": "walkin@netpacklogistic.com",
+      "phone": "+977-01-5339942",
+      "password": null,
+      "countryId": 194,
+      "address1": "Kathmandu Operations HQ",
+      "address2": null,
+      "city": "Kathmandu",
+      "state": null,
+      "postcode": null,
+      "photoUrl": null,
+      "userId": null
+    },
     {
       "id": 2,
       "name": "Ro Himalayan Logistics Pvt. Ltd.",
@@ -3009,7 +3024,7 @@
       "name": "Demo Customer",
       "email": "customer@example.com",
       "phone": "+977-9801234567",
-      "password": "$2b$12$s6dtCySfLgHQcrr3vbSEN.UfQz3FiP5xyeWo1LVy6pUFYpCCdfC8i",
+      "password": "$2b$12$0elTFHkpZxqhn.z2idi0FubWZ.eNwRMpbUHm5ztS5oxBf9Lq2IJ2q",
       "countryId": 184,
       "address1": "Thamel Marg, Ward 26",
       "address2": null,
@@ -3024,7 +3039,7 @@
       "name": "Himalayan Handicrafts Export Pvt. Ltd.",
       "email": "contact@himalayanhandicrafts.com",
       "phone": "+977-9841234567",
-      "password": "$2b$12$NTx8DH62prEkDT6V.kk.iepcy.Jbx9hYKxWzzswHQqf7CqYpyKdKS",
+      "password": "$2b$12$6OL2cOVfJEZ3OW4kRrdRwOstlFFPN/LbzkGOJSodJLORqPeG8n28S",
       "countryId": 184,
       "address1": "Thamel Marg, Ward 26",
       "address2": null,

@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel
 from datetime import datetime
@@ -319,6 +320,113 @@ def get_all_shipments(
         "data": [format_shipment_response(s, db) for s in shipments]
     }
 
+def resolve_valid_customer_id(db: Session, enquiry: Enquiry) -> int:
+    """
+    Safely resolves a customer ID that is guaranteed to exist in the database.
+    Prevents ForeignKeyViolation on shipments.customerId.
+    """
+    # 1. Check if enquiry.customerId points to an existing Customer
+    if enquiry.customerId:
+        c = db.query(Customer).filter(Customer.id == enquiry.customerId).first()
+        if c:
+            return c.id
+
+    # 2. Check if senderPhone or senderEmail matches an existing Customer
+    p = (enquiry.senderPhone or "").strip()
+    e = (enquiry.senderEmail or "").strip()
+    if p or e:
+        conds = []
+        if p:
+            conds.append(Customer.phone == p)
+        if e and "@" in e:
+            conds.append(Customer.email == e)
+        if conds:
+            c = db.query(Customer).filter(or_(*conds)).first()
+            if c:
+                return c.id
+
+    # 3. Check customer with id=1
+    c1 = db.query(Customer).filter(Customer.id == 1).first()
+    if c1:
+        return c1.id
+
+    # 4. Check first available customer in database
+    c_first = db.query(Customer).order_by(Customer.id.asc()).first()
+    if c_first:
+        return c_first.id
+
+    # 5. Create default fallback customer on the fly
+    try:
+        first_country = db.query(Country).first()
+        c_id = first_country.id if first_country else 184
+        fallback_cust = Customer(
+            id=1,
+            name=enquiry.senderName or "NetPack Walk-in / Direct Shipper",
+            phone=enquiry.senderPhone or "+977-01-5339942",
+            email=enquiry.senderEmail or "walkin@netpacklogistic.com",
+            countryId=c_id,
+            address1=enquiry.senderAddressLine1 or "Kathmandu HQ"
+        )
+        db.add(fallback_cust)
+        db.commit()
+        db.refresh(fallback_cust)
+        return fallback_cust.id
+    except Exception:
+        db.rollback()
+        c_any = db.query(Customer).first()
+        if c_any:
+            return c_any.id
+        return 1
+
+
+def resolve_valid_country_id(db: Session, enquiry: Enquiry) -> Optional[int]:
+    """Safely resolves countryId to avoid foreign key errors."""
+    if enquiry.destinationCountry:
+        c = db.query(Country).filter(Country.id == enquiry.destinationCountry).first()
+        if c:
+            return c.id
+    if enquiry.country:
+        return enquiry.country.id
+    return None
+
+
+def resolve_agent_and_hawb(db: Session, enquiry: Enquiry) -> tuple[Optional[str], Optional[str], Optional[int]]:
+    """Resolves matching overseas agent and computes the next sequential HAWB number."""
+    agent_code = None
+    country_name = enquiry.country.name if enquiry.country else ""
+    if not country_name and enquiry.destinationCountry:
+        c = db.query(Country).filter(Country.id == enquiry.destinationCountry).first()
+        if c:
+            country_name = c.name
+    if not country_name:
+        country_name = enquiry.destinationLocation or enquiry.receiverCountry or ""
+
+    if country_name:
+        agent_match = db.query(Agent).filter(
+            (Agent.country.ilike(f"%{country_name}%")) | 
+            (Agent.name.ilike(f"%{country_name}%"))
+        ).first()
+        if agent_match:
+            agent_code = agent_match.code
+
+    # Fallback to default active agent
+    if not agent_code:
+        def_agent = db.query(Agent).filter(Agent.isActive == True).first() or db.query(Agent).first()
+        if def_agent:
+            agent_code = def_agent.code
+
+    if agent_code:
+        try:
+            hawb_res = compute_next_hawb_for_agent(db, agent_code)
+            return agent_code, hawb_res["hawbno"], hawb_res["nextSequence"]
+        except Exception as err:
+            print(f"[Warning] Failed compute_next_hawb_for_agent: {err}")
+            year = datetime.utcnow().year
+            return agent_code, f"{agent_code} {year} {enquiry.id:03d}", enquiry.id
+
+    return None, None, None
+
+
 @router.post("/from-enquiry/{enquiryId}")
 def create_shipment_from_enquiry(enquiryId: int, db: Session = Depends(get_db)):
     enquiry = db.query(Enquiry).filter(Enquiry.id == enquiryId).first()
@@ -327,39 +435,86 @@ def create_shipment_from_enquiry(enquiryId: int, db: Session = Depends(get_db)):
 
     existing = db.query(Shipment).filter(Shipment.enquiryId == enquiry.id).first()
     if existing:
+        # If existing shipment has no HAWB, assign one
+        if not existing.hawbno:
+            agent_code, hawb_no, agent_seq = resolve_agent_and_hawb(db, enquiry)
+            if hawb_no:
+                existing.agent = agent_code
+                existing.hawbno = hawb_no
+                existing.agentShipmentNumber = agent_seq
+                try:
+                    db.commit()
+                    db.refresh(existing)
+                except Exception:
+                    db.rollback()
         return {"message": "Shipment already exists for this enquiry", "shipment": format_shipment_response(existing, db)}
 
-    shipment = Shipment(
-        enquiryId=enquiry.id,
-        customerId=enquiry.customerId or 1,
-        countryId=enquiry.destinationCountry,
-        status="SHIPMENT_CREATED"
-    )
-    db.add(shipment)
-    db.commit()
-    db.refresh(shipment)
+    cust_id = resolve_valid_customer_id(db, enquiry)
+    cntry_id = resolve_valid_country_id(db, enquiry)
+    agent_code, hawb_no, agent_seq = resolve_agent_and_hawb(db, enquiry)
 
-    # Associate enquiry boxes to shipment
-    if enquiry.boxes:
-        for b in enquiry.boxes:
-            b.shipmentId = shipment.id
+    try:
+        shipment = Shipment(
+            enquiryId=enquiry.id,
+            customerId=cust_id,
+            countryId=cntry_id,
+            status="SHIPMENT_CREATED",
+            agent=agent_code,
+            hawbno=hawb_no,
+            agentShipmentNumber=agent_seq
+        )
+        db.add(shipment)
         db.commit()
+        db.refresh(shipment)
+    except Exception as e:
+        db.rollback()
+        print(f"[Error] Failed to create shipment from enquiry {enquiryId}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create shipment: {str(e)}")
+
+    # Associate enquiry boxes to shipment & synchronize piece barcodes
+    if enquiry.boxes:
+        for idx, b in enumerate(enquiry.boxes, 1):
+            b.shipmentId = shipment.id
+            if not b.trackingNumber and shipment.hawbno:
+                b.trackingNumber = f"{shipment.hawbno}-{idx}"
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
 
     # Copy pickup locations if any
     if enquiry.pickupLocations:
         for pl in enquiry.pickupLocations:
-            db.add(ShipmentPickUpLocation(shipmentId=shipment.id, location=pl.location))
-        db.commit()
+            loc_str = pl.location or enquiry.senderAddressLine1 or "NetPack Central Warehouse"
+            if loc_str:
+                db.add(ShipmentPickUpLocation(shipmentId=shipment.id, location=loc_str))
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
 
     enquiry.status = "SHIPMENT_CREATED"
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
 
     return {"message": "Shipment created successfully", "shipment": format_shipment_response(shipment, db)}
 
+
 @router.post("/from-enquiries")
-def create_multiple_shipments_from_enquiries(payload: BulkShipmentsFromEnquiriesRequest, db: Session = Depends(get_db)):
-    raw_ids = payload.enquiryIds or payload.ids or []
+def create_multiple_shipments_from_enquiries(payload: Any = Body(...), db: Session = Depends(get_db)):
+    # Safely extract IDs from dict, object, or raw list
+    raw_ids = []
+    if isinstance(payload, dict):
+        raw_ids = payload.get("enquiryIds") or payload.get("ids") or []
+    elif isinstance(payload, list):
+        raw_ids = payload
+    elif hasattr(payload, "enquiryIds"):
+        raw_ids = getattr(payload, "enquiryIds") or getattr(payload, "ids") or []
+
     created = []
+    errors = []
     
     for raw_id in raw_ids:
         try:
@@ -371,47 +526,66 @@ def create_multiple_shipments_from_enquiries(payload: BulkShipmentsFromEnquiries
         if not enquiry:
             continue
 
-        s = db.query(Shipment).filter(Shipment.enquiryId == enquiry.id).first()
-        if not s:
-            # Check if destination country has an agent
-            agent_code = None
-            country_name = enquiry.country.name if enquiry.country else (enquiry.destinationLocation or enquiry.receiverCountry or "")
-            if country_name:
-                agent_match = db.query(Agent).filter(
-                    (Agent.country.ilike(f"%{country_name}%")) | 
-                    (Agent.name.ilike(f"%{country_name}%"))
-                ).first()
-                if agent_match:
-                    agent_code = agent_match.code
+        try:
+            s = db.query(Shipment).filter(Shipment.enquiryId == enquiry.id).first()
+            if not s:
+                cust_id = resolve_valid_customer_id(db, enquiry)
+                cntry_id = resolve_valid_country_id(db, enquiry)
+                agent_code, hawb_no, agent_seq = resolve_agent_and_hawb(db, enquiry)
 
-            s = Shipment(
-                enquiryId=enquiry.id,
-                customerId=enquiry.customerId or 1,
-                countryId=enquiry.destinationCountry,
-                status="SHIPMENT_CREATED",
-                agent=agent_code
-            )
+                s = Shipment(
+                    enquiryId=enquiry.id,
+                    customerId=cust_id,
+                    countryId=cntry_id,
+                    status="SHIPMENT_CREATED",
+                    agent=agent_code,
+                    hawbno=hawb_no,
+                    agentShipmentNumber=agent_seq
+                )
+                db.add(s)
+                db.commit()
+                db.refresh(s)
+            else:
+                if not s.hawbno:
+                    agent_code, hawb_no, agent_seq = resolve_agent_and_hawb(db, enquiry)
+                    if hawb_no:
+                        s.agent = agent_code
+                        s.hawbno = hawb_no
+                        s.agentShipmentNumber = agent_seq
+                        db.commit()
 
-            if agent_code:
-                hawb_res = compute_next_hawb_for_agent(db, agent_code)
-                s.hawbno = hawb_res["hawbno"]
-                s.agentShipmentNumber = hawb_res["nextSequence"]
+            # Associate all enquiry boxes with shipment & set piece barcode
+            if enquiry.boxes:
+                for idx, b in enumerate(enquiry.boxes, 1):
+                    b.shipmentId = s.id
+                    if not b.trackingNumber and s.hawbno:
+                        b.trackingNumber = f"{s.hawbno}-{idx}"
+                db.commit()
 
-            db.add(s)
+            # Copy pickup locations safely if none exist
+            if enquiry.pickupLocations and (not s.pickupLocations or len(s.pickupLocations) == 0):
+                for pl in enquiry.pickupLocations:
+                    loc_str = pl.location or enquiry.senderAddressLine1 or "NetPack Central Warehouse"
+                    if loc_str:
+                        db.add(ShipmentPickUpLocation(shipmentId=s.id, location=loc_str))
+                db.commit()
+
+            enquiry.status = "SHIPMENT_CREATED"
             db.commit()
-            db.refresh(s)
+            created.append(s)
+        except Exception as e:
+            db.rollback()
+            print(f"[Error] Failed to push enquiry {eid} to shipment: {e}")
+            errors.append(f"Enquiry {eid}: {str(e)}")
 
-        # Associate all enquiry boxes with shipment
-        if enquiry.boxes:
-            for b in enquiry.boxes:
-                b.shipmentId = s.id
-            db.commit()
+    if not created and errors:
+        raise HTTPException(status_code=500, detail=f"Failed to push enquiries to shipments: {', '.join(errors)}")
 
-        enquiry.status = "SHIPMENT_CREATED"
-        created.append(s)
-
-    db.commit()
-    return {"message": f"{len(created)} shipments created successfully"}
+    return {
+        "message": f"{len(created)} shipments created successfully",
+        "createdCount": len(created),
+        "errors": errors
+    }
 
 @router.get("/getagentshipmentHAWBNO")
 def get_agent_shipment_hawbno(
