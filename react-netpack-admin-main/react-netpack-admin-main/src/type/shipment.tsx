@@ -82,6 +82,19 @@ export interface ShipmentItem {
   serviceId?: number | null
   countryId?: number | null
   trackingNumber?: string | null
+
+  // Multi-HAWB & Box details
+  boxes?: any[]
+  boxDetails?: any[]
+  totalEnquiryBoxes?: number
+  noOfBox?: number
+  siblingShipments?: any[]
+  partBadge?: string
+  partIndex?: number
+  totalParts?: number
+  customerName?: string
+  customer?: any
+  weight?: number
 }
 
 export type ShipmentStatus =

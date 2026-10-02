@@ -390,20 +390,23 @@ def create_enquiry(
             )
             db.add(box)
     else:
-        # Default create at least 1 box
-        box = Box(
-            enquiryId=enq.id,
-            trackingNumber=f"{tracking_no}-1",
-            weight=computed_weight,
-            dimensions="30x20x20",
-            length=30.0,
-            breadth=20.0,
-            height=20.0,
-            multiplier=1.0,
-            quantity=1,
-            value=sum([ci.totalValue or 0 for ci in created_items]) or None
-        )
-        db.add(box)
+        # Default create num_boxes boxes
+        per_box_wt = round(computed_weight / max(num_boxes, 1), 2)
+        total_items_val = sum([ci.totalValue or 0 for ci in created_items]) or None
+        for idx in range(1, max(num_boxes, 1) + 1):
+            box = Box(
+                enquiryId=enq.id,
+                trackingNumber=f"{tracking_no}-{idx}",
+                weight=per_box_wt,
+                dimensions="30x20x20",
+                length=30.0,
+                breadth=20.0,
+                height=20.0,
+                multiplier=1.0,
+                quantity=1,
+                value=round(total_items_val / max(num_boxes, 1), 2) if total_items_val else None
+            )
+            db.add(box)
 
     # Add Pickup Locations
     if payload.pickupLocations:

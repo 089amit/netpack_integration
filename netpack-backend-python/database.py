@@ -368,3 +368,39 @@ def run_auto_migrations(target_engine):
                 except Exception:
                     pass
                 print(f"[Migration Warning] PostgreSQL sequence resync: {e}")
+
+        # 7. Synchronize orphan boxes for single-shipment enquiries
+        if "boxes" in table_names and "shipments" in table_names:
+            try:
+                if is_pg:
+                    link_res = conn.execute(sa.text("""
+                        UPDATE boxes b
+                        SET "shipmentId" = s.id
+                        FROM shipments s
+                        WHERE b."enquiryId" = s."enquiryId"
+                          AND b."shipmentId" IS NULL
+                          AND s."enquiryId" IN (
+                              SELECT "enquiryId" FROM shipments GROUP BY "enquiryId" HAVING count(*) = 1
+                          )
+                    """))
+                    conn.commit()
+                    if link_res.rowcount > 0:
+                        print(f"[Migration] Linked {link_res.rowcount} orphan boxes to their shipments.")
+                else:
+                    conn.execute(sa.text("""
+                        UPDATE boxes
+                        SET shipmentId = (
+                            SELECT s.id FROM shipments s WHERE s.enquiryId = boxes.enquiryId LIMIT 1
+                        )
+                        WHERE shipmentId IS NULL
+                          AND enquiryId IN (
+                              SELECT enquiryId FROM shipments GROUP BY enquiryId HAVING count(*) = 1
+                          )
+                    """))
+                    conn.commit()
+            except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                print(f"[Migration Warning] Orphan boxes synchronization: {e}")

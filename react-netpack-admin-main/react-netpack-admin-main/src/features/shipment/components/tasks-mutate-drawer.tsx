@@ -195,8 +195,8 @@ export function TasksMutateDrawer({
           const response = await http.get<any>(
             SHIPMENT_ENDPOINT.GET_BY_ID(currentRow.id)
           )
-          const data = response.data
-          if (data) {
+          const data = response?.data || response
+          if (data && (data.id || data.hawbno)) {
             setShipmentDetails(data)
             form.reset({
               id: data.id?.toString() ?? '',
@@ -427,7 +427,11 @@ export function TasksMutateDrawer({
   const boxesCount =
     boxesList.length > 0
       ? boxesList.length
-      : (currentRow as any)?.totalEnquiryBoxes || 1
+      : shipmentDetails?.totalEnquiryBoxes ||
+        (currentRow as any)?.totalEnquiryBoxes ||
+        shipmentDetails?.noOfBox ||
+        (currentRow as any)?.noOfBox ||
+        1
   const totalBoxesWeight =
     boxesList.length > 0
       ? Math.round(
@@ -437,7 +441,27 @@ export function TasksMutateDrawer({
             0
           ) * 100
         ) / 100
-      : parseFloat(String((currentRow as any)?.weight || 0)) || 0
+      : parseFloat(String(shipmentDetails?.weight || (currentRow as any)?.weight || 0)) || 0
+
+  // De-mesh Customer Name and Organization:
+  const rawCustName =
+    shipmentDetails?.customerName ||
+    (currentRow as any)?.customerName ||
+    currentRow?.senderName ||
+    ''
+  const rawOrgName =
+    shipmentDetails?.senderOrganization ||
+    (currentRow as any)?.senderOrganization ||
+    (currentRow as any)?.customer?.organizationName ||
+    ''
+
+  const isSameOrg =
+    rawCustName &&
+    rawOrgName &&
+    rawCustName.trim().toLowerCase() === rawOrgName.trim().toLowerCase()
+
+  const displayCustomerName = isSameOrg ? '—' : (rawCustName || 'N/A')
+  const displayOrganization = rawOrgName && rawOrgName.trim() ? rawOrgName : 'N/A'
 
   return (
     <>
@@ -465,7 +489,7 @@ export function TasksMutateDrawer({
                     Customer Name
                   </p>
                   <p className='text-foreground/90 mt-0.5 font-semibold'>
-                    {currentRow?.senderName || 'N/A'}
+                    {displayCustomerName}
                   </p>
                 </div>
                 <div>
@@ -489,7 +513,7 @@ export function TasksMutateDrawer({
                     Organization
                   </p>
                   <p className='text-foreground/90 mt-0.5 font-semibold'>
-                    {currentRow?.senderOrganization || 'N/A'}
+                    {displayOrganization}
                   </p>
                 </div>
                 <div>
@@ -535,7 +559,7 @@ export function TasksMutateDrawer({
                     Assigned Packages
                   </span>
                   <span className='font-bold text-foreground text-sm'>
-                    {(currentRow as any)?.boxDetails?.length || (currentRow as any)?.boxes?.length || 1} Box(es)
+                    {boxesCount} Box{boxesCount === 1 ? '' : 'es'}
                   </span>
                 </div>
 
@@ -544,18 +568,18 @@ export function TasksMutateDrawer({
                     Consignment Status
                   </span>
                   <span className='font-semibold text-foreground text-xs'>
-                    {(currentRow as any)?.partBadge || 'Single HAWB'}
+                    {shipmentDetails?.partBadge || (currentRow as any)?.partBadge || 'Single HAWB'}
                   </span>
                 </div>
               </div>
 
-              {(currentRow as any)?.siblingShipments && (currentRow as any).siblingShipments.length > 1 && (
+              {((shipmentDetails?.siblingShipments || (currentRow as any)?.siblingShipments)?.length > 1) && (
                 <div className='pt-1 space-y-1.5'>
                   <span className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider block'>
                     Partitioned Sibling HAWBs in this Consignment:
                   </span>
                   <div className='flex flex-wrap gap-1.5'>
-                    {(currentRow as any).siblingShipments.map((sib: any) => (
+                    {(shipmentDetails?.siblingShipments || (currentRow as any)?.siblingShipments).map((sib: any) => (
                       <Badge
                         key={sib.id}
                         variant='outline'

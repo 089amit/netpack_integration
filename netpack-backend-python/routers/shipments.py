@@ -44,21 +44,26 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
     cust_phone = ""
     cust_email = ""
     cust_org = ""
-    if s.customer:
-        cust_name = s.customer.name or ""
-        cust_phone = s.customer.phone or ""
-        cust_email = s.customer.email or ""
-        cust_org = getattr(s.customer, 'organizationName', '') or ""
-    elif s.enquiry and s.enquiry.customer:
-        cust_name = s.enquiry.customer.name or ""
-        cust_phone = s.enquiry.customer.phone or ""
-        cust_email = s.enquiry.customer.email or ""
-        cust_org = getattr(s.enquiry.customer, 'organizationName', '') or ""
+    customer_obj = s.customer or (s.enquiry.customer if s.enquiry else None)
+    if customer_obj:
+        cust_name = customer_obj.name or ""
+        cust_phone = customer_obj.phone or ""
+        cust_email = customer_obj.email or ""
+        cust_org = getattr(customer_obj, 'organizationName', '') or ""
 
     sender_name = (s.enquiry.senderName if (s.enquiry and s.enquiry.senderName) else cust_name) or ""
     sender_phone = (s.enquiry.senderPhone if (s.enquiry and s.enquiry.senderPhone) else cust_phone) or ""
     customer_phone = cust_phone or sender_phone or ""
     sender_org = cust_org or (getattr(s.enquiry, 'senderOrganization', '') if s.enquiry else "") or ""
+
+    # Clean separation: If customer name is identical to organization name,
+    # prevent repeating the organization name as customerName unless a distinct individual is given.
+    distinct_customer_name = cust_name
+    if sender_org and cust_name and cust_name.strip().lower() == sender_org.strip().lower():
+        if s.enquiry and s.enquiry.senderName and s.enquiry.senderName.strip().lower() != sender_org.strip().lower():
+            distinct_customer_name = s.enquiry.senderName
+        else:
+            distinct_customer_name = ""
 
     # 3. Receiver Information
     receiver_name = (s.enquiry.receiverName if (s.enquiry and s.enquiry.receiverName) else "") or ""
@@ -92,7 +97,14 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
             agent_code = agent_obj.code
 
     # 7. Boxes & Items
-    raw_boxes = s.boxes if (s.boxes and len(s.boxes) > 0) else (s.enquiry.boxes if (s.enquiry and s.enquiry.boxes) else [])
+    if s.boxes and len(s.boxes) > 0:
+        raw_boxes = s.boxes
+    elif s.enquiry and s.enquiry.boxes and len(s.enquiry.boxes) > 0:
+        raw_boxes = s.enquiry.boxes
+    elif db and s.enquiryId:
+        raw_boxes = db.query(Box).filter((Box.shipmentId == s.id) | (Box.enquiryId == s.enquiryId)).all()
+    else:
+        raw_boxes = []
     formatted_boxes = []
     for b in raw_boxes:
         box_items = []
@@ -169,7 +181,8 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
 
     # Sibling shipments (if enquiry was broken into multiple HAWBs)
     sibling_shipments = []
-    total_enquiry_boxes = len(formatted_boxes)
+    enquiry_box_target = s.enquiry.noOfBox if (s.enquiry and s.enquiry.noOfBox) else len(formatted_boxes)
+    total_enquiry_boxes = max(len(formatted_boxes), enquiry_box_target or 1, 1)
     part_badge = ""
     part_index = 1
     total_parts = 1
@@ -217,13 +230,16 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
         # Multi-HAWB partition details:
         "siblingShipments": sibling_shipments,
         "totalEnquiryBoxes": total_enquiry_boxes,
+        "noOfBox": len(formatted_boxes) or total_enquiry_boxes,
+        "boxCount": len(formatted_boxes) or total_enquiry_boxes,
+        "weight": round(sum((b.get("weight", 0.0) or 0.0) for b in formatted_boxes), 2) or (s.enquiry.weight if s.enquiry else 0.0),
         "partBadge": part_badge,
         "partIndex": part_index,
         "totalParts": total_parts,
         "isSplitHawb": total_parts > 1,
 
         # Top-level flattened properties for table & details drawer:
-        "customerName": cust_name,
+        "customerName": distinct_customer_name or cust_name,
         "customerPhone": customer_phone,
         "customerEmail": cust_email,
         "senderName": sender_name,
@@ -421,8 +437,29 @@ def create_shipment_from_enquiry(enquiryId: int, db: Session = Depends(get_db)):
         print(f"[Error] Failed to create shipment from enquiry {enquiryId}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create shipment: {str(e)}")
 
-    # Associate enquiry boxes to shipment
-    if enquiry.boxes:
+    # Associate enquiry boxes to shipment (or generate if missing)
+    if not enquiry.boxes or len(enquiry.boxes) == 0:
+        box_count = enquiry.noOfBox or 1
+        per_box_wt = round((enquiry.weight or 1.0) / box_count, 2)
+        for idx in range(1, box_count + 1):
+            box = Box(
+                enquiryId=enquiry.id,
+                shipmentId=shipment.id,
+                trackingNumber=f"{enquiry.trackingNumber or 'NP'}-{idx}",
+                weight=per_box_wt,
+                dimensions="30x20x20",
+                length=30.0,
+                breadth=20.0,
+                height=20.0,
+                multiplier=1.0,
+                quantity=1
+            )
+            db.add(box)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+    else:
         for b in enquiry.boxes:
             b.shipmentId = shipment.id
         try:
@@ -493,8 +530,26 @@ def create_multiple_shipments_from_enquiries(payload: Any = Body(...), db: Sessi
                 db.commit()
                 db.refresh(s)
 
-            # Associate all enquiry boxes with shipment
-            if enquiry.boxes:
+            # Associate all enquiry boxes with shipment (or generate if missing)
+            if not enquiry.boxes or len(enquiry.boxes) == 0:
+                box_count = enquiry.noOfBox or 1
+                per_box_wt = round((enquiry.weight or 1.0) / box_count, 2)
+                for idx in range(1, box_count + 1):
+                    box = Box(
+                        enquiryId=enquiry.id,
+                        shipmentId=s.id,
+                        trackingNumber=f"{enquiry.trackingNumber or 'NP'}-{idx}",
+                        weight=per_box_wt,
+                        dimensions="30x20x20",
+                        length=30.0,
+                        breadth=20.0,
+                        height=20.0,
+                        multiplier=1.0,
+                        quantity=1
+                    )
+                    db.add(box)
+                db.commit()
+            else:
                 for b in enquiry.boxes:
                     b.shipmentId = s.id
                 db.commit()

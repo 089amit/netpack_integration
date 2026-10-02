@@ -133,6 +133,32 @@ export default function Shipments() {
           hawbNumber: shipment.hawbno || shipment.hawbNumber || 'N/A',
           forwardingNumber: shipment.forwardingNumber || '',
           note: shipment.note || '',
+          boxes: shipment.boxes || [],
+          boxDetails: shipment.boxDetails || shipment.boxes || [],
+          totalEnquiryBoxes:
+            shipment.totalEnquiryBoxes ||
+            (shipment.boxes ? shipment.boxes.length : 1),
+          noOfBox:
+            shipment.noOfBox ||
+            shipment.totalEnquiryBoxes ||
+            (shipment.boxes ? shipment.boxes.length : 1),
+          siblingShipments: shipment.siblingShipments || [],
+          partBadge: shipment.partBadge || '',
+          partIndex: shipment.partIndex || 1,
+          totalParts: shipment.totalParts || 1,
+          customerName: shipment.customerName || '',
+          customer: shipment.customer || null,
+          weight:
+            shipment.weight ||
+            (Array.isArray(shipment.boxes)
+              ? Math.round(
+                  shipment.boxes.reduce(
+                    (acc: number, b: any) =>
+                      acc + (parseFloat(String(b.weight || 0)) || 0),
+                    0
+                  ) * 100
+                ) / 100
+              : 0),
         }))
         setData(mappedData)
         setPagination(result.pagination)
