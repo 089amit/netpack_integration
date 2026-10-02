@@ -125,9 +125,22 @@ export const columns: ColumnDef<ShipmentItem>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='HAWB ' />
     ),
-    cell: ({ row }) => (
-      <div className='truncate'>{row.getValue('hawbno') || 'N/A'}</div>
-    ),
+    cell: ({ row }) => {
+      const hawb = (row.getValue('hawbno') as string) || (row.original as any)?.hawbNumber || 'N/A'
+      const partBadge = (row.original as any)?.partBadge
+      const isSplit = (row.original as any)?.isSplitHawb || (row.original as any)?.siblingShipments?.length > 1
+
+      return (
+        <div className='flex items-center gap-1.5 flex-wrap'>
+          <span className='font-mono font-medium'>{hawb}</span>
+          {isSplit && partBadge && (
+            <Badge variant='outline' className='text-[10px] px-1.5 py-0 h-4 bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300 border-sky-300 font-sans font-bold'>
+              {partBadge}
+            </Badge>
+          )}
+        </div>
+      )
+    },
   },
   {
     accessorKey: 'forwardingCompanyName',

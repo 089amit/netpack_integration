@@ -74,6 +74,7 @@ export const SHIPMENT_ENDPOINT = {
   BULK_STATUS_CHANGE: `${BASE_URL}/shipments/bulk-status-change`,
   GET_BY_ID: (id: number | string) => `${BASE_URL}/shipments/getById/${id}`,
   BATCH_ADD_NOTE: `${BASE_URL}/shipments/batch-add-note`,
+  BREAK_HAWB: (id: number | string) => `${BASE_URL}/shipments/${id}/break-hawb`,
 }
 
 // 👤 User Endpoints (example)

@@ -634,6 +634,75 @@ export function ShipmentTrackingDialog({
             )}
           </div>
 
+          {/* ── CONSIGNMENT HAWBS OVERVIEW (For Partitioned Shipments) ── */}
+          {liveData?.hawbs && liveData.hawbs.length > 1 && (
+            <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>
+              <div className='flex items-center justify-between border-b pb-2.5'>
+                <div className='flex items-center gap-2'>
+                  <Boxes className='h-4 w-4 text-primary' />
+                  <span className='text-xs font-bold uppercase tracking-wider text-foreground'>
+                    Consignment HAWBs & Carrier Tracking ({liveData.hawbs.length} HAWBs)
+                  </span>
+                </div>
+                <Badge variant='outline' className='bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-bold text-xs'>
+                  Multi-HAWB Consignment
+                </Badge>
+              </div>
+
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1'>
+                {liveData.hawbs.map((h: any, hIdx: number) => {
+                  const isCurrent = h.hawbno === (liveData.hawbNumber || hawbNumber)
+
+                  return (
+                    <div
+                      key={h.id || hIdx}
+                      className={`rounded-lg border p-3 space-y-2 text-xs transition-all ${
+                        isCurrent
+                          ? 'bg-primary/5 border-primary/40 ring-1 ring-primary/20'
+                          : 'bg-background hover:bg-muted/30'
+                      }`}
+                    >
+                      <div className='flex items-center justify-between gap-2'>
+                        <div className='flex items-center gap-1.5'>
+                          <span className='font-mono font-bold text-sm text-foreground'>{h.hawbno}</span>
+                          {isCurrent && (
+                            <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-primary text-primary-foreground'>
+                              Active View
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge variant='outline' className='text-[10px] font-semibold'>
+                          {h.boxCount} {h.boxCount === 1 ? 'Box' : 'Boxes'} ({h.totalWeight} KG)
+                        </Badge>
+                      </div>
+
+                      <div className='flex items-center justify-between gap-2 pt-1 border-t text-[11px]'>
+                        <div>
+                          <span className='text-muted-foreground block text-[10px]'>Carrier Forwarding No:</span>
+                          <span className='font-mono font-bold text-foreground'>
+                            {h.forwardingNumber || 'Pending assignment'}
+                          </span>
+                        </div>
+
+                        {h.carrierTrackingUrl && (
+                          <a
+                            href={h.carrierTrackingUrl}
+                            target='_blank'
+                            rel='noreferrer'
+                            className='inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline'
+                          >
+                            Carrier Link
+                            <ExternalLink className='h-3 w-3' />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* ── OVERSEAS COURIER LEG CARD ── */}
           {(displayForwardingNumber || liveData?.forwardingCompany) && (
             <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>
@@ -908,15 +977,47 @@ export function ShipmentTrackingDialog({
                         items: [{ item: 'General Goods', pieces: 1 }]
                       }
                     ]).map((box: any, bIdx: number) => (
-                      <div key={bIdx} className='rounded-lg border bg-muted/10 p-3.5 space-y-2.5 shadow-2xs'>
-                        {/* Box Header: Weight & Dims */}
+                      <div
+                        key={bIdx}
+                        className={`rounded-lg border p-3.5 space-y-2.5 shadow-2xs transition-all ${
+                          box.isTargeted || box.trackingNumber === liveData?.targetedBoxTrackingNumber
+                            ? 'bg-primary/5 border-primary/40 ring-2 ring-primary/30'
+                            : 'bg-muted/10 border-border'
+                        }`}
+                      >
+                        {/* Box Header: Weight, Piece #, HAWB, Carrier Fwd, Piece Barcode */}
                         <div className='flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-xs'>
-                          <div className='flex items-center gap-2'>
-                            <span className='font-bold text-foreground'>Box #{box.boxNumber || bIdx + 1}</span>
+                          <div className='flex items-center gap-2 flex-wrap'>
+                            <span className='font-bold text-foreground'>
+                              {box.pieceNumber || `Box #${box.boxNumber || bIdx + 1}`}
+                            </span>
                             {box.trackingNumber && (
-                              <span className='font-mono text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded'>
-                                {box.trackingNumber}
-                              </span>
+                              <div className='inline-flex items-center gap-1 font-mono text-[11px] text-foreground bg-background border px-2 py-0.5 rounded shadow-2xs'>
+                                <span>{box.trackingNumber}</span>
+                                <button
+                                  type='button'
+                                  onClick={() => handleCopy(box.trackingNumber)}
+                                  className='text-muted-foreground hover:text-primary cursor-pointer'
+                                  title='Copy box barcode tracking number'
+                                >
+                                  <Copy className='h-3 w-3' />
+                                </button>
+                              </div>
+                            )}
+                            {box.hawbNumber && (
+                              <Badge variant='outline' className='text-[10px] px-1.5 py-0 h-4.5 bg-background font-mono'>
+                                HAWB: {box.hawbNumber}
+                              </Badge>
+                            )}
+                            {box.forwardingNumber && (
+                              <Badge variant='outline' className='text-[10px] px-1.5 py-0 h-4.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-mono'>
+                                Carrier: {box.forwardingNumber}
+                              </Badge>
+                            )}
+                            {(box.isTargeted || box.trackingNumber === liveData?.targetedBoxTrackingNumber) && (
+                              <Badge variant='outline' className='text-[10px] px-1.5 py-0 h-4.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 font-bold'>
+                                🎯 Current Tracked Piece
+                              </Badge>
                             )}
                           </div>
                           <div className='flex items-center gap-3 text-[11px]'>

@@ -171,11 +171,20 @@ export const ShippingLabelDialog: React.FC<ShippingLabelDialogProps> = ({
           : undefined,
       declaredValue: b.declaredValue || b.value,
       commodity: b.commodity || enq.commodity,
-      boxTrackingNumber: b.trackingNumber || data.hawbNumber || data.trackingNumber,
+      boxTrackingNumber:
+        b.trackingNumber ||
+        (rawBoxes.length > 1
+          ? `${data.hawbNumber || data.hawbno || 'NP'}-${idx + 1}`
+          : data.hawbNumber || data.hawbno || data.trackingNumber),
     }))
 
+    const calculatedWeight = rawBoxes.reduce(
+      (acc: number, bx: any) => acc + parseFloat(String(bx.weight || 0)),
+      0
+    )
+
     const transformed: ShippingLabelData = {
-      trackingNumber: data.hawbNumber || data.trackingNumber || enq.trackingNumber || 'NP-SHIPMENT',
+      trackingNumber: data.hawbNumber || data.hawbno || data.trackingNumber || enq.trackingNumber || 'NP-SHIPMENT',
       date: data.createdAt || enq.createdAt,
       serviceType: data.serviceName || 'EXPRESS AIR CARGO',
       sender: {
@@ -199,7 +208,7 @@ export const ShippingLabelDialog: React.FC<ShippingLabelDialogProps> = ({
       },
       boxes,
       currency: enq.currency || 'USD',
-      totalWeight: data.chargeableWeight || data.weight,
+      totalWeight: calculatedWeight > 0 ? calculatedWeight : (data.chargeableWeight || data.weight),
       commodity: enq.commodity,
     }
 

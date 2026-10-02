@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from database import get_db
 from models.shipment import Shipment, ShipmentPickUpLocation, TransitPoint, TrackingEvent
-from models.enquiry import Enquiry
+from models.enquiry import Enquiry, Box
 from models.customer import Customer
 from models.mawb import Agent, MAWB, ForwardingCompany, ForwardingService
 from models.location import Country
@@ -166,6 +166,32 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
             } if s.enquiry.customer else None
         }
 
+    # Sibling shipments (if enquiry was broken into multiple HAWBs)
+    sibling_shipments = []
+    total_enquiry_boxes = len(formatted_boxes)
+    part_badge = ""
+    part_index = 1
+    total_parts = 1
+    if s.enquiryId and db:
+        siblings = db.query(Shipment).filter(Shipment.enquiryId == s.enquiryId).order_by(Shipment.id.asc()).all()
+        total_parts = len(siblings)
+        if total_parts > 1:
+            total_enquiry_boxes = 0
+            for idx, sib in enumerate(siblings, 1):
+                if sib.id == s.id:
+                    part_index = idx
+                sib_box_count = len(sib.boxes) if sib.boxes else 0
+                total_enquiry_boxes += sib_box_count
+                sibling_shipments.append({
+                    "id": sib.id,
+                    "hawbno": sib.hawbno or f"Shipment #{sib.id}",
+                    "forwardingNumber": sib.forwardingNumber or "",
+                    "boxCount": sib_box_count,
+                    "totalWeight": round(sum((b.weight or 0.0) for b in (sib.boxes or [])), 2),
+                    "status": sib.status
+                })
+            part_badge = f"Part {part_index} of {total_parts}"
+
     return {
         "id": s.id,
         "status": s.status,
@@ -186,6 +212,14 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
         "trackingMode": getattr(s, "trackingMode", "MANUAL") or "MANUAL",
         "createdAt": s.createdAt.isoformat() if s.createdAt else None,
         "updatedAt": s.updatedAt.isoformat() if s.updatedAt else None,
+
+        # Multi-HAWB partition details:
+        "siblingShipments": sibling_shipments,
+        "totalEnquiryBoxes": total_enquiry_boxes,
+        "partBadge": part_badge,
+        "partIndex": part_index,
+        "totalParts": total_parts,
+        "isSplitHawb": total_parts > 1,
 
         # Top-level flattened properties for table & details drawer:
         "customerName": cust_name,
@@ -663,3 +697,157 @@ def update_shipment_tracking_mode(id: int, payload: TrackingModeUpdateRequest, d
         "shipmentId": s.id,
         "trackingMode": s.trackingMode
     }
+
+
+class HawbBreakGroup(BaseModel):
+    isOriginal: bool = False
+    hawbNumber: Optional[str] = None
+    forwardingNumber: Optional[str] = None
+    boxIds: List[int]
+
+
+class BreakHawbRequest(BaseModel):
+    hawbGroups: List[HawbBreakGroup]
+
+
+@router.post("/{id}/break-hawb")
+def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depends(get_db)):
+    """
+    Partitions boxes of a shipment across multiple HAWBs.
+    - Updates original shipment with its chosen boxes, hawbNumber, and carrier forwardingNumber.
+    - Creates new Shipment records for new HAWB groups with auto-computed or custom HAWB numbers,
+      cloning metadata from the parent shipment.
+    - Synchronizes box tracking numbers (e.g. {hawbno}-{pieceIndex}).
+    - Adds audit tracking event checkpoints for transparent tracking.
+    """
+    shipment = db.query(Shipment).filter(Shipment.id == id).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    if not payload.hawbGroups or len(payload.hawbGroups) < 2:
+        raise HTTPException(status_code=400, detail="At least two HAWB groups are required to break a shipment")
+
+    # Fetch all boxes belonging to this shipment or enquiry
+    all_boxes = db.query(Box).filter(
+        (Box.shipmentId == shipment.id) |
+        ((Box.enquiryId == shipment.enquiryId) & (Box.shipmentId.is_(None)))
+    ).all()
+
+    if not all_boxes:
+        all_boxes = db.query(Box).filter(Box.enquiryId == shipment.enquiryId).all()
+
+    box_dict = {b.id: b for b in all_boxes}
+
+    # Validate that every boxId in payload exists and no duplicates
+    assigned_box_ids = set()
+    for group_idx, grp in enumerate(payload.hawbGroups):
+        if not grp.boxIds:
+            raise HTTPException(status_code=400, detail=f"HAWB group {group_idx + 1} has no boxes selected")
+        for bid in grp.boxIds:
+            if bid not in box_dict:
+                raise HTTPException(status_code=400, detail=f"Box ID {bid} does not belong to this consignment")
+            if bid in assigned_box_ids:
+                raise HTTPException(status_code=400, detail=f"Box ID {bid} is assigned to more than one HAWB group")
+            assigned_box_ids.add(bid)
+
+    # Find the original group
+    original_groups = [g for g in payload.hawbGroups if g.isOriginal]
+    new_groups = [g for g in payload.hawbGroups if not g.isOriginal]
+
+    if not original_groups:
+        original_group = payload.hawbGroups[0]
+        new_groups = payload.hawbGroups[1:]
+    else:
+        original_group = original_groups[0]
+
+    # 1. Update the original shipment
+    if original_group.hawbNumber and original_group.hawbNumber.strip():
+        shipment.hawbno = original_group.hawbNumber.strip()
+
+    if original_group.forwardingNumber is not None:
+        shipment.forwardingNumber = original_group.forwardingNumber.strip() if original_group.forwardingNumber.strip() else None
+
+    # Assign boxes to original shipment and update box tracking numbers
+    for idx, bid in enumerate(original_group.boxIds, 1):
+        b = box_dict[bid]
+        b.shipmentId = shipment.id
+        b.trackingNumber = f"{shipment.hawbno}-{idx}" if shipment.hawbno else f"NP-{shipment.id}-B{idx}"
+
+    # 2. Create new shipment for each new group
+    created_shipments = [shipment]
+    for n_idx, grp in enumerate(new_groups, 1):
+        target_hawb = None
+        seq_num = None
+        if grp.hawbNumber and grp.hawbNumber.strip():
+            target_hawb = grp.hawbNumber.strip()
+        elif shipment.agent:
+            hawb_res = compute_next_hawb_for_agent(db, shipment.agent)
+            target_hawb = hawb_res["hawbno"]
+            seq_num = hawb_res["nextSequence"]
+        else:
+            target_hawb = f"{shipment.hawbno or 'NP'}-P{n_idx + 1}"
+
+        new_shipment = Shipment(
+            enquiryId=shipment.enquiryId,
+            customerId=shipment.customerId,
+            countryId=shipment.countryId,
+            forwardingCompanyId=shipment.forwardingCompanyId,
+            serviceId=shipment.serviceId,
+            mawbId=shipment.mawbId,
+            agent=shipment.agent,
+            status=shipment.status,
+            trackingMode=shipment.trackingMode or "MANUAL",
+            hawbno=target_hawb,
+            forwardingNumber=grp.forwardingNumber.strip() if (grp.forwardingNumber and grp.forwardingNumber.strip()) else None,
+            agentShipmentNumber=seq_num,
+            note=f"Split from HAWB {shipment.hawbno or shipment.id}"
+        )
+        db.add(new_shipment)
+        db.flush()
+
+        # Assign boxes to new shipment and update box tracking numbers
+        for b_idx, bid in enumerate(grp.boxIds, 1):
+            b = box_dict[bid]
+            b.shipmentId = new_shipment.id
+            b.trackingNumber = f"{new_shipment.hawbno}-{b_idx}"
+
+        # Copy pickup locations
+        for pl in shipment.pickupLocations:
+            db.add(ShipmentPickUpLocation(shipmentId=new_shipment.id, location=pl.location))
+
+        # Add milestone checkpoint for the new shipment
+        db.add(TrackingEvent(
+            shipmentId=new_shipment.id,
+            trackingNumber=new_shipment.hawbno or str(new_shipment.id),
+            status="SHIPMENT_CREATED",
+            location="Kathmandu, Nepal",
+            activity=f"HAWB {new_shipment.hawbno} created (partitioned from {shipment.hawbno}) with {len(grp.boxIds)} packages",
+            checkpointTime=datetime.utcnow(),
+            source="INTERNAL"
+        ))
+
+        created_shipments.append(new_shipment)
+
+    # Milestone note on original shipment
+    new_hawbs_str = ", ".join([s.hawbno for s in created_shipments if s.id != shipment.id and s.hawbno])
+    db.add(TrackingEvent(
+        shipmentId=shipment.id,
+        trackingNumber=shipment.hawbno or str(shipment.id),
+        status=shipment.status,
+        location="Kathmandu, Nepal",
+        activity=f"Shipment partitioned: retained {len(original_group.boxIds)} packages; partitioned into {new_hawbs_str}",
+        checkpointTime=datetime.utcnow(),
+        source="INTERNAL"
+    ))
+
+    db.commit()
+
+    for s in created_shipments:
+        db.refresh(s)
+
+    return {
+        "success": True,
+        "message": f"Successfully broke shipment into {len(created_shipments)} HAWBs",
+        "shipments": [format_shipment_response(s, db) for s in created_shipments]
+    }
+

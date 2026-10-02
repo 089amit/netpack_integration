@@ -33,7 +33,9 @@ import {
 } from '@/components/ui/sheet'
 import { SelectDropdown } from '@/components/select-dropdown'
 import { shipmentFormSchema, ShipmentForm } from '../data/schema'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, Scissors, Boxes } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { BreakHawbDialog } from './break-hawb-dialog'
 import { cn } from '@/lib/utils'
 import {
   Popover,
@@ -72,6 +74,7 @@ export function TasksMutateDrawer({
   const [isComboboxOpen, setIsComboboxOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pastMilestones, setPastMilestones] = useState<any[]>([])
+  const [isBreakHawbOpen, setIsBreakHawbOpen] = useState(false)
 
   const defaultValues: ShipmentForm = {
     id: currentRow?.id ?? '',
@@ -412,7 +415,8 @@ export function TasksMutateDrawer({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         className='flex h-screen max-h-screen flex-col overflow-hidden'
         onEscapeKeyDown={(e) => e.preventDefault()}
@@ -468,6 +472,72 @@ export function TasksMutateDrawer({
               </div>
             </div>
           )}
+
+          {/* ── Boxes & HAWB Allocation / Break HAWB Card ── */}
+          {isUpdate && currentRow && (
+            <div className='rounded-xl border bg-muted/20 p-4 space-y-3 mb-5 shadow-2xs'>
+              <div className='flex items-center justify-between'>
+                <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5'>
+                  <Boxes className='h-4 w-4 text-primary' />
+                  Packages & HAWB Allocation
+                </span>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setIsBreakHawbOpen(true)}
+                  className='h-7 text-xs font-semibold gap-1.5 border-primary/40 hover:bg-primary/10 text-primary'
+                >
+                  <Scissors className='h-3.5 w-3.5' />
+                  <span>Break HAWB</span>
+                </Button>
+              </div>
+
+              <div className='grid grid-cols-2 gap-2 text-xs'>
+                <div className='rounded-md bg-background border p-2.5'>
+                  <span className='text-[10px] text-muted-foreground block uppercase font-medium'>
+                    Assigned Packages
+                  </span>
+                  <span className='font-bold text-foreground text-sm'>
+                    {(currentRow as any)?.boxDetails?.length || (currentRow as any)?.boxes?.length || 1} Box(es)
+                  </span>
+                </div>
+
+                <div className='rounded-md bg-background border p-2.5'>
+                  <span className='text-[10px] text-muted-foreground block uppercase font-medium'>
+                    Consignment Status
+                  </span>
+                  <span className='font-semibold text-foreground text-xs'>
+                    {(currentRow as any)?.partBadge || 'Single HAWB'}
+                  </span>
+                </div>
+              </div>
+
+              {(currentRow as any)?.siblingShipments && (currentRow as any).siblingShipments.length > 1 && (
+                <div className='pt-1 space-y-1.5'>
+                  <span className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider block'>
+                    Partitioned Sibling HAWBs in this Consignment:
+                  </span>
+                  <div className='flex flex-wrap gap-1.5'>
+                    {(currentRow as any).siblingShipments.map((sib: any) => (
+                      <Badge
+                        key={sib.id}
+                        variant='outline'
+                        className={`text-[10px] py-0.5 px-2 font-mono ${
+                          sib.id === currentRow.id
+                            ? 'bg-primary/10 border-primary text-primary font-bold'
+                            : 'bg-background text-muted-foreground'
+                        }`}
+                      >
+                        {sib.hawbno} ({sib.boxCount} bx)
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-5'>
               {!isUpdate && (
@@ -788,5 +858,16 @@ export function TasksMutateDrawer({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+
+    <BreakHawbDialog
+      open={isBreakHawbOpen}
+      onOpenChange={setIsBreakHawbOpen}
+      shipment={currentRow}
+      onSuccess={() => {
+        onSuccess?.()
+        onOpenChange(false)
+      }}
+    />
+  </>
   )
 }

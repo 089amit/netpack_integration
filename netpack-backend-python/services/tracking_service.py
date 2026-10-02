@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from models.shipment import Shipment, TransitPoint, TrackingEvent
-from models.enquiry import Enquiry
+from models.enquiry import Enquiry, Box
 from models.mawb import MAWB
 from models.location import Country
 from services.trackingmore_service import trackingmore_service
@@ -330,6 +330,7 @@ class TrackingRegistry:
         HAWB Number, Forwarding Number, or MAWB Number.
         """
         clean_id = identifier.strip()
+        targeted_box_tracking = None
 
         # 1. Search Shipment by hawbno, forwardingNumber, or numeric id
         shipment = (
@@ -342,7 +343,20 @@ class TrackingRegistry:
             except ValueError:
                 pass
 
-        # 2. Search Enquiry by trackingNumber or id
+        # 2. Search Box by piece trackingNumber (box-wise tracking)
+        if not shipment:
+            box_match = db.query(Box).filter(Box.trackingNumber == clean_id).first()
+            if box_match:
+                targeted_box_tracking = box_match.trackingNumber
+                if box_match.shipment:
+                    shipment = box_match.shipment
+                    enquiry = shipment.enquiry
+                elif box_match.enquiry:
+                    enquiry = box_match.enquiry
+                    if enquiry.shipments:
+                        shipment = enquiry.shipments[0]
+
+        # 3. Search Enquiry by master trackingNumber or id (in-house master tracking)
         enquiry = None
         if not shipment:
             try:
@@ -354,7 +368,7 @@ class TrackingRegistry:
             if enquiry and enquiry.shipments:
                 shipment = enquiry.shipments[0]
 
-        # 3. Search MAWB
+        # 4. Search MAWB
         mawb = None
         if not shipment and not enquiry:
             mawb = db.query(MAWB).filter(MAWB.mawbNumber == clean_id).first()
@@ -705,11 +719,90 @@ class TrackingRegistry:
         rider_name = (rider_staff.fullName or rider_staff.username) if rider_staff else None
         rider_phone = rider_staff.phoneNumber if rider_staff else None
 
+        # Sibling shipments / Partitioned HAWBs
+        sibling_shipments = []
+        if enquiry:
+            sibling_shipments = db.query(Shipment).filter(Shipment.enquiryId == enquiry.id).order_by(Shipment.id.asc()).all()
+        elif shipment and shipment.enquiryId:
+            sibling_shipments = db.query(Shipment).filter(Shipment.enquiryId == shipment.enquiryId).order_by(Shipment.id.asc()).all()
+        elif shipment:
+            sibling_shipments = [shipment]
+
+        hawbs_data = []
+        for sib in sibling_shipments:
+            sib_fc = sib.forwardingCompany.name if sib.forwardingCompany else None
+            sib_prov = self.get_provider_for_carrier(sib_fc)
+            sib_boxes = sib.boxes or []
+            sib_wt = round(sum((b.weight or 0.0) for b in sib_boxes), 2)
+            hawbs_data.append({
+                "id": sib.id,
+                "hawbno": sib.hawbno or f"Shipment #{sib.id}",
+                "forwardingNumber": sib.forwardingNumber or "",
+                "forwardingCompany": sib_fc,
+                "status": sib.status,
+                "boxCount": len(sib_boxes),
+                "totalWeight": sib_wt,
+                "carrierCode": sib_prov.code,
+                "carrierTrackingUrl": sib_prov.get_tracking_url(sib.forwardingNumber) if sib.forwardingNumber else None
+            })
+
+        # All boxes across consignment with box-wise tracking details
+        raw_all_boxes = []
+        if enquiry and enquiry.boxes:
+            raw_all_boxes = enquiry.boxes
+        elif shipment and shipment.boxes:
+            raw_all_boxes = shipment.boxes
+
+        total_box_count = len(raw_all_boxes) or 1
+        formatted_tracking_boxes = []
+        for idx, b in enumerate(raw_all_boxes, 1):
+            box_shipment = b.shipment or next((s for s in sibling_shipments if s.id == b.shipmentId), None)
+            b_hawb = box_shipment.hawbno if (box_shipment and box_shipment.hawbno) else (shipment.hawbno if shipment else (enquiry.trackingNumber if enquiry else ""))
+            b_fwd = box_shipment.forwardingNumber if (box_shipment and box_shipment.forwardingNumber) else fwd_number
+            b_status = box_shipment.status if box_shipment else (enquiry.status if enquiry else "IN_TRANSIT")
+            b_tracking = b.trackingNumber or (f"{b_hawb}-{idx}" if b_hawb else f"BOX-{idx}")
+            is_targeted = bool(targeted_box_tracking and b.trackingNumber == targeted_box_tracking)
+
+            box_items_list = []
+            if b.items:
+                for bi in b.items:
+                    box_items_list.append({
+                        "item": bi.enquiryItem.description if bi.enquiryItem else "Cargo Item",
+                        "pieces": bi.quantity or 1
+                    })
+            elif idx == 1 and enquiry and enquiry.items:
+                for itm in enquiry.items:
+                    box_items_list.append({
+                        "item": itm.description or "General Goods",
+                        "pieces": itm.quantity or 1
+                    })
+
+            formatted_tracking_boxes.append({
+                "id": b.id,
+                "boxNumber": idx,
+                "pieceNumber": f"Piece {idx} of {total_box_count}",
+                "trackingNumber": b_tracking,
+                "hawbNumber": b_hawb,
+                "forwardingNumber": b_fwd,
+                "status": b_status,
+                "isTargeted": is_targeted,
+                "weight": b.weight or round((enquiry.weight if enquiry else 10.0) / max(total_box_count, 1), 2),
+                "dimensions": b.dimensions or (f"{b.length} x {b.breadth} x {b.height} cm" if (b.length and b.breadth and b.height) else "Standard Cargo Carton"),
+                "length": b.length,
+                "breadth": b.breadth,
+                "height": b.height,
+                "volumetricWeight": round((b.length * b.breadth * b.height) / 5000.0, 2) if (b.length and b.breadth and b.height) else None,
+                "multiplier": b.multiplier or 1.0,
+                "quantity": b.quantity or 1,
+                "items": box_items_list
+            })
+
         return {
             "found": True,
             "shipmentId": shipment.id if shipment else None,
             "enquiryId": enquiry.id if enquiry else None,
             "trackingNumber": (enquiry.trackingNumber if enquiry else None) or (shipment.hawbno if shipment else identifier),
+            "masterTrackingNumber": enquiry.trackingNumber if enquiry else identifier,
             "hawbNumber": shipment.hawbno if shipment else None,
             "status": current_status,
             "currentStatus": current_status,
@@ -721,12 +814,17 @@ class TrackingRegistry:
             "packedAt": getattr(enquiry, "packedAt", None).isoformat() if (enquiry and getattr(enquiry, "packedAt", None)) else None,
             "isWeightVerified": is_weight_verified,
             "note": getattr(shipment, "note", None) if shipment else None,
+            "isSplitHawb": len(hawbs_data) > 1,
+            "hawbs": hawbs_data,
+            "targetedBoxTrackingNumber": targeted_box_tracking,
+            # Basic cargo details
             "origin": "Kathmandu, Nepal",
-            "destination": (enquiry.receiverCountry if enquiry else None) or (linked_mawb.destination if linked_mawb else None) or "Overseas",
-            "senderName": enquiry.senderName if enquiry else None,
-            "receiverName": enquiry.receiverName if enquiry else None,
-            "pieces": (enquiry.noOfBox if enquiry else len(shipment.boxes)) if (enquiry or shipment) else 1,
-            "weight": (enquiry.weight if enquiry else 10.0) if enquiry else 10.0,
+            "destination": (enquiry.country.name if (enquiry and enquiry.country) else (shipment.country.name if (shipment and shipment.country) else (enquiry.destinationLocation if enquiry else "International"))),
+            "senderName": (enquiry.senderName if enquiry else (shipment.customer.name if shipment and shipment.customer else "Shipper")),
+            "receiverName": enquiry.receiverName if enquiry else "Consignee",
+            "receiverCountry": enquiry.receiverCountry if enquiry else None,
+            "pieces": total_box_count,
+            "weight": (shipment.weight if getattr(shipment, "weight", None) else (enquiry.weight if enquiry else 10.0)),
             "volumetricWeight": enquiry.volumetricWeight if enquiry else None,
             "chargeableWeight": enquiry.chargeableWeight if enquiry else None,
             "weightProofImageUrl": proof_images[0] if proof_images else None,
@@ -737,44 +835,13 @@ class TrackingRegistry:
             "riderPhone": rider_phone,
             "pickupStaffName": rider_name,
             "pickupStaffPhone": rider_phone,
-            "boxes": [
-                {
-                    "boxNumber": idx,
-                    "trackingNumber": b.trackingNumber or f"BOX-{idx}",
-                    "weight": b.weight or round((enquiry.weight if enquiry else 10.0) / max(len(enquiry.boxes if (enquiry and enquiry.boxes) else (shipment.boxes if (shipment and shipment.boxes) else [1])), 1), 2),
-                    "dimensions": b.dimensions or (f"{b.length} x {b.breadth} x {b.height} cm" if (b.length and b.breadth and b.height) else "Standard Cargo Carton"),
-                    "length": b.length,
-                    "breadth": b.breadth,
-                    "height": b.height,
-                    "volumetricWeight": round((b.length * b.breadth * b.height) / 5000.0, 2) if (b.length and b.breadth and b.height) else None,
-                    "multiplier": b.multiplier or 1.0,
-                    "quantity": b.quantity or 1,
-                    "items": (
-                        [
-                            {
-                                "item": bi.enquiryItem.description if bi.enquiryItem else "Cargo Item",
-                                "pieces": bi.quantity or 1
-                            }
-                            for bi in b.items
-                        ] if b.items else (
-                            [
-                                {
-                                    "item": itm.description or "General Goods",
-                                    "pieces": itm.quantity or 1
-                                }
-                                for itm in (enquiry.items if (enquiry and enquiry.items) else (shipment.enquiry.items if (shipment and shipment.enquiry and shipment.enquiry.items) else []))
-                            ] if (idx == 1) else []
-                        )
-                    )
-                }
-                for idx, b in enumerate(
-                    (enquiry.boxes if (enquiry and enquiry.boxes) else (shipment.boxes if (shipment and shipment.boxes) else [])),
-                    1
-                )
-            ] if (enquiry and enquiry.boxes) or (shipment and shipment.boxes) else [
+            "boxes": formatted_tracking_boxes if formatted_tracking_boxes else [
                 {
                     "boxNumber": 1,
+                    "pieceNumber": "Piece 1 of 1",
                     "trackingNumber": "BOX-1",
+                    "hawbNumber": shipment.hawbno if shipment else (enquiry.trackingNumber if enquiry else ""),
+                    "forwardingNumber": fwd_number,
                     "weight": enquiry.weight if enquiry else (shipment.weight if shipment else 10.0),
                     "dimensions": "30 x 20 x 20 cm",
                     "length": 30.0,
