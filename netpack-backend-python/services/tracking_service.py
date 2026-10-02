@@ -355,6 +355,23 @@ class TrackingRegistry:
                     enquiry = box_match.enquiry
                     if enquiry.shipments:
                         shipment = enquiry.shipments[0]
+            elif "-" in clean_id:
+                parts = clean_id.rsplit("-", 1)
+                prefix_candidate = parts[0].strip()
+                suffix_candidate = parts[1].strip()
+                if suffix_candidate.isdigit():
+                    shipment_candidate = db.query(Shipment).filter(Shipment.hawbno == prefix_candidate).first()
+                    if shipment_candidate:
+                        shipment = shipment_candidate
+                        enquiry = shipment_candidate.enquiry
+                        targeted_box_tracking = clean_id
+                    else:
+                        enq_candidate = db.query(Enquiry).filter(Enquiry.trackingNumber == prefix_candidate).first()
+                        if enq_candidate:
+                            enquiry = enq_candidate
+                            if enquiry.shipments:
+                                shipment = enquiry.shipments[0]
+                            targeted_box_tracking = clean_id
 
         # 3. Search Enquiry by master trackingNumber or id (in-house master tracking)
         enquiry = None
@@ -761,7 +778,13 @@ class TrackingRegistry:
             b_fwd = box_shipment.forwardingNumber if (box_shipment and box_shipment.forwardingNumber) else fwd_number
             b_status = box_shipment.status if box_shipment else (enquiry.status if enquiry else "IN_TRANSIT")
             b_tracking = b.trackingNumber or (f"{b_hawb}-{idx}" if b_hawb else f"BOX-{idx}")
-            is_targeted = bool(targeted_box_tracking and b.trackingNumber == targeted_box_tracking)
+            is_targeted = bool(
+                targeted_box_tracking and (
+                    b.trackingNumber == targeted_box_tracking
+                    or b_tracking == targeted_box_tracking
+                    or (targeted_box_tracking.rsplit("-", 1)[-1] == str(idx) if "-" in targeted_box_tracking else False)
+                )
+            )
 
             box_items_list = []
             if b.items:
