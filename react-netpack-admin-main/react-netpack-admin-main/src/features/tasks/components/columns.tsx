@@ -93,22 +93,9 @@ const baseColumns: ColumnDef<EnquiryTableRow>[] = [
     cell: ({ row }) => {
       const enquiry = row.original
       const senderName = enquiry.senderName || '—'
-      const orgName =
-        enquiry.createdByName !== 'N/A'
-          ? enquiry.senderOrganization
-          : 'Mobile App'
-      const hasDistinctOrg =
-        orgName &&
-        orgName.trim() !== '' &&
-        orgName.trim().toLowerCase() !== senderName.trim().toLowerCase()
       return (
         <div className='w-[200px]'>
           <div className='truncate font-medium'>{senderName}</div>
-          {hasDistinctOrg && (
-            <div className='text-muted-foreground truncate text-sm'>
-              {orgName}
-            </div>
-          )}
         </div>
       )
     },

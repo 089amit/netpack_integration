@@ -45,13 +45,29 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
     cust_email = ""
     cust_org = ""
     customer_obj = s.customer or (s.enquiry.customer if s.enquiry else None)
-    if customer_obj:
+    sender_name = (s.enquiry.senderName if (s.enquiry and s.enquiry.senderName) else "") or ""
+
+    # Decouple disparate corporate accounts:
+    # If customer_obj belongs to a different entity from sender_name, do not cross-pollinate its organization
+    is_mismatched_customer = False
+    if customer_obj and sender_name:
+        c_low = (customer_obj.name or "").lower().strip()
+        s_low = sender_name.lower().strip()
+        if c_low and s_low and (c_low not in s_low and s_low not in c_low):
+            is_mismatched_customer = True
+
+    if customer_obj and not is_mismatched_customer:
         cust_name = customer_obj.name or ""
         cust_phone = customer_obj.phone or ""
         cust_email = customer_obj.email or ""
         cust_org = getattr(customer_obj, 'organizationName', '') or ""
+    else:
+        cust_name = sender_name
+        cust_org = getattr(s.enquiry, 'senderOrganization', '') if s.enquiry else ""
 
-    sender_name = (s.enquiry.senderName if (s.enquiry and s.enquiry.senderName) else cust_name) or ""
+    if not sender_name:
+        sender_name = cust_name
+
     sender_phone = (s.enquiry.senderPhone if (s.enquiry and s.enquiry.senderPhone) else cust_phone) or ""
     customer_phone = cust_phone or sender_phone or ""
     sender_org = cust_org or (getattr(s.enquiry, 'senderOrganization', '') if s.enquiry else "") or ""

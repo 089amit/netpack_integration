@@ -176,12 +176,12 @@ export async function generateShippingLabel100x150PDF(
 
     setColor(0, 0, 0)
     doc.setFont('courier', 'bold')
-    doc.text(`TEL: ${data.sender.phone || '015339942'}`, startX + cardW - 3, currentY + 3.8, { align: 'right' })
+    doc.text(`TEL: ${data.sender.phone || '—'}`, startX + cardW - 3, currentY + 3.8, { align: 'right' })
 
     setColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10.5)
-    const senderName = (data.sender.company || data.sender.name || 'DANFE LOGISTICS').toUpperCase()
+    const senderName = (data.sender.company || data.sender.name || 'DIRECT SHIPPER').toUpperCase()
     doc.text(senderName, startX + 3, currentY + 8.5)
 
     currentY += senderH

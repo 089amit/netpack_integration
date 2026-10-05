@@ -230,11 +230,11 @@ export const ShippingLabelCard: React.FC<ShippingLabelCardProps> = ({
           <div className='flex items-center justify-between text-[9px] font-bold text-gray-700 uppercase tracking-wider'>
             <span>SHIP FROM (SENDER):</span>
             <span className='font-mono font-bold text-black'>
-              TEL: {data.sender.phone || '015339942'}
+              TEL: {data.sender.phone || '—'}
             </span>
           </div>
           <div className='font-black text-[15px] text-black tracking-tight mt-0.5 uppercase truncate'>
-            {data.sender.company || data.sender.name || 'DANFE LOGISTICS'}
+            {data.sender.company || data.sender.name || 'DIRECT SHIPPER'}
           </div>
         </div>
 

@@ -46,7 +46,15 @@ interface Shipment {
   country: string
   commodity: string
   weight: string
-  status: 'in_progress' | 'delivered' | 'pending' | 'picked_up'
+  status:
+    | 'in_progress'
+    | 'delivered'
+    | 'pending'
+    | 'picked_up'
+    | 'shipment_created'
+    | 'arrived_at_hub'
+    | 'out_for_delivery'
+    | 'assigned_for_pickup'
   date: string
   eta?: string
   receiverName?: string
@@ -79,7 +87,15 @@ interface TrackingDetails {
   carrier: string
   carrierTracking: string
   carrierUrl: string
-  status: 'in_progress' | 'delivered' | 'pending' | 'picked_up'
+  status:
+    | 'in_progress'
+    | 'delivered'
+    | 'pending'
+    | 'picked_up'
+    | 'shipment_created'
+    | 'arrived_at_hub'
+    | 'out_for_delivery'
+    | 'assigned_for_pickup'
   statusLabel: string
   heroTitle: string
   heroSubtitle: string
@@ -634,11 +650,19 @@ function StatusBadge({ status }: { status: Shipment['status'] }) {
       </span>
     )
   }
-  if (status === 'picked_up') {
+  if (status === 'out_for_delivery') {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-        <IconBox size={10} />
-        Picked Up
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+        <IconTruck size={10} />
+        Out for Delivery
+      </span>
+    )
+  }
+  if (status === 'arrived_at_hub') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
+        <IconWarehouse size={10} />
+        Arrived at Hub
       </span>
     )
   }
@@ -647,6 +671,30 @@ function StatusBadge({ status }: { status: Shipment['status'] }) {
       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
         In Transit
+      </span>
+    )
+  }
+  if (status === 'shipment_created') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+        <IconTag size={10} />
+        Shipment Created
+      </span>
+    )
+  }
+  if (status === 'picked_up') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
+        <IconBox size={10} />
+        Picked Up
+      </span>
+    )
+  }
+  if (status === 'assigned_for_pickup') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-700 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded-full">
+        <IconTruck size={10} />
+        Rider Assigned
       </span>
     )
   }
@@ -668,18 +716,34 @@ function ShipmentCard({ s, onClick }: { s: Shipment; onClick: () => void }) {
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
         s.status === 'delivered'
           ? 'bg-emerald-50'
-          : s.status === 'picked_up'
-          ? 'bg-blue-50'
+          : s.status === 'out_for_delivery'
+          ? 'bg-sky-50'
+          : s.status === 'arrived_at_hub'
+          ? 'bg-purple-50'
           : s.status === 'in_progress'
           ? 'bg-amber-50'
+          : s.status === 'shipment_created'
+          ? 'bg-indigo-50'
+          : s.status === 'picked_up'
+          ? 'bg-teal-50'
+          : s.status === 'assigned_for_pickup'
+          ? 'bg-cyan-50'
           : 'bg-gray-50'
       }`}>
         {s.status === 'delivered' ? (
           <IconCheck size={16} className="text-emerald-500" />
-        ) : s.status === 'picked_up' ? (
-          <IconBox size={18} className="text-blue-600" />
+        ) : s.status === 'out_for_delivery' ? (
+          <IconTruck size={18} className="text-sky-600 animate-float" />
+        ) : s.status === 'arrived_at_hub' ? (
+          <IconWarehouse size={18} className="text-purple-600" />
         ) : s.status === 'in_progress' ? (
-          <IconTruck size={18} className="text-amber-500 animate-float" />
+          <IconPlane size={18} className="text-amber-500 animate-float" />
+        ) : s.status === 'shipment_created' ? (
+          <IconTag size={18} className="text-indigo-600" />
+        ) : s.status === 'picked_up' ? (
+          <IconBox size={18} className="text-teal-600" />
+        ) : s.status === 'assigned_for_pickup' ? (
+          <IconTruck size={18} className="text-cyan-600" />
         ) : (
           <IconDocument size={18} className="text-gray-400" />
         )}
@@ -694,7 +758,13 @@ function ShipmentCard({ s, onClick }: { s: Shipment; onClick: () => void }) {
           </div>
           <StatusBadge status={s.status} />
         </div>
-        <p className="text-[12px] text-gray-500 mt-1.5 truncate">
+        {s.receiverName && (
+          <p className="text-[12px] text-gray-700 font-medium mt-1 truncate">
+            <span className="text-gray-400 text-[11px]">Consignee:</span>{' '}
+            <span className="font-semibold text-[#0D1B2A]">{s.receiverName}</span>
+          </p>
+        )}
+        <p className="text-[12px] text-gray-500 mt-1 truncate">
           {s.commodity} · {s.weight}
         </p>
         {s.eta && <p className="text-[11px] text-blue-500 mt-1 font-medium">ETA {s.eta}</p>}
@@ -719,8 +789,8 @@ function HomeScreen({
   onTrack: (trackingNumber: string) => void
 }) {
   const [searchQuery, setSearchQuery] = useState('')
-  const pending = shipments.filter(s => s.status === 'pending').length
-  const inTransit = shipments.filter(s => s.status === 'in_progress').length
+  const pending = shipments.filter(s => s.status === 'pending' || s.status === 'assigned_for_pickup').length
+  const inTransit = shipments.filter(s => s.status === 'in_progress' || s.status === 'arrived_at_hub' || s.status === 'out_for_delivery' || s.status === 'shipment_created' || s.status === 'picked_up').length
   const recent = shipments.slice(0, 3)
 
   const filteredShipments = useMemo(() => {
@@ -958,7 +1028,7 @@ function ShipmentsScreen({
 
   const filtered = shipments.filter(s => {
     if (tab === 'all') return true
-    if (tab === 'inprogress') return s.status === 'in_progress'
+    if (tab === 'inprogress') return s.status !== 'delivered'
     if (tab === 'delivered') return s.status === 'delivered'
     return true
   })
@@ -1003,7 +1073,7 @@ function ShipmentsScreen({
         <div className="grid grid-cols-3 gap-2 mt-4">
           {[
             { label: 'Total', value: shipments.length, color: 'text-[#0D1B2A]', bg: 'bg-white' },
-            { label: 'In Transit', value: shipments.filter(s => s.status === 'in_progress').length, color: 'text-amber-600', bg: 'bg-amber-50' },
+            { label: 'In Transit', value: shipments.filter(s => s.status === 'in_progress' || s.status === 'arrived_at_hub' || s.status === 'out_for_delivery' || s.status === 'shipment_created' || s.status === 'picked_up').length, color: 'text-amber-600', bg: 'bg-amber-50' },
             { label: 'Delivered', value: shipments.filter(s => s.status === 'delivered').length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           ].map(stat => (
             <div key={stat.label} className={`${stat.bg} rounded-xl border border-gray-100 px-3 py-2 text-center`}>
@@ -1471,7 +1541,9 @@ function TrackingScreen({
           } else {
             statusLabel = 'Enquiry Registered'
             heroTitle = 'Booking Confirmed'
-            heroSubtitle = `Awaiting pickup rider assignment • Kathmandu`
+            heroSubtitle = liveRes.pickupRequired === false
+              ? 'Awaiting drop-off at NetPack intake counter • Kathmandu'
+              : 'Awaiting pickup rider assignment • Kathmandu'
           }
 
           setData({
@@ -1484,8 +1556,18 @@ function TrackingScreen({
               : 'https://www.dhl.com/en/express/tracking.html',
             status: statusStr.includes('DELIVERED')
               ? 'delivered'
+              : statusStr.includes('CARRIER') || statusStr.includes('OUT_FOR_DELIVERY')
+              ? 'out_for_delivery'
+              : statusStr.includes('HUB') || statusStr.includes('CUSTOMS')
+              ? 'arrived_at_hub'
+              : statusStr.includes('TRANSIT')
+              ? 'in_progress'
+              : statusStr.includes('PACK') || statusStr.includes('CREATED')
+              ? 'shipment_created'
               : isActualPickedUp
               ? 'picked_up'
+              : isRiderAssigned
+              ? 'assigned_for_pickup'
               : 'pending',
             statusLabel,
             heroTitle,
@@ -3960,7 +4042,7 @@ export default function CustomerPWA() {
           read: false,
           type: 'delivered',
         })
-      } else if (s.status === 'in_progress') {
+      } else if (s.status === 'in_progress' || s.status === 'arrived_at_hub' || s.status === 'out_for_delivery') {
         list.push({
           id: `notif-${s.id}-progress`,
           title: `Shipment ${s.tracking} In Transit`,
@@ -4067,16 +4149,17 @@ export default function CustomerPWA() {
             country: b.receiverCountry || '',
             commodity: b.commodity || 'General Cargo',
             weight: `${b.weight || b.approximateWeight || '1.0'} kg`,
-            status:
-              (b.status || '').toUpperCase() === 'DELIVERED'
-                ? 'delivered'
-                : (b.status || '').toUpperCase() === 'PICKED_UP'
-                ? 'picked_up'
-                : (b.status || '').toUpperCase() === 'PENDING' ||
-                  (b.status || '').toUpperCase() === 'ENQUIRY_GENERATED' ||
-                  (b.status || '').toUpperCase() === 'ASSIGNED_FOR_PICKUP'
-                ? 'pending'
-                : 'in_progress',
+            status: (() => {
+              const rawSt = (b.status || '').toUpperCase()
+              if (rawSt === 'DELIVERED') return 'delivered'
+              if (rawSt === 'OUT_FOR_DELIVERY' || rawSt === 'CARRIER_SCANNED') return 'out_for_delivery'
+              if (rawSt === 'ARRIVED_AT_HUB') return 'arrived_at_hub'
+              if (rawSt === 'IN_TRANSIT') return 'in_progress'
+              if (rawSt === 'SHIPMENT_CREATED' || rawSt === 'PACKED') return 'shipment_created'
+              if (rawSt === 'PICKED_UP') return 'picked_up'
+              if (rawSt === 'ASSIGNED_FOR_PICKUP') return 'assigned_for_pickup'
+              return 'pending'
+            })(),
             date: b.createdAt
               ? new Date(b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
               : 'Recent',

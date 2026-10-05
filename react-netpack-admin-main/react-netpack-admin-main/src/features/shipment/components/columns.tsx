@@ -64,19 +64,9 @@ export const columns: ColumnDef<ShipmentItem>[] = [
     cell: ({ row }) => {
       const shipment = row.original
       const senderName = shipment.senderName || '—'
-      const orgName = shipment.senderOrganization || ''
-      const hasDistinctOrg =
-        orgName &&
-        orgName.trim() !== '' &&
-        orgName.trim().toLowerCase() !== senderName.trim().toLowerCase()
       return (
         <div className='w-[200px]'>
           <div className='truncate font-medium'>{senderName}</div>
-          {hasDistinctOrg && (
-            <div className='text-muted-foreground truncate text-sm'>
-              {orgName}
-            </div>
-          )}
         </div>
       )
     },
