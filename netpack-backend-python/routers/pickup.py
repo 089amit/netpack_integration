@@ -15,6 +15,7 @@ from database import get_db
 from models.enquiry import Enquiry, Box, BoxItem, PickupLocationEnquiry
 from models.shipment import Shipment, TrackingEvent
 from models.user import User, Role
+from models.customer import Notification
 from schemas.auth import RiderLoginRequest, TokenValidationRequest
 from services.auth_service import (
     verify_password,
@@ -160,6 +161,12 @@ class PickupStatusUpdate(BaseModel):
     riderName: Optional[str] = None
     riderPhone: Optional[str] = None
     riderId: Optional[int] = None
+    riderNotes: Optional[str] = None
+
+
+class BatchPickupStatusUpdate(BaseModel):
+    ids: List[int]
+    status: str = "PICKED_UP"
     riderNotes: Optional[str] = None
 
 
@@ -343,6 +350,30 @@ def update_pickup_status(
         raise HTTPException(status_code=404, detail="Pickup task / Enquiry not found")
 
     e.status = payload.status
+    now = datetime.utcnow()
+    if payload.status == "PICKED_UP":
+        if not e.pickedUpAt:
+            e.pickedUpAt = now
+        # Also notify customer in-app
+        if e.customerId:
+            db.add(Notification(
+                title="Cargo Picked Up",
+                body=f"Your package {e.trackingNumber} has been marked as picked up.",
+                customerId=e.customerId,
+                scope="SPECIFIC_CUSTOMER",
+                isRead=False
+            ))
+        # Update any linked shipment
+        if e.shipments:
+            for s in e.shipments:
+                s.status = "PICKED_UP"
+                db.add(TrackingEvent(
+                    shipmentId=s.id,
+                    status="PICKED_UP",
+                    location="Kathmandu Hub",
+                    description=f"Consignment marked as picked up by {payload.riderName or 'Staff'}",
+                    timestamp=now
+                ))
 
     if payload.riderId:
         e.pickedUpBy = payload.riderId
@@ -364,6 +395,70 @@ def update_pickup_status(
     return {
         "message": f"Pickup status updated to {payload.status}",
         "pickup": format_pickup_item(e)
+    }
+
+
+@router.post("/batch-status")
+def batch_update_pickup_status(
+    payload: BatchPickupStatusUpdate,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Updates status for multiple selected pickups at once (e.g., mark multiple as PICKED_UP).
+    Available for Admin, Operator, and CSD staff.
+    """
+    requester = get_requester_identity(authorization, db)
+    if not payload.ids:
+        raise HTTPException(status_code=400, detail="No pickup IDs provided")
+
+    query = db.query(Enquiry).filter(Enquiry.id.in_(payload.ids))
+    if requester.is_user_or_customer:
+        query = query.filter(get_user_enquiry_filter(requester))
+
+    enquiries = query.all()
+    if not enquiries:
+        raise HTTPException(status_code=404, detail="No matching enquiries found")
+
+    updated_count = 0
+    now = datetime.utcnow()
+    for e in enquiries:
+        e.status = payload.status
+        if payload.status == "PICKED_UP":
+            if not e.pickedUpAt:
+                e.pickedUpAt = now
+            if requester.user_id:
+                e.pickedUpBy = requester.user_id
+
+            if e.customerId:
+                db.add(Notification(
+                    title="Cargo Picked Up",
+                    body=f"Your package {e.trackingNumber} has been marked as picked up.",
+                    customerId=e.customerId,
+                    scope="SPECIFIC_CUSTOMER",
+                    isRead=False
+                ))
+
+        if payload.riderNotes:
+            tag = f"[Staff]: {payload.riderNotes}"
+            e.pickupNotes = f"{e.pickupNotes}\n{tag}".strip() if e.pickupNotes else tag
+
+        if e.shipments:
+            for s in e.shipments:
+                s.status = payload.status
+                db.add(TrackingEvent(
+                    shipmentId=s.id,
+                    status=payload.status,
+                    location="Kathmandu Hub",
+                    description=f"Status updated to {payload.status} by Staff",
+                    timestamp=now
+                ))
+        updated_count += 1
+
+    db.commit()
+    return {
+        "message": f"Successfully updated {updated_count} pickups to {payload.status}",
+        "updatedCount": updated_count
     }
 
 

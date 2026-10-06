@@ -62,3 +62,19 @@ class AreaSurcharge(Base):
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     country = relationship("Country", back_populates="areaSurcharges")
+
+
+class SurchargeRule(Base):
+    __tablename__ = "surcharge_rules"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    zipCode = Column(String(50), nullable=True, index=True)
+    service = Column(String(100), nullable=True, index=True)
+    city = Column(String(150), nullable=True, index=True)
+    country = Column(String(100), nullable=True, index=True)
+    amount = Column(Float, nullable=True)
+    currency = Column(String(10), default="USD")
+    description = Column(String(255), nullable=True)
+    isActive = Column(Boolean, default=True)
+    createdAt = Column(DateTime, default=datetime.utcnow)
+    updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

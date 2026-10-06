@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import List, Optional, Any, Dict
@@ -7,7 +7,7 @@ from datetime import datetime
 from database import get_db
 from models.shipment import Shipment, ShipmentPickUpLocation, TransitPoint, TrackingEvent
 from models.enquiry import Enquiry, Box
-from models.customer import Customer
+from models.customer import Customer, Notification
 from models.mawb import Agent, MAWB, ForwardingCompany, ForwardingService
 from models.location import Country
 from schemas.shipment import (
@@ -19,6 +19,7 @@ from schemas.shipment import (
     ShipmentUpdateRequest
 )
 from services.hawb_service import compute_next_hawb_for_agent
+from services.email_service import send_shipment_delivery_notification
 
 router = APIRouter(prefix="/api/shipments", tags=["Shipments"])
 
@@ -727,7 +728,12 @@ def update_shipment(id: int, payload: ShipmentUpdateRequest, db: Session = Depen
     return {"message": "Shipment updated successfully", "shipment": format_shipment_response(s, db)}
 
 @router.patch("/{id}/status")
-def update_shipment_status(id: int, payload: ShipmentStatusUpdateRequest, db: Session = Depends(get_db)):
+def update_shipment_status(
+    id: int,
+    payload: ShipmentStatusUpdateRequest,
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db)
+):
     s = db.query(Shipment).filter(Shipment.id == id).first()
     if not s:
         # Fallback: check if id is an enquiryId
@@ -739,6 +745,16 @@ def update_shipment_status(id: int, payload: ShipmentStatusUpdateRequest, db: Se
                 e.status = payload.status
                 if payload.note and payload.note.strip():
                     e.note = payload.note.strip()
+                if e.customerId:
+                    db.add(Notification(
+                        title=f"Shipment Status: {payload.status}",
+                        body=f"Your package {e.trackingNumber} is now {payload.status}.",
+                        customerId=e.customerId,
+                        scope="SPECIFIC_CUSTOMER",
+                        isRead=False
+                    ))
+                if payload.status == "DELIVERED":
+                    send_shipment_delivery_notification(e, background_tasks)
                 db.commit()
                 return {"message": "Enquiry status updated successfully", "status": e.status, "note": getattr(e, "note", None)}
     if not s:
@@ -747,12 +763,26 @@ def update_shipment_status(id: int, payload: ShipmentStatusUpdateRequest, db: Se
     if s.enquiry:
         s.enquiry.status = payload.status
 
+    cust_id = s.customerId or (s.enquiry.customerId if s.enquiry else None)
+    tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or s.forwardingNumber or f"NET-{s.id}"
+
+    if cust_id:
+        db.add(Notification(
+            title=f"Shipment Status: {payload.status}",
+            body=f"Your consignment {tr_no} is now {payload.status}.",
+            customerId=cust_id,
+            scope="SPECIFIC_CUSTOMER",
+            isRead=False
+        ))
+
+    if payload.status == "DELIVERED":
+        send_shipment_delivery_notification(s, background_tasks)
+
     if payload.note and payload.note.strip():
         clean_note = payload.note.strip()
         s.note = clean_note
         dest_country = s.country.name if s.country else (s.enquiry.receiverCountry if s.enquiry else "Destination Hub")
         loc = payload.location or ("Kathmandu, Nepal" if payload.status in ("ENQUIRY_GENERATED", "PICKED_UP", "SHIPMENT_CREATED") else f"{dest_country} Hub / Transit")
-        tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or s.forwardingNumber or f"NET-{s.id}"
         te = TrackingEvent(
             shipmentId=s.id,
             trackingNumber=tr_no,
@@ -768,7 +798,11 @@ def update_shipment_status(id: int, payload: ShipmentStatusUpdateRequest, db: Se
     return {"message": "Status updated successfully", "status": s.status, "note": getattr(s, "note", None)}
 
 @router.post("/bulk-status-change")
-def bulk_update_status(payload: BulkStatusChangeRequest, db: Session = Depends(get_db)):
+def bulk_update_status(
+    payload: BulkStatusChangeRequest,
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db)
+):
     raw_ids = payload.shipmentIds or payload.id or []
     updated_count = 0
     for raw_id in raw_ids:
@@ -781,6 +815,18 @@ def bulk_update_status(payload: BulkStatusChangeRequest, db: Session = Depends(g
             s.status = payload.status
             if s.enquiry:
                 s.enquiry.status = payload.status
+            cust_id = s.customerId or (s.enquiry.customerId if s.enquiry else None)
+            tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or f"NET-{s.id}"
+            if cust_id:
+                db.add(Notification(
+                    title=f"Shipment Status: {payload.status}",
+                    body=f"Your consignment {tr_no} is now {payload.status}.",
+                    customerId=cust_id,
+                    scope="SPECIFIC_CUSTOMER",
+                    isRead=False
+                ))
+            if payload.status == "DELIVERED":
+                send_shipment_delivery_notification(s, background_tasks)
             updated_count += 1
     db.commit()
     return {"message": f"{updated_count} shipments status updated successfully"}
@@ -850,9 +896,26 @@ def delete_shipment(shipmentId: int, db: Session = Depends(get_db)):
     s = db.query(Shipment).filter(Shipment.id == shipmentId).first()
     if not s:
         raise HTTPException(status_code=404, detail="Shipment not found")
+
+    enquiry_id = s.enquiryId
+    enquiry = s.enquiry or (db.query(Enquiry).filter(Enquiry.id == enquiry_id).first() if enquiry_id else None)
+
+    # Disassociate boxes linked to this shipment before deletion
+    db.query(Box).filter(Box.shipmentId == shipmentId).update({"shipmentId": None}, synchronize_session=False)
+
     db.delete(s)
+    db.flush()
+
+    if enquiry:
+        remaining_shipments = db.query(Shipment).filter(Shipment.enquiryId == enquiry.id).count()
+        if remaining_shipments == 0:
+            enquiry.status = "PENDING"
+            enquiry.hawb = None
+            enquiry.isForwarded = False
+
     db.commit()
-    return {"message": "Shipment deleted successfully"}
+    return {"message": "Shipment deleted successfully and enquiry status reset to PENDING"}
+
 
 
 class TrackingModeUpdateRequest(BaseModel):

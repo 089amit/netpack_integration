@@ -78,6 +78,11 @@ export const sidebarData: SidebarData = {
           url: '/country',
           icon: IconChecklist,
         },
+        {
+          title: 'Surcharges',
+          url: '/surcharges',
+          icon: IconWorld,
+        },
         // {
         //   title: 'Apps',
         //   url: '/apps',

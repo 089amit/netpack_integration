@@ -1003,6 +1003,22 @@ export function EnquiryModalForm({
         // Remove boxes
         newBoxes = newBoxes.slice(0, num)
       }
+      // Point 8: If exactly 1 box, auto-assign all items to Box 1 if empty
+      if (
+        num === 1 &&
+        newBoxes.length === 1 &&
+        (!newBoxes[0].itemSelections || newBoxes[0].itemSelections.length === 0) &&
+        prev.items &&
+        prev.items.length > 0
+      ) {
+        newBoxes[0] = {
+          ...newBoxes[0],
+          itemSelections: prev.items.map((it: any, idx: number) => ({
+            itemId: it.id || `item-${idx}`,
+            quantity: parseInt(it.quantity) || 1,
+          })),
+        } as Box
+      }
       return {
         ...prev,
         boxes: newBoxes as any,
@@ -1010,6 +1026,29 @@ export function EnquiryModalForm({
       }
     })
   }
+
+  // Point 8: Auto-assign items to Box 1 if only 1 box exists and it has no item selections
+  useEffect(() => {
+    if (formData?.boxes?.length === 1 && formData.items && formData.items.length > 0) {
+      const box1 = formData.boxes[0]
+      if (!box1.itemSelections || box1.itemSelections.length === 0) {
+        setFormData((prev) => {
+          if (!prev || !prev.boxes || prev.boxes.length !== 1) return prev
+          const updatedBox = {
+            ...prev.boxes[0],
+            itemSelections: prev.items.map((it: any, idx: number) => ({
+              itemId: it.id || `item-${idx}`,
+              quantity: parseInt(it.quantity) || 1,
+            })),
+          }
+          return {
+            ...prev,
+            boxes: [updatedBox] as any,
+          }
+        })
+      }
+    }
+  }, [formData?.boxes?.length, formData?.items])
 
   const updateBoxDimension = (
     boxIdx: number,
@@ -1088,6 +1127,24 @@ export function EnquiryModalForm({
       setErrors((prev) => ({ ...prev, pickupLocation: false }))
     }
   }
+
+  const isInternalStaff = ['ADMIN', 'OPERATIONS', 'OPERATOR', 'CSD', 'SUPERADMIN'].includes(
+    (userRole || '').toUpperCase()
+  )
+
+  const destinationCountry = countries.find(
+    (c) =>
+      (formData?.destinationCountryId && String(c.id) === String(formData.destinationCountryId)) ||
+      (formData?.receiver?.country && c.name?.toLowerCase() === formData.receiver.country?.toLowerCase())
+  )
+  const countryWeightLimit = destinationCountry?.boxWeightLimit || 30
+  const countryName = destinationCountry?.name || formData?.receiver?.country || 'Destination'
+
+  useEffect(() => {
+    if (isInternalStaff && formData && formData.handoverType !== 'SELF_DROP' && !formData.id) {
+      setFormData((prev) => (prev ? { ...prev, handoverType: 'SELF_DROP' } : null))
+    }
+  }, [isInternalStaff, formData?.id])
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -1195,10 +1252,13 @@ export function EnquiryModalForm({
             updateBoxDimension={updateBoxDimension}
             onBoxItemSelectionsChange={handleBoxItemSelectionsChange}
             boxErrors={errors.boxErrors}
+            countryWeightLimit={countryWeightLimit}
+            countryName={countryName}
           />
 
-          {/* Handover & Collection Option */}
-          <div className='my-6 rounded-lg border bg-card p-4 shadow-sm'>
+          {/* Handover & Collection Option - Only for customer / external bookings, hidden for internal staff */}
+          {!isInternalStaff && (
+            <div className='my-6 rounded-lg border bg-card p-4 shadow-sm'>
             <div className='mb-3 flex items-center justify-between border-b pb-2'>
               <div>
                 <h3 className='flex items-center gap-2 text-sm font-semibold text-foreground'>
@@ -1405,6 +1465,7 @@ export function EnquiryModalForm({
               </div>
             )}
           </div>
+          )}
 
           {/* Submit Button */}
           <div className='flex justify-end space-x-2'>

@@ -69,7 +69,7 @@ export function SenderSection({
   onSearchCustomers,
   hasError = false,
   senderAddressLine1Error = false,
-  senderAddressLine2Error = false,
+  senderAddressLine2Error: _senderAddressLine2Error = false,
   senderCityError = false,
   senderPostcodeError = false,
   senderCountryError = false,
@@ -205,7 +205,7 @@ export function SenderSection({
         </div>
         <div className='space-y-1'>
           <label className='text-sm font-medium'>
-            Address Line 2 <span className='text-red-500'>*</span>
+            Address Line 2 (Optional)
           </label>
           <Input
             name='addressLine2'
@@ -213,13 +213,7 @@ export function SenderSection({
             value={formData?.sender.addressLine2 || ''}
             onChange={(e) => onFormChange(e, 'sender')}
             disabled={!isEditable}
-            className={cn(
-              senderAddressLine2Error && 'border-red-500 ring-1 ring-red-500'
-            )}
           />
-          {senderAddressLine2Error && (
-            <p className='text-sm text-red-500'>Address Line 2 is required</p>
-          )}
         </div>
 
         <div className='space-y-1'>

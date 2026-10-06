@@ -17,13 +17,13 @@ import http from '@/utils/http'
 import { ENQUIRY_ENDPOINTS } from '@/constants/endpoint'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-
-// make sure this is correctly defined
+import { ShipmentTrackingDialog } from '@/features/tasks/components/shipment-tracking-dialog'
 
 export function RecentEnquiry() {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedTracking, setSelectedTracking] = useState<any | null>(null)
 
   useEffect(() => {
     const fetchEnquiries = async () => {
@@ -36,7 +36,13 @@ export function RecentEnquiry() {
             return {
               id: enquiry.id,
               name: enquiry.senderName || 'Unknown',
-              email: enquiry.senderPhone || 'No Phone',
+              receiverName: enquiry.receiverName || 'Consignee',
+              senderPhone: enquiry.senderPhone || '',
+              trackingNumber: (enquiry as any).trackingNumber,
+              hawbNumber: (enquiry as any).hawbNumber || (enquiry as any).hawb,
+              forwardingNumber: (enquiry as any).forwardingNumber,
+              forwardingCompanyName: (enquiry as any).forwardingCompanyName,
+              additionalNote: (enquiry as any).additionalNote,
               destinationCountryName:
                 enquiry.receiverCountry ||
                 enquiry.destinationCountryName ||
@@ -131,7 +137,7 @@ export function RecentEnquiry() {
               <p className='text-sm leading-none font-medium'>{enquiry.name}</p>
               <div className='flex items-center gap-2'>
                 <p className='text-muted-foreground text-xs font-medium'>
-                  {enquiry.email}
+                  To: {enquiry.receiverName}
                 </p>
                 <span className='text-muted-foreground text-xs'>•</span>
                 <p className='text-muted-foreground text-xs'>
@@ -139,24 +145,45 @@ export function RecentEnquiry() {
                 </p>
               </div>
             </div>
-            <Badge
-              variant={getStatusConfig(enquiry.status).variant}
-              className='flex items-center gap-1 px-2 py-0.5'
+            <button
+              type='button'
+              onClick={() => setSelectedTracking(enquiry)}
+              className='cursor-pointer transition-transform hover:scale-105 focus:outline-none'
+              title='Click to view full shipment tracking timeline'
             >
-              {(() => {
-                const Config = getStatusConfig(enquiry.status)
-                const Icon = Config.icon
-                return (
-                  <>
-                    <Icon className='h-3 w-3' />
-                    <span>{Config.label}</span>
-                  </>
-                )
-              })()}
-            </Badge>
+              <Badge
+                variant={getStatusConfig(enquiry.status).variant}
+                className='flex items-center gap-1 px-2.5 py-1 transition-colors hover:ring-2 hover:ring-primary/40'
+              >
+                {(() => {
+                  const Config = getStatusConfig(enquiry.status)
+                  const Icon = Config.icon
+                  return (
+                    <>
+                      <Icon className='h-3 w-3' />
+                      <span>{Config.label}</span>
+                    </>
+                  )
+                })()}
+              </Badge>
+            </button>
           </div>
         </div>
       ))}
+
+      {selectedTracking && (
+        <ShipmentTrackingDialog
+          open={!!selectedTracking}
+          onOpenChange={(isOpen) => !isOpen && setSelectedTracking(null)}
+          currentStatus={selectedTracking.status}
+          additionalNote={selectedTracking.additionalNote}
+          enquiryId={selectedTracking.id}
+          trackingNumber={selectedTracking.trackingNumber}
+          hawbNumber={selectedTracking.hawbNumber}
+          forwardingNumber={selectedTracking.forwardingNumber}
+          forwardingCompanyName={selectedTracking.forwardingCompanyName}
+        />
+      )}
     </div>
   )
 }

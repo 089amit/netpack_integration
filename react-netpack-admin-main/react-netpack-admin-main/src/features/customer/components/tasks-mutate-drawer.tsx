@@ -76,6 +76,7 @@ export function CustomerMutateDrawer({
     address1: currentRow?.address1 ?? '',
     address2: currentRow?.address2 ?? '',
     city: currentRow?.city ?? '',
+    state: (currentRow as any)?.state ?? '',
     postcode: currentRow?.postcode ?? '',
     countryId: currentRow?.countryId ?? currentRow?.country?.id ?? null,
     gender: currentRow?.gender ?? 'MALE',
@@ -99,6 +100,7 @@ export function CustomerMutateDrawer({
         address1: currentRow.address1 || '',
         address2: currentRow.address2 || '',
         city: currentRow.city || '',
+        state: (currentRow as any).state || '',
         postcode: currentRow.postcode || '',
         countryId: currentRow.countryId ?? currentRow.country?.id ?? null,
         gender: currentRow.gender,
@@ -393,6 +395,25 @@ export function CustomerMutateDrawer({
                 )}
               />
 
+              {/* State */}
+              <FormField
+                control={form.control}
+                name='state'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State / Province</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='Enter state / province'
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               {/* Postcode */}
               <FormField
                 control={form.control}
@@ -455,6 +476,14 @@ export function CustomerMutateDrawer({
                                   value={country.name}
                                   onSelect={() => {
                                     form.setValue('countryId', country.id)
+                                    const dial = (country as any).dialCode || (country as any).phoneCode
+                                    if (dial) {
+                                      const curPhone = form.getValues('phone') || ''
+                                      if (!curPhone || curPhone === '+' || curPhone.trim() === '') {
+                                        const cleanDial = dial.startsWith('+') ? dial : `+${dial}`
+                                        form.setValue('phone', `${cleanDial} `)
+                                      }
+                                    }
                                     setOpenPopover(false)
                                   }}
                                 >

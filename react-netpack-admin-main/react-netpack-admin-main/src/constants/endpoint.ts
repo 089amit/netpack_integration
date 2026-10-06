@@ -62,6 +62,8 @@ export const PICKUP_ENDPOINTS = {
   GET_BY_ID: (id: number | string) => `${BASE_URL}/pickups/${id}`,
   PICKUP_AND_WEIGH: (id: number | string) =>
     `${BASE_URL}/pickups/${id}/pickup-and-weigh`,
+  BATCH_STATUS: `${BASE_URL}/pickups/batch-status`,
+  UPDATE_STATUS: (id: number | string) => `${BASE_URL}/pickups/${id}/status`,
 }
 export const SHIPMENT_ENDPOINT = {
   ALL_SHIPMENTS: `${BASE_URL}/shipments`,
@@ -200,5 +202,13 @@ export const POLICIES_ENDPOINTS = {
 export const WEBSITE_CONTENT_ENDPOINTS = {
   GET: `${BASE_URL}/website-content`,
   UPDATE: `${BASE_URL}/website-content`,
+}
+
+export const SURCHARGE_ENDPOINTS = {
+  LIST: `${BASE_URL}/surcharges`,
+  UPLOAD: `${BASE_URL}/surcharges/upload`,
+  CHECK: `${BASE_URL}/surcharges/check`,
+  DELETE: (id: number | string) => `${BASE_URL}/surcharges/${id}`,
+  CLEAR_ALL: `${BASE_URL}/surcharges/clear-all`,
 }
 

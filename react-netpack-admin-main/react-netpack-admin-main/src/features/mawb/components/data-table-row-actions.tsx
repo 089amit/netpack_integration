@@ -182,7 +182,8 @@ export function DataTableRowActions<TData>({
 
           <DropdownMenuItem
             onClick={() => {
-              window.location.href = `/custom-manifest`
+              const mawbParam = task.mawbNumber || task.id
+              window.location.href = `/custom-manifest?mawb=${encodeURIComponent(mawbParam)}`
             }}
           >
             <IconFileText className='mr-2 h-4 w-4 text-primary' />

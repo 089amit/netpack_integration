@@ -21,6 +21,8 @@ interface BoxesSectionProps {
     weight?: boolean
     itemSelections?: boolean
   }[]
+  countryWeightLimit?: number
+  countryName?: string
 }
 
 const isBoxComplete = (box: Box): boolean => {
@@ -39,6 +41,8 @@ export function BoxesSection({
   updateBoxDimension,
   onBoxItemSelectionsChange,
   boxErrors,
+  countryWeightLimit = 30,
+  countryName = '',
 }: BoxesSectionProps) {
   /* ===== CW BREAKDOWN & TOTAL (same logic reused) ===== */
   const cwBreakdown =
@@ -96,7 +100,7 @@ export function BoxesSection({
                   <span
                     className={cn(
                       'font-medium',
-                      b.chareableweight > 30 ? 'text-red-600' : 'text-green-700'
+                      b.chareableweight > countryWeightLimit ? 'text-red-600' : 'text-green-700'
                     )}
                   >
                     {b.chareableweight} kg
@@ -118,7 +122,7 @@ export function BoxesSection({
               5000
             const lps =
               (box.length || 0) + 2 * (box.breadth || 0) + 2 * (box.height || 0)
-            const isVolWarning = volWeight > 30
+            const isVolWarning = volWeight > countryWeightLimit
             const isLpsWarning = lps > 300
             const volHighlight = volWeight > (box.weight || 0)
             const chareableweight = calculateChargeableWeight(
@@ -140,15 +144,15 @@ export function BoxesSection({
                   <div
                     className={cn(
                       'inline-flex items-center rounded-full px-3 py-1 text-sm font-medium transition-colors',
-                      chareableweight > 30
+                      chareableweight > countryWeightLimit
                         ? 'bg-red-100 text-red-600'
                         : 'bg-green-100 text-green-800'
                     )}
                   >
-                    CW: {chareableweight}
-                    {chareableweight > 30 && (
+                    CW: {chareableweight} kg
+                    {chareableweight > countryWeightLimit && (
                       <span className='ml-1 text-xs font-normal'>
-                        (Overweight)
+                        (Exceeds {countryWeightLimit} kg limit{countryName ? ` for ${countryName}` : ''})
                       </span>
                     )}
                   </div>
@@ -277,7 +281,7 @@ export function BoxesSection({
                       Vol: {volWeight.toFixed(2)} kg
                     </div>
                     {isVolWarning && (
-                      <div className='text-red-600'>Exceeds 30!</div>
+                      <div className='text-red-600'>Exceeds {countryWeightLimit} kg!</div>
                     )}
                   </div>
 

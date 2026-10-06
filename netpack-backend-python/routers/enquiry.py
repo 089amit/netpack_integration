@@ -6,8 +6,8 @@ from datetime import datetime
 from database import get_db
 from models.enquiry import Enquiry, EnquiryItem, Box, BoxItem, PickupLocationEnquiry
 from models.shipment import Shipment
-from models.customer import Customer
-from models.location import Country, AreaSurcharge
+from models.customer import Customer, Notification
+from models.location import Country, AreaSurcharge, SurchargeRule
 from models.user import User
 from schemas.enquiry import (
     EnquiryCreateRequest, EnquiryStatusUpdateRequest, AddBoxItemRequest
@@ -419,6 +419,15 @@ def create_enquiry(
             )
             db.add(pickup)
 
+    if enq.customerId:
+        db.add(Notification(
+            title="Booking Confirmed",
+            body=f"Your consignment enquiry #{enq.trackingNumber} has been successfully generated.",
+            customerId=enq.customerId,
+            scope="SPECIFIC_CUSTOMER",
+            isRead=False
+        ))
+
     db.commit()
     db.refresh(enq)
 
@@ -828,9 +837,43 @@ def add_box_item(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
 @router.post("/surchargecheck")
 def check_area_surcharge(payload: Dict[str, Any], db: Session = Depends(get_db)):
     country_code = payload.get("countryCode")
-    postal_code = payload.get("postalCode")
-    location_name = payload.get("locationName")
+    postal_code = (payload.get("postalCode") or "").strip()
+    location_name = (payload.get("locationName") or payload.get("city") or "").strip()
+    service = (payload.get("service") or "").strip()
 
+    # 1. First check dedicated SurchargeRule table
+    surcharge_rule = None
+    if postal_code:
+        surcharge_rule = db.query(SurchargeRule).filter(
+            SurchargeRule.isActive == True,
+            or_(
+                SurchargeRule.zipCode.ilike(postal_code),
+                SurchargeRule.zipCode.ilike(f"{postal_code}%"),
+                SurchargeRule.zipCode == postal_code
+            )
+        ).first()
+
+    if not surcharge_rule and location_name:
+        surcharge_rule = db.query(SurchargeRule).filter(
+            SurchargeRule.isActive == True,
+            SurchargeRule.city.ilike(location_name)
+        ).first()
+
+    if surcharge_rule:
+        svc_name = surcharge_rule.service or service or "Express"
+        loc_str = surcharge_rule.city or surcharge_rule.zipCode or location_name or "Area"
+        msg = f"({loc_str} Surcharge applied with {svc_name} service)"
+        return {
+            "hasSurcharge": True,
+            "success": True,
+            "surchargeType": msg,
+            "surchargeMessage": msg,
+            "service": svc_name,
+            "city": surcharge_rule.city,
+            "zipCode": surcharge_rule.zipCode
+        }
+
+    # 2. Check AreaSurcharge table
     query = db.query(AreaSurcharge)
     if country_code:
         query = query.filter(AreaSurcharge.countryCode == country_code)
@@ -845,12 +888,16 @@ def check_area_surcharge(payload: Dict[str, Any], db: Session = Depends(get_db))
         surcharge = query.filter(AreaSurcharge.locationName.ilike(f"%{location_name}%")).first()
 
     if surcharge:
+        msg = f"({surcharge.surchargeType} applied)"
         return {
             "hasSurcharge": True,
-            "surchargeType": surcharge.surchargeType,
+            "success": True,
+            "surchargeType": msg,
+            "surchargeMessage": msg,
             "countryCode": surcharge.countryCode
         }
-    return {"hasSurcharge": False}
+    return {"hasSurcharge": False, "success": False}
+
 
 @router.get("/check-edit-permission/{id}")
 def check_edit_permission(id: int, db: Session = Depends(get_db)):

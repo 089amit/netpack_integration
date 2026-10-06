@@ -210,13 +210,25 @@ export default function CustomManifestPage() {
       }))
       setMawbs(mapped)
       if (mapped.length > 0) {
+        // Check URL search parameter ?mawb=...
+        const urlParams = new URLSearchParams(window.location.search)
+        const targetParam = urlParams.get('mawb')
+        const matchedFromUrl = targetParam
+          ? mapped.find((m: any) => m.mawbNumber === targetParam || m.id === targetParam)
+          : null
+
         setSelectedMawb((prev) => {
+          if (matchedFromUrl) {
+            loadMawbData(matchedFromUrl.mawbNumber)
+            return matchedFromUrl.mawbNumber
+          }
           const currentValid = mapped.some((m: any) => m.mawbNumber === prev)
           const target = currentValid && prev ? prev : mapped[0].mawbNumber
           loadMawbData(target)
           return target
         })
       }
+
     } catch (e) {
       console.error('Failed to load MAWBs', e)
     }

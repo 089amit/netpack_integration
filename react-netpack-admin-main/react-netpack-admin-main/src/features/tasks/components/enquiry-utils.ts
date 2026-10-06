@@ -111,18 +111,16 @@ export const buildEnquiryPayload = (data: EnquiryFormData) => {
 
 export const isFormValid = (formData: EnquiryFormData | null) =>
   formData &&
-  // Sender - All required
+  // Sender - All required except addressLine2
   formData.sender.name &&
   formData.sender.addressLine1 &&
-  formData.sender.addressLine2 &&
   formData.sender.city &&
   formData.sender.postcode &&
   formData.sender.country &&
   formData.sender.telephone &&
-  // Receiver - All except email & companyName required
+  // Receiver - All except email & companyName & addressLine2 required
   formData.receiver.name &&
   formData.receiver.addressLine1 &&
-  formData.receiver.addressLine2 &&
   formData.receiver.city &&
   formData.receiver.state &&
   formData.receiver.postcode &&
@@ -132,6 +130,7 @@ export const isFormValid = (formData: EnquiryFormData | null) =>
     (item) => item.description && item.unitPrice && item.quantity
   ) &&
   (!formData.boxes ||
+    formData.boxes.length === 0 ||
     formData.boxes.every(
       (box) =>
         box.length > 0 &&
@@ -141,7 +140,7 @@ export const isFormValid = (formData: EnquiryFormData | null) =>
         box.itemSelections &&
         box.itemSelections.length > 0
     )) &&
-  (formData.handoverType === 'SELF_DROP' || !!formData.pickupLocation?.trim())
+  (formData.handoverType === 'SELF_DROP' || !formData.handoverType || !!formData.pickupLocation?.trim())
 
 export interface FormErrors {
   senderName?: boolean
@@ -181,7 +180,7 @@ export const getFormErrors = (formData: EnquiryFormData | null): FormErrors => {
   // Sender Validation
   if (!formData.sender.name?.trim()) errors.senderName = true
   if (!formData.sender.addressLine1?.trim()) errors.senderAddressLine1 = true
-  if (!formData.sender.addressLine2?.trim()) errors.senderAddressLine2 = true
+  // Address Line 2 is optional for sender
   if (!formData.sender.city?.trim()) errors.senderCity = true
   if (!formData.sender.postcode?.trim()) errors.senderPostcode = true
   if (!formData.sender.country?.trim()) errors.senderCountry = true
@@ -191,8 +190,7 @@ export const getFormErrors = (formData: EnquiryFormData | null): FormErrors => {
   if (!formData.receiver.name?.trim()) errors.receiverName = true
   if (!formData.receiver.addressLine1?.trim())
     errors.receiverAddressLine1 = true
-  if (!formData.receiver.addressLine2?.trim())
-    errors.receiverAddressLine2 = true
+  // Address Line 2 is optional for receiver
   if (!formData.receiver.city?.trim()) errors.receiverCity = true
   if (!formData.receiver.state?.trim()) errors.receiverState = true
   if (!formData.receiver.postcode?.trim()) errors.receiverPostcode = true
@@ -287,3 +285,83 @@ export const createEmptyFormData = (): EnquiryFormData => ({
   pickupNote: '',
   pickupLocations: [],
 })
+
+export interface AddressValidationResult {
+  isValid: boolean
+  warning?: string
+  suggestion?: string
+}
+
+export const validateAddressDetails = (info: {
+  addressLine1?: string
+  city?: string
+  state?: string
+  postcode?: string
+  country?: string
+}): AddressValidationResult => {
+  const addr1 = (info.addressLine1 || '').trim()
+  const postcode = (info.postcode || '').trim()
+  const country = (info.country || '').trim().toLowerCase()
+
+  // 1. Street Address Completeness
+  if (addr1 && addr1.length > 0 && addr1.length < 5) {
+    return {
+      isValid: false,
+      warning: 'Address Line 1 appears incomplete or too short.',
+      suggestion: 'Please provide full street name and house/building number.',
+    }
+  }
+
+  // 2. Postal Code formats based on destination country
+  if (postcode && country) {
+    if (country.includes('united states') || country === 'usa' || country === 'us') {
+      const usZipRegex = /^\d{5}(-\d{4})?$/
+      if (!usZipRegex.test(postcode)) {
+        return {
+          isValid: false,
+          warning: `Invalid US ZIP Code format: "${postcode}".`,
+          suggestion: 'Expected 5-digit ZIP (e.g., 90210) or ZIP+4 (e.g., 90210-1234).',
+        }
+      }
+    } else if (country.includes('united kingdom') || country === 'uk' || country === 'great britain') {
+      const ukPostcodeRegex = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i
+      if (!ukPostcodeRegex.test(postcode)) {
+        return {
+          isValid: false,
+          warning: `Invalid UK Postal Code format: "${postcode}".`,
+          suggestion: 'Expected standard UK format (e.g., SW1A 1AA or EC1A 1BB).',
+        }
+      }
+    } else if (country.includes('australia')) {
+      const auPostcodeRegex = /^\d{4}$/
+      if (!auPostcodeRegex.test(postcode)) {
+        return {
+          isValid: false,
+          warning: `Invalid Australian Postcode: "${postcode}".`,
+          suggestion: 'Expected exactly 4 numeric digits (e.g., 2000, 3000).',
+        }
+      }
+    } else if (country.includes('canada')) {
+      const caPostcodeRegex = /^[A-Z]\d[A-Z] ?\d[A-Z]\d$/i
+      if (!caPostcodeRegex.test(postcode)) {
+        return {
+          isValid: false,
+          warning: `Invalid Canadian Postal Code: "${postcode}".`,
+          suggestion: 'Expected Canadian format A1A 1A1 (e.g., K1A 0B1).',
+        }
+      }
+    } else if (country.includes('india')) {
+      const inPinRegex = /^\d{6}$/
+      if (!inPinRegex.test(postcode)) {
+        return {
+          isValid: false,
+          warning: `Invalid Indian PIN code: "${postcode}".`,
+          suggestion: 'Expected exactly 6 numeric digits (e.g., 110001).',
+        }
+      }
+    }
+  }
+
+  return { isValid: true }
+}
+

@@ -11,9 +11,11 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { EnquiryFormData } from './enquiry-types'
 import { ENQUIRY_ENDPOINTS } from '@/constants/endpoint'
+import { validateAddressDetails } from './enquiry-utils'
 
 interface ReceiverSectionProps {
   formData: EnquiryFormData | null
@@ -42,7 +44,7 @@ export function ReceiverSection({
   onFormChange,
   hasError = false,
   receiverAddressLine1Error = false,
-  receiverAddressLine2Error = false,
+  receiverAddressLine2Error: _receiverAddressLine2Error = false,
   receiverCityError = false,
   receiverStateError = false,
   receiverPostcodeError = false,
@@ -52,6 +54,16 @@ export function ReceiverSection({
   onSameAsSenderChange,
 }: ReceiverSectionProps) {
   const [surchargeType, setSurchargeType] = useState<string | null>(null)
+
+  const addressValidation = useMemo(() => {
+    return validateAddressDetails(formData?.receiver || {})
+  }, [
+    formData?.receiver.addressLine1,
+    formData?.receiver.city,
+    formData?.receiver.state,
+    formData?.receiver.postcode,
+    formData?.receiver.country,
+  ])
 
   // Fetch surcharge whenever country + (city or postcode) changes
   useEffect(() => {
@@ -71,8 +83,8 @@ export function ReceiverSection({
         })
 
         const data = await res.json()
-        if (data.success) {
-          setSurchargeType(data.surchargeType || null)
+        if (data.success || data.hasSurcharge) {
+          setSurchargeType(data.surchargeMessage || data.surchargeType || null)
         } else {
           setSurchargeType(null)
         }
@@ -105,6 +117,23 @@ export function ReceiverSection({
           </div>
         )}
       </div>
+
+      {/* Address Verification Warning with Suggestion */}
+      {!addressValidation.isValid && (formData?.receiver.postcode || formData?.receiver.addressLine1) && (
+        <div className='mb-3 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 shadow-xs dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'>
+          <div className='flex items-center gap-1.5 font-semibold'>
+            <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0' />
+            <span>Address Verification Warning</span>
+          </div>
+          <p className='mt-1 leading-relaxed'>{addressValidation.warning}</p>
+          {addressValidation.suggestion && (
+            <p className='mt-1 text-muted-foreground dark:text-amber-300/80 italic'>
+              Suggestion: {addressValidation.suggestion}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className='space-y-3'>
         <div className='space-y-1'>
           <label className='block text-sm font-medium'>
@@ -149,20 +178,14 @@ export function ReceiverSection({
 
         <div>
           <label className='mb-1 block text-sm font-medium'>
-            Address Line 2 <span className='text-red-500'>*</span>
+            Address Line 2 (Optional)
           </label>
           <Input
             name='addressLine2'
             id='receiver-address2'
             value={formData?.receiver.addressLine2 || ''}
             onChange={(e) => onFormChange(e, 'receiver')}
-             className={cn(
-              receiverAddressLine2Error && 'border-red-500 ring-1 ring-red-500'
-            )}
           />
-           {receiverAddressLine2Error && (
-            <p className='mt-1 text-xs text-red-500'>This field is required</p>
-          )}
         </div>
 
         <div>
@@ -225,9 +248,15 @@ export function ReceiverSection({
           </label>
           <Select
             value={formData?.receiver.country || ''}
-            onValueChange={(value) =>
+            onValueChange={(value) => {
               onFormChange({ target: { name: 'country', value } }, 'receiver')
-            }
+              const selectedCountryObj = countries.find((c) => c.name === value)
+              const dialCode = selectedCountryObj?.dialCode || selectedCountryObj?.phoneCode
+              if (dialCode && (!formData?.receiver.telephone || formData.receiver.telephone === '+')) {
+                const cleanDial = dialCode.startsWith('+') ? dialCode : `+${dialCode}`
+                onFormChange({ target: { name: 'telephone', value: `${cleanDial} ` } }, 'receiver')
+              }
+            }}
           >
             <SelectTrigger
                id='receiver-country'
@@ -276,11 +305,13 @@ export function ReceiverSection({
 
         {/* Display surcharge info */}
         {surchargeType && (
-          <p className='mt-2 text-sm font-medium text-red-600'>
-             {surchargeType} Surcharge Applied
-          </p>
+          <div className='mt-3 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'>
+            <span>⚠️</span>
+            <span>{surchargeType.includes('Surcharge') ? surchargeType : `${surchargeType} Surcharge Applied`}</span>
+          </div>
         )}
       </div>
     </div>
   )
 }
+

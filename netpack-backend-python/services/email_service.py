@@ -361,7 +361,125 @@ def send_enquiry_booking_notification(
             logger.info(f"[EmailService] Receiver email matches sender email ({receiver_email}). Single copy sent.")
 
 
+def build_delivery_html(item, tracking_url: str = "") -> str:
+    """Builds professional delivery confirmation email template."""
+    tracking_no = getattr(item, "trackingNumber", "") or getattr(item, "hawbno", "") or "AWB"
+    sender_name = getattr(item, "senderName", "Valued Shipper")
+    receiver_name = getattr(item, "receiverName", "Consignee")
+    dest_country = getattr(item, "receiverCountry", "") or ""
+    dest_loc = getattr(item, "receiverCity", "") or getattr(item, "destinationLocation", "") or dest_country or "Destination"
+    delivered_time = datetime.utcnow().strftime("%B %d, %Y at %I:%M %p UTC")
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetPack Logistics - Consignment Delivered</title>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 0; color: #1e293b; }}
+  .container {{ max-width: 600px; margin: 24px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }}
+  .header {{ background: linear-gradient(135deg, #064e3b 0%, #047857 100%); padding: 28px 24px; text-align: center; color: #ffffff; }}
+  .header h1 {{ margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }}
+  .badge {{ display: inline-block; background: #10b981; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 20px; letter-spacing: 0.5px; margin-top: 8px; text-transform: uppercase; }}
+  .content {{ padding: 28px 24px; }}
+  .greeting {{ font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 8px; }}
+  .lead {{ font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px; }}
+  .delivered-box {{ background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 18px; text-align: center; margin-bottom: 24px; }}
+  .delivered-label {{ font-size: 11px; font-weight: 700; text-transform: uppercase; color: #047857; letter-spacing: 1px; }}
+  .tracking-number {{ font-family: monospace, Courier, monospace; font-size: 22px; font-weight: 800; color: #065f46; letter-spacing: 2px; margin: 6px 0; }}
+  .table-box {{ width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; }}
+  .table-box td {{ padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }}
+  .table-box td.label {{ font-weight: 600; color: #64748b; width: 35%; }}
+  .table-box td.val {{ color: #0f172a; font-weight: 500; }}
+  .btn-track {{ display: block; width: fit-content; margin: 24px auto 12px auto; background: #059669; color: #ffffff !important; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 700; font-size: 14px; text-align: center; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.25); }}
+  .footer {{ background: #f8fafc; padding: 20px 24px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>NETPACK LOGISTICS</h1>
+    <div class="badge">Shipment Delivered &#10004;</div>
+  </div>
+
+  <div class="content">
+    <div class="greeting">Hello {sender_name},</div>
+    <p class="lead">Great news! Your consignment has been safely and successfully delivered to its destination.</p>
+
+    <div class="delivered-box">
+      <div class="delivered-label">Status: Delivered</div>
+      <div class="tracking-number">{tracking_no}</div>
+      <div style="font-size: 12px; color: #047857; font-weight: 600;">Completed on {delivered_time}</div>
+    </div>
+
+    <table class="table-box">
+      <tr>
+        <td class="label">Delivered To</td>
+        <td class="val"><strong>{receiver_name}</strong></td>
+      </tr>
+      <tr>
+        <td class="label">Destination</td>
+        <td class="val">{dest_loc}</td>
+      </tr>
+      <tr>
+        <td class="label">Carrier / Service</td>
+        <td class="val">NetPack Worldwide Express Delivery</td>
+      </tr>
+    </table>
+
+    <a href="{tracking_url}" class="btn-track" target="_blank">View Delivery Summary</a>
+  </div>
+
+  <div class="footer">
+    <p><strong>NetPack Logistics Pvt. Ltd.</strong></p>
+    <p>Cargo & Courier Services Worldwide | Kathmandu, Nepal</p>
+    <p>Hotline: +977-1-4567890 | Email: <a href="mailto:info@netpacklogistic.com" style="color: #059669;">info@netpacklogistic.com</a></p>
+  </div>
+</div>
+</body>
+</html>"""
+
+
+def send_shipment_delivery_notification(
+    item,
+    background_tasks: Optional[BackgroundTasks] = None
+):
+    """
+    Sends shipment delivery notification email to sender and receiver when status changes to DELIVERED.
+    """
+    enquiry = getattr(item, "enquiry", None) or item
+    tracking_no = getattr(item, "trackingNumber", "") or getattr(item, "hawbno", "") or getattr(enquiry, "trackingNumber", "")
+    sender_email = (getattr(item, "senderEmail", None) or getattr(enquiry, "senderEmail", "") or "").strip()
+    receiver_email = (getattr(item, "receiverEmail", None) or getattr(enquiry, "receiverEmail", "") or "").strip()
+
+    frontend_base = getattr(config, "FRONTEND_URL", "http://localhost:8000") or "http://localhost:8000"
+    tracking_url = f"{frontend_base.rstrip('/')}/#track?q={tracking_no}"
+
+    subject = f"[NetPack Logistics] Shipment Delivered Successfully - AWB #{tracking_no}"
+    html = build_delivery_html(enquiry, tracking_url=tracking_url)
+
+    if sender_email and "@" in sender_email:
+        send_email(
+            to_emails=sender_email,
+            subject=subject,
+            html_content=html,
+            background_tasks=background_tasks
+        )
+        logger.info(f"[EmailService] Dispatched delivery email to sender: {sender_email}")
+
+    if receiver_email and "@" in receiver_email and receiver_email.lower() != sender_email.lower():
+        send_email(
+            to_emails=receiver_email,
+            subject=subject,
+            html_content=html,
+            background_tasks=background_tasks
+        )
+        logger.info(f"[EmailService] Dispatched delivery email to receiver: {receiver_email}")
+
+
 def test_smtp_connection(target_email: str) -> dict:
+
     """Diagnostic tool to verify SMTP server handshake and credentials."""
     subject = "[NetPack Logistics] SMTP Integration Diagnostic Ping"
     html = f"""

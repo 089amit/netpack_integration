@@ -4,6 +4,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { EnquiryFormData } from './enquiry-types'
 
+export const FX_RATES_TO_USD: Record<string, number> = {
+  USD: 1.0,
+  NPR: 0.00735, // ~136 NPR = 1 USD
+  EUR: 1.08,
+  GBP: 1.30,
+  INR: 0.012,
+  AUD: 0.65,
+  CAD: 0.73,
+  JPY: 0.0068,
+  AED: 0.272,
+  CNY: 0.14,
+  SGD: 0.76,
+}
+
 // -------------------------------------------------------------
 // CurrencyCombobox Component (Supports both dropdown and manual entry)
 // -------------------------------------------------------------
@@ -323,6 +337,31 @@ export function ItemTable({
             </td>
             <td></td>
           </tr>
+          {totalCurrency !== 'USD' && (
+            <tr className='border-t border-dashed bg-muted/20'>
+              <td
+                className='px-4 py-2 text-xs font-semibold text-muted-foreground'
+                colSpan={3}
+              >
+                Equivalent Declared Value in USD{' '}
+                <span className='text-[11px] font-normal text-muted-foreground'>
+                  (Est. 1 {totalCurrency} ≈ ${(FX_RATES_TO_USD[totalCurrency] ?? 1).toFixed(4)} USD)
+                </span>
+              </td>
+              <td className='px-4 py-2' colSpan={1}></td>
+              <td className='flex items-center gap-1 px-4 py-2 font-bold'>
+                <span className='w-[40px] pr-1 text-right text-xs font-bold text-emerald-600 dark:text-emerald-400'>
+                  USD
+                </span>
+                <Input
+                  value={(grandTotal * (FX_RATES_TO_USD[totalCurrency] ?? 1)).toFixed(2)}
+                  readOnly
+                  className='h-8 w-full bg-emerald-50 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                />
+              </td>
+              <td></td>
+            </tr>
+          )}
         </tbody>
       </table>
       <Button

@@ -32,6 +32,7 @@ import { Route as AuthenticatedWebsiteContentIndexImport } from './routes/_authe
 import { Route as AuthenticatedUsersIndexImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedTermsAndPoliciesIndexImport } from './routes/_authenticated/terms-and-policies/index'
 import { Route as AuthenticatedTasksIndexImport } from './routes/_authenticated/tasks/index'
+import { Route as AuthenticatedSurchargesIndexImport } from './routes/_authenticated/surcharges/index'
 import { Route as AuthenticatedShipmentIndexImport } from './routes/_authenticated/shipment/index'
 import { Route as AuthenticatedSettingsIndexImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedRatecalcIndexImport } from './routes/_authenticated/ratecalc/index'
@@ -180,6 +181,13 @@ const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexImport.update({
   path: '/tasks/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+
+const AuthenticatedSurchargesIndexRoute =
+  AuthenticatedSurchargesIndexImport.update({
+    id: '/surcharges/',
+    path: '/surcharges/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 const AuthenticatedShipmentIndexRoute = AuthenticatedShipmentIndexImport.update(
   {
@@ -539,6 +547,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShipmentIndexImport
       parentRoute: typeof AuthenticatedRouteImport
     }
+    '/_authenticated/surcharges/': {
+      id: '/_authenticated/surcharges/'
+      path: '/surcharges'
+      fullPath: '/surcharges'
+      preLoaderRoute: typeof AuthenticatedSurchargesIndexImport
+      parentRoute: typeof AuthenticatedRouteImport
+    }
     '/_authenticated/tasks/': {
       id: '/_authenticated/tasks/'
       path: '/tasks'
@@ -610,6 +625,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPickupsIndexRoute: typeof AuthenticatedPickupsIndexRoute
   AuthenticatedRatecalcIndexRoute: typeof AuthenticatedRatecalcIndexRoute
   AuthenticatedShipmentIndexRoute: typeof AuthenticatedShipmentIndexRoute
+  AuthenticatedSurchargesIndexRoute: typeof AuthenticatedSurchargesIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
   AuthenticatedTermsAndPoliciesIndexRoute: typeof AuthenticatedTermsAndPoliciesIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
@@ -632,6 +648,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPickupsIndexRoute: AuthenticatedPickupsIndexRoute,
   AuthenticatedRatecalcIndexRoute: AuthenticatedRatecalcIndexRoute,
   AuthenticatedShipmentIndexRoute: AuthenticatedShipmentIndexRoute,
+  AuthenticatedSurchargesIndexRoute: AuthenticatedSurchargesIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
   AuthenticatedTermsAndPoliciesIndexRoute:
     AuthenticatedTermsAndPoliciesIndexRoute,
@@ -677,6 +694,7 @@ export interface FileRoutesByFullPath {
   '/ratecalc': typeof AuthenticatedRatecalcIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/shipment': typeof AuthenticatedShipmentIndexRoute
+  '/surcharges': typeof AuthenticatedSurchargesIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/terms-and-policies': typeof AuthenticatedTermsAndPoliciesIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
@@ -717,6 +735,7 @@ export interface FileRoutesByTo {
   '/ratecalc': typeof AuthenticatedRatecalcIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/shipment': typeof AuthenticatedShipmentIndexRoute
+  '/surcharges': typeof AuthenticatedSurchargesIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/terms-and-policies': typeof AuthenticatedTermsAndPoliciesIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
@@ -759,6 +778,7 @@ export interface FileRoutesById {
   '/_authenticated/ratecalc/': typeof AuthenticatedRatecalcIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/shipment/': typeof AuthenticatedShipmentIndexRoute
+  '/_authenticated/surcharges/': typeof AuthenticatedSurchargesIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/terms-and-policies/': typeof AuthenticatedTermsAndPoliciesIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
@@ -802,6 +822,7 @@ export interface FileRouteTypes {
     | '/ratecalc'
     | '/settings/'
     | '/shipment'
+    | '/surcharges'
     | '/tasks'
     | '/terms-and-policies'
     | '/users'
@@ -841,6 +862,7 @@ export interface FileRouteTypes {
     | '/ratecalc'
     | '/settings'
     | '/shipment'
+    | '/surcharges'
     | '/tasks'
     | '/terms-and-policies'
     | '/users'
@@ -881,6 +903,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ratecalc/'
     | '/_authenticated/settings/'
     | '/_authenticated/shipment/'
+    | '/_authenticated/surcharges/'
     | '/_authenticated/tasks/'
     | '/_authenticated/terms-and-policies/'
     | '/_authenticated/users/'
@@ -971,6 +994,7 @@ export const routeTree = rootRoute
         "/_authenticated/pickups/",
         "/_authenticated/ratecalc/",
         "/_authenticated/shipment/",
+        "/_authenticated/surcharges/",
         "/_authenticated/tasks/",
         "/_authenticated/terms-and-policies/",
         "/_authenticated/users/",
@@ -1097,6 +1121,10 @@ export const routeTree = rootRoute
     },
     "/_authenticated/shipment/": {
       "filePath": "_authenticated/shipment/index.tsx",
+      "parent": "/_authenticated"
+    },
+    "/_authenticated/surcharges/": {
+      "filePath": "_authenticated/surcharges/index.tsx",
       "parent": "/_authenticated"
     },
     "/_authenticated/tasks/": {

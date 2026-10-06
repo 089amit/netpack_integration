@@ -8,6 +8,7 @@ export const customerFormSchema = z.object({
   address1: z.string().optional().nullable(),
   address2: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
   postcode: z.string().optional().nullable(),
   countryId: z.number().optional().nullable(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).nullable().optional(),

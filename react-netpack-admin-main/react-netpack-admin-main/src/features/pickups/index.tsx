@@ -50,6 +50,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { Checkbox } from '@/components/ui/checkbox'
 import { PICKUP_ENDPOINTS } from '@/constants/endpoint'
 import { WeighPickupModal } from './components/weigh-pickup-modal'
 import { ShipmentTrackingDialog } from '@/features/tasks/components/shipment-tracking-dialog'
@@ -59,6 +60,7 @@ export default function PickupsDashboard() {
   const navigate = useNavigate()
 
   const [pickups, setPickups] = useState<any[]>([])
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [stats, setStats] = useState<any>({
     pendingCount: 0,
     pickedUpCount: 0,
@@ -149,6 +151,71 @@ export default function PickupsDashboard() {
       return trackMatch || senderMatch || phoneMatch || receiverMatch || cityMatch
     })
   }, [pickups, searchQuery])
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredPickups.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredPickups.map((p) => p.id))
+    }
+  }
+
+  const handleBatchMarkPickedUp = async () => {
+    if (selectedIds.length === 0) return
+    const toastId = toast.loading(`Updating ${selectedIds.length} pickups to Picked Up...`)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(PICKUP_ENDPOINTS.BATCH_STATUS, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          pickupIds: selectedIds,
+          status: 'PICKED_UP',
+        }),
+      })
+      if (!res.ok) {
+        throw new Error('Failed to update status')
+      }
+      toast.success(`Successfully marked ${selectedIds.length} pickups as Picked Up!`, { id: toastId })
+      setSelectedIds([])
+      fetchPickupsData()
+    } catch (err: any) {
+      toast.error('Failed to update pickups status', { id: toastId })
+    }
+  }
+
+  const handleQuickMarkPickedUp = async (pickupId: number) => {
+    const toastId = toast.loading('Marking as Picked Up...')
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(PICKUP_ENDPOINTS.UPDATE_STATUS(pickupId), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          status: 'PICKED_UP',
+        }),
+      })
+      if (!res.ok) {
+        throw new Error('Failed to update pickup status')
+      }
+      toast.success('Pickup marked as Picked Up!', { id: toastId })
+      fetchPickupsData()
+    } catch (err: any) {
+      toast.error('Failed to update pickup status', { id: toastId })
+    }
+  }
 
   const handleOpenWeighModal = (pickup: any) => {
     setSelectedPickup(pickup)
@@ -315,6 +382,38 @@ export default function PickupsDashboard() {
           </div>
         </div>
 
+        {/* Batch Action Toolbar */}
+        {selectedIds.length > 0 && !isUserOrCustomer && (
+          <div className='flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 p-3 shadow-xs animate-in fade-in'>
+            <div className='flex items-center gap-2'>
+              <Badge variant='default' className='font-mono'>
+                {selectedIds.length} Selected
+              </Badge>
+              <span className='text-xs font-medium text-foreground'>
+                of {filteredPickups.length} pickups
+              </span>
+            </div>
+            <div className='flex items-center gap-2'>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() => setSelectedIds([])}
+                className='h-8 text-xs'
+              >
+                Clear Selection
+              </Button>
+              <Button
+                size='sm'
+                onClick={handleBatchMarkPickedUp}
+                className='h-8 gap-1.5 text-xs font-semibold'
+              >
+                <CheckCircle2 className='h-3.5 w-3.5' />
+                <span>Mark Selected as Picked Up</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Content View: Cards or Table */}
         {loading ? (
           <div className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3'>
@@ -374,18 +473,28 @@ export default function PickupsDashboard() {
                 >
                   <CardHeader className='p-4 pb-2.5'>
                     <div className='flex items-start justify-between gap-2'>
-                      <div>
-                        <Badge
-                          variant='outline'
-                          className='font-mono text-xs font-bold tracking-wider'
-                        >
-                          {pickup.trackingNumber}
-                        </Badge>
-                        {pickup.hawbNumber && (
-                          <span className='ml-1.5 text-[11px] font-mono text-muted-foreground'>
-                            HAWB: {pickup.hawbNumber}
-                          </span>
+                      <div className='flex items-center gap-2'>
+                        {!isUserOrCustomer && (
+                          <Checkbox
+                            checked={selectedIds.includes(pickup.id)}
+                            onCheckedChange={() => handleToggleSelect(pickup.id)}
+                            aria-label={`Select pickup ${pickup.trackingNumber}`}
+                            className='mt-0.5'
+                          />
                         )}
+                        <div>
+                          <Badge
+                            variant='outline'
+                            className='font-mono text-xs font-bold tracking-wider'
+                          >
+                            {pickup.trackingNumber}
+                          </Badge>
+                          {pickup.hawbNumber && (
+                            <span className='ml-1.5 text-[11px] font-mono text-muted-foreground'>
+                              HAWB: {pickup.hawbNumber}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <Badge className={badgeCfg.cls}>
                         {badgeCfg.label}
@@ -521,7 +630,7 @@ export default function PickupsDashboard() {
                     })()}
                   </CardContent>
 
-                  <CardFooter className='flex gap-2 p-4 pt-1 border-t bg-muted/10'>
+                  <CardFooter className='flex flex-wrap gap-2 p-4 pt-1 border-t bg-muted/10'>
                     {isUserOrCustomer ? (
                       <Button
                         variant='default'
@@ -534,6 +643,18 @@ export default function PickupsDashboard() {
                       </Button>
                     ) : (
                       <>
+                        {!isPastPickup && (
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            onClick={() => handleQuickMarkPickedUp(pickup.id)}
+                            className='gap-1 border-emerald-300 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/40'
+                            title='Quick mark as Picked Up without opening weight modal'
+                          >
+                            <CheckCircle2 className='h-3.5 w-3.5' />
+                            <span>Mark Picked Up</span>
+                          </Button>
+                        )}
                         <Button
                           variant={isPastPickup ? 'outline' : 'default'}
                           size='sm'
@@ -567,6 +688,18 @@ export default function PickupsDashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  {!isUserOrCustomer && (
+                    <TableHead className='w-[40px]'>
+                      <Checkbox
+                        checked={
+                          filteredPickups.length > 0 &&
+                          selectedIds.length === filteredPickups.length
+                        }
+                        onCheckedChange={handleSelectAll}
+                        aria-label='Select all'
+                      />
+                    </TableHead>
+                  )}
                   <TableHead className='w-[140px]'>Tracking #</TableHead>
                   <TableHead>Shipper / Sender</TableHead>
                   <TableHead>Pickup Location</TableHead>
@@ -600,7 +733,16 @@ export default function PickupsDashboard() {
                   const badgeCfg = getTableBadgeConfig()
 
                   return (
-                    <TableRow key={pickup.id}>
+                    <TableRow key={pickup.id} className={selectedIds.includes(pickup.id) ? 'bg-primary/5' : ''}>
+                      {!isUserOrCustomer && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.includes(pickup.id)}
+                            onCheckedChange={() => handleToggleSelect(pickup.id)}
+                            aria-label={`Select pickup ${pickup.trackingNumber}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className='font-mono font-bold text-xs'>
                         {pickup.trackingNumber}
                       </TableCell>
@@ -684,15 +826,29 @@ export default function PickupsDashboard() {
                             <span>Track</span>
                           </Button>
                         ) : (
-                          <Button
-                            size='sm'
-                            variant={isPastPickup ? 'outline' : 'default'}
-                            onClick={() => handleOpenWeighModal(pickup)}
-                            className='h-8 text-xs font-semibold gap-1'
-                          >
-                            <Scale className='h-3.5 w-3.5' />
-                            <span>{isPastPickup ? 'Update' : 'Weigh'}</span>
-                          </Button>
+                          <div className='flex items-center justify-end gap-1.5'>
+                            {!isPastPickup && (
+                              <Button
+                                size='sm'
+                                variant='outline'
+                                onClick={() => handleQuickMarkPickedUp(pickup.id)}
+                                className='h-8 text-xs font-semibold gap-1 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/40'
+                                title='Quick mark as Picked Up'
+                              >
+                                <CheckCircle2 className='h-3.5 w-3.5' />
+                                <span>Quick Pick Up</span>
+                              </Button>
+                            )}
+                            <Button
+                              size='sm'
+                              variant={isPastPickup ? 'outline' : 'default'}
+                              onClick={() => handleOpenWeighModal(pickup)}
+                              className='h-8 text-xs font-semibold gap-1'
+                            >
+                              <Scale className='h-3.5 w-3.5' />
+                              <span>{isPastPickup ? 'Update' : 'Weigh'}</span>
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
