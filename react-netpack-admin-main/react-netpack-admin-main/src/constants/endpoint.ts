@@ -147,6 +147,11 @@ export const AGENTS_ENDPOINTS = {
 export const LOCATION_ENDPOINT = {
   GET_ALL_LOCATION: `${BASE_URL}/location/country`,
   GET_COUNTRIES_WITH_RATES: `${BASE_URL}/location/country-with-rates`,
+  VERIFY_ADDRESS: `${BASE_URL}/location/verify-address`,
+}
+
+export const FOREX_ENDPOINTS = {
+  RATES: `${BASE_URL}/forex/rates`,
 }
 
 export const COUNTRY_ENDPOINT = {

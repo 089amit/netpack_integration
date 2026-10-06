@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -12,9 +13,10 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useEffect, useState, useMemo } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, MapPin, CheckCircle2, Loader2, Sparkles } from 'lucide-react'
 import { EnquiryFormData } from './enquiry-types'
-import { ENQUIRY_ENDPOINTS } from '@/constants/endpoint'
+import { ENQUIRY_ENDPOINTS, LOCATION_ENDPOINT } from '@/constants/endpoint'
+import http from '@/utils/http'
 import { validateAddressDetails } from './enquiry-utils'
 
 interface ReceiverSectionProps {
@@ -54,6 +56,67 @@ export function ReceiverSection({
   onSameAsSenderChange,
 }: ReceiverSectionProps) {
   const [surchargeType, setSurchargeType] = useState<string | null>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [appliedSuggestion, setAppliedSuggestion] = useState(false)
+  const [verificationResult, setVerificationResult] = useState<{
+    isVerified: boolean
+    status: string
+    formattedAddress?: string
+    lat?: number
+    lng?: number
+    postalCode?: string
+    city?: string
+    state?: string
+    country?: string
+    suggestion?: any
+    provider?: string
+    message?: string
+  } | null>(null)
+
+  const handleVerifyAddress = async () => {
+    if (!formData?.receiver.addressLine1) return
+    setIsVerifying(true)
+    setAppliedSuggestion(false)
+    try {
+      const res: any = await http.post(LOCATION_ENDPOINT.VERIFY_ADDRESS, {
+        addressLine1: formData.receiver.addressLine1,
+        addressLine2: formData.receiver.addressLine2 || '',
+        city: formData.receiver.city || '',
+        state: formData.receiver.state || '',
+        postalCode: formData.receiver.postcode || '',
+        country: formData.receiver.country || '',
+      })
+      setVerificationResult(res)
+    } catch (err: any) {
+      console.error('Failed to verify address:', err)
+      setVerificationResult({
+        isVerified: false,
+        status: 'ERROR',
+        message: 'Could not contact address verification service.',
+        provider: 'Google Maps Platform',
+      })
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
+  const handleApplySuggestion = () => {
+    if (!verificationResult) return
+    const s = verificationResult.suggestion || {}
+    if (s.postalCode) {
+      onFormChange({ target: { name: 'postcode', value: s.postalCode } }, 'receiver')
+    }
+    if (s.city) {
+      onFormChange({ target: { name: 'city', value: s.city } }, 'receiver')
+    }
+    if (s.state) {
+      onFormChange({ target: { name: 'state', value: s.state } }, 'receiver')
+    }
+    if (s.country) {
+      onFormChange({ target: { name: 'country', value: s.country } }, 'receiver')
+    }
+    setAppliedSuggestion(true)
+  }
 
   const addressValidation = useMemo(() => {
     return validateAddressDetails(formData?.receiver || {})
@@ -118,8 +181,54 @@ export function ReceiverSection({
         )}
       </div>
 
+      {/* Google Maps / Geocoding Verification Banner */}
+      {verificationResult && (
+        <div
+          className={cn(
+            'mb-3 rounded-md border p-2.5 text-xs shadow-xs transition-all',
+            verificationResult.isVerified
+              ? 'border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+              : 'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'
+          )}
+        >
+          <div className='flex items-center justify-between gap-2'>
+            <div className='flex items-center gap-1.5 font-semibold'>
+              {verificationResult.isVerified ? (
+                <CheckCircle2 className='h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0' />
+              ) : (
+                <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0' />
+              )}
+              <span>{verificationResult.message || (verificationResult.isVerified ? 'Address Verified' : 'Address Notice')}</span>
+              {verificationResult.provider && (
+                <span className='rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-normal border'>
+                  {verificationResult.provider}
+                </span>
+              )}
+            </div>
+            {verificationResult.isVerified && verificationResult.suggestion && (
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                onClick={handleApplySuggestion}
+                disabled={appliedSuggestion}
+                className='h-6 px-2 text-[11px] font-medium border-emerald-600 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500 dark:text-emerald-300 dark:hover:bg-emerald-900/40'
+              >
+                <Sparkles className='mr-1 h-3 w-3' />
+                {appliedSuggestion ? 'Applied' : 'Auto-fill'}
+              </Button>
+            )}
+          </div>
+          {verificationResult.formattedAddress && (
+            <p className='mt-1 text-[11px] leading-relaxed opacity-90'>
+              <span className='font-medium'>Matched:</span> {verificationResult.formattedAddress}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Address Verification Warning with Suggestion */}
-      {!addressValidation.isValid && (formData?.receiver.postcode || formData?.receiver.addressLine1) && (
+      {!addressValidation.isValid && (formData?.receiver.postcode || formData?.receiver.addressLine1) && !verificationResult?.isVerified && (
         <div className='mb-3 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 shadow-xs dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'>
           <div className='flex items-center gap-1.5 font-semibold'>
             <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0' />
@@ -159,14 +268,39 @@ export function ReceiverSection({
         />
 
         <div>
-          <label className='mb-1 block text-sm font-medium'>
-            Address Line 1 <span className='text-red-500'>*</span>
-          </label>
+          <div className='mb-1 flex items-center justify-between'>
+            <label className='block text-sm font-medium'>
+              Address Line 1 <span className='text-red-500'>*</span>
+            </label>
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              onClick={handleVerifyAddress}
+              disabled={isVerifying || !formData?.receiver.addressLine1}
+              className='h-6 px-2 text-[11px] font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/50'
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className='mr-1 h-3 w-3 animate-spin' />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <MapPin className='mr-1 h-3 w-3 text-blue-600 dark:text-blue-400' />
+                  Verify with Maps
+                </>
+              )}
+            </Button>
+          </div>
           <Input
             name='addressLine1'
             id='receiver-address1'
             value={formData?.receiver.addressLine1 || ''}
-            onChange={(e) => onFormChange(e, 'receiver')}
+            onChange={(e) => {
+              onFormChange(e, 'receiver')
+              setVerificationResult(null)
+            }}
             className={cn(
               receiverAddressLine1Error && 'border-red-500 ring-1 ring-red-500'
             )}

@@ -44,3 +44,11 @@ class PolicyUpdateRequest(BaseModel):
     slug: Optional[str] = None
     content: Optional[str] = None
     isActive: Optional[bool] = None
+
+class VerifyAddressRequest(BaseModel):
+    addressLine1: str
+    addressLine2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postalCode: Optional[str] = None
+    country: Optional[str] = None

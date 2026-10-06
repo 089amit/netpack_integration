@@ -83,7 +83,8 @@ from routers import (
     pickup,
     customer_portal,
     website_content,
-    surcharges
+    surcharges,
+    forex
 )
 
 app.include_router(admin.router)
@@ -107,6 +108,7 @@ app.include_router(tracking.router)
 app.include_router(custom_manifest.router)
 app.include_router(website_content.router)
 app.include_router(surcharges.router)
+app.include_router(forex.router)
 
 @app.on_event("shutdown")
 def on_shutdown_backup():

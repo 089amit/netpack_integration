@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import http from '@/utils/http'
+import { FOREX_ENDPOINTS } from '@/constants/endpoint'
 import { EnquiryFormData } from './enquiry-types'
 
 export const FX_RATES_TO_USD: Record<string, number> = {
   USD: 1.0,
-  NPR: 0.00735, // ~136 NPR = 1 USD
+  NPR: 0.00652, // Live NRB ~153.38 NPR per USD
   EUR: 1.08,
   GBP: 1.30,
   INR: 0.012,
@@ -152,19 +154,61 @@ export function ItemTable({
   onAddItem,
   itemErrors = [],
 }: ItemTableProps) {
+  const [forexRates, setForexRates] = useState<Record<string, number>>(FX_RATES_TO_USD)
+  const [forexMeta, setForexMeta] = useState<{
+    date?: string
+    isLive?: boolean
+    source?: string
+    usdNprRate?: number
+  } | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const fetchRates = async () => {
+      try {
+        const res: any = await http.get(FOREX_ENDPOINTS.RATES)
+        if (res && isMounted) {
+          if (res.ratesToUsd) {
+            setForexRates((prev) => ({ ...prev, ...res.ratesToUsd }))
+          }
+          setForexMeta({
+            date: res.date,
+            isLive: res.isLive,
+            source: res.source,
+            usdNprRate: res.usdNprRate,
+          })
+        }
+      } catch (err) {
+        console.warn('Could not fetch live NRB forex rates, using defaults:', err)
+      }
+    }
+    fetchRates()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   // Standard list of common currencies for the dropdown
-  const currencyOptions = [
+  const baseCurrencies = [
     'USD',
-    'EUR',
-    'GBP',
-    'JPY',
-    'CAD',
-    'AUD',
     'NPR',
     'INR',
+    'EUR',
+    'GBP',
+    'AUD',
+    'CAD',
+    'JPY',
     'AED',
+    'SAR',
+    'QAR',
     'SGD',
+    'THB',
+    'MYR',
+    'CNY',
   ]
+  const currencyOptions = Array.from(
+    new Set([...baseCurrencies, ...Object.keys(forexRates)])
+  )
 
   // Calculate grand total
   const grandTotal = (formData?.items ?? []).reduce((sum, item: any) => {
@@ -175,6 +219,7 @@ export function ItemTable({
 
   // Determine the currency for the Grand Total display, defaulting to USD
   const totalCurrency = formData?.items?.[0]?.currency?.toUpperCase() || 'USD'
+  const currentFxRate = forexRates[totalCurrency] ?? FX_RATES_TO_USD[totalCurrency] ?? 1
 
   return (
     <div className='mb-6 overflow-x-auto'>
@@ -344,8 +389,17 @@ export function ItemTable({
                 colSpan={3}
               >
                 Equivalent Declared Value in USD{' '}
-                <span className='text-[11px] font-normal text-muted-foreground'>
-                  (Est. 1 {totalCurrency} ≈ ${(FX_RATES_TO_USD[totalCurrency] ?? 1).toFixed(4)} USD)
+                <span className='inline-flex items-center gap-1.5 text-[11px] font-normal text-muted-foreground'>
+                  {forexMeta?.isLive ? (
+                    <span className='rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'>
+                      NRB Official {forexMeta.date}
+                    </span>
+                  ) : (
+                    <span className='rounded bg-gray-100 px-1 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300'>
+                      Est. Rate
+                    </span>
+                  )}
+                  <span>(1 {totalCurrency} ≈ ${currentFxRate.toFixed(4)} USD)</span>
                 </span>
               </td>
               <td className='px-4 py-2' colSpan={1}></td>
@@ -354,7 +408,7 @@ export function ItemTable({
                   USD
                 </span>
                 <Input
-                  value={(grandTotal * (FX_RATES_TO_USD[totalCurrency] ?? 1)).toFixed(2)}
+                  value={(grandTotal * currentFxRate).toFixed(2)}
                   readOnly
                   className='h-8 w-full bg-emerald-50 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
                 />

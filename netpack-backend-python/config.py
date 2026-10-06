@@ -95,3 +95,6 @@ BREVO_FROM_EMAIL = os.getenv("BREVO_FROM_EMAIL", "")
 TRACKINGMORE_API_KEY = os.getenv("TRACKINGMORE_API_KEY", "")
 TRACKINGMORE_WEBHOOK_SECRET = os.getenv("TRACKINGMORE_WEBHOOK_SECRET", "")
 
+# Google Maps Platform (Address Verification & Geocoding)
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+
