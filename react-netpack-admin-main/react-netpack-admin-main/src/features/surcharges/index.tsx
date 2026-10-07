@@ -147,9 +147,16 @@ export default function SurchargesPage() {
         body: formData,
       })
 
-      const data = await res.json()
+      let data: any = {}
+      const resText = await res.text()
+      try {
+        data = JSON.parse(resText)
+      } catch {
+        data = { detail: resText }
+      }
+
       if (!res.ok) {
-        throw new Error(data.detail || 'Upload failed')
+        throw new Error(data.detail || data.message || 'Upload failed')
       }
 
       toast.success(data.message || 'Surcharge file uploaded successfully!', { id: toastId })

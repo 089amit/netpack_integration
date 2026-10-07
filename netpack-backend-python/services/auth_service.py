@@ -116,6 +116,14 @@ class RequesterIdentity:
             (self.is_authenticated and not self.is_staff and not self.is_rider)
         )
 
+    @property
+    def user_id(self) -> Optional[int]:
+        return self.user.id if self.user else None
+
+    @property
+    def customer_id(self) -> Optional[int]:
+        return self.customer.id if self.customer else None
+
 
 def get_requester_identity(
     authorization: Optional[str] = Header(None),

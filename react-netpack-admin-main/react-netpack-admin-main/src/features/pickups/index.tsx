@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Fragment } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   Truck,
@@ -12,6 +12,9 @@ import {
   Camera,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
+  Navigation,
   Eye,
   LayoutGrid,
   List,
@@ -80,6 +83,13 @@ export default function PickupsDashboard() {
   const [galleryPhotos, setGalleryPhotos] = useState<string[]>([])
   const [galleryIndex, setGalleryIndex] = useState<number>(0)
   const [galleryTitle, setGalleryTitle] = useState<string>('')
+  const [expandedItemIds, setExpandedItemIds] = useState<number[]>([])
+
+  const toggleExpandItem = (id: number) => {
+    setExpandedItemIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
 
   // Helper to extract clean array of all photo URLs
   const getPickupPhotos = (pickup: any): string[] => {
@@ -184,13 +194,18 @@ export default function PickupsDashboard() {
         }),
       })
       if (!res.ok) {
-        throw new Error('Failed to update status')
+        let errMsg = 'Failed to update pickups status'
+        try {
+          const errData = await res.json()
+          errMsg = errData.detail || errData.message || errMsg
+        } catch {}
+        throw new Error(errMsg)
       }
       toast.success(`Successfully marked ${selectedIds.length} pickups as Picked Up!`, { id: toastId })
       setSelectedIds([])
       fetchPickupsData()
     } catch (err: any) {
-      toast.error('Failed to update pickups status', { id: toastId })
+      toast.error(err.message || 'Failed to update pickups status', { id: toastId })
     }
   }
 
@@ -522,37 +537,74 @@ export default function PickupsDashboard() {
 
                   <CardContent className='p-4 pt-1 space-y-3 text-xs'>
                     {/* Pickup Address & Multi-Location Stops */}
-                    <div className='flex flex-col gap-1.5 text-muted-foreground bg-muted/30 p-2 rounded-md'>
+                    <div className='flex flex-col gap-1.5 text-muted-foreground bg-muted/30 p-2.5 rounded-xl border border-border/60'>
                       {pickup.pickupLocations && pickup.pickupLocations.length > 0 ? (
-                        pickup.pickupLocations.map((loc: any, lIdx: number) => (
-                          <div key={lIdx} className='flex items-start gap-1.5 text-xs text-foreground'>
-                            <MapPin className='h-3.5 w-3.5 shrink-0 text-primary mt-0.5' />
-                            <div className='flex-1 min-w-0'>
-                              <div className='font-medium leading-snug'>
-                                {pickup.pickupLocations.length > 1 && (
-                                  <span className='mr-1 rounded bg-primary/10 px-1 py-0.2 text-[10px] font-bold text-primary'>
+                        <div className='space-y-2'>
+                          <div className='flex items-center justify-between text-[11px] font-bold text-primary'>
+                            <span>📍 Pickup Itinerary ({pickup.pickupLocations.length} Stop{pickup.pickupLocations.length > 1 ? 's' : ''})</span>
+                            {pickup.pickupLocations.length > 1 && (
+                              <Badge variant='outline' className='text-[9px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5 font-bold'>
+                                Multi-Stop
+                              </Badge>
+                            )}
+                          </div>
+                          {pickup.pickupLocations.map((loc: any, lIdx: number) => (
+                            <div key={lIdx} className='p-2 rounded-lg bg-background border border-border/80 space-y-1'>
+                              <div className='flex items-start justify-between gap-1.5'>
+                                <div className='flex items-start gap-1.5 min-w-0 flex-1'>
+                                  <span className='shrink-0 rounded bg-primary/15 text-primary text-[10px] font-bold px-1.5 py-0.5 mt-0.5'>
                                     Stop #{lIdx + 1}
                                   </span>
+                                  <div className='font-semibold leading-snug text-foreground text-xs'>
+                                    {loc.location}
+                                  </div>
+                                </div>
+                                {loc.location && (
+                                  <a
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.location)}`}
+                                    target='_blank'
+                                    rel='noreferrer'
+                                    className='shrink-0'
+                                  >
+                                    <Button size='sm' variant='secondary' className='h-6 px-2 text-[10px] font-bold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30'>
+                                      <Navigation className='h-3 w-3 mr-1 text-primary' /> Maps
+                                    </Button>
+                                  </a>
                                 )}
-                                {loc.location}
                               </div>
                               {loc.phoneNumber && (
-                                <div className='text-[10px] text-muted-foreground'>Tel: {loc.phoneNumber}</div>
+                                <div className='text-[10px] text-muted-foreground'>
+                                  Tel: <a href={`tel:${loc.phoneNumber}`} className='text-primary font-medium hover:underline'>{loc.phoneNumber}</a>
+                                </div>
                               )}
                               {loc.note && (
-                                <div className='text-[10px] text-amber-700 dark:text-amber-400 font-medium mt-0.5'>
-                                  Note: {loc.note}
+                                <div className='text-[10px] text-amber-800 dark:text-amber-300 bg-amber-500/10 px-2 py-1 rounded font-medium border border-amber-500/20'>
+                                  <strong>Note:</strong> {loc.note}
                                 </div>
                               )}
                             </div>
-                          </div>
-                        ))
+                          ))}
+                        </div>
                       ) : (
-                        <div className='flex items-start gap-1.5'>
-                          <MapPin className='h-4 w-4 shrink-0 text-primary mt-0.5' />
-                          <span className='line-clamp-2 text-foreground font-medium'>
-                            {pickup.senderAddress}
-                          </span>
+                        <div className='flex items-start justify-between gap-1.5'>
+                          <div className='flex items-start gap-1.5 min-w-0 flex-1'>
+                            <MapPin className='h-4 w-4 shrink-0 text-primary mt-0.5' />
+                            <span className='text-foreground font-medium text-xs leading-snug'>
+                              {pickup.senderAddress}
+                            </span>
+                          </div>
+                          {pickup.senderAddress && (
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pickup.senderAddress)}`}
+                              target='_blank'
+                              rel='noreferrer'
+                              className='shrink-0'
+                            >
+                              <Button size='sm' variant='secondary' className='h-6 px-2 text-[10px] font-bold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30'>
+                                <Navigation className='h-3 w-3 mr-1 text-primary' /> Maps
+                              </Button>
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>
@@ -649,6 +701,121 @@ export default function PickupsDashboard() {
                         </div>
                       )
                     })()}
+
+                    {/* Expand / Collapse Details Toggle */}
+                    <button
+                      type='button'
+                      onClick={() => toggleExpandItem(pickup.id)}
+                      className='w-full py-1.5 px-2 rounded-lg border border-border/80 bg-background hover:bg-muted/50 text-[11px] font-bold text-primary flex items-center justify-center gap-1.5 transition-colors cursor-pointer'
+                    >
+                      {expandedItemIds.includes(pickup.id) ? (
+                        <>
+                          <ChevronUp className='h-3.5 w-3.5' />
+                          <span>Collapse Consignment Details</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className='h-3.5 w-3.5' />
+                          <span>
+                            Expand Full Details{' '}
+                            {pickup.pickupLocations && pickup.pickupLocations.length > 1
+                              ? `(${pickup.pickupLocations.length} Stops)`
+                              : ''}
+                          </span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Expanded Details Panel */}
+                    {expandedItemIds.includes(pickup.id) && (
+                      <div className='p-3 rounded-xl bg-muted/40 border border-border/80 space-y-3 text-[11px] animate-in fade-in-50 duration-150'>
+                        {/* Full Shipper Details */}
+                        <div className='space-y-1 border-b border-border/60 pb-2.5'>
+                          <div className='font-bold text-foreground text-xs flex items-center gap-1'>
+                            <span>👤 Shipper / Sender Details</span>
+                          </div>
+                          <div className='text-muted-foreground'>
+                            <strong className='text-foreground'>{pickup.senderName}</strong>
+                            {pickup.senderPhone && (
+                              <span>
+                                {' '}· Tel:{' '}
+                                <a href={`tel:${pickup.senderPhone}`} className='text-primary hover:underline'>
+                                  {pickup.senderPhone}
+                                </a>
+                              </span>
+                            )}
+                            {pickup.senderEmail && <div>Email: {pickup.senderEmail}</div>}
+                            <div className='mt-0.5 text-foreground leading-snug'>{pickup.senderAddress}</div>
+                          </div>
+                        </div>
+
+                        {/* Full Consignee Details */}
+                        <div className='space-y-1 border-b border-border/60 pb-2.5'>
+                          <div className='font-bold text-foreground text-xs flex items-center gap-1'>
+                            <span>📦 Consignee / Delivery Destination</span>
+                          </div>
+                          <div className='text-muted-foreground'>
+                            <strong className='text-foreground'>{pickup.receiverName || 'Consignee'}</strong>
+                            {pickup.receiverPhone && (
+                              <span>
+                                {' '}· Tel:{' '}
+                                <a href={`tel:${pickup.receiverPhone}`} className='text-primary hover:underline'>
+                                  {pickup.receiverPhone}
+                                </a>
+                              </span>
+                            )}
+                            {pickup.receiverEmail && <div>Email: {pickup.receiverEmail}</div>}
+                            <div>
+                              Destination:{' '}
+                              <strong className='text-foreground'>{pickup.receiverCountry || 'Global'}</strong>
+                              {pickup.receiverCity ? ` (${pickup.receiverCity})` : ''}
+                              {pickup.receiverPostcode ? ` - ${pickup.receiverPostcode}` : ''}
+                            </div>
+                            {(pickup.receiverAddressLine1 || pickup.receiverAddressLine2) && (
+                              <div className='leading-snug text-foreground'>
+                                {[pickup.receiverAddressLine1, pickup.receiverAddressLine2].filter(Boolean).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Box Breakdown */}
+                        {pickup.boxes && pickup.boxes.length > 0 && (
+                          <div className='space-y-1 border-b border-border/60 pb-2.5'>
+                            <div className='font-bold text-foreground text-xs flex items-center gap-1'>
+                              <span>📦 Box Breakdown ({pickup.boxes.length} Box{pickup.boxes.length > 1 ? 'es' : ''})</span>
+                            </div>
+                            <div className='space-y-1'>
+                              {pickup.boxes.map((b: any, bIdx: number) => (
+                                <div
+                                  key={bIdx}
+                                  className='p-1.5 rounded-md bg-background border border-border/60 flex items-center justify-between'
+                                >
+                                  <span className='font-medium text-foreground'>
+                                    Box #{bIdx + 1} {b.dimensions ? `(${b.dimensions} cm)` : ''}
+                                  </span>
+                                  <span className='font-bold text-amber-600 dark:text-amber-400'>
+                                    {b.weight ? `${b.weight} kg` : 'Wt pending'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Commodity & Notes */}
+                        <div className='space-y-1 text-muted-foreground'>
+                          <div>
+                            Commodity: <strong className='text-foreground'>{pickup.commodity || 'General Cargo'}</strong>
+                          </div>
+                          {pickup.pickupNotes && (
+                            <div className='text-amber-800 dark:text-amber-300 bg-amber-500/10 p-2 rounded border border-amber-500/20'>
+                              <strong>Dispatch Note:</strong> {pickup.pickupNotes}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
 
                   <CardFooter className='flex flex-wrap gap-2 p-4 pt-1 border-t bg-muted/10'>
@@ -709,6 +876,7 @@ export default function PickupsDashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className='w-[36px]'></TableHead>
                   {!isUserOrCustomer && (
                     <TableHead className='w-[40px]'>
                       <Checkbox
@@ -754,7 +922,23 @@ export default function PickupsDashboard() {
                   const badgeCfg = getTableBadgeConfig()
 
                   return (
-                    <TableRow key={pickup.id} className={selectedIds.includes(pickup.id) ? 'bg-primary/5' : ''}>
+                    <Fragment key={pickup.id}>
+                      <TableRow className={selectedIds.includes(pickup.id) ? 'bg-primary/5' : ''}>
+                      <TableCell className='w-[36px] p-1 text-center'>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer'
+                          onClick={() => toggleExpandItem(pickup.id)}
+                          title={expandedItemIds.includes(pickup.id) ? 'Collapse row details' : 'Expand row details'}
+                        >
+                          {expandedItemIds.includes(pickup.id) ? (
+                            <ChevronUp className='h-4 w-4 text-primary' />
+                          ) : (
+                            <ChevronDown className='h-4 w-4' />
+                          )}
+                        </Button>
+                      </TableCell>
                       {!isUserOrCustomer && (
                         <TableCell>
                           <Checkbox
@@ -884,8 +1068,186 @@ export default function PickupsDashboard() {
                         )}
                       </TableCell>
                     </TableRow>
-                  )
-                })}
+
+                    {expandedItemIds.includes(pickup.id) && (
+                      <TableRow className='bg-muted/30 hover:bg-muted/40 border-b border-border/80'>
+                        <TableCell colSpan={!isUserOrCustomer ? 11 : 10} className='p-4'>
+                          <div className='rounded-xl border border-border/80 bg-background/80 p-4 space-y-4 text-xs shadow-xs'>
+                            <div className='flex items-center justify-between border-b border-border/60 pb-2.5'>
+                              <div className='flex items-center gap-2'>
+                                <Badge variant='outline' className='font-mono font-bold text-xs'>
+                                  {pickup.trackingNumber}
+                                </Badge>
+                                {pickup.hawbNumber && (
+                                  <span className='font-mono text-xs text-muted-foreground'>
+                                    HAWB: {pickup.hawbNumber}
+                                  </span>
+                                )}
+                                <Badge className={badgeCfg.cls}>{badgeCfg.label}</Badge>
+                              </div>
+                              <div className='text-xs text-muted-foreground'>
+                                Commodity: <strong className='text-foreground'>{pickup.commodity || 'General Cargo'}</strong> · {pickup.noOfBox || 1} Box(es)
+                              </div>
+                            </div>
+
+                            <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                              {/* Itinerary / Multi-Stops */}
+                              <div className='space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3'>
+                                <div className='font-bold text-primary flex items-center justify-between'>
+                                  <span>📍 Pickup Itinerary ({pickup.pickupLocations?.length || 1} Stop{(pickup.pickupLocations?.length || 1) > 1 ? 's' : ''})</span>
+                                  {pickup.pickupLocations && pickup.pickupLocations.length > 1 && (
+                                    <Badge variant='outline' className='text-[9px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5 font-bold'>
+                                      Multi-Stop
+                                    </Badge>
+                                  )}
+                                </div>
+                                {pickup.pickupLocations && pickup.pickupLocations.length > 0 ? (
+                                  <div className='space-y-2'>
+                                    {pickup.pickupLocations.map((loc: any, idx: number) => (
+                                      <div key={idx} className='p-2 rounded-md bg-background border border-border/80 space-y-1'>
+                                        <div className='flex items-start justify-between gap-1'>
+                                          <span className='rounded bg-primary/15 text-primary text-[10px] font-bold px-1.5 py-0.5'>
+                                            Stop #{idx + 1}
+                                          </span>
+                                          {loc.location && (
+                                            <a
+                                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.location)}`}
+                                              target='_blank'
+                                              rel='noreferrer'
+                                            >
+                                              <Button size='sm' variant='secondary' className='h-5 px-1.5 text-[9px] font-bold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30'>
+                                                <Navigation className='h-2.5 w-2.5 mr-0.5' /> Maps
+                                              </Button>
+                                            </a>
+                                          )}
+                                        </div>
+                                        <div className='font-semibold text-foreground text-xs leading-snug'>
+                                          {loc.location}
+                                        </div>
+                                        {loc.phoneNumber && (
+                                          <div className='text-[10px] text-muted-foreground'>
+                                            Tel: <a href={`tel:${loc.phoneNumber}`} className='text-primary font-medium hover:underline'>{loc.phoneNumber}</a>
+                                          </div>
+                                        )}
+                                        {loc.note && (
+                                          <div className='text-[10px] text-amber-800 dark:text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded font-medium border border-amber-500/20'>
+                                            <strong>Note:</strong> {loc.note}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className='p-2 rounded-md bg-background border border-border/80 space-y-1'>
+                                    <div className='font-semibold text-foreground text-xs leading-snug'>
+                                      {pickup.senderAddress}
+                                    </div>
+                                    {pickup.senderPhone && (
+                                      <div className='text-[10px] text-muted-foreground'>
+                                        Tel: <a href={`tel:${pickup.senderPhone}`} className='text-primary hover:underline'>{pickup.senderPhone}</a>
+                                      </div>
+                                    )}
+                                    {pickup.senderAddress && (
+                                      <a
+                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pickup.senderAddress)}`}
+                                        target='_blank'
+                                        rel='noreferrer'
+                                      >
+                                        <Button size='sm' variant='secondary' className='h-5 px-1.5 text-[9px] font-bold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 mt-1'>
+                                          <Navigation className='h-2.5 w-2.5 mr-0.5' /> Open in Google Maps
+                                        </Button>
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Shipper & Consignee */}
+                              <div className='space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3'>
+                                <div>
+                                  <div className='font-bold text-foreground text-xs'>👤 Shipper / Sender</div>
+                                  <div className='text-muted-foreground text-[11px] mt-1 space-y-0.5'>
+                                    <div className='font-semibold text-foreground'>{pickup.senderName}</div>
+                                    {pickup.senderPhone && <div>Tel: <a href={`tel:${pickup.senderPhone}`} className='text-primary hover:underline'>{pickup.senderPhone}</a></div>}
+                                    {pickup.senderEmail && <div>Email: {pickup.senderEmail}</div>}
+                                    <div>Address: {pickup.senderAddress}</div>
+                                  </div>
+                                </div>
+
+                                <div className='border-t border-border/60 pt-2'>
+                                  <div className='font-bold text-foreground text-xs'>📦 Consignee / Receiver</div>
+                                  <div className='text-muted-foreground text-[11px] mt-1 space-y-0.5'>
+                                    <div className='font-semibold text-foreground'>{pickup.receiverName || 'Consignee'}</div>
+                                    {pickup.receiverPhone && <div>Tel: <a href={`tel:${pickup.receiverPhone}`} className='text-primary hover:underline'>{pickup.receiverPhone}</a></div>}
+                                    {pickup.receiverEmail && <div>Email: {pickup.receiverEmail}</div>}
+                                    <div>Destination: <strong className='text-foreground'>{pickup.receiverCountry || 'Global'}</strong> {pickup.receiverCity ? `(${pickup.receiverCity})` : ''}</div>
+                                    {(pickup.receiverAddressLine1 || pickup.receiverAddressLine2) && (
+                                      <div>Address: {[pickup.receiverAddressLine1, pickup.receiverAddressLine2].filter(Boolean).join(', ')}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Boxes & Weight & Actions */}
+                              <div className='space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3'>
+                                <div>
+                                  <div className='font-bold text-foreground text-xs'>⚖️ Weights & Boxes</div>
+                                  <div className='grid grid-cols-2 gap-1.5 text-[11px] mt-1.5'>
+                                    <div className='p-1.5 rounded bg-background border'>
+                                      <span className='text-muted-foreground block text-[10px]'>Actual:</span>
+                                      <span className='font-bold text-foreground'>{pickup.weight ? `${pickup.weight} kg` : 'Pending'}</span>
+                                    </div>
+                                    <div className='p-1.5 rounded bg-background border'>
+                                      <span className='text-muted-foreground block text-[10px]'>Chargeable:</span>
+                                      <span className='font-bold text-foreground'>{pickup.chargeableWeight ? `${pickup.chargeableWeight} kg` : '-'}</span>
+                                    </div>
+                                  </div>
+                                  {pickup.boxes && pickup.boxes.length > 0 && (
+                                    <div className='mt-2 space-y-1'>
+                                      {pickup.boxes.map((b: any, bIdx: number) => (
+                                        <div key={bIdx} className='p-1 rounded bg-background border text-[10px] flex justify-between'>
+                                          <span>Box #{bIdx + 1} ({b.dimensions || 'Std'})</span>
+                                          <span className='font-semibold'>{b.weight ? `${b.weight} kg` : '-'}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {pickup.pickupNotes && (
+                                  <div className='p-1.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-800 dark:text-amber-300'>
+                                    <strong>Notes:</strong> {pickup.pickupNotes}
+                                  </div>
+                                )}
+
+                                <div className='pt-1 flex items-center gap-2'>
+                                  {!isPastPickup && (
+                                    <Button
+                                      size='sm'
+                                      variant='outline'
+                                      onClick={() => handleQuickMarkPickedUp(pickup.id)}
+                                      className='h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400'
+                                    >
+                                      <CheckCircle2 className='h-3 w-3 mr-1' /> Mark Picked Up
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size='sm'
+                                    onClick={() => handleOpenWeighModal(pickup)}
+                                    className='h-7 text-xs'
+                                  >
+                                    <Scale className='h-3 w-3 mr-1' /> {isPastPickup ? 'Update Wt' : 'Weigh & Pick Up'}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                )
+              })}
               </TableBody>
             </Table>
           </div>

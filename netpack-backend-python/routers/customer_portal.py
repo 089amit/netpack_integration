@@ -153,6 +153,16 @@ class CustomerEnquiryCreateRequest(BaseModel):
     pickupLocations: Optional[List[Dict[str, Any]]] = None
 
 
+class CustomerPickupBookingRequest(BaseModel):
+    trackingNumber: Optional[str] = None
+    enquiryId: Optional[int] = None
+    pickupAddress: Optional[str] = None
+    pickupPhone: Optional[str] = None
+    pickupNote: Optional[str] = None
+    pickupPreferredTime: Optional[str] = None
+    pickupLocations: Optional[List[Dict[str, Any]]] = None
+
+
 # ─── Auth Dependencies ───────────────────────────────────────────────────────
 
 def get_current_customer(
@@ -986,6 +996,144 @@ def get_shipment_pickup_locations(
         }
         for pl in (enq.pickupLocations or [])
     ]
+
+
+@router.post("/pickup-request")
+@router.post("/bookings/pickup-request")
+@router.post("/shipments/{enquiry_id}/pickup-request")
+def request_customer_pickup(
+    payload: CustomerPickupBookingRequest,
+    enquiry_id: Optional[int] = None,
+    current_customer: Customer = Depends(get_current_customer),
+    db: Session = Depends(get_db)
+):
+    target_id = enquiry_id or payload.enquiryId
+    enq = None
+    if target_id:
+        enq = db.query(Enquiry).filter(Enquiry.id == target_id).first()
+    if not enq and payload.trackingNumber:
+        clean_num = payload.trackingNumber.strip()
+        enq = db.query(Enquiry).filter(
+            or_(
+                Enquiry.trackingNumber.ilike(clean_num),
+                Enquiry.shipments.any(Shipment.hawbno.ilike(clean_num)),
+                Enquiry.shipments.any(Shipment.trackingNumber.ilike(clean_num))
+            )
+        ).first()
+
+    if not enq:
+        raise HTTPException(
+            status_code=404,
+            detail="Consignment not found. Please provide a valid booking / tracking number."
+        )
+
+    # Check customer authorization
+    is_owner = (
+        enq.customerId == current_customer.id or
+        (current_customer.userId and enq.createdBy == current_customer.userId) or
+        (current_customer.email and enq.senderEmail and enq.senderEmail.strip().lower() == current_customer.email.strip().lower()) or
+        (current_customer.phone and enq.senderPhone and current_customer.phone.strip()[-9:] in enq.senderPhone)
+    )
+    if not is_owner:
+        raise HTTPException(status_code=403, detail="You are not authorized to schedule pickup for this consignment.")
+
+    # Status check: strictly allow booking pickup until shipment is created!
+    status_upper = (enq.status or "").upper()
+    linked_shipment = enq.shipments[0] if (enq.shipments and len(enq.shipments) > 0) else None
+    shipment_status_upper = (linked_shipment.status or "").upper() if linked_shipment else ""
+
+    locked_statuses = [
+        "SHIPMENT_CREATED",
+        "PACKED",
+        "IN_TRANSIT",
+        "ARRIVED_AT_HUB",
+        "CARRIER_SCANNED",
+        "OUT_FOR_DELIVERY",
+        "DELIVERED"
+    ]
+
+    if status_upper in locked_statuses or shipment_status_upper in locked_statuses or linked_shipment is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Doorstep pickup cannot be booked: Shipment has already been created for this consignment. Pickups can only be scheduled prior to shipment creation."
+        )
+
+    # Update enquiry pickup status
+    enq.pickupRequired = True
+    if status_upper in ["ENQUIRY_GENERATED", "PENDING", ""]:
+        enq.status = "ASSIGNED_FOR_PICKUP"
+
+    sender_addr = payload.pickupAddress or enq.senderAddressLine1 or current_customer.address1 or "Kathmandu"
+    sender_ph = payload.pickupPhone or enq.senderPhone or current_customer.phone
+
+    if payload.pickupAddress:
+        enq.senderAddressLine1 = payload.pickupAddress
+    if payload.pickupPhone:
+        enq.senderPhone = payload.pickupPhone
+
+    # Add new pickup locations / stops
+    if payload.pickupLocations and len(payload.pickupLocations) > 0:
+        for p_loc in payload.pickupLocations:
+            loc_str = (p_loc.get("location") or p_loc.get("address") or sender_addr or "").strip()
+            if loc_str:
+                note_str = p_loc.get("note") or p_loc.get("notes") or ""
+                time_slot = p_loc.get("timeSlot") or p_loc.get("preferredTime")
+                if time_slot:
+                    note_str = f"Preferred: {time_slot}. {note_str}".strip()
+                pickup_entry = PickupLocationEnquiry(
+                    enquiryId=enq.id,
+                    location=loc_str,
+                    phoneNumber=(p_loc.get("phoneNumber") or p_loc.get("phone") or sender_ph or "").strip(),
+                    note=note_str
+                )
+                db.add(pickup_entry)
+    else:
+        pickup_note_str = payload.pickupNote or ""
+        if payload.pickupPreferredTime:
+            pickup_note_str = f"Preferred: {payload.pickupPreferredTime}. {pickup_note_str}".strip()
+        pickup_entry = PickupLocationEnquiry(
+            enquiryId=enq.id,
+            location=sender_addr,
+            phoneNumber=sender_ph,
+            note=pickup_note_str
+        )
+        db.add(pickup_entry)
+
+    # Add customer notification
+    notif = Notification(
+        title="Pickup Request Scheduled",
+        body=f"Doorstep pickup scheduled for booking {enq.trackingNumber}. A rider will be dispatched to your location.",
+        customerId=current_customer.id,
+        scope="SPECIFIC_CUSTOMER",
+        isRead=False
+    )
+    db.add(notif)
+
+    try:
+        db.commit()
+        db.refresh(enq)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to record pickup request: {str(e)}")
+
+    locs = [
+        {
+            "id": pl.id,
+            "location": pl.location,
+            "phoneNumber": pl.phoneNumber,
+            "note": pl.note,
+            "createdAt": pl.createdAt.isoformat() if pl.createdAt else None
+        }
+        for pl in (enq.pickupLocations or [])
+    ]
+
+    return {
+        "message": "Doorstep pickup booked successfully for consignment",
+        "trackingNumber": enq.trackingNumber,
+        "enquiryId": enq.id,
+        "status": enq.status,
+        "pickupLocations": locs
+    }
 
 
 # ─── Customer Notifications ──────────────────────────────────────────────────

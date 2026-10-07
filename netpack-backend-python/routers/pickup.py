@@ -376,10 +376,11 @@ def update_pickup_status(
                     timestamp=now
                 ))
 
+    actor_user_id = requester.user.id if (requester.user and requester.user.id) else None
     if payload.riderId:
         e.pickedUpBy = payload.riderId
-    elif requester.user_id:
-        e.pickedUpBy = requester.user_id
+    elif actor_user_id:
+        e.pickedUpBy = actor_user_id
 
     # If rider phone is provided and pickedUpBy is set, ensure rider phone is updated in DB
     if payload.riderPhone and e.pickedUpBy:
@@ -391,8 +392,13 @@ def update_pickup_status(
         tag = f"[Rider {payload.riderName or 'Staff'}]: {payload.riderNotes}"
         e.pickupNotes = f"{e.pickupNotes}\n{tag}".strip() if e.pickupNotes else tag
 
-    db.commit()
-    db.refresh(e)
+    try:
+        db.commit()
+        db.refresh(e)
+    except Exception as err:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update pickup status: {str(err)}")
+
     return {
         "message": f"Pickup status updated to {payload.status}",
         "pickup": format_pickup_item(e)
@@ -422,6 +428,7 @@ def batch_update_pickup_status(
     if not enquiries:
         raise HTTPException(status_code=404, detail="No matching enquiries found")
 
+    actor_user_id = requester.user.id if (requester.user and requester.user.id) else None
     updated_count = 0
     now = datetime.utcnow()
     for e in enquiries:
@@ -429,8 +436,8 @@ def batch_update_pickup_status(
         if payload.status == "PICKED_UP":
             if not e.pickedUpAt:
                 e.pickedUpAt = now
-            if requester.user_id:
-                e.pickedUpBy = requester.user_id
+            if actor_user_id:
+                e.pickedUpBy = actor_user_id
 
             if e.customerId:
                 db.add(Notification(
@@ -457,7 +464,12 @@ def batch_update_pickup_status(
                 ))
         updated_count += 1
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as err:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to batch update pickups: {str(err)}")
+
     return {
         "message": f"Successfully updated {updated_count} pickups to {payload.status}",
         "updatedCount": updated_count

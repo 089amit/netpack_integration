@@ -30,6 +30,8 @@ import {
   LogOut,
   Download,
   Smartphone,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -343,6 +345,13 @@ export default function PickupRiderPWA() {
   const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [submittingWeigh, setSubmittingWeigh] = useState<boolean>(false)
+  const [expandedPickupIds, setExpandedPickupIds] = useState<number[]>([])
+
+  const toggleExpandPickup = (id: number) => {
+    setExpandedPickupIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
 
   // Tracking last known pickup ID for delta alerts
   const lastKnownIdRef = useRef<number>(0)
@@ -1538,43 +1547,103 @@ export default function PickupRiderPWA() {
                   </CardHeader>
 
                   <CardContent className='p-3.5 pt-0 space-y-2.5 text-xs'>
-                    {/* Location with Google Maps button */}
-                    <div className='flex items-start justify-between gap-2 p-2 rounded-xl bg-muted/40 border border-border/60'>
-                      <div className='flex items-start gap-2 min-w-0'>
-                        <MapPin className='h-4 w-4 text-rose-500 shrink-0 mt-0.5' />
-                        <div className='min-w-0'>
-                          <div className='text-foreground font-semibold leading-snug break-words'>
-                            {addressToNavigate}
+                    {/* Multi-Location Stops or Primary Pickup Location */}
+                    <div className='p-2.5 rounded-xl bg-muted/40 border border-border/60 space-y-2'>
+                      {p.pickupLocations && p.pickupLocations.length > 0 ? (
+                        <div className='space-y-2'>
+                          <div className='flex items-center justify-between text-[11px] font-bold text-primary'>
+                            <span>📍 Pickup Itinerary ({p.pickupLocations.length} Stop{p.pickupLocations.length > 1 ? 's' : ''})</span>
+                            {p.pickupLocations.length > 1 && (
+                              <Badge variant='outline' className='text-[9px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5 font-bold'>
+                                Multi-Stop Route
+                              </Badge>
+                            )}
                           </div>
-                          {p.preferredTime && (
-                            <div className='text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5'>
-                              ⏱ {p.preferredTime}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                          {p.pickupLocations.map((loc: any, idx: number) => {
+                            const stopAddress = (loc.location || addressToNavigate || '').trim()
+                            const stopPhone = (loc.phoneNumber || phoneToCall || '').trim()
+                            return (
+                              <div key={idx} className='p-2 rounded-lg bg-background border border-border/80 space-y-1.5 shadow-2xs'>
+                                <div className='flex items-start justify-between gap-1.5'>
+                                  <div className='flex items-start gap-1.5 min-w-0 flex-1'>
+                                    <span className='shrink-0 rounded bg-primary/15 text-primary text-[10px] font-black px-1.5 py-0.5 mt-0.5'>
+                                      Stop #{idx + 1}
+                                    </span>
+                                    <div className='text-foreground font-semibold text-xs leading-snug break-words'>
+                                      {stopAddress}
+                                    </div>
+                                  </div>
+                                  {stopAddress && (
+                                    <a
+                                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stopAddress)}`}
+                                      target='_blank'
+                                      rel='noreferrer'
+                                      className='shrink-0'
+                                    >
+                                      <Button size='sm' variant='secondary' className='h-6 px-2 text-[10px] font-bold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30'>
+                                        <Navigation className='h-3 w-3 mr-1 text-primary' /> Maps
+                                      </Button>
+                                    </a>
+                                  )}
+                                </div>
 
-                      {/* One-Tap Navigation */}
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                          addressToNavigate
-                        )}`}
-                        target='_blank'
-                        rel='noreferrer'
-                        className='shrink-0'
-                      >
-                        <Button
-                          size='sm'
-                          variant='secondary'
-                          className='h-7 px-2.5 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 text-[11px] font-bold'
-                        >
-                          <Navigation className='h-3 w-3 mr-1 text-primary' />
-                          Maps
-                        </Button>
-                      </a>
+                                {stopPhone && (
+                                  <div className='flex items-center gap-2 pt-0.5'>
+                                    <a
+                                      href={`tel:${stopPhone}`}
+                                      className='inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline'
+                                    >
+                                      <Phone className='h-3 w-3' />
+                                      <span>{stopPhone}</span>
+                                    </a>
+                                  </div>
+                                )}
+
+                                {loc.note && (
+                                  <div className='text-[10px] font-medium bg-amber-500/10 text-amber-800 dark:text-amber-300 px-2 py-1 rounded-md border border-amber-500/20'>
+                                    <strong className='text-amber-900 dark:text-amber-200'>Stop Note:</strong> {loc.note}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className='flex items-start justify-between gap-2'>
+                          <div className='flex items-start gap-2 min-w-0'>
+                            <MapPin className='h-4 w-4 text-rose-500 shrink-0 mt-0.5' />
+                            <div className='min-w-0'>
+                              <div className='text-foreground font-semibold leading-snug break-words'>
+                                {addressToNavigate}
+                              </div>
+                              {p.preferredTime && (
+                                <div className='text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5'>
+                                  ⏱ {p.preferredTime}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressToNavigate)}`}
+                            target='_blank'
+                            rel='noreferrer'
+                            className='shrink-0'
+                          >
+                            <Button
+                              size='sm'
+                              variant='secondary'
+                              className='h-7 px-2.5 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 text-[11px] font-bold'
+                            >
+                              <Navigation className='h-3 w-3 mr-1 text-primary' />
+                              Maps
+                            </Button>
+                          </a>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Cargo Specs & Phone */}
+                    {/* Cargo Specs Summary */}
                     <div className='grid grid-cols-2 gap-2 text-[11px]'>
                       <div className='p-2 rounded-lg bg-muted/40 border border-border/60 flex items-center justify-between'>
                         <span className='text-muted-foreground'>Commodity:</span>
@@ -1591,14 +1660,14 @@ export default function PickupRiderPWA() {
                       </div>
                     </div>
 
-                    {/* Destination & Notes */}
+                    {/* Destination & Picked Time */}
                     <div className='flex items-center justify-between text-[11px] text-muted-foreground px-1'>
                       <div>
                         Destination: <strong className='text-foreground'>{p.receiverCountry || 'Global'}</strong>
                         {p.receiverCity ? ` (${p.receiverCity})` : ''}
                       </div>
                       {p.pickedUpAt && (
-                        <div className='text-emerald-600 dark:text-emerald-400 font-mono text-[10px]'>
+                        <div className='text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold'>
                           Picked: {new Date(p.pickedUpAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       )}
@@ -1606,7 +1675,90 @@ export default function PickupRiderPWA() {
 
                     {p.pickupNotes && (
                       <div className='p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-800 dark:text-amber-300'>
-                        <span className='font-bold'>Note:</span> {p.pickupNotes}
+                        <span className='font-bold'>Dispatch Note:</span> {p.pickupNotes}
+                      </div>
+                    )}
+
+                    {/* Expand / Collapse Details Toggle Button */}
+                    <button
+                      type='button'
+                      onClick={() => toggleExpandPickup(p.id)}
+                      className='w-full py-1.5 px-2 rounded-lg border border-border/80 bg-background hover:bg-muted/50 text-[11px] font-bold text-primary flex items-center justify-center gap-1.5 transition-colors cursor-pointer'
+                    >
+                      {expandedPickupIds.includes(p.id) ? (
+                        <>
+                          <ChevronUp className='h-3.5 w-3.5' />
+                          <span>Collapse Consignment Details</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className='h-3.5 w-3.5' />
+                          <span>Expand All Consignment Details {p.pickupLocations && p.pickupLocations.length > 1 ? `(${p.pickupLocations.length} Stops)` : ''}</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Expanded Consignment Details Panel */}
+                    {expandedPickupIds.includes(p.id) && (
+                      <div className='p-3 rounded-xl bg-muted/30 border border-border/80 space-y-3 text-[11px] animate-in fade-in-50 duration-150'>
+                        {/* Sender Complete Details */}
+                        <div className='space-y-1 border-b border-border/60 pb-2.5'>
+                          <div className='font-bold text-foreground text-xs flex items-center gap-1'>
+                            <span>👤 Sender / Pickup Contact</span>
+                          </div>
+                          <div className='text-muted-foreground'>
+                            <strong className='text-foreground'>{p.senderName || 'Sender'}</strong>
+                            {p.senderPhone && <span> · Tel: <a href={`tel:${p.senderPhone}`} className='text-primary hover:underline'>{p.senderPhone}</a></span>}
+                            {p.senderEmail && <div>Email: {p.senderEmail}</div>}
+                            <div className='mt-0.5 text-foreground leading-snug'>
+                              {combinedSenderAddress || p.senderAddress || 'Kathmandu, Nepal'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Consignee Complete Details */}
+                        <div className='space-y-1 border-b border-border/60 pb-2.5'>
+                          <div className='font-bold text-foreground text-xs flex items-center gap-1'>
+                            <span>📦 Consignee / Delivery Destination</span>
+                          </div>
+                          <div className='text-muted-foreground'>
+                            <strong className='text-foreground'>{p.receiverName || 'Consignee'}</strong>
+                            {p.receiverPhone && <span> · Tel: <a href={`tel:${p.receiverPhone}`} className='text-primary hover:underline'>{p.receiverPhone}</a></span>}
+                            <div>Country: <strong className='text-foreground'>{p.receiverCountry || 'Global'}</strong> {p.receiverCity ? `(${p.receiverCity})` : ''}</div>
+                            {p.receiverAddress && <div className='leading-snug text-foreground'>{p.receiverAddress}</div>}
+                          </div>
+                        </div>
+
+                        {/* Box Breakdown & Specs */}
+                        {p.boxes && p.boxes.length > 0 && (
+                          <div className='space-y-1 border-b border-border/60 pb-2.5'>
+                            <div className='font-bold text-foreground text-xs flex items-center gap-1'>
+                              <span>📦 Box Breakdown ({p.boxes.length} Box{p.boxes.length > 1 ? 'es' : ''})</span>
+                            </div>
+                            <div className='space-y-1'>
+                              {p.boxes.map((b: any, bIdx: number) => (
+                                <div key={bIdx} className='p-1.5 rounded-md bg-background border border-border/60 flex items-center justify-between'>
+                                  <span className='font-medium text-foreground'>Box #{bIdx + 1} {b.dimensions ? `(${b.dimensions} cm)` : ''}</span>
+                                  <span className='font-bold text-amber-600 dark:text-amber-400'>{b.weight ? `${b.weight} kg` : 'Wt pending'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Quick Action: Mark Picked Up directly from expanded details */}
+                        {!isDone && (
+                          <div className='pt-1 flex gap-2'>
+                            <Button
+                              size='sm'
+                              className='flex-1 h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs'
+                              onClick={() => handleOpenWeighModal(p)}
+                            >
+                              <Scale className='h-3.5 w-3.5 mr-1.5' />
+                              Pickup & Weigh
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
 

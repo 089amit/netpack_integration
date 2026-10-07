@@ -1,5 +1,6 @@
 import csv
 import io
+import re
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
@@ -11,11 +12,11 @@ from sqlalchemy import or_, text
 from database import get_db, Base, engine
 from models.location import SurchargeRule
 
-# Ensure table and surchargeType column exist in database
+# Ensure table and surchargeType column exist in database with exact quotes
 Base.metadata.create_all(bind=engine, tables=[SurchargeRule.__table__])
 try:
     with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE surcharge_rules ADD COLUMN surchargeType VARCHAR(50) DEFAULT 'RES'"))
+        conn.execute(text('ALTER TABLE surcharge_rules ADD COLUMN IF NOT EXISTS "surchargeType" VARCHAR(50) DEFAULT \'RES\''))
         conn.commit()
 except Exception:
     pass
@@ -61,9 +62,14 @@ def create_surcharge_rule(
         createdAt=datetime.utcnow(),
         updatedAt=datetime.utcnow()
     )
-    db.add(rule)
-    db.commit()
-    db.refresh(rule)
+    try:
+        db.add(rule)
+        db.commit()
+        db.refresh(rule)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create surcharge rule: {str(e)}")
+
     return {
         "message": "Surcharge rule created successfully",
         "data": {
@@ -160,20 +166,26 @@ async def upload_surcharges_file(
     rows_data: List[Dict[str, Any]] = []
 
     def _parse_row(norm: Dict[str, Any]):
-        zip_val = norm.get("code") or norm.get("zip code") or norm.get("zipcode") or norm.get("zip") or norm.get("postal code") or norm.get("postcode")
-        service_val = norm.get("service") or norm.get("service name") or norm.get("carrier") or "Standard Express"
-        city_val = norm.get("city") or norm.get("location") or norm.get("town")
-        country_val = norm.get("country") or norm.get("country code")
-        raw_amt = norm.get("rate") or norm.get("amount") or norm.get("charge") or norm.get("fee")
+        zip_val = (
+            norm.get("code") or norm.get("zip code") or norm.get("zipcode") or norm.get("zip") or
+            norm.get("postal code") or norm.get("postcode") or norm.get("postal_code") or
+            norm.get("pincode") or norm.get("pin code")
+        )
+        service_val = norm.get("service") or norm.get("service name") or norm.get("carrier") or norm.get("network") or "Standard Express"
+        city_val = norm.get("city") or norm.get("location") or norm.get("town") or norm.get("destination") or norm.get("area")
+        country_val = norm.get("country") or norm.get("country code") or norm.get("country name") or norm.get("dest country")
+        raw_amt = norm.get("rate") or norm.get("amount") or norm.get("charge") or norm.get("fee") or norm.get("cost") or norm.get("price") or norm.get("surcharge")
         currency_val = (norm.get("currency") or norm.get("curr") or "USD").upper().strip()
-        type_val = (norm.get("type") or norm.get("surchargetype") or norm.get("category") or "RES").upper().strip()
+        type_val = (norm.get("type") or norm.get("surchargetype") or norm.get("surcharge_type") or norm.get("category") or "RES").upper().strip()
         
         parsed_amt = None
-        if raw_amt:
-            try:
-                parsed_amt = float(str(raw_amt).replace(",", "").strip())
-            except (ValueError, TypeError):
-                parsed_amt = None
+        if raw_amt is not None and str(raw_amt).strip() != "":
+            clean_str = re.sub(r"[^\d.]", "", str(raw_amt))
+            if clean_str:
+                try:
+                    parsed_amt = float(clean_str)
+                except (ValueError, TypeError):
+                    parsed_amt = None
 
         if zip_val or city_val or country_val:
             rows_data.append({
@@ -192,7 +204,15 @@ async def upload_surcharges_file(
         except UnicodeDecodeError:
             text_data = content.decode("latin-1")
 
-        reader = csv.DictReader(io.StringIO(text_data))
+        # Auto-detect delimiter
+        sample_chunk = text_data[:4096]
+        delimiter = ','
+        if ';' in sample_chunk and sample_chunk.count(';') > sample_chunk.count(','):
+            delimiter = ';'
+        elif '\t' in sample_chunk and sample_chunk.count('\t') > sample_chunk.count(','):
+            delimiter = '\t'
+
+        reader = csv.DictReader(io.StringIO(text_data), delimiter=delimiter)
         for row in reader:
             norm = {str(k).strip().lower(): (str(v).strip() if v else "") for k, v in row.items() if k}
             _parse_row(norm)
@@ -237,7 +257,12 @@ async def upload_surcharges_file(
         db.add(rule)
         inserted_count += 1
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error saving surcharge rules: {str(e)}")
+
     return {
         "message": f"Successfully uploaded and saved {inserted_count} surcharge rules.",
         "count": inserted_count

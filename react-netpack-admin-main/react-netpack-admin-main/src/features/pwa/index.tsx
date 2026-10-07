@@ -750,7 +750,23 @@ function StatusBadge({ status }: { status: Shipment['status'] }) {
 
 // ─── Shipment Card ────────────────────────────────────────────────────────────
 
-function ShipmentCard({ s, onClick }: { s: Shipment; onClick: () => void }) {
+function ShipmentCard({
+  s,
+  onClick,
+  onRequestPickup,
+}: {
+  s: Shipment
+  onClick: () => void
+  onRequestPickup?: (trackingNumber: string) => void
+}) {
+  const canRequestPickup =
+    onRequestPickup &&
+    s.status !== 'shipment_created' &&
+    s.status !== 'delivered' &&
+    s.status !== 'in_progress' &&
+    s.status !== 'arrived_at_hub' &&
+    s.status !== 'out_for_delivery'
+
   return (
     <button
       onClick={onClick}
@@ -811,6 +827,22 @@ function ShipmentCard({ s, onClick }: { s: Shipment; onClick: () => void }) {
           {s.commodity} · {s.weight}
         </p>
         {s.eta && <p className="text-[11px] text-blue-500 mt-1 font-medium">ETA {s.eta}</p>}
+
+        {canRequestPickup && (
+          <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between">
+            <span className="text-[10px] text-gray-400 font-medium">Doorstep Collection</span>
+            <span
+              onClick={(e) => {
+                e.stopPropagation()
+                onRequestPickup(s.tracking)
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold border border-blue-200 transition-colors cursor-pointer"
+            >
+              <IconTruck size={12} />
+              <span>{s.status === 'assigned_for_pickup' ? 'Update Stops' : 'Book Pickup'}</span>
+            </span>
+          </div>
+        )}
       </div>
     </button>
   )
@@ -824,12 +856,14 @@ function HomeScreen({
   onBook,
   onRateEnquiry,
   onTrack,
+  onRequestPickup,
 }: {
   shipments: Shipment[]
   onViewAll: () => void
   onBook: () => void
   onRateEnquiry: () => void
   onTrack: (trackingNumber: string) => void
+  onRequestPickup?: (trackingNumber: string) => void
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const pending = shipments.filter(s => s.status === 'pending' || s.status === 'assigned_for_pickup').length
@@ -984,7 +1018,7 @@ function HomeScreen({
           ) : (
             <div className="flex flex-col gap-2.5">
               {filteredShipments.map((s: Shipment) => (
-                <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} />
+                <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} onRequestPickup={onRequestPickup} />
               ))}
             </div>
           )}
@@ -1017,7 +1051,7 @@ function HomeScreen({
           ) : (
             <div className="flex flex-col gap-2.5">
               {recent.map(s => (
-                <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} />
+                <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} onRequestPickup={onRequestPickup} />
               ))}
             </div>
           )}
@@ -1059,12 +1093,14 @@ function ShipmentsScreen({
   onBack,
   onTrack,
   onRefresh,
+  onRequestPickup,
 }: {
   shipments: Shipment[]
   onBook: () => void
   onBack: () => void
   onTrack: (trackingNumber: string) => void
   onRefresh: () => void
+  onRequestPickup?: (trackingNumber: string) => void
 }) {
   const [tab, setTab] = useState<ShipmentTab>('all')
   const [refreshing, setRefreshing] = useState(false)
@@ -1165,7 +1201,14 @@ function ShipmentsScreen({
             </button>
           </div>
         ) : (
-          filtered.map(s => <ShipmentCard key={s.id} s={s} onClick={() => onTrack(s.tracking)} />)
+          filtered.map(s => (
+            <ShipmentCard
+              key={s.id}
+              s={s}
+              onClick={() => onTrack(s.tracking)}
+              onRequestPickup={onRequestPickup}
+            />
+          ))
         )}
       </div>
     </div>
@@ -1494,9 +1537,11 @@ function ScalePhotoModal({
 function TrackingScreen({
   initialTrackingId,
   onBack,
+  onRequestPickup,
 }: {
   initialTrackingId: string
   onBack: () => void
+  onRequestPickup?: (trackingNumber: string) => void
 }) {
   const [trackingId, setTrackingId] = useState(initialTrackingId)
   const [searchInput, setSearchInput] = useState(initialTrackingId)
@@ -1993,6 +2038,29 @@ function TrackingScreen({
                 </div>
               )}
 
+              {/* Doorstep Cargo Pickup Banner / Re-booking / Multi-Stop Request */}
+              {data.stageIndex < 2 && !['shipment_created', 'delivered', 'carrier_scanned', 'in_transit'].includes((data.status || '').toLowerCase()) && (
+                <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm flex items-center justify-between gap-3 animate-in fade-in-50 duration-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <IconTruck size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-[#0D1B2A]">Need Doorstep Pickup or Route Change?</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">Book or add multi-location pickup stops before shipment creation.</p>
+                    </div>
+                  </div>
+                  {onRequestPickup && (
+                    <button
+                      onClick={() => onRequestPickup(data.tracking || trackingId)}
+                      className="px-3 py-2 rounded-xl bg-[#0D1B2A] hover:bg-black text-white text-xs font-semibold shrink-0 cursor-pointer transition-all active:scale-95 whitespace-nowrap shadow-xs"
+                    >
+                      Book / Update
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Warehouse Verified Weight Scale Photo Card */}
               {((data.weightProofImages && data.weightProofImages.length > 0) || data.weightProofImageUrl) && (() => {
                 const photos = (data.weightProofImages && data.weightProofImages.length > 0)
@@ -2295,12 +2363,341 @@ function TextInput({
   )
 }
 
+function CustomerPickupRequestModal({
+  isOpen,
+  trackingNumber,
+  customerUser,
+  shipments,
+  onClose,
+  onSuccess,
+}: {
+  isOpen: boolean
+  trackingNumber: string
+  customerUser?: any
+  shipments?: Shipment[]
+  onClose: () => void
+  onSuccess?: () => void
+}) {
+  const [selectedTracking, setSelectedTracking] = useState(trackingNumber === 'SELECT' ? '' : trackingNumber || '')
+  const [address, setAddress] = useState('')
+  const [phone, setPhone] = useState('')
+  const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[0])
+  const [notes, setNotes] = useState('')
+  const [extraStops, setExtraStops] = useState<
+    Array<{ id: string; address: string; phone: string; timeSlot: string; notes: string }>
+  >([])
+  const [loading, setLoading] = useState(false)
+
+  // Initialize from user profile
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedTracking(trackingNumber === 'SELECT' ? '' : trackingNumber || '')
+      const userSavedAddress = customerUser?.address1
+        ? `${customerUser.address1}${
+            customerUser.city && !customerUser.address1.toLowerCase().includes(customerUser.city.toLowerCase())
+              ? `, ${customerUser.city}`
+              : ''
+          }`
+        : ''
+      const userSavedPhone =
+        customerUser?.phone && customerUser.phone !== '+977-9800000000' && customerUser.phone !== '9869233939'
+          ? customerUser.phone
+          : ''
+      setAddress(userSavedAddress)
+      setPhone(userSavedPhone)
+      setTimeSlot(TIME_SLOTS[0])
+      setNotes('')
+      setExtraStops([])
+    }
+  }, [isOpen, trackingNumber, customerUser])
+
+  if (!isOpen) return null
+
+  const handleAddStop = () => {
+    setExtraStops(prev => [
+      ...prev,
+      {
+        id: `stop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        address: '',
+        phone: phone || '',
+        timeSlot: TIME_SLOTS[0],
+        notes: '',
+      },
+    ])
+  }
+
+  const handleRemoveStop = (id: string) => {
+    setExtraStops(prev => prev.filter(s => s.id !== id))
+  }
+
+  const handleUpdateStop = (id: string, field: string, val: string) => {
+    setExtraStops(prev => prev.map(s => (s.id === id ? { ...s, [field]: val } : s)))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const targetTracking = (selectedTracking || trackingNumber || '').trim()
+    if (!targetTracking || targetTracking === 'SELECT') {
+      toast.error('Please specify a consignment / booking reference number')
+      return
+    }
+    if (!address.trim()) {
+      toast.error('Please enter the primary pickup address')
+      return
+    }
+    if (!phone.trim()) {
+      toast.error('Please enter the contact phone number')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('netpack_customer_token') : null
+      const allPickupLocations = [
+        {
+          location: address.trim(),
+          phone: phone.trim(),
+          timeSlot,
+          note: notes.trim(),
+        },
+        ...extraStops.map(s => ({
+          location: s.address.trim(),
+          phone: s.phone.trim(),
+          timeSlot: s.timeSlot,
+          note: s.notes.trim(),
+        })),
+      ].filter(p => p.location.length > 0)
+
+      const payload = {
+        trackingNumber: targetTracking,
+        pickupAddress: address.trim(),
+        pickupPhone: phone.trim(),
+        pickupPreferredTime: timeSlot,
+        pickupNote: notes.trim(),
+        pickupLocations: allPickupLocations,
+      }
+
+      const res = await fetch(`${API_BASE}/api/customer/pickup-request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to schedule pickup request')
+      }
+
+      toast.success(data.message || 'Doorstep pickup scheduled successfully!')
+      if (onSuccess) onSuccess()
+      onClose()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit pickup request')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div
+        className="bg-white rounded-t-[28px] sm:rounded-3xl max-w-md w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <IconTruck size={18} />
+            </div>
+            <div>
+              <h2 style={{ fontFamily: 'Jost, sans-serif' }} className="text-base font-700 text-[#0D1B2A] leading-tight">
+                Schedule Doorstep Pickup
+              </h2>
+              <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                {selectedTracking ? `Booking #: ${selectedTracking}` : 'Existing Consignment'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center cursor-pointer transition-colors"
+          >
+            <IconClose size={15} />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-4">
+          <div className="rounded-xl bg-blue-50/60 border border-blue-100 p-3 text-[11px] text-blue-900 leading-snug">
+            💡 Doorstep pickup can be requested or updated anytime <strong>before official shipment dispatch</strong>. Our courier rider will arrive with calibrated digital weighing scales.
+          </div>
+
+          {(!trackingNumber || trackingNumber === 'SELECT') && (
+            <div>
+              <FieldLabel required>Consignment / Booking Number</FieldLabel>
+              {shipments && shipments.filter(s => s.status !== 'shipment_created' && s.status !== 'delivered').length > 0 ? (
+                <div className="space-y-1.5">
+                  <select
+                    value={selectedTracking}
+                    onChange={e => setSelectedTracking(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  >
+                    <option value="">-- Choose from your pending bookings --</option>
+                    {shipments
+                      .filter(s => s.status !== 'shipment_created' && s.status !== 'delivered')
+                      .map(s => (
+                        <option key={s.id} value={s.tracking}>
+                          {s.tracking} — {s.destination} ({s.commodity})
+                        </option>
+                      ))}
+                  </select>
+                  <TextInput
+                    placeholder="Or type another consignment number (e.g. NP-20240922-001)"
+                    value={selectedTracking}
+                    onChange={setSelectedTracking}
+                  />
+                </div>
+              ) : (
+                <TextInput
+                  placeholder="e.g. NP-20240922-001"
+                  value={selectedTracking}
+                  onChange={setSelectedTracking}
+                />
+              )}
+            </div>
+          )}
+
+          <div>
+            <FieldLabel required>Primary Pickup Address (Kathmandu)</FieldLabel>
+            <TextInput
+              placeholder="e.g. House #14, Thamel Marg, Kathmandu"
+              value={address}
+              onChange={setAddress}
+            />
+          </div>
+
+          <div>
+            <FieldLabel required>Contact Phone Number</FieldLabel>
+            <TextInput
+              placeholder="e.g. 9841234567"
+              value={phone}
+              onChange={setPhone}
+              type="tel"
+            />
+          </div>
+
+          <div>
+            <FieldLabel required>Preferred Pickup Time Slot</FieldLabel>
+            <select
+              value={timeSlot}
+              onChange={e => setTimeSlot(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              {TIME_SLOTS.map(slot => (
+                <option key={slot} value={slot}>
+                  {slot}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <FieldLabel>Special Instructions / Notes</FieldLabel>
+            <textarea
+              placeholder="e.g. Ring the bell at gate #2, cargo is wrapped and ready on 1st floor."
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={2}
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm text-[#0D1B2A] placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
+          </div>
+
+          {/* Multi-Location Pickup Stops */}
+          <div className="pt-2 border-t border-gray-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-[#0D1B2A]">Multi-Location Pickup Stops</p>
+                <p className="text-[10px] text-gray-400">Need rider to collect from multiple addresses?</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddStop}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200 active:scale-95 transition-all cursor-pointer"
+              >
+                + Add Stop
+              </button>
+            </div>
+
+            {extraStops.map((stop, idx) => (
+              <div key={stop.id} className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-gray-700">
+                  <span>Additional Stop #{idx + 2}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveStop(stop.id)}
+                    className="text-red-500 hover:text-red-700 font-normal text-[11px] cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <TextInput
+                  placeholder="Stop address, e.g. Warehouse 2, Patan"
+                  value={stop.address}
+                  onChange={v => handleUpdateStop(stop.id, 'address', v)}
+                />
+                <TextInput
+                  placeholder="Contact phone at this stop"
+                  value={stop.phone}
+                  onChange={v => handleUpdateStop(stop.id, 'phone', v)}
+                  type="tel"
+                />
+                <TextInput
+                  placeholder="Stop notes (e.g. 2 boxes here)"
+                  value={stop.notes}
+                  onChange={v => handleUpdateStop(stop.id, 'notes', v)}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              style={{ fontFamily: 'Jost, sans-serif' }}
+              className="w-full py-3 bg-[#0D1B2A] hover:bg-[#1a2f47] disabled:opacity-50 text-white rounded-xl font-700 text-sm shadow-md active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <IconRefresh size={16} className="animate-spin text-white" />
+                  <span>Submitting Pickup Request...</span>
+                </>
+              ) : (
+                <>
+                  <IconCheck size={16} />
+                  <span>Confirm & Dispatch Pickup Rider</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function BookScreen({
   onComplete,
   customerUser,
+  onRequestExistingPickup,
 }: {
   onComplete: (newShipment: Shipment) => void
   customerUser?: any
+  onRequestExistingPickup?: () => void
 }) {
   const [step, setStep] = useState<BookStep>(1)
   const [commodity, setCommodity] = useState('')
@@ -2533,6 +2930,28 @@ function BookScreen({
           ))}
         </div>
       </div>
+
+      {/* Existing Booking Pickup Prompt */}
+      {onRequestExistingPickup && step === 1 && (
+        <div className="mx-4 mb-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <IconTruck size={17} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-[#0D1B2A]">Already have a Consignment Number?</p>
+              <p className="text-[11px] text-gray-500">Book or add multi-stop pickup for your existing booking.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onRequestExistingPickup}
+            className="px-3 py-1.5 rounded-xl bg-[#0D1B2A] text-white text-xs font-semibold shrink-0 cursor-pointer hover:bg-black transition-all active:scale-95 whitespace-nowrap shadow-xs"
+          >
+            Book Pickup
+          </button>
+        </div>
+      )}
 
       {/* Info Banner */}
       <div className="mx-4 mb-4 bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3 shadow-2xs">
@@ -3209,7 +3628,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
 
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword
   const signupValid = Boolean(
-    fullName && email && phone && address1 && city && stateProvince.trim() && country && password && confirmPassword && password === confirmPassword
+    fullName && email && phone && address1 && city && stateProvince.trim() && postcode.trim() && country && password && confirmPassword && password === confirmPassword
   )
   const loginValid = Boolean(loginEmail && loginPassword)
 
@@ -3250,6 +3669,10 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
   }
 
   const handleSignup = async () => {
+    if (!postcode.trim()) {
+      toast.error('Please enter Postcode')
+      return
+    }
     setLoading(true)
     try {
       const selectedOpt = COUNTRY_OPTIONS.find(c => c.name === country) || COUNTRY_OPTIONS[0]
@@ -3651,7 +4074,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
             </div>
 
             <div>
-              <FieldLabel>Postcode</FieldLabel>
+              <FieldLabel required>Postcode</FieldLabel>
               <TextInput placeholder="Postcode" value={postcode} onChange={setPostcode} />
             </div>
             <div>
@@ -3817,6 +4240,10 @@ function OnboardingModal({
     }
     if (!stateProvince.trim()) {
       toast.error('Please enter State / Province')
+      return
+    }
+    if (!postcode.trim()) {
+      toast.error('Please enter Postcode')
       return
     }
     if (!customerToken) return
@@ -4043,7 +4470,7 @@ function OnboardingModal({
 
               {/* 6. Postcode */}
               <div>
-                <FieldLabel>Postcode</FieldLabel>
+                <FieldLabel required>Postcode</FieldLabel>
                 <TextInput placeholder="Postcode" value={postcode} onChange={setPostcode} />
               </div>
 
@@ -4068,7 +4495,7 @@ function OnboardingModal({
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={saving || !name.trim() || !phone.trim() || !address1.trim() || !stateProvince.trim()}
+                  disabled={saving || !name.trim() || !phone.trim() || !address1.trim() || !stateProvince.trim() || !postcode.trim()}
                   style={{ fontFamily: 'Jost, sans-serif' }}
                   className="w-full bg-[#2563EB] disabled:bg-gray-300 text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 transition-all cursor-pointer"
                 >
@@ -4201,6 +4628,9 @@ export default function CustomerPWA() {
   // Onboarding & Profile Edit modal state
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [onboardingMode, setOnboardingMode] = useState<'first_time' | 'edit_only'>('first_time')
+
+  // Customer pickup request modal state
+  const [pickupModalTracking, setPickupModalTracking] = useState<string | null>(null)
 
   const handleProfileUpdated = (updatedUser: any) => {
     setCustomerUser(updatedUser)
@@ -4475,6 +4905,7 @@ export default function CustomerPWA() {
                   onBook={() => setScreen('book')}
                   onRateEnquiry={() => setScreen('rateenquiry')}
                   onTrack={id => handleTrackNav(id, 'home')}
+                  onRequestPickup={id => setPickupModalTracking(id)}
                 />
               )}
 
@@ -4485,6 +4916,7 @@ export default function CustomerPWA() {
                   onBack={() => setScreen('home')}
                   onTrack={id => handleTrackNav(id, 'shipments')}
                   onRefresh={fetchShipments}
+                  onRequestPickup={id => setPickupModalTracking(id)}
                 />
               )}
 
@@ -4492,6 +4924,7 @@ export default function CustomerPWA() {
                 <TrackingScreen
                   initialTrackingId={activeTrackingId}
                   onBack={() => setScreen(trackingReturnScreen)}
+                  onRequestPickup={id => setPickupModalTracking(id)}
                 />
               )}
 
@@ -4500,7 +4933,11 @@ export default function CustomerPWA() {
               )}
 
               {screen === 'book' && (
-                <BookScreen onComplete={handleBookComplete} customerUser={customerUser} />
+                <BookScreen
+                  onComplete={handleBookComplete}
+                  customerUser={customerUser}
+                  onRequestExistingPickup={() => setPickupModalTracking('SELECT')}
+                />
               )}
 
               {screen === 'notifications' && (
@@ -4542,6 +4979,18 @@ export default function CustomerPWA() {
 
             {/* Bottom Floating Navigation matching Figma */}
             <BottomNav screen={screen} setScreen={setScreen} />
+
+            {/* Customer Pickup Request Modal */}
+            <CustomerPickupRequestModal
+              isOpen={Boolean(pickupModalTracking)}
+              onClose={() => setPickupModalTracking(null)}
+              trackingNumber={pickupModalTracking === 'SELECT' ? '' : pickupModalTracking || ''}
+              customerUser={customerUser}
+              shipments={shipments}
+              onSuccess={() => {
+                fetchShipments()
+              }}
+            />
 
             {/* First-time Onboarding & Profile Details Modal */}
             <OnboardingModal

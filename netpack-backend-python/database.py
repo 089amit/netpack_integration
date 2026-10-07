@@ -97,6 +97,73 @@ def run_auto_migrations(target_engine):
                     pass
                 print(f"[Migration Warning] Customers column check: {e}")
 
+        # 1d. Reconcile surcharge_rules columns (case-safe for PostgreSQL)
+        if "surcharge_rules" in table_names:
+            try:
+                raw_cols = {col["name"]: col for col in inspector.get_columns("surcharge_rules")}
+                raw_col_names = set(raw_cols.keys())
+
+                # Check surchargeType / surchargetype
+                if "surchargeType" not in raw_col_names:
+                    if "surchargetype" in raw_col_names:
+                        try:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN surchargetype TO "surchargeType"'))
+                        except Exception:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "surchargeType" VARCHAR(50) DEFAULT \'RES\''))
+                    else:
+                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "surchargeType" VARCHAR(50) DEFAULT \'RES\''))
+                    conn.commit()
+
+                # Check zipCode / zipcode
+                if "zipCode" not in raw_col_names:
+                    if "zipcode" in raw_col_names:
+                        try:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN zipcode TO "zipCode"'))
+                        except Exception:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "zipCode" VARCHAR(50)'))
+                    else:
+                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "zipCode" VARCHAR(50)'))
+                    conn.commit()
+
+                # Check isActive / isactive
+                if "isActive" not in raw_col_names:
+                    if "isactive" in raw_col_names:
+                        try:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN isactive TO "isActive"'))
+                        except Exception:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "isActive" BOOLEAN DEFAULT TRUE'))
+                    else:
+                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "isActive" BOOLEAN DEFAULT TRUE'))
+                    conn.commit()
+
+                # Check createdAt / createdat
+                if "createdAt" not in raw_col_names:
+                    if "createdat" in raw_col_names:
+                        try:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN createdat TO "createdAt"'))
+                        except Exception:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                    else:
+                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                    conn.commit()
+
+                # Check updatedAt / updatedat
+                if "updatedAt" not in raw_col_names:
+                    if "updatedat" in raw_col_names:
+                        try:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN updatedat TO "updatedAt"'))
+                        except Exception:
+                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                    else:
+                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                    conn.commit()
+            except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                print(f"[Migration Warning] surcharge_rules column reconciliation: {e}")
+
         # 2. Ensure baseline roles exist
         if "roles" in table_names:
             try:
