@@ -1037,14 +1037,12 @@ def request_customer_pickup(
     if not is_owner:
         raise HTTPException(status_code=403, detail="You are not authorized to schedule pickup for this consignment.")
 
-    # Status check: strictly allow booking pickup until shipment is created!
+    # Status check: allow booking doorstep pickup unless consignment has departed internationally
     status_upper = (enq.status or "").upper()
     linked_shipment = enq.shipments[0] if (enq.shipments and len(enq.shipments) > 0) else None
     shipment_status_upper = (linked_shipment.status or "").upper() if linked_shipment else ""
 
     locked_statuses = [
-        "SHIPMENT_CREATED",
-        "PACKED",
         "IN_TRANSIT",
         "ARRIVED_AT_HUB",
         "CARRIER_SCANNED",
@@ -1052,16 +1050,18 @@ def request_customer_pickup(
         "DELIVERED"
     ]
 
-    if status_upper in locked_statuses or shipment_status_upper in locked_statuses or linked_shipment is not None:
+    if status_upper in locked_statuses or shipment_status_upper in locked_statuses:
         raise HTTPException(
             status_code=400,
-            detail="Doorstep pickup cannot be booked: Shipment has already been created for this consignment. Pickups can only be scheduled prior to shipment creation."
+            detail="Doorstep pickup cannot be booked: Consignment has already departed or is in overseas transit."
         )
 
     # Update enquiry pickup status
     enq.pickupRequired = True
     if status_upper in ["ENQUIRY_GENERATED", "PENDING", ""]:
         enq.status = "ASSIGNED_FOR_PICKUP"
+    if linked_shipment and shipment_status_upper in ["PENDING", "ENQUIRY_GENERATED"]:
+        linked_shipment.status = "ASSIGNED_FOR_PICKUP"
 
     sender_addr = payload.pickupAddress or enq.senderAddressLine1 or current_customer.address1 or "Kathmandu"
     sender_ph = payload.pickupPhone or enq.senderPhone or current_customer.phone

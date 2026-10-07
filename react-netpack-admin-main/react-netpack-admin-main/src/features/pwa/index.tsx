@@ -93,6 +93,7 @@ interface Shipment {
     | 'delivered'
     | 'pending'
     | 'picked_up'
+    | 'packed'
     | 'shipment_created'
     | 'arrived_at_hub'
     | 'out_for_delivery'
@@ -762,11 +763,13 @@ function ShipmentCard({
 }) {
   const canRequestPickup =
     onRequestPickup &&
-    s.status !== 'shipment_created' &&
-    s.status !== 'delivered' &&
-    s.status !== 'in_progress' &&
-    s.status !== 'arrived_at_hub' &&
-    s.status !== 'out_for_delivery'
+    (
+      s.status === 'pending' ||
+      s.status === 'assigned_for_pickup' ||
+      s.status === 'picked_up' ||
+      s.status === 'packed' ||
+      s.status === 'shipment_created'
+    )
 
   return (
     <button
@@ -1772,6 +1775,13 @@ function TrackingScreen({
   }
 
   const isAssignedRider = Boolean(data.riderName || data.statusLabel === 'Rider Assigned')
+  const canRequestConsignmentPickup =
+    Boolean(onRequestPickup) &&
+    (
+      data.stageIndex <= 2 ||
+      ['pending', 'assigned_for_pickup', 'picked_up', 'packed', 'shipment_created'].includes((data.status || '').toLowerCase())
+    ) &&
+    !['in_transit', 'arrived_at_hub', 'carrier_scanned', 'out_for_delivery', 'delivered'].includes((data.status || '').toLowerCase())
   const milestones = [
     {
       label: 'Enquiry',
@@ -2043,6 +2053,27 @@ function TrackingScreen({
                         </div>
                       )
                     })}
+
+                    {canRequestConsignmentPickup && (
+                      <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                        <div>
+                          <p className="text-[11px] font-bold text-sky-300">Doorstep Pickup Service</p>
+                          <p className="text-[10px] text-white/60">
+                            {data.stageIndex === 0
+                              ? 'Request courier rider to pick up from your address'
+                              : 'Schedule additional multi-stop pickup locations'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onRequestPickup?.(data.tracking || trackingId)}
+                          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-300 hover:to-blue-400 text-white text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap flex items-center gap-1"
+                        >
+                          <IconPlus size={13} />
+                          <span>{data.stageIndex === 0 ? 'Request Pickup' : 'New Pickup'}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2089,24 +2120,36 @@ function TrackingScreen({
                 </div>
               )}
 
-              {/* Doorstep Cargo Pickup Banner / Re-booking / Multi-Stop Request */}
-              {data.stageIndex < 2 && !['shipment_created', 'delivered', 'carrier_scanned', 'in_transit'].includes((data.status || '').toLowerCase()) && (
-                <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm flex items-center justify-between gap-3 animate-in fade-in-50 duration-200">
+              {/* Doorstep Cargo Pickup Banner / Re-booking / Multi-Stop Request Just Below Milestones */}
+              {canRequestConsignmentPickup && (
+                <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/90 via-sky-50/40 to-white p-4 shadow-xs flex items-center justify-between gap-3 animate-in fade-in-50 duration-200">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                       <IconTruck size={20} />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-[#0D1B2A]">Need Doorstep Pickup or Route Change?</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5">Book or add multi-location pickup stops before shipment creation.</p>
+                      <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-xs font-700 text-[#0D1B2A]">
+                        {data.stageIndex === 0
+                          ? 'Schedule Doorstep Rider Pickup'
+                          : data.stageIndex === 1
+                          ? 'Add Multi-Stop Pickup / Route'
+                          : 'Request Additional Pickup Stop'}
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        {data.riderName
+                          ? `Assigned Rider: ${data.riderName}. Add extra pickup stops in Kathmandu.`
+                          : 'Need doorstep collection in Kathmandu? Request rider pickup or multi-location collection.'}
+                      </p>
                     </div>
                   </div>
                   {onRequestPickup && (
                     <button
+                      type="button"
                       onClick={() => onRequestPickup(data.tracking || trackingId)}
-                      className="px-3 py-2 rounded-xl bg-[#0D1B2A] hover:bg-black text-white text-xs font-semibold shrink-0 cursor-pointer transition-all active:scale-95 whitespace-nowrap shadow-xs"
+                      className="px-3.5 py-2 rounded-xl bg-[#0D1B2A] hover:bg-black text-white text-xs font-semibold shrink-0 cursor-pointer transition-all active:scale-95 whitespace-nowrap shadow-xs flex items-center gap-1.5"
                     >
-                      Book / Update
+                      <IconPlus size={14} />
+                      <span>{data.stageIndex === 0 ? 'Request Pickup' : 'New Pickup'}</span>
                     </button>
                   )}
                 </div>
@@ -2604,16 +2647,16 @@ function CustomerPickupRequestModal({
           {(!trackingNumber || trackingNumber === 'SELECT') && (
             <div>
               <FieldLabel required>Consignment / Booking Number</FieldLabel>
-              {shipments && shipments.filter(s => s.status !== 'shipment_created' && s.status !== 'delivered').length > 0 ? (
+              {shipments && shipments.filter(s => !['in_transit', 'arrived_at_hub', 'carrier_scanned', 'out_for_delivery', 'delivered'].includes(s.status)).length > 0 ? (
                 <div className="space-y-1.5">
                   <select
                     value={selectedTracking}
                     onChange={e => setSelectedTracking(e.target.value)}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                   >
-                    <option value="">-- Choose from your pending bookings --</option>
+                    <option value="">-- Choose from your pending / packed bookings --</option>
                     {shipments
-                      .filter(s => s.status !== 'shipment_created' && s.status !== 'delivered')
+                      .filter(s => !['in_transit', 'arrived_at_hub', 'carrier_scanned', 'out_for_delivery', 'delivered'].includes(s.status))
                       .map(s => (
                         <option key={s.id} value={s.tracking}>
                           {s.tracking} — {s.destination} ({s.commodity})
@@ -2758,11 +2801,9 @@ function CustomerPickupRequestModal({
 function BookScreen({
   onComplete,
   customerUser,
-  onRequestExistingPickup,
 }: {
   onComplete: (newShipment: Shipment) => void
   customerUser?: any
-  onRequestExistingPickup?: () => void
 }) {
   const [step, setStep] = useState<BookStep>(1)
   const [commodity, setCommodity] = useState('')
@@ -2996,27 +3037,6 @@ function BookScreen({
         </div>
       </div>
 
-      {/* Existing Booking Pickup Prompt */}
-      {onRequestExistingPickup && step === 1 && (
-        <div className="mx-4 mb-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <IconTruck size={17} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#0D1B2A]">Already have a Consignment Number?</p>
-              <p className="text-[11px] text-gray-500">Book or add multi-stop pickup for your existing booking.</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onRequestExistingPickup}
-            className="px-3 py-1.5 rounded-xl bg-[#0D1B2A] text-white text-xs font-semibold shrink-0 cursor-pointer hover:bg-black transition-all active:scale-95 whitespace-nowrap shadow-xs"
-          >
-            Book Pickup
-          </button>
-        </div>
-      )}
 
       {/* Info Banner */}
       <div className="mx-4 mb-4 bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3 shadow-2xs">
@@ -5057,7 +5077,6 @@ export default function CustomerPWA() {
                 <BookScreen
                   onComplete={handleBookComplete}
                   customerUser={customerUser}
-                  onRequestExistingPickup={() => setPickupModalTracking('SELECT')}
                 />
               )}
 
