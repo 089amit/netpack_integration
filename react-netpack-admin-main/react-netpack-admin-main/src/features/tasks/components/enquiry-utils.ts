@@ -254,7 +254,7 @@ export const createEmptyFormData = (): EnquiryFormData => ({
     city: '',
     postcode: '',
     country: 'Nepal',
-    telephone: '',
+    telephone: '+977 ',
   },
   receiver: {
     companyName: '',
@@ -350,6 +350,15 @@ export const validateAddressDetails = (info: {
           suggestion: 'Expected Canadian format A1A 1A1 (e.g., K1A 0B1).',
         }
       }
+    } else if (country.includes('japan') || country === 'jp') {
+      const jpPostcodeRegex = /^\d{3}-?\d{4}$/
+      if (!jpPostcodeRegex.test(postcode)) {
+        return {
+          isValid: false,
+          warning: `Invalid Japan Postal Code: "${postcode}".`,
+          suggestion: 'Expected 7 digits in format 000-0000 (e.g., 232-0006).',
+        }
+      }
     } else if (country.includes('india')) {
       const inPinRegex = /^\d{6}$/
       if (!inPinRegex.test(postcode)) {
@@ -364,4 +373,45 @@ export const validateAddressDetails = (info: {
 
   return { isValid: true }
 }
+
+import { COUNTRY_OPTIONS } from '@/features/pwa/countries'
+
+export function getCountryDialCode(countryName?: string): string {
+  if (!countryName) return ''
+  const trimmed = countryName.trim().toLowerCase()
+  const match = COUNTRY_OPTIONS.find(
+    (c) => c.name.toLowerCase() === trimmed
+  )
+  return match?.dialCode || ''
+}
+
+export function updateTelephoneWithCountryCode(
+  currentTelephone: string | undefined,
+  newCountryName: string
+): string {
+  const newDial = getCountryDialCode(newCountryName)
+  if (!newDial) return currentTelephone || ''
+  const formattedDial = newDial.startsWith('+') ? newDial : `+${newDial}`
+
+  if (!currentTelephone || currentTelephone.trim() === '' || currentTelephone.trim() === '+') {
+    return `${formattedDial} `
+  }
+
+  // Check if current telephone starts with any known country dial code
+  const existingMatch = COUNTRY_OPTIONS.find(
+    (c) => currentTelephone.trim().startsWith(c.dialCode)
+  )
+
+  if (existingMatch) {
+    const remainder = currentTelephone.trim().slice(existingMatch.dialCode.length).trim()
+    return remainder ? `${formattedDial} ${remainder}` : `${formattedDial} `
+  }
+
+  if (!currentTelephone.startsWith('+')) {
+    return `${formattedDial} ${currentTelephone.trim()}`
+  }
+
+  return currentTelephone
+}
+
 

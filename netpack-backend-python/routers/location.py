@@ -358,34 +358,27 @@ def delete_zone(id: int, db: Session = Depends(get_db)):
     return {"message": "Zone deleted successfully"}
 
 
-# --- ADDRESS VERIFICATION (Google Maps Platform + Global Fallback) ---
+# --- ADDRESS VERIFICATION (Google Maps Platform Places API New + Real-time Suggestions) ---
 
 @router.post("/verify-address")
 def verify_address(payload: VerifyAddressRequest):
     """
-    Verifies and normalizes recipient / sender postal addresses using
-    Google Maps Platform Geocoding API with high precision coordinates.
-    Gracefully falls back to OpenStreetMap / Global Geocoding service
-    if Google Maps API key has restricted quota or billing pending.
+    Intelligently verifies and standardizes addresses using Google Maps Platform (Places API New).
+    Detects postal code typos, wrong state/prefecture designations (e.g. Tokyo vs Kanagawa),
+    and redundant entries, returning exact suggestions and discrepancies.
     """
-    parts = []
-    if payload.addressLine1 and payload.addressLine1.strip():
-        parts.append(payload.addressLine1.strip())
-    if payload.addressLine2 and payload.addressLine2.strip():
-        parts.append(payload.addressLine2.strip())
-    if payload.city and payload.city.strip():
-        parts.append(payload.city.strip())
-    if payload.state and payload.state.strip():
-        parts.append(payload.state.strip())
-    if payload.postalCode and payload.postalCode.strip():
-        parts.append(payload.postalCode.strip())
-    if payload.country and payload.country.strip():
-        parts.append(payload.country.strip())
+    addr1 = (payload.addressLine1 or "").strip()
+    addr2 = (payload.addressLine2 or "").strip()
+    city = (payload.city or "").strip()
+    state = (payload.state or "").strip()
+    postal = (payload.postalCode or "").strip()
+    country = (payload.country or "").strip()
 
-    query = ", ".join(parts)
-    if not query:
+    if not addr1:
         return {
             "isVerified": False,
+            "hasCorrections": False,
+            "corrections": [],
             "status": "EMPTY_ADDRESS",
             "message": "Please enter an address to verify.",
             "provider": "None"
@@ -393,75 +386,149 @@ def verify_address(payload: VerifyAddressRequest):
 
     google_api_key = config.GOOGLE_MAPS_API_KEY
     if google_api_key:
-        try:
-            url = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(query)}&key={google_api_key}"
-            req = urllib.request.Request(
-                url,
-                headers={"User-Agent": "NetPackLogistics-AddressVerifier/1.0"}
-            )
-            with urllib.request.urlopen(req, timeout=5) as response:
-                res = json.loads(response.read().decode("utf-8"))
+        candidates = [
+            f"{addr1}, {city}, {postal}, {country}",
+            f"{addr1}, {city}, {country}",
+            f"{addr1}, {country}",
+            f"{addr1}"
+        ]
 
-            status = res.get("status")
-            if status == "OK" and res.get("results"):
-                best = res["results"][0]
-                formatted_address = best.get("formatted_address", query)
-                location_geom = best.get("geometry", {}).get("location", {})
-                lat = location_geom.get("lat")
-                lng = location_geom.get("lng")
+        for cand in candidates:
+            q_clean = ", ".join([p.strip() for p in cand.split(",") if p.strip()])
+            if not q_clean:
+                continue
 
-                # Extract granular components
-                comp_postal = None
-                comp_city = None
-                comp_state = None
-                comp_country = None
-                for c in best.get("address_components", []):
-                    types = c.get("types", [])
-                    if "postal_code" in types:
-                        comp_postal = c.get("long_name")
-                    if "locality" in types or "postal_town" in types:
-                        comp_city = c.get("long_name")
-                    if "administrative_area_level_1" in types:
-                        comp_state = c.get("long_name")
-                    if "country" in types:
-                        comp_country = c.get("long_name")
+            try:
+                auto_url = "https://places.googleapis.com/v1/places:autocomplete"
+                body = json.dumps({"input": q_clean}).encode("utf-8")
+                req = urllib.request.Request(
+                    auto_url,
+                    data=body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Key": google_api_key,
+                        "User-Agent": "NetPackLogistics-AddressVerifier/2.0"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    auto_res = json.loads(resp.read().decode("utf-8"))
 
-                return {
-                    "isVerified": True,
-                    "status": "OK",
-                    "formattedAddress": formatted_address,
-                    "lat": lat,
-                    "lng": lng,
-                    "postalCode": comp_postal or payload.postalCode,
-                    "city": comp_city or payload.city,
-                    "state": comp_state or payload.state,
-                    "country": comp_country or payload.country,
-                    "suggestion": {
-                        "addressLine1": payload.addressLine1,
-                        "addressLine2": payload.addressLine2,
-                        "city": comp_city or payload.city,
-                        "state": comp_state or payload.state,
-                        "postalCode": comp_postal or payload.postalCode,
-                        "country": comp_country or payload.country
-                    },
-                    "provider": "Google Maps Platform",
-                    "message": "Address verified via Google Maps."
-                }
-            elif status == "ZERO_RESULTS":
-                # Fall through to secondary check or return zero results
-                pass
-            else:
-                err_msg = res.get("error_message", status)
-                print(f"[Location Warning] Google Maps Geocoding status: {status} ({err_msg})")
-        except Exception as ge:
-            print(f"[Location Warning] Google Geocoding request failed: {ge}")
+                suggestions = auto_res.get("suggestions", [])
+                if suggestions:
+                    best_pred = suggestions[0].get("placePrediction", {})
+                    place_id = best_pred.get("placeId")
+                    if not place_id:
+                        continue
+
+                    # Fetch Place Details in English for international standardization
+                    det_url = (
+                        f"https://places.googleapis.com/v1/places/{place_id}"
+                        f"?fields=id,displayName,formattedAddress,addressComponents,location&languageCode=en"
+                    )
+                    det_req = urllib.request.Request(
+                        det_url,
+                        headers={
+                            "X-Goog-Api-Key": google_api_key,
+                            "X-Goog-FieldMask": "id,displayName,formattedAddress,addressComponents,location",
+                            "User-Agent": "NetPackLogistics-AddressVerifier/2.0"
+                        }
+                    )
+                    with urllib.request.urlopen(det_req, timeout=5) as det_resp:
+                        det = json.loads(det_resp.read().decode("utf-8"))
+
+                    comps = {}
+                    for comp in det.get("addressComponents", []):
+                        for t in comp.get("types", []):
+                            comps[t] = comp.get("longText")
+
+                    v_post = comps.get("postal_code")
+                    v_state = comps.get("administrative_area_level_1")
+                    v_city = comps.get("locality") or comps.get("postal_town")
+                    v_country = comps.get("country")
+                    v_ward = comps.get("sublocality_level_1") or comps.get("sublocality")
+                    loc = det.get("location", {})
+                    v_lat = loc.get("latitude")
+                    v_lng = loc.get("longitude")
+                    v_formatted = det.get("formattedAddress", q_clean)
+
+                    corrections = []
+                    # Check postal code mismatch or partial code
+                    if v_post and postal and postal.lower().replace("-", "").strip() != v_post.lower().replace("-", "").strip():
+                        corrections.append(f"Postal code corrected from '{postal}' to '{v_post}'")
+                    elif v_post and not postal:
+                        corrections.append(f"Postal code auto-detected: '{v_post}'")
+
+                    # Check state / prefecture mismatch
+                    if v_state and state and state.lower().strip() != v_state.lower().strip():
+                        corrections.append(
+                            f"State / Prefecture corrected from '{state}' to '{v_state}' ({v_city or 'Area'} is in {v_state}, not {state})"
+                        )
+                    elif v_state and not state:
+                        corrections.append(f"State / Prefecture auto-detected: '{v_state}'")
+
+                    # Check city
+                    if v_city and city and city.lower().strip() != v_city.lower().strip():
+                        corrections.append(f"City standardized from '{city}' to '{v_city}'")
+
+                    # Clean redundant city/state text from addressLine2
+                    clean_addr2 = addr2
+                    if clean_addr2 and (v_city or v_state):
+                        parts = [p.strip() for p in clean_addr2.split(",") if p.strip()]
+                        remove_tokens = set([
+                            t.lower() for t in [
+                                v_city or "",
+                                v_state or "",
+                                state or "",
+                                f"{(v_city or '').lower()} city",
+                                f"{(state or '').lower()} city"
+                            ] if t
+                        ])
+                        filtered = [p for p in parts if p.lower() not in remove_tokens]
+                        candidate_addr2 = ", ".join(filtered) if filtered else (v_ward or "")
+                        if candidate_addr2 != addr2:
+                            clean_addr2 = candidate_addr2
+                            corrections.append("Address Line 2: removed redundant city/state entries")
+
+                    has_corrections = len(corrections) > 0
+
+                    return {
+                        "isVerified": True,
+                        "hasCorrections": has_corrections,
+                        "corrections": corrections,
+                        "status": "OK",
+                        "formattedAddress": v_formatted,
+                        "lat": v_lat,
+                        "lng": v_lng,
+                        "postalCode": v_post or postal,
+                        "city": v_city or city,
+                        "state": v_state or state,
+                        "country": v_country or country,
+                        "suggestion": {
+                            "addressLine1": addr1,
+                            "addressLine2": clean_addr2,
+                            "city": v_city or city,
+                            "state": v_state or state,
+                            "postalCode": v_post or postal,
+                            "country": v_country or country
+                        },
+                        "provider": "Google Maps Platform",
+                        "message": (
+                            "Address verified. Suggested corrections found."
+                            if has_corrections
+                            else "Address successfully verified via Google Maps."
+                        )
+                    }
+
+            except Exception as ge:
+                print(f"[Location Warning] Places API candidate check error: {ge}")
 
     # Fallback to Global OpenStreetMap Geocoding
     try:
-        osm_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query)}&format=json&addressdetails=1&limit=1"
+        q_osm = ", ".join([p for p in [addr1, city, postal, country] if p])
+        osm_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q_osm)}&format=json&addressdetails=1&limit=1"
         osm_req = urllib.request.Request(
             osm_url,
-            headers={"User-Agent": "NetPackLogistics-GeocodingFallback/1.0 (info@netpacklogistic.com)"}
+            headers={"User-Agent": "NetPackLogistics-GeocodingFallback/2.0 (info@netpacklogistic.com)"}
         )
         with urllib.request.urlopen(osm_req, timeout=5) as osm_resp:
             osm_res = json.loads(osm_resp.read().decode("utf-8"))
@@ -475,47 +542,56 @@ def verify_address(payload: VerifyAddressRequest):
                 or addr_details.get("town")
                 or addr_details.get("municipality")
                 or addr_details.get("village")
-                or addr_details.get("county")
             )
             osm_state = addr_details.get("state")
             osm_country = addr_details.get("country")
             osm_lat = float(best_osm.get("lat")) if best_osm.get("lat") else None
             osm_lng = float(best_osm.get("lon")) if best_osm.get("lon") else None
 
+            corrections = []
+            if osm_postal and postal and postal.lower().replace("-", "") != osm_postal.lower().replace("-", ""):
+                corrections.append(f"Postal code corrected from '{postal}' to '{osm_postal}'")
+            if osm_state and state and state.lower() != osm_state.lower():
+                corrections.append(f"State corrected from '{state}' to '{osm_state}'")
+
             return {
                 "isVerified": True,
+                "hasCorrections": len(corrections) > 0,
+                "corrections": corrections,
                 "status": "OK",
-                "formattedAddress": best_osm.get("display_name", query),
+                "formattedAddress": best_osm.get("display_name", q_osm),
                 "lat": osm_lat,
                 "lng": osm_lng,
-                "postalCode": osm_postal or payload.postalCode,
-                "city": osm_city or payload.city,
-                "state": osm_state or payload.state,
-                "country": osm_country or payload.country,
+                "postalCode": osm_postal or postal,
+                "city": osm_city or city,
+                "state": osm_state or state,
+                "country": osm_country or country,
                 "suggestion": {
-                    "addressLine1": payload.addressLine1,
-                    "addressLine2": payload.addressLine2,
-                    "city": osm_city or payload.city,
-                    "state": osm_state or payload.state,
-                    "postalCode": osm_postal or payload.postalCode,
-                    "country": osm_country or payload.country
+                    "addressLine1": addr1,
+                    "addressLine2": addr2,
+                    "city": osm_city or city,
+                    "state": osm_state or state,
+                    "postalCode": osm_postal or postal,
+                    "country": osm_country or country
                 },
-                "provider": "Google Maps / Global Geocoder",
-                "message": "Address successfully verified."
+                "provider": "Global Address Database",
+                "message": "Address verified via Global Geocoding service."
             }
     except Exception as osm_e:
         print(f"[Location Warning] Global Geocoding fallback: {osm_e}")
 
-    # Heuristic format fallback
-    has_min_content = bool(payload.addressLine1 and len(payload.addressLine1.strip()) >= 3)
+    # If could not find place in any database
     return {
-        "isVerified": has_min_content,
-        "status": "LOCAL_VERIFIED" if has_min_content else "INVALID",
-        "formattedAddress": query,
-        "postalCode": payload.postalCode,
-        "city": payload.city,
-        "state": payload.state,
-        "country": payload.country,
-        "provider": "Format Validator",
-        "message": "Address format verified." if has_min_content else "Address seems incomplete."
+        "isVerified": False,
+        "hasCorrections": False,
+        "corrections": [],
+        "status": "NOT_FOUND",
+        "formattedAddress": addr1,
+        "postalCode": postal,
+        "city": city,
+        "state": state,
+        "country": country,
+        "provider": "Google Maps Platform",
+        "message": "Could not find a matching location. Please check the address for spelling errors."
     }
+

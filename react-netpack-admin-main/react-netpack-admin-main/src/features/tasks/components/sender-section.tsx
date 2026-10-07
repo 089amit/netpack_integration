@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { EnquiryFormData } from './enquiry-types'
+import { updateTelephoneWithCountryCode } from './enquiry-utils'
 
 interface SenderSectionProps {
   formData: EnquiryFormData | null
@@ -260,9 +261,13 @@ export function SenderSection({
           </label>
           <Select
             value={formData?.sender.country || 'Nepal'}
-            onValueChange={(value) =>
+            onValueChange={(value) => {
               onFormChange({ target: { name: 'country', value } }, 'sender')
-            }
+              const newPhone = updateTelephoneWithCountryCode(formData?.sender.telephone, value)
+              if (newPhone) {
+                onFormChange({ target: { name: 'telephone', value: newPhone } }, 'sender')
+              }
+            }}
             disabled={!isEditable}
           >
             <SelectTrigger
