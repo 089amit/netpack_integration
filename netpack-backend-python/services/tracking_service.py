@@ -862,7 +862,13 @@ class TrackingRegistry:
             "targetedBoxTrackingNumber": targeted_box_tracking,
             # Basic cargo details
             "origin": "Kathmandu, Nepal",
-            "destination": (enquiry.country.name if (enquiry and enquiry.country) else (shipment.country.name if (shipment and shipment.country) else (enquiry.destinationLocation if enquiry else "International"))),
+            "destination": (
+                (enquiry.receiverCountry.strip() if (enquiry and enquiry.receiverCountry and enquiry.receiverCountry.strip()) else None) or
+                (enquiry.country.name if (enquiry and enquiry.country and enquiry.country.name.strip().lower() != (enquiry.senderCountry or "Nepal").strip().lower()) else None) or
+                (enquiry.destinationLocation.strip() if (enquiry and enquiry.destinationLocation and enquiry.destinationLocation.strip()) else None) or
+                (enquiry.country.name if (enquiry and enquiry.country) else None) or
+                (shipment.country.name if (shipment and shipment.country) else "International")
+            ),
             "senderName": (enquiry.senderName if enquiry else (shipment.customer.name if shipment and shipment.customer else "Shipper")),
             "receiverName": enquiry.receiverName if enquiry else "Consignee",
             "receiverCountry": enquiry.receiverCountry if enquiry else None,

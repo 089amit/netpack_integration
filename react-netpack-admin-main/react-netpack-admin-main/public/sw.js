@@ -64,3 +64,27 @@ self.addEventListener('fetch', (event) => {
       })
   )
 })
+
+// Handle system / web push notification clicks: navigate directly to shipment tracking
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const trackingNumber = event.notification.data?.tracking
+  const targetPath = trackingNumber ? `/pwa?track=${encodeURIComponent(trackingNumber)}` : '/pwa'
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes('/pwa') && 'focus' in client) {
+          if (trackingNumber && 'navigate' in client) {
+            client.navigate(targetPath)
+          }
+          return client.focus()
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetPath)
+      }
+    })
+  )
+})
+

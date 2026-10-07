@@ -115,6 +115,7 @@ interface NotificationItem {
   time: string
   read: boolean
   type: 'welcome' | 'update' | 'delivered' | 'alert'
+  tracking?: string
 }
 
 interface CheckpointItem {
@@ -1554,9 +1555,38 @@ function TrackingScreen({
 
   // Tracking details from live API or mock fallback
   const [data, setData] = useState<TrackingDetails>(() => {
-    return mockTrackingMap[initialTrackingId] || mockTrackingMap['NP-20240922-001']
+    if (mockTrackingMap[initialTrackingId]) {
+      return mockTrackingMap[initialTrackingId]
+    }
+    return {
+      tracking: initialTrackingId,
+      receiverName: '—',
+      carrier: 'Pending Assignment',
+      carrierTracking: '',
+      carrierUrl: '',
+      status: 'pending',
+      statusLabel: 'Connecting...',
+      heroTitle: 'Tracking Consignment',
+      heroSubtitle: 'Retrieving live consignment data...',
+      stageIndex: 0,
+      weight: '—',
+      volumetricWeight: '—',
+      chargeableWeight: '—',
+      origin: 'Kathmandu (KTM)',
+      destination: 'International',
+      commodity: 'General Cargo',
+      boxes: [],
+      checkpoints: [],
+    }
   })
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (initialTrackingId) {
+      setTrackingId(initialTrackingId)
+      setSearchInput(initialTrackingId)
+    }
+  }, [initialTrackingId])
 
   useEffect(() => {
     if (!trackingId) return
@@ -1634,14 +1664,28 @@ function TrackingScreen({
               : 'Awaiting pickup rider assignment • Kathmandu'
           }
 
+          const fwdNo = (liveRes.forwardingNumber || '').trim()
+          const fwdCo = (liveRes.forwardingCompany || liveRes.carrier || '').trim()
+
+          let carrierUrl = liveRes.carrierTrackingUrl || ''
+          if (!carrierUrl && fwdNo) {
+            if (fwdCo.toUpperCase().includes('FEDEX')) {
+              carrierUrl = `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(fwdNo)}`
+            } else if (fwdCo.toUpperCase().includes('UPS')) {
+              carrierUrl = `https://www.ups.com/track?tracknum=${encodeURIComponent(fwdNo)}`
+            } else if (fwdCo.toUpperCase().includes('ARAMEX')) {
+              carrierUrl = `https://www.aramex.com/track/results?mode=0&ShipmentNumber=${encodeURIComponent(fwdNo)}`
+            } else {
+              carrierUrl = `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(fwdNo)}`
+            }
+          }
+
           setData({
             tracking: liveRes.trackingNumber,
             receiverName: liveRes.receiverName || 'Consignee',
-            carrier: liveRes.forwardingCompany || 'DHL Express',
-            carrierTracking: liveRes.forwardingNumber || '9400111899562849102834',
-            carrierUrl: liveRes.forwardingCompany?.toUpperCase().includes('FEDEX')
-              ? 'https://www.fedex.com/fedextrack/'
-              : 'https://www.dhl.com/en/express/tracking.html',
+            carrier: fwdCo || (fwdNo ? 'International Carrier' : 'Assigned at Airport Hub'),
+            carrierTracking: fwdNo,
+            carrierUrl,
             status: statusStr.includes('DELIVERED')
               ? 'delivered'
               : statusStr.includes('CARRIER') || statusStr.includes('OUT_FOR_DELIVERY')
@@ -1691,7 +1735,14 @@ function TrackingScreen({
                   time: formatDateTime(cp.timestamp || cp.created_at) || 'Recently',
                   source: cp.source || 'NetPack Operations',
                 }))
-              : mockTrackingMap['NP-20240922-001'].checkpoints,
+              : [
+                  {
+                    activity: heroTitle,
+                    location: liveRes.origin || 'Kathmandu Hub',
+                    time: formatDateTime(liveRes.createdAt || liveRes.bookingDate) || 'Recently',
+                    source: 'NetPack Operations',
+                  },
+                ],
             weightProofImageUrl: proofImg,
             weightProofImages: proofImgs,
           })
@@ -2159,30 +2210,44 @@ function TrackingScreen({
                   <span className="text-gray-400 font-medium">Overseas Forwarding Courier</span>
                   <span className="font-bold text-[#0D1B2A]">{data.carrier}</span>
                 </div>
-                <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-gray-400">Carrier AWB / Tracking</p>
-                    <p className="font-mono font-bold text-xs text-[#0D1B2A] mt-0.5">{data.carrierTracking}</p>
+                {data.carrierTracking ? (
+                  <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-gray-400">Carrier AWB / Tracking</p>
+                      <p className="font-mono font-bold text-xs text-[#0D1B2A] mt-0.5">{data.carrierTracking}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleCopy(data.carrierTracking)}
+                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all cursor-pointer"
+                        title="Copy Tracking Number"
+                      >
+                        {copied ? <IconCheck size={14} className="text-emerald-600" /> : <IconCopy size={14} />}
+                      </button>
+                      {data.carrierUrl && (
+                        <a
+                          href={data.carrierUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all inline-flex items-center justify-center"
+                          title="Track on Carrier Website"
+                        >
+                          <IconExternalLink size={14} />
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleCopy(data.carrierTracking)}
-                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all cursor-pointer"
-                      title="Copy Tracking Number"
-                    >
-                      {copied ? <IconCheck size={14} className="text-emerald-600" /> : <IconCopy size={14} />}
-                    </button>
-                    <a
-                      href={data.carrierUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all inline-flex items-center justify-center"
-                      title="Track on Carrier Website"
-                    >
-                      <IconExternalLink size={14} />
-                    </a>
+                ) : (
+                  <div className="flex items-center justify-between bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Carrier AWB / Tracking</p>
+                      <p className="text-xs text-slate-600 mt-0.5">Assigned upon flight departure & customs handover</p>
+                    </div>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                      Pending Handover
+                    </span>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Transit Checkpoints & Scans */}
@@ -3270,11 +3335,13 @@ function NotificationsScreen({
   items = [],
   onMarkAllRead,
   onMarkRead,
+  onSelectNotification,
 }: {
   onBack: () => void
   items?: NotificationItem[]
   onMarkAllRead?: () => void
   onMarkRead?: (id: string) => void
+  onSelectNotification?: (item: NotificationItem) => void
 }) {
   const unread = items.filter(n => !n.read).length
 
@@ -3329,20 +3396,37 @@ function NotificationsScreen({
             return (
               <button
                 key={n.id}
-                onClick={() => onMarkRead?.(n.id)}
-                className={`w-full text-left rounded-2xl border p-4 flex gap-3 transition-all active:scale-[0.99] cursor-pointer ${
+                onClick={() => {
+                  onMarkRead?.(n.id)
+                  if (n.tracking) {
+                    onSelectNotification?.(n)
+                  }
+                }}
+                className={`w-full text-left rounded-2xl border p-4 flex flex-col gap-2 transition-all active:scale-[0.99] cursor-pointer ${
                   n.read ? 'bg-white border-gray-100' : 'bg-white border-blue-100 shadow-xs'
                 }`}
               >
-                <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}>{icon}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className={`text-sm leading-tight ${n.read ? 'font-medium text-[#0D1B2A]' : 'font-semibold text-[#0D1B2A]'}`}>{n.title}</p>
-                    {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1" />}
+                <div className="flex gap-3 items-start">
+                  <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}>{icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={`text-sm leading-tight ${n.read ? 'font-medium text-[#0D1B2A]' : 'font-semibold text-[#0D1B2A]'}`}>{n.title}</p>
+                      {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1" />}
+                    </div>
+                    <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{n.body}</p>
+                    <p className="text-[11px] text-gray-400 mt-1.5">{n.time}</p>
                   </div>
-                  <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{n.body}</p>
-                  <p className="text-[11px] text-gray-400 mt-1.5">{n.time}</p>
                 </div>
+                {n.tracking && (
+                  <div className="mt-1 pt-2 border-t border-gray-100/90 flex items-center justify-between">
+                    <span className="font-mono text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                      AWB: {n.tracking}
+                    </span>
+                    <span className="text-[11px] font-semibold text-blue-600 inline-flex items-center gap-1">
+                      Track Shipment &rarr;
+                    </span>
+                  </div>
+                )}
               </button>
             )
           })
@@ -4650,6 +4734,7 @@ export default function CustomerPWA() {
           time: s.date || 'Recent',
           read: false,
           type: 'delivered',
+          tracking: s.tracking,
         })
       } else if (s.status === 'in_progress' || s.status === 'arrived_at_hub' || s.status === 'out_for_delivery') {
         list.push({
@@ -4659,6 +4744,7 @@ export default function CustomerPWA() {
           time: s.date || 'In Transit',
           read: false,
           type: 'update',
+          tracking: s.tracking,
         })
       } else {
         list.push({
@@ -4668,6 +4754,7 @@ export default function CustomerPWA() {
           time: s.date || 'Recent',
           read: false,
           type: 'update',
+          tracking: s.tracking,
         })
       }
     })
@@ -4795,7 +4882,27 @@ export default function CustomerPWA() {
             currentMap[s.id] = s.status
             if (!isInitialLoad && prevMap[s.id] && prevMap[s.id] !== s.status) {
               hasStatusChange = true
-              toast.info(`Shipment ${s.tracking} updated: ${s.status.replace(/_/g, ' ').toUpperCase()}`)
+              toast.info(`Shipment ${s.tracking} updated: ${s.status.replace(/_/g, ' ').toUpperCase()}`, {
+                description: `Destination: ${s.destination}. Tap Track to open live tracking details.`,
+                action: {
+                  label: 'Track Cargo',
+                  onClick: () => handleTrackNav(s.tracking, 'home'),
+                },
+              })
+
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                  const n = new Notification(`Shipment ${s.tracking} Updated`, {
+                    body: `Status: ${s.status.replace(/_/g, ' ').toUpperCase()} • Destination: ${s.destination}`,
+                    icon: '/images/netpack-icon-192.png',
+                    data: { tracking: s.tracking },
+                  })
+                  n.onclick = () => {
+                    window.focus()
+                    handleTrackNav(s.tracking, 'home')
+                  }
+                } catch {}
+              }
             }
           })
           prevStatusesRef.current = currentMap
@@ -4806,6 +4913,9 @@ export default function CustomerPWA() {
           }
 
           setShipments(mapped)
+          if (mapped.length > 0) {
+            setActiveTrackingId(prev => (prev === 'NP-20240922-001' ? mapped[0].tracking : prev))
+          }
         } else {
           setShipments([])
         }
@@ -4814,6 +4924,17 @@ export default function CustomerPWA() {
         setShipments([])
       })
   }
+
+  // Check URL parameters for direct tracking navigation (e.g. from notification clicks or shared links)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const trackParam = params.get('track') || params.get('tracking')
+      if (trackParam) {
+        handleTrackNav(trackParam, 'home')
+      }
+    }
+  }, [])
 
   useEffect(() => {
     fetchShipments()
@@ -4946,6 +5067,11 @@ export default function CustomerPWA() {
                   items={notifications.map(n => ({ ...n, read: readNotifIds.includes(n.id) }))}
                   onMarkAllRead={handleMarkAllRead}
                   onMarkRead={handleMarkRead}
+                  onSelectNotification={item => {
+                    if (item.tracking) {
+                      handleTrackNav(item.tracking, 'notifications')
+                    }
+                  }}
                 />
               )}
 
