@@ -30,6 +30,8 @@ class SurchargeCheckRequest(BaseModel):
     service: Optional[str] = None
     country: Optional[str] = None
     countryName: Optional[str] = None
+    addressLine1: Optional[str] = None
+    state: Optional[str] = None
 
 
 class SurchargeRuleCreate(BaseModel):
@@ -269,68 +271,251 @@ async def upload_surcharges_file(
     }
 
 
+def normalize_country(c: Optional[str]) -> List[str]:
+    if not c:
+        return []
+    c_clean = c.strip().upper()
+    COUNTRY_MAP = {
+        "AU": ["AU", "AUS", "AUSTRALIA"],
+        "AUS": ["AU", "AUS", "AUSTRALIA"],
+        "AUSTRALIA": ["AU", "AUS", "AUSTRALIA"],
+        "US": ["US", "USA", "UNITED STATES", "UNITED STATES OF AMERICA"],
+        "USA": ["US", "USA", "UNITED STATES", "UNITED STATES OF AMERICA"],
+        "UNITED STATES": ["US", "USA", "UNITED STATES", "UNITED STATES OF AMERICA"],
+        "UNITED STATES OF AMERICA": ["US", "USA", "UNITED STATES", "UNITED STATES OF AMERICA"],
+        "GB": ["GB", "UK", "UNITED KINGDOM", "GREAT BRITAIN", "ENGLAND", "SCOTLAND", "WALES"],
+        "UK": ["GB", "UK", "UNITED KINGDOM", "GREAT BRITAIN", "ENGLAND", "SCOTLAND", "WALES"],
+        "UNITED KINGDOM": ["GB", "UK", "UNITED KINGDOM", "GREAT BRITAIN", "ENGLAND", "SCOTLAND", "WALES"],
+        "CA": ["CA", "CAN", "CANADA"],
+        "CAN": ["CA", "CAN", "CANADA"],
+        "CANADA": ["CA", "CAN", "CANADA"],
+        "IN": ["IN", "IND", "INDIA"],
+        "IND": ["IN", "IND", "INDIA"],
+        "INDIA": ["IN", "IND", "INDIA"],
+        "NP": ["NP", "NPL", "NEPAL"],
+        "NPL": ["NP", "NPL", "NEPAL"],
+        "NEPAL": ["NP", "NPL", "NEPAL"],
+        "NZ": ["NZ", "NZL", "NEW ZEALAND"],
+        "NZL": ["NZ", "NZL", "NEW ZEALAND"],
+        "NEW ZEALAND": ["NZ", "NZL", "NEW ZEALAND"],
+        "JP": ["JP", "JPN", "JAPAN"],
+        "JPN": ["JP", "JPN", "JAPAN"],
+        "JAPAN": ["JP", "JPN", "JAPAN"],
+    }
+    return COUNTRY_MAP.get(c_clean, [c_clean])
+
+
+def perform_smart_surcharge_check(
+    db: Session,
+    postal_code: Optional[str] = None,
+    city: Optional[str] = None,
+    country: Optional[str] = None,
+    address_line: Optional[str] = None,
+    state: Optional[str] = None,
+    service: Optional[str] = None
+) -> Dict[str, Any]:
+    zip_code = (postal_code or "").strip()
+    city_str = (city or "").strip()
+    country_str = (country or "").strip()
+    addr_str = (address_line or "").strip()
+    state_str = (state or "").strip()
+    svc_str = (service or "").strip()
+
+    if not zip_code and not city_str and not addr_str:
+        return {"hasSurcharge": False, "success": False}
+
+    active_rules = db.query(SurchargeRule).filter(SurchargeRule.isActive == True).all()
+    if not active_rules:
+        return {"hasSurcharge": False, "success": False}
+
+    country_aliases = normalize_country(country_str)
+
+    candidate_rules = []
+    fallback_rules = []
+    for r in active_rules:
+        r_country = (r.country or "").strip().upper()
+        if not r_country:
+            fallback_rules.append(r)
+        elif country_aliases and any(alias in r_country or r_country in alias for alias in country_aliases):
+            candidate_rules.append(r)
+        elif not country_aliases:
+            candidate_rules.append(r)
+
+    rules_to_search = candidate_rules + fallback_rules if candidate_rules else active_rules
+
+    # Generate postal code comparison variants
+    zip_variants = set()
+    zip_int = None
+    if zip_code:
+        zip_clean = re.sub(r'[\s\-]', '', zip_code).upper()
+        zip_variants.add(zip_code.upper())
+        zip_variants.add(zip_clean)
+        digit_match = re.search(r'\d+', zip_code)
+        if digit_match:
+            try:
+                zip_int = int(digit_match.group(0))
+                zip_variants.add(str(zip_int))
+                zip_variants.add(f"{zip_int:03d}")
+                zip_variants.add(f"{zip_int:04d}")
+                zip_variants.add(f"{zip_int:05d}")
+            except Exception:
+                pass
+
+    matched_rule = None
+
+    # Step 1: Match by postal code
+    if zip_code:
+        for r in rules_to_search:
+            r_zip = (r.zipCode or "").strip().upper()
+            if not r_zip:
+                continue
+
+            r_clean = re.sub(r'[\s\-]', '', r_zip)
+            if r_zip in zip_variants or r_clean in zip_variants:
+                matched_rule = r
+                break
+
+            r_digit_match = re.search(r'\d+', r_zip)
+            if r_digit_match and zip_int is not None:
+                try:
+                    r_int = int(r_digit_match.group(0))
+                    if r_int == zip_int:
+                        matched_rule = r
+                        break
+                except Exception:
+                    pass
+
+            if '-' in r_zip and zip_int is not None:
+                parts = r_zip.split('-')
+                if len(parts) == 2:
+                    p1_digits = re.search(r'\d+', parts[0])
+                    p2_digits = re.search(r'\d+', parts[1])
+                    if p1_digits and p2_digits:
+                        try:
+                            low = int(p1_digits.group(0))
+                            high = int(p2_digits.group(0))
+                            if low <= zip_int <= high:
+                                matched_rule = r
+                                break
+                        except Exception:
+                            pass
+
+            if len(r_clean) >= 3 and (zip_clean.startswith(r_clean) or r_clean.startswith(zip_clean)):
+                matched_rule = r
+                break
+
+    # Step 2: Match by city or location if not matched by postal code
+    if not matched_rule and (city_str or addr_str or state_str):
+        combined_text = f"{city_str} {addr_str} {state_str}".lower()
+        for r in rules_to_search:
+            r_city = (r.city or "").strip().lower()
+            if not r_city:
+                continue
+
+            if r_city in combined_text or r_city in city_str.lower():
+                matched_rule = r
+                break
+
+            if city_str.lower() in r_city and len(city_str) >= 3:
+                matched_rule = r
+                break
+
+            r_words = set(re.findall(r'\b\w+\b', r_city))
+            c_words = set(re.findall(r'\b\w+\b', combined_text))
+            meaningful_r = {w for w in r_words if len(w) > 3 and w not in {'city', 'near', 'town', 'dist', 'zone'}}
+            if meaningful_r and meaningful_r.issubset(c_words):
+                matched_rule = r
+                break
+
+    if matched_rule:
+        svc_name = matched_rule.service or svc_str or "Express"
+        rate_val = matched_rule.amount
+        curr_val = matched_rule.currency or "USD"
+        type_val = getattr(matched_rule, "surchargeType", None) or "RES"
+        
+        type_desc = "Residential Surcharge (RES)" if type_val == "RES" else (
+            "Extended Area Surcharge (EAS)" if type_val == "EAS" else f"{type_val} Surcharge"
+        )
+
+        if rate_val is not None:
+            formatted_msg = f"{rate_val} {curr_val} per kg will be applied as {type_val} ({type_desc}) for this address while being delivered by {svc_name}"
+        else:
+            loc_str = matched_rule.city or matched_rule.zipCode or city_str or "this destination"
+            formatted_msg = f"Surcharge will be applied as {type_val} ({type_desc}) for this address ({loc_str}) while being delivered by {svc_name}"
+
+        return {
+            "hasSurcharge": True,
+            "success": True,
+            "surchargeType": type_val,
+            "surchargeMessage": formatted_msg,
+            "formattedWarning": formatted_msg,
+            "service": svc_name,
+            "city": matched_rule.city,
+            "zipCode": matched_rule.zipCode,
+            "country": matched_rule.country,
+            "amount": rate_val,
+            "rate": rate_val,
+            "currency": curr_val,
+            "type": type_val,
+            "ruleId": matched_rule.id
+        }
+
+    # Step 3: Check legacy AreaSurcharge table if present
+    try:
+        from models.rate import AreaSurcharge
+        query = db.query(AreaSurcharge)
+        if country_str:
+            query = query.filter(
+                or_(
+                    AreaSurcharge.countryCode.ilike(country_str),
+                    AreaSurcharge.countryCode.in_(country_aliases)
+                )
+            )
+        
+        legacy_surcharge = None
+        if zip_code:
+            legacy_surcharge = query.filter(
+                AreaSurcharge.postalCodeFrom <= zip_code,
+                AreaSurcharge.postalCodeTo >= zip_code
+            ).first()
+        if not legacy_surcharge and city_str:
+            legacy_surcharge = query.filter(AreaSurcharge.locationName.ilike(f"%{city_str}%")).first()
+
+        if legacy_surcharge:
+            type_name = getattr(legacy_surcharge, "surchargeType", "Area Surcharge")
+            msg = f"({type_name} applied for this destination)"
+            return {
+                "hasSurcharge": True,
+                "success": True,
+                "surchargeType": type_name,
+                "surchargeMessage": msg,
+                "formattedWarning": msg,
+                "countryCode": legacy_surcharge.countryCode
+            }
+    except Exception:
+        pass
+
+    return {"hasSurcharge": False, "success": False}
+
+
 @router.post("/check")
 def check_surcharge(
     payload: SurchargeCheckRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Checks if given postal code or city matches any uploaded surcharge rules.
-    Returns:
-    { "hasSurcharge": true, "message": "...", "formattedWarning": "...", "service": "...", "amount": 2.56, "currency": "USD", "type": "RES" }
+    Checks if given postal code or city matches any uploaded surcharge rules with smart normalization.
     """
-    zip_code = (payload.postalCode or "").strip()
-    city = (payload.city or "").strip()
-    service = (payload.service or "").strip()
-    country = (payload.country or payload.countryName or "").strip()
-
-    if not zip_code and not city:
-        return {"hasSurcharge": False}
-
-    query = db.query(SurchargeRule).filter(SurchargeRule.isActive == True)
-
-    match = None
-    # 1. Exact or prefix match on zip code
-    if zip_code:
-        match = query.filter(
-            or_(
-                SurchargeRule.zipCode.ilike(zip_code),
-                SurchargeRule.zipCode.ilike(f"{zip_code}%"),
-                SurchargeRule.zipCode == zip_code
-            )
-        ).first()
-
-    # 2. Match on city if not found by zip code
-    if not match and city:
-        match = query.filter(SurchargeRule.city.ilike(city)).first()
-
-    if match:
-        svc_name = match.service or service or "Express"
-        rate_val = match.amount
-        curr_val = match.currency or "USD"
-        type_val = getattr(match, "surchargeType", None) or "RES"
-
-        if rate_val is not None:
-            formatted_msg = f"{rate_val} {curr_val} per kg will be applied as {type_val} for this address while being delivered by {svc_name}"
-        else:
-            loc_str = match.city or match.zipCode or "Destination"
-            formatted_msg = f"Surcharge will be applied as {type_val} for this address ({loc_str}) while being delivered by {svc_name}"
-
-        return {
-            "hasSurcharge": True,
-            "message": formatted_msg,
-            "formattedWarning": formatted_msg,
-            "service": svc_name,
-            "city": match.city,
-            "zipCode": match.zipCode,
-            "country": match.country,
-            "amount": match.amount,
-            "currency": curr_val,
-            "type": type_val,
-            "ruleId": match.id
-        }
-
-    return {"hasSurcharge": False}
+    country_val = payload.country or payload.countryName
+    return perform_smart_surcharge_check(
+        db=db,
+        postal_code=payload.postalCode,
+        city=payload.city,
+        country=country_val,
+        address_line=payload.addressLine1,
+        state=payload.state,
+        service=payload.service
+    )
 
 
 @router.delete("/{id}")

@@ -905,77 +905,23 @@ def add_box_item(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
 
 @router.post("/surchargecheck")
 def check_area_surcharge(payload: Dict[str, Any], db: Session = Depends(get_db)):
-    country_code = payload.get("countryCode")
-    postal_code = (payload.get("postalCode") or "").strip()
-    location_name = (payload.get("locationName") or payload.get("city") or "").strip()
-    service = (payload.get("service") or "").strip()
+    postal_code = payload.get("postalCode") or payload.get("pinCode")
+    city = payload.get("city") or payload.get("locationName") or payload.get("destinationLocation")
+    country = payload.get("country") or payload.get("countryName") or payload.get("countryCode") or payload.get("destinationCountry")
+    address_line = payload.get("addressLine1") or payload.get("address")
+    state = payload.get("state")
+    service = payload.get("service")
 
-    # 1. First check dedicated SurchargeRule table
-    surcharge_rule = None
-    if postal_code:
-        surcharge_rule = db.query(SurchargeRule).filter(
-            SurchargeRule.isActive == True,
-            or_(
-                SurchargeRule.zipCode.ilike(postal_code),
-                SurchargeRule.zipCode.ilike(f"{postal_code}%"),
-                SurchargeRule.zipCode == postal_code
-            )
-        ).first()
-
-    if not surcharge_rule and location_name:
-        surcharge_rule = db.query(SurchargeRule).filter(
-            SurchargeRule.isActive == True,
-            SurchargeRule.city.ilike(location_name)
-        ).first()
-
-    if surcharge_rule:
-        svc_name = surcharge_rule.service or service or "Express"
-        rate_val = surcharge_rule.amount
-        curr_val = surcharge_rule.currency or "USD"
-        type_val = getattr(surcharge_rule, "surchargeType", None) or "RES"
-        if rate_val is not None:
-            msg = f"{rate_val} {curr_val} per kg will be applied as {type_val} for this address while being delivered by {svc_name}"
-        else:
-            loc_str = surcharge_rule.city or surcharge_rule.zipCode or location_name or "Area"
-            msg = f"Surcharge will be applied as {type_val} for this address ({loc_str}) while being delivered by {svc_name}"
-        return {
-            "hasSurcharge": True,
-            "success": True,
-            "surchargeType": type_val,
-            "surchargeMessage": msg,
-            "formattedWarning": msg,
-            "rate": rate_val,
-            "currency": curr_val,
-            "type": type_val,
-            "service": svc_name,
-            "city": surcharge_rule.city,
-            "zipCode": surcharge_rule.zipCode
-        }
-
-    # 2. Check AreaSurcharge table
-    query = db.query(AreaSurcharge)
-    if country_code:
-        query = query.filter(AreaSurcharge.countryCode == country_code)
-    
-    surcharge = None
-    if postal_code:
-        surcharge = query.filter(
-            AreaSurcharge.postalCodeFrom <= postal_code,
-            AreaSurcharge.postalCodeTo >= postal_code
-        ).first()
-    if not surcharge and location_name:
-        surcharge = query.filter(AreaSurcharge.locationName.ilike(f"%{location_name}%")).first()
-
-    if surcharge:
-        msg = f"({surcharge.surchargeType} applied)"
-        return {
-            "hasSurcharge": True,
-            "success": True,
-            "surchargeType": msg,
-            "surchargeMessage": msg,
-            "countryCode": surcharge.countryCode
-        }
-    return {"hasSurcharge": False, "success": False}
+    from routers.surcharges import perform_smart_surcharge_check
+    return perform_smart_surcharge_check(
+        db=db,
+        postal_code=postal_code,
+        city=city,
+        country=country,
+        address_line=address_line,
+        state=state,
+        service=service
+    )
 
 
 @router.get("/check-edit-permission/{id}")

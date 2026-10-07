@@ -51,6 +51,15 @@ export const buildEnquiryPayload = (data: EnquiryFormData) => {
       phoneNumber: pl.phoneNumber,
       note: pl.note,
     }))
+  } else if (data.sender?.addressLine1?.trim()) {
+    const senderLoc = [data.sender.addressLine1, data.sender.city].filter(Boolean).join(', ')
+    pickupLocations = [
+      {
+        location: senderLoc,
+        phoneNumber: data.pickupPhone?.trim() || data.sender.telephone || '',
+        note: data.pickupNote?.trim() || undefined,
+      },
+    ]
   }
 
   return {
@@ -140,7 +149,7 @@ export const isFormValid = (formData: EnquiryFormData | null) =>
         box.itemSelections &&
         box.itemSelections.length > 0
     )) &&
-  (formData.handoverType === 'SELF_DROP' || !formData.handoverType || !!formData.pickupLocation?.trim())
+  (formData.handoverType === 'SELF_DROP' || !formData.handoverType || !!formData.pickupLocation?.trim() || !!formData.sender?.addressLine1?.trim())
 
 export interface FormErrors {
   senderName?: boolean
@@ -197,8 +206,12 @@ export const getFormErrors = (formData: EnquiryFormData | null): FormErrors => {
   if (!formData.receiver.country?.trim()) errors.receiverCountry = true
   if (!formData.receiver.telephone?.trim()) errors.receiverTelephone = true
 
-  // Pickup Location Validation (if pickup is selected)
-  if (formData.handoverType !== 'SELF_DROP' && !formData.pickupLocation?.trim()) {
+  // Pickup Location Validation (if pickup is selected and no sender address available)
+  if (
+    formData.handoverType !== 'SELF_DROP' &&
+    !formData.pickupLocation?.trim() &&
+    !formData.sender?.addressLine1?.trim()
+  ) {
     errors.pickupLocation = true
   }
 

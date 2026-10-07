@@ -793,7 +793,31 @@ export function EnquiryModalForm({
     if (!isFormValid(formData)) {
       const formErrors = getFormErrors(formData)
       setErrors(formErrors)
-      toast.error('Please fill in all required fields', { duration: 3000 })
+
+      const missingFields: string[] = []
+      if (formErrors.senderName) missingFields.push('Sender Name')
+      if (formErrors.senderAddressLine1) missingFields.push('Sender Address')
+      if (formErrors.senderCity) missingFields.push('Sender City')
+      if (formErrors.senderPostcode) missingFields.push('Sender Postcode')
+      if (formErrors.senderCountry) missingFields.push('Sender Country')
+      if (formErrors.senderTelephone) missingFields.push('Sender Telephone')
+      if (formErrors.receiverName) missingFields.push('Receiver Name')
+      if (formErrors.receiverAddressLine1) missingFields.push('Receiver Address')
+      if (formErrors.receiverCity) missingFields.push('Receiver City')
+      if (formErrors.receiverState) missingFields.push('Receiver State')
+      if (formErrors.receiverPostcode) missingFields.push('Receiver Postcode')
+      if (formErrors.receiverCountry) missingFields.push('Receiver Country')
+      if (formErrors.receiverTelephone) missingFields.push('Receiver Telephone')
+      if (formErrors.pickupLocation) missingFields.push('Pickup Location')
+      if (formErrors.itemErrors?.some(Boolean)) missingFields.push('Item Description/Qty/Price')
+      if (formErrors.boxErrors?.some(b => b.length || b.breadth || b.height || b.weight || b.itemSelections)) {
+        missingFields.push('Box Dimensions/Weights/Item Selection')
+      }
+
+      const msg = missingFields.length > 0
+        ? `Please fill in required: ${missingFields.slice(0, 3).join(', ')}${missingFields.length > 3 ? '...' : ''}`
+        : 'Please fill in all required fields'
+      toast.error(msg, { duration: 4000 })
 
       // Scroll to first error
       setTimeout(() => {
@@ -1151,10 +1175,19 @@ export function EnquiryModalForm({
   const countryName = destinationCountry?.name || formData?.receiver?.country || 'Destination'
 
   useEffect(() => {
-    if (isInternalStaff && formData && formData.handoverType !== 'SELF_DROP' && !formData.id) {
-      setFormData((prev) => (prev ? { ...prev, handoverType: 'SELF_DROP' } : null))
+    if (isInternalStaff && formData) {
+      if (!formData.pickupLocation?.trim()) {
+        const senderAddr = [formData.sender.addressLine1, formData.sender.city]
+          .filter((s) => s && s.trim())
+          .join(', ')
+        if (senderAddr) {
+          setFormData((prev) => (prev ? { ...prev, pickupLocation: senderAddr } : null))
+        } else if (formData.handoverType !== 'SELF_DROP') {
+          setFormData((prev) => (prev ? { ...prev, handoverType: 'SELF_DROP' } : null))
+        }
+      }
     }
-  }, [isInternalStaff, formData?.id])
+  }, [isInternalStaff, formData?.id, formData?.sender?.addressLine1])
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

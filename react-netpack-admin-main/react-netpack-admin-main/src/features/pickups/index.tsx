@@ -873,10 +873,10 @@ export default function PickupsDashboard() {
         ) : (
           /* Table View */
           <div className='rounded-lg border bg-background shadow-xs overflow-x-auto'>
-            <Table>
+            <Table className='min-w-[1100px]'>
               <TableHeader>
                 <TableRow>
-                  <TableHead className='w-[36px]'></TableHead>
+                  <TableHead className='w-[36px] p-1 text-center'></TableHead>
                   {!isUserOrCustomer && (
                     <TableHead className='w-[40px]'>
                       <Checkbox
@@ -890,14 +890,14 @@ export default function PickupsDashboard() {
                     </TableHead>
                   )}
                   <TableHead className='w-[140px]'>Tracking #</TableHead>
-                  <TableHead>Shipper / Sender</TableHead>
-                  <TableHead>Pickup Location</TableHead>
-                  <TableHead>Destination</TableHead>
-                  <TableHead>Boxes</TableHead>
-                  <TableHead>Verified Wt</TableHead>
-                  <TableHead>Scale Proof</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className='text-right'>Actions</TableHead>
+                  <TableHead className='w-[170px]'>Shipper / Sender</TableHead>
+                  <TableHead className='w-[220px]'>Pickup Location</TableHead>
+                  <TableHead className='w-[170px]'>Destination</TableHead>
+                  <TableHead className='w-[60px] text-center'>Boxes</TableHead>
+                  <TableHead className='w-[90px]'>Verified Wt</TableHead>
+                  <TableHead className='w-[100px]'>Scale Proof</TableHead>
+                  <TableHead className='w-[140px]'>Status</TableHead>
+                  <TableHead className='w-[150px] text-right'>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -940,7 +940,7 @@ export default function PickupsDashboard() {
                         </Button>
                       </TableCell>
                       {!isUserOrCustomer && (
-                        <TableCell>
+                        <TableCell className='w-[40px]'>
                           <Checkbox
                             checked={selectedIds.includes(pickup.id)}
                             onCheckedChange={() => handleToggleSelect(pickup.id)}
@@ -948,24 +948,26 @@ export default function PickupsDashboard() {
                           />
                         </TableCell>
                       )}
-                      <TableCell className='font-mono font-bold text-xs'>
+                      <TableCell className='w-[140px] font-mono font-bold text-xs'>
                         {pickup.trackingNumber}
                       </TableCell>
-                      <TableCell>
-                        <div className='font-semibold text-xs'>{pickup.senderName}</div>
+                      <TableCell className='w-[170px] max-w-[170px]'>
+                        <div className='font-semibold text-xs truncate' title={pickup.senderName}>
+                          {pickup.senderName}
+                        </div>
                         {pickup.senderPhone && (
                           <a
                             href={`tel:${pickup.senderPhone}`}
-                            className='text-[11px] text-primary hover:underline'
+                            className='text-[11px] text-primary hover:underline block truncate'
                           >
                             {pickup.senderPhone}
                           </a>
                         )}
                       </TableCell>
-                      <TableCell className='max-w-[200px] text-xs text-muted-foreground'>
+                      <TableCell className='w-[220px] max-w-[220px] text-xs text-muted-foreground'>
                         {pickup.pickupLocations && pickup.pickupLocations.length > 0 ? (
                           <div className='space-y-0.5'>
-                            <div className='truncate font-medium text-foreground'>
+                            <div className='truncate font-medium text-foreground' title={pickup.pickupLocations[0].location}>
                               {pickup.pickupLocations[0].location}
                             </div>
                             {pickup.pickupLocations.length > 1 && (
@@ -975,26 +977,30 @@ export default function PickupsDashboard() {
                             )}
                           </div>
                         ) : (
-                          <span className='truncate'>{pickup.senderAddress}</span>
+                          <div className='truncate font-medium text-foreground' title={pickup.senderAddress || ''}>
+                            {pickup.senderAddress || '-'}
+                          </div>
                         )}
                       </TableCell>
-                      <TableCell className='text-xs'>
-                        <div>{pickup.receiverCountry}</div>
-                        <div className='text-[11px] text-muted-foreground truncate'>
+                      <TableCell className='w-[170px] max-w-[170px] text-xs'>
+                        <div className='font-semibold text-foreground truncate' title={pickup.receiverCountry || ''}>
+                          {pickup.receiverCountry || '-'}
+                        </div>
+                        <div className='text-[11px] text-muted-foreground truncate' title={pickup.receiverName || ''}>
                           {pickup.receiverName}
                         </div>
                       </TableCell>
-                      <TableCell className='text-xs font-semibold'>
+                      <TableCell className='w-[60px] text-center text-xs font-semibold'>
                         {pickup.noOfBox || 1}
                       </TableCell>
-                      <TableCell className='text-xs font-semibold'>
+                      <TableCell className='w-[90px] text-xs font-semibold'>
                         {pickup.weight ? `${pickup.weight} kg` : '-'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className='w-[100px]'>
                         {(() => {
                           const photos = getPickupPhotos(pickup)
                           if (photos.length === 0) {
-                            return <span className='text-[11px] text-muted-foreground'>None</span>
+                            return <span className='text-[11px] text-muted-foreground/60 italic'>—</span>
                           }
                           const firstPhoto = photos[0]
                           const totalCount = photos.length

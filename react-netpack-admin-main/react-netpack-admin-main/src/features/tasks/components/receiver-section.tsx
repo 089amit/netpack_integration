@@ -55,6 +55,14 @@ export function ReceiverSection({
   sameAsSender = false,
   onSameAsSenderChange,
 }: ReceiverSectionProps) {
+  const [surchargeInfo, setSurchargeInfo] = useState<{
+    hasSurcharge: boolean
+    type?: string
+    message: string
+    rate?: number
+    currency?: string
+    service?: string
+  } | null>(null)
   const [surchargeType, setSurchargeType] = useState<string | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
   const [verificationResult, setVerificationResult] = useState<{
@@ -155,11 +163,11 @@ export function ReceiverSection({
     formData?.receiver.country,
   ])
 
-  // Fetch surcharge whenever country + (city or postcode) changes
+  // Fetch surcharge whenever country + (city, postcode, addressLine1, or state) changes
   useEffect(() => {
     const fetchSurcharge = async () => {
       if (!formData?.receiver.country) return
-      if (!formData?.receiver.city && !formData?.receiver.postcode) return
+      if (!formData?.receiver.city && !formData?.receiver.postcode && !formData?.receiver.addressLine1) return
 
       try {
         const res = await fetch(ENQUIRY_ENDPOINTS.CHECK_SURCHARGE, {
@@ -169,23 +177,47 @@ export function ReceiverSection({
             countryName: formData.receiver.country,
             city: formData.receiver.city || undefined,
             postalCode: formData.receiver.postcode || undefined,
+            addressLine1: formData.receiver.addressLine1 || undefined,
+            state: formData.receiver.state || undefined,
           }),
         })
 
         const data = await res.json()
         if (data.success || data.hasSurcharge) {
-          setSurchargeType(data.formattedWarning || data.surchargeMessage || data.message || data.surchargeType || null)
+          const rawType = data.type || data.surchargeType || ''
+          const isRes = String(rawType).toUpperCase().includes('RES')
+          const isEas = String(rawType).toUpperCase().includes('EAS')
+          const cleanType = isRes ? 'RES' : isEas ? 'EAS' : (rawType || 'SURCHARGE')
+          const msg = data.formattedWarning || data.surchargeMessage || data.message || `${cleanType} Surcharge Applied`
+
+          setSurchargeInfo({
+            hasSurcharge: true,
+            type: cleanType,
+            message: msg,
+            rate: data.rate || data.amount,
+            currency: data.currency || 'USD',
+            service: data.service,
+          })
+          setSurchargeType(msg)
         } else {
+          setSurchargeInfo(null)
           setSurchargeType(null)
         }
       } catch (err) {
         console.error('Failed to fetch surcharge', err)
+        setSurchargeInfo(null)
         setSurchargeType(null)
       }
     }
 
     fetchSurcharge()
-  }, [formData?.receiver.country, formData?.receiver.city, formData?.receiver.postcode])
+  }, [
+    formData?.receiver.country,
+    formData?.receiver.city,
+    formData?.receiver.postcode,
+    formData?.receiver.addressLine1,
+    formData?.receiver.state,
+  ])
 
   return (
     <div className='pl-6'>
@@ -456,10 +488,41 @@ export function ReceiverSection({
         />
 
         {/* Display surcharge info */}
-        {surchargeType && (
-          <div className='mt-3 flex items-center gap-2 rounded-md border border-red-400 bg-red-50 px-3.5 py-2.5 text-xs font-semibold text-red-700 shadow-sm dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'>
-            <span className='text-sm shrink-0'>⚠️</span>
-            <span>{surchargeType}</span>
+        {(surchargeInfo || surchargeType) && (
+          <div className='mt-3 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50/95 p-3.5 text-xs shadow-sm dark:border-amber-700 dark:bg-amber-950/40'>
+            <span className='text-base shrink-0 leading-none mt-0.5'>⚠️</span>
+            <div className='flex flex-col gap-1 min-w-0 flex-1'>
+              <div className='flex items-center gap-2 flex-wrap'>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold tracking-wide uppercase ${
+                    surchargeInfo?.type === 'RES'
+                      ? 'bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-950 dark:text-orange-300'
+                      : surchargeInfo?.type === 'EAS'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+                      : 'bg-red-100 text-red-800 border border-red-300 dark:bg-red-950 dark:text-red-300'
+                  }`}
+                >
+                  {surchargeInfo?.type === 'RES'
+                    ? '🏠 RESIDENTIAL AREA (RES)'
+                    : surchargeInfo?.type === 'EAS'
+                    ? '📍 EXTENDED AREA (EAS)'
+                    : `${surchargeInfo?.type || 'SURCHARGE'} APPLIED`}
+                </span>
+                {surchargeInfo?.rate != null && (
+                  <span className='font-semibold text-amber-900 dark:text-amber-200'>
+                    +{surchargeInfo.rate} {surchargeInfo.currency} / kg
+                  </span>
+                )}
+                {surchargeInfo?.service && (
+                  <span className='text-muted-foreground text-[11px]'>
+                    via {surchargeInfo.service}
+                  </span>
+                )}
+              </div>
+              <p className='text-amber-900/90 dark:text-amber-200/90 font-medium leading-relaxed'>
+                {surchargeInfo?.message || surchargeType}
+              </p>
+            </div>
           </div>
         )}
       </div>
