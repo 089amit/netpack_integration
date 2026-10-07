@@ -900,7 +900,6 @@ export default function CustomManifestPage() {
                           <th className='px-3 py-2.5 text-right'>Weight (KG)</th>
                           <th className='px-3 py-2.5 text-left w-32'>Bag Marking</th>
                           <th className='px-3 py-2.5 text-center w-28'>Clearance</th>
-                          <th className='px-3 py-2.5 text-left'>Database Goods</th>
                         </tr>
                       </thead>
                       <tbody className='divide-y'>
@@ -934,7 +933,9 @@ export default function CustomManifestPage() {
                                   &rarr; {r.Details.split('->')[1]}
                                 </div>
                               </td>
-                              <td className='px-3 py-2 font-medium'>{r.Country}</td>
+                              <td className='px-3 py-2 font-medium'>
+                                {r.Country || s?.destinationCountryName || '—'}
+                              </td>
                               <td className='px-3 py-2 text-center font-bold'>{r.Box}</td>
                               <td className='px-3 py-2 text-right font-mono font-medium'>{r.Weight}</td>
                               <td className='px-3 py-2' onClick={(e) => e.stopPropagation()}>
@@ -962,25 +963,6 @@ export default function CustomManifestPage() {
                                     {isSep ? 'Separate' : 'Doko'}
                                   </span>
                                 </div>
-                              </td>
-                              <td className='px-3 py-2'>
-                                {s?.enquiryItems && s.enquiryItems.length > 0 ? (
-                                  <div className='space-y-0.5 max-w-xs'>
-                                    {s.enquiryItems.map((it, i) => (
-                                      <div key={i} className='truncate font-medium text-[10px]'>
-                                        &bull; {it.description}:{' '}
-                                        <span className='font-bold text-primary'>
-                                          {it.quantity} PCS
-                                        </span>{' '}
-                                        (${it.totalValue})
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className='text-muted-foreground italic text-[10px]'>
-                                    {s?.goodsDescription || 'General Goods'}
-                                  </span>
-                                )}
                               </td>
                             </tr>
                           )

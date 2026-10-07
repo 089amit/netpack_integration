@@ -199,7 +199,25 @@ def _fetch_mawb_shipments(mawb_query: str, db: Session) -> Tuple[Any, List[Dict[
     formatted_shipments = []
     for s in shipments:
         enq = s.enquiry
-        country_name = s.country.name if s.country else (enq.country.name if enq and enq.country else "")
+        # Destination / receiver country should ALWAYS be the receiver's destination country, not sender country
+        dest_country = ""
+        if enq:
+            if enq.receiverCountry and enq.receiverCountry.strip():
+                dest_country = enq.receiverCountry.strip()
+            elif enq.country and enq.country.name and enq.country.name.strip().lower() != (enq.senderCountry or "Nepal").strip().lower():
+                dest_country = enq.country.name.strip()
+            elif enq.destinationLocation and enq.destinationLocation.strip():
+                dest_country = enq.destinationLocation.strip()
+            elif enq.country and enq.country.name:
+                dest_country = enq.country.name.strip()
+
+        if not dest_country and s.country and s.country.name:
+            if not enq or not enq.senderCountry or s.country.name.strip().lower() != enq.senderCountry.strip().lower():
+                dest_country = s.country.name.strip()
+            else:
+                dest_country = s.country.name.strip()
+
+        country_name = dest_country or "International"
         boxes = s.boxes or (enq.boxes if enq else []) or []
         items = enq.items if enq else []
 
