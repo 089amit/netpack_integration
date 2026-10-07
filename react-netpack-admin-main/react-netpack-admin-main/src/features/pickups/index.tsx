@@ -178,6 +178,7 @@ export default function PickupsDashboard() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
+          ids: selectedIds,
           pickupIds: selectedIds,
           status: 'PICKED_UP',
         }),
@@ -520,21 +521,41 @@ export default function PickupsDashboard() {
                   </CardHeader>
 
                   <CardContent className='p-4 pt-1 space-y-3 text-xs'>
-                    {/* Pickup Address & Location */}
-                    <div className='flex items-start gap-1.5 text-muted-foreground bg-muted/30 p-2 rounded-md'>
-                      <MapPin className='h-4 w-4 shrink-0 text-primary mt-0.5' />
-                      <span className='line-clamp-2 text-foreground font-medium'>
-                        {pickup.pickupLocations && pickup.pickupLocations[0]?.location
-                          ? pickup.pickupLocations[0].location
-                          : pickup.senderAddress}
-                      </span>
+                    {/* Pickup Address & Multi-Location Stops */}
+                    <div className='flex flex-col gap-1.5 text-muted-foreground bg-muted/30 p-2 rounded-md'>
+                      {pickup.pickupLocations && pickup.pickupLocations.length > 0 ? (
+                        pickup.pickupLocations.map((loc: any, lIdx: number) => (
+                          <div key={lIdx} className='flex items-start gap-1.5 text-xs text-foreground'>
+                            <MapPin className='h-3.5 w-3.5 shrink-0 text-primary mt-0.5' />
+                            <div className='flex-1 min-w-0'>
+                              <div className='font-medium leading-snug'>
+                                {pickup.pickupLocations.length > 1 && (
+                                  <span className='mr-1 rounded bg-primary/10 px-1 py-0.2 text-[10px] font-bold text-primary'>
+                                    Stop #{lIdx + 1}
+                                  </span>
+                                )}
+                                {loc.location}
+                              </div>
+                              {loc.phoneNumber && (
+                                <div className='text-[10px] text-muted-foreground'>Tel: {loc.phoneNumber}</div>
+                              )}
+                              {loc.note && (
+                                <div className='text-[10px] text-amber-700 dark:text-amber-400 font-medium mt-0.5'>
+                                  Note: {loc.note}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className='flex items-start gap-1.5'>
+                          <MapPin className='h-4 w-4 shrink-0 text-primary mt-0.5' />
+                          <span className='line-clamp-2 text-foreground font-medium'>
+                            {pickup.senderAddress}
+                          </span>
+                        </div>
+                      )}
                     </div>
-
-                    {pickup.pickupLocations && pickup.pickupLocations[0]?.note && (
-                      <div className='rounded border border-amber-300/40 bg-amber-50/60 p-2 text-[11px] text-amber-900 dark:bg-amber-950/30 dark:text-amber-300'>
-                        <strong>Note:</strong> {pickup.pickupLocations[0].note}
-                      </div>
-                    )}
 
                     {/* Weight & Boxes Specs */}
                     <div className='grid grid-cols-2 gap-2 rounded-lg border bg-background p-2.5'>
@@ -757,10 +778,21 @@ export default function PickupsDashboard() {
                           </a>
                         )}
                       </TableCell>
-                      <TableCell className='max-w-[200px] truncate text-xs text-muted-foreground'>
-                        {pickup.pickupLocations && pickup.pickupLocations[0]?.location
-                          ? pickup.pickupLocations[0].location
-                          : pickup.senderAddress}
+                      <TableCell className='max-w-[200px] text-xs text-muted-foreground'>
+                        {pickup.pickupLocations && pickup.pickupLocations.length > 0 ? (
+                          <div className='space-y-0.5'>
+                            <div className='truncate font-medium text-foreground'>
+                              {pickup.pickupLocations[0].location}
+                            </div>
+                            {pickup.pickupLocations.length > 1 && (
+                              <div className='text-[10px] font-semibold text-primary'>
+                                +{pickup.pickupLocations.length - 1} more stop{pickup.pickupLocations.length > 2 ? 's' : ''}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className='truncate'>{pickup.senderAddress}</span>
+                        )}
                       </TableCell>
                       <TableCell className='text-xs'>
                         <div>{pickup.receiverCountry}</div>

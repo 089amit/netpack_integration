@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   ArrowRight,
   Filter,
+  Plus,
 } from 'lucide-react'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -43,6 +44,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { toast } from 'sonner'
@@ -57,6 +67,7 @@ interface SurchargeRuleItem {
   country?: string
   amount?: number
   currency?: string
+  surchargeType?: string
   description?: string
   isActive?: boolean
   createdAt?: string
@@ -70,6 +81,18 @@ export default function SurchargesPage() {
   const [page, setPage] = useState<number>(1)
   const [uploading, setUploading] = useState<boolean>(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Create rule modal state
+  const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false)
+  const [newCode, setNewCode] = useState<string>('')
+  const [newService, setNewService] = useState<string>('')
+  const [newCity, setNewCity] = useState<string>('')
+  const [newCountry, setNewCountry] = useState<string>('')
+  const [newRate, setNewRate] = useState<string>('')
+  const [newCurrency, setNewCurrency] = useState<string>('USD')
+  const [newType, setNewType] = useState<string>('RES')
+  const [newDescription, setNewDescription] = useState<string>('')
+  const [creating, setCreating] = useState<boolean>(false)
 
   // Live tester state
   const [testZip, setTestZip] = useState<string>('')
@@ -185,15 +208,53 @@ export default function SurchargesPage() {
     }
   }
 
+  const handleCreateRule = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newCity.trim() && !newCode.trim()) {
+      toast.error('Please enter at least a Postal Code or City')
+      return
+    }
+
+    setCreating(true)
+    try {
+      await http.post(SURCHARGE_ENDPOINTS.CREATE, {
+        zipCode: newCode.trim() || undefined,
+        service: newService.trim() || 'Express',
+        city: newCity.trim() || undefined,
+        country: newCountry.trim() || undefined,
+        amount: newRate.trim() ? parseFloat(newRate) : undefined,
+        currency: newCurrency.trim() || 'USD',
+        surchargeType: newType || 'RES',
+        description: newDescription.trim() || undefined,
+      })
+
+      toast.success('Surcharge rule created successfully!')
+      setIsCreateOpen(false)
+      setNewCode('')
+      setNewService('')
+      setNewCity('')
+      setNewCountry('')
+      setNewRate('')
+      setNewCurrency('USD')
+      setNewType('RES')
+      setNewDescription('')
+      fetchRules()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || 'Failed to create surcharge rule')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   const downloadSampleCsv = () => {
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      'Zip code,Service,City,Country,Amount\n' +
-      '90210,DHL,Beverly Hills,United States,25.00\n' +
-      'EC1A 1BB,FedEx,London,United Kingdom,30.00\n' +
-      'M5V 2T6,UPS,Toronto,Canada,20.00\n' +
-      '2000,DHL,Sydney,Australia,25.00\n' +
-      '400001,Aramex,Mumbai,India,15.00\n'
+      'Code,Service,City,Country,Rate,Currency,Type\n' +
+      '800,Aramex,Darwin,Australia,2.56,USD,RES\n' +
+      '249,UPS,Scotland,UK,100,EUR,EAS\n' +
+      '90210,DHL,Beverly Hills,United States,25.00,USD,RES\n' +
+      'EC1A 1BB,FedEx,London,United Kingdom,30.00,GBP,EAS\n' +
+      'M5V 2T6,UPS,Toronto,Canada,20.00,USD,RES\n'
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement('a')
     link.setAttribute('href', encodedUri)
@@ -383,6 +444,142 @@ export default function SurchargesPage() {
               </div>
 
               <div className='flex items-center gap-2'>
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                  <DialogTrigger asChild>
+                    <Button size='sm' className='h-8 text-xs gap-1.5 bg-primary'>
+                      <Plus className='h-3.5 w-3.5' />
+                      <span>Create Surcharge Rule</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className='sm:max-w-[480px]'>
+                    <DialogHeader>
+                      <DialogTitle>Create Surcharge Rule</DialogTitle>
+                      <DialogDescription>
+                        Manually define a remote area or delivery area surcharge for a location or carrier service.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateRule} className='space-y-3.5 pt-2'>
+                      <div className='grid grid-cols-2 gap-3'>
+                        <div>
+                          <label className='text-xs font-semibold text-muted-foreground'>
+                            Code / Postal Code
+                          </label>
+                          <Input
+                            placeholder='e.g. 800 or 90210'
+                            value={newCode}
+                            onChange={(e) => setNewCode(e.target.value)}
+                            className='h-8 text-xs mt-1'
+                          />
+                        </div>
+                        <div>
+                          <label className='text-xs font-semibold text-muted-foreground'>
+                            Service / Carrier
+                          </label>
+                          <Input
+                            placeholder='e.g. Aramex, UPS, DHL'
+                            value={newService}
+                            onChange={(e) => setNewService(e.target.value)}
+                            className='h-8 text-xs mt-1'
+                          />
+                        </div>
+                      </div>
+
+                      <div className='grid grid-cols-2 gap-3'>
+                        <div>
+                          <label className='text-xs font-semibold text-muted-foreground'>
+                            City / Location <span className='text-destructive'>*</span>
+                          </label>
+                          <Input
+                            placeholder='e.g. Darwin, Scotland'
+                            value={newCity}
+                            onChange={(e) => setNewCity(e.target.value)}
+                            className='h-8 text-xs mt-1'
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className='text-xs font-semibold text-muted-foreground'>
+                            Country
+                          </label>
+                          <Input
+                            placeholder='e.g. Australia, UK'
+                            value={newCountry}
+                            onChange={(e) => setNewCountry(e.target.value)}
+                            className='h-8 text-xs mt-1'
+                          />
+                        </div>
+                      </div>
+
+                      <div className='grid grid-cols-3 gap-3'>
+                        <div>
+                          <label className='text-xs font-semibold text-muted-foreground'>
+                            Rate (per kg)
+                          </label>
+                          <Input
+                            type='number'
+                            step='0.01'
+                            placeholder='e.g. 2.56'
+                            value={newRate}
+                            onChange={(e) => setNewRate(e.target.value)}
+                            className='h-8 text-xs mt-1'
+                          />
+                        </div>
+                        <div>
+                          <label className='text-xs font-semibold text-muted-foreground'>
+                            Currency
+                          </label>
+                          <Input
+                            placeholder='USD, EUR, GBP'
+                            value={newCurrency}
+                            onChange={(e) => setNewCurrency(e.target.value.toUpperCase())}
+                            className='h-8 text-xs mt-1 font-mono'
+                          />
+                        </div>
+                        <div>
+                          <label className='text-xs font-semibold text-muted-foreground'>
+                            Type
+                          </label>
+                          <select
+                            value={newType}
+                            onChange={(e) => setNewType(e.target.value)}
+                            className='h-8 w-full mt-1 rounded-md border border-input bg-background px-2 text-xs font-medium'
+                          >
+                            <option value='RES'>RES (Residential)</option>
+                            <option value='EAS'>EAS (Extended Area)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className='text-xs font-semibold text-muted-foreground'>
+                          Description / Note (optional)
+                        </label>
+                        <Input
+                          placeholder='e.g. Northern Territory delivery surcharge'
+                          value={newDescription}
+                          onChange={(e) => setNewDescription(e.target.value)}
+                          className='h-8 text-xs mt-1'
+                        />
+                      </div>
+
+                      <DialogFooter className='pt-2'>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='sm'
+                          onClick={() => setIsCreateOpen(false)}
+                          disabled={creating}
+                        >
+                          Cancel
+                        </Button>
+                        <Button type='submit' size='sm' disabled={creating}>
+                          {creating ? 'Saving...' : 'Save Rule'}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+
                 <div className='relative w-64'>
                   <Search className='absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground' />
                   <Input
@@ -447,11 +644,12 @@ export default function SurchargesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className='w-[140px]'>Zip / Postal Code</TableHead>
+                    <TableHead className='w-[130px]'>Code / Zip</TableHead>
                     <TableHead>Service</TableHead>
                     <TableHead>City</TableHead>
                     <TableHead>Country</TableHead>
-                    <TableHead>Amount / Currency</TableHead>
+                    <TableHead>Rate / Currency</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className='text-right'>Action</TableHead>
                   </TableRow>
@@ -459,20 +657,20 @@ export default function SurchargesPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className='h-24 text-center text-xs text-muted-foreground'>
+                      <TableCell colSpan={8} className='h-24 text-center text-xs text-muted-foreground'>
                         Loading surcharge rules...
                       </TableCell>
                     </TableRow>
                   ) : rules.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className='h-32 text-center'>
+                      <TableCell colSpan={8} className='h-32 text-center'>
                         <div className='flex flex-col items-center justify-center text-muted-foreground'>
                           <ShieldAlert className='h-8 w-8 mb-2 opacity-40' />
                           <p className='text-sm font-semibold'>No Surcharge Rules Found</p>
                           <p className='text-xs mt-0.5'>
                             {search
                               ? 'No rules match your search query.'
-                              : 'Upload a CSV or Excel sheet with Zip code, Service, and City columns.'}
+                              : 'Upload a CSV/Excel file or click "Create Surcharge Rule" to add a rule.'}
                           </p>
                         </div>
                       </TableCell>
@@ -495,7 +693,18 @@ export default function SurchargesPage() {
                           {rule.country || '-'}
                         </TableCell>
                         <TableCell className='text-xs font-semibold'>
-                          {rule.amount ? `${rule.currency || 'USD'} ${rule.amount}` : '-'}
+                          {rule.amount != null ? `${rule.amount} ${rule.currency || 'USD'}` : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              (rule.surchargeType || 'RES') === 'EAS'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 text-[10px]'
+                                : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 text-[10px]'
+                            }
+                          >
+                            {rule.surchargeType || 'RES'}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge className='bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px]'>

@@ -210,11 +210,14 @@ export default function CustomManifestPage() {
       }))
       setMawbs(mapped)
       if (mapped.length > 0) {
-        // Check URL search parameter ?mawb=...
+        // Check URL search parameter ?mawb=... or localStorage fallback
         const urlParams = new URLSearchParams(window.location.search)
-        const targetParam = urlParams.get('mawb')
+        const targetParam = urlParams.get('mawb') || localStorage.getItem('netpack_selected_custom_mawb')
+        if (localStorage.getItem('netpack_selected_custom_mawb')) {
+          localStorage.removeItem('netpack_selected_custom_mawb')
+        }
         const matchedFromUrl = targetParam
-          ? mapped.find((m: any) => m.mawbNumber === targetParam || m.id === targetParam)
+          ? mapped.find((m: any) => String(m.mawbNumber) === String(targetParam) || String(m.id) === String(targetParam))
           : null
 
         setSelectedMawb((prev) => {

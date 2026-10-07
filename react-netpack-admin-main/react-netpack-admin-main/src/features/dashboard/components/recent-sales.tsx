@@ -137,7 +137,7 @@ export function RecentEnquiry() {
               <p className='text-sm leading-none font-medium'>{enquiry.name}</p>
               <div className='flex items-center gap-2'>
                 <p className='text-muted-foreground text-xs font-medium'>
-                  To: {enquiry.receiverName}
+                  Consignee: {enquiry.receiverName}
                 </p>
                 <span className='text-muted-foreground text-xs'>•</span>
                 <p className='text-muted-foreground text-xs'>

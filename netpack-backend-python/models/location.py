@@ -74,6 +74,7 @@ class SurchargeRule(Base):
     country = Column(String(100), nullable=True, index=True)
     amount = Column(Float, nullable=True)
     currency = Column(String(10), default="USD")
+    surchargeType = Column(String(50), default="RES")
     description = Column(String(255), nullable=True)
     isActive = Column(Boolean, default=True)
     createdAt = Column(DateTime, default=datetime.utcnow)

@@ -389,6 +389,45 @@ def create_enquiry(
                 value=_to_float(b.value)
             )
             db.add(box)
+            db.flush()
+
+            # Attach items to box
+            raw_items = (getattr(b, "items", None) if not isinstance(b, dict) else b.get("items")) or []
+            raw_selections = (getattr(b, "itemSelections", None) if not isinstance(b, dict) else b.get("itemSelections")) or []
+
+            has_box_items = False
+            if raw_selections:
+                for sel in raw_selections:
+                    sel_item_id = sel.get("itemId") if isinstance(sel, dict) else getattr(sel, "itemId", None)
+                    sel_qty = _to_int(sel.get("quantity") if isinstance(sel, dict) else getattr(sel, "quantity", 1), 1)
+                    target_ei_id = None
+                    try:
+                        idx_val = int(sel_item_id)
+                        if 0 <= idx_val < len(created_items):
+                            target_ei_id = created_items[idx_val].id
+                    except (ValueError, TypeError):
+                        pass
+                    if not target_ei_id:
+                        try:
+                            act_id = int(sel_item_id)
+                            target_ei_id = act_id
+                        except (ValueError, TypeError):
+                            pass
+                    if target_ei_id:
+                        db.add(BoxItem(boxId=box.id, enquiryItemId=target_ei_id, quantity=sel_qty))
+                        has_box_items = True
+            elif raw_items:
+                for bi in raw_items:
+                    bi_item_id = bi.get("enquiryItemId") if isinstance(bi, dict) else getattr(bi, "enquiryItemId", None)
+                    bi_qty = _to_int(bi.get("quantity") if isinstance(bi, dict) else getattr(bi, "quantity", 1), 1)
+                    if bi_item_id:
+                        db.add(BoxItem(boxId=box.id, enquiryItemId=int(bi_item_id), quantity=bi_qty))
+                        has_box_items = True
+
+            # If only 1 box exists and no items explicitly selected, auto-link all created_items
+            if len(boxes_list) == 1 and not has_box_items:
+                for ci in created_items:
+                    db.add(BoxItem(boxId=box.id, enquiryItemId=ci.id, quantity=ci.quantity or 1))
     else:
         # Default create num_boxes boxes
         per_box_wt = round(computed_weight / max(num_boxes, 1), 2)
@@ -407,6 +446,10 @@ def create_enquiry(
                 value=round(total_items_val / max(num_boxes, 1), 2) if total_items_val else None
             )
             db.add(box)
+            db.flush()
+            if num_boxes == 1:
+                for ci in created_items:
+                    db.add(BoxItem(boxId=box.id, enquiryItemId=ci.id, quantity=ci.quantity or 1))
 
     # Add Pickup Locations
     if payload.pickupLocations:
@@ -591,7 +634,10 @@ def update_enquiry(
 
     # 2. Update Boxes if provided
     if payload.boxes is not None and len(payload.boxes) > 0:
-        db.query(Box).filter(Box.enquiryId == e.id).delete()
+        existing_box_ids = [b.id for b in db.query(Box.id).filter(Box.enquiryId == e.id).all()]
+        if existing_box_ids:
+            db.query(BoxItem).filter(BoxItem.boxId.in_(existing_box_ids)).delete(synchronize_session=False)
+        db.query(Box).filter(Box.enquiryId == e.id).delete(synchronize_session=False)
         db.flush()
 
         total_actual_wt = 0.0
@@ -656,6 +702,11 @@ def update_enquiry(
                     bi_qty = _to_int(bi.get("quantity") if isinstance(bi, dict) else getattr(bi, "quantity", 1), 1)
                     if bi_item_id:
                         db.add(BoxItem(boxId=box.id, enquiryItemId=int(bi_item_id), quantity=bi_qty))
+
+            # If only 1 box exists and no items explicitly selected/attached, auto-link all created_items
+            if len(payload.boxes) == 1 and not raw_selections and not raw_items:
+                for ci in created_items:
+                    db.add(BoxItem(boxId=box.id, enquiryItemId=ci.id, quantity=ci.quantity or 1))
 
         e.noOfBox = len(payload.boxes)
         e.weight = round(total_actual_wt, 2) if total_actual_wt > 0 else (e.weight or 1.0)
@@ -734,6 +785,18 @@ def delete_enquiry(id: int, db: Session = Depends(get_db)):
     e = db.query(Enquiry).filter(Enquiry.id == id).first()
     if not e:
         raise HTTPException(status_code=404, detail="Enquiry not found")
+
+    # Clean up associated shipments if any remain
+    if e.shipments:
+        for s in e.shipments:
+            db.delete(s)
+        db.flush()
+
+    # Clean up box_items before deleting boxes
+    box_ids = [b.id for b in db.query(Box.id).filter(Box.enquiryId == e.id).all()]
+    if box_ids:
+        db.query(BoxItem).filter(BoxItem.boxId.in_(box_ids)).delete(synchronize_session=False)
+
     db.delete(e)
     db.commit()
     return {"message": "Enquiry deleted successfully"}
@@ -753,8 +816,11 @@ def add_box_item(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
         if not e:
             raise HTTPException(status_code=404, detail="Enquiry not found")
 
-        # Clear existing boxes for this enquiry
-        db.query(Box).filter(Box.enquiryId == e.id).delete()
+        # Clear existing box items and boxes for this enquiry
+        existing_box_ids = [b.id for b in db.query(Box.id).filter(Box.enquiryId == e.id).all()]
+        if existing_box_ids:
+            db.query(BoxItem).filter(BoxItem.boxId.in_(existing_box_ids)).delete(synchronize_session=False)
+        db.query(Box).filter(Box.enquiryId == e.id).delete(synchronize_session=False)
         db.flush()
 
         total_weight = 0.0
@@ -785,12 +851,15 @@ def add_box_item(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
             db.add(new_box)
             db.flush()
 
-            # Attach items
+            # Attach items (deduplicating to avoid uix_box_enquiry_item constraint error)
             item_ids = b_info.get("itemIds") or []
+            seen_items = set()
             for item_id_str in item_ids:
                 try:
                     ei_id = int(item_id_str)
-                    db.add(BoxItem(boxId=new_box.id, enquiryItemId=ei_id, quantity=qty))
+                    if ei_id not in seen_items:
+                        seen_items.add(ei_id)
+                        db.add(BoxItem(boxId=new_box.id, enquiryItemId=ei_id, quantity=qty))
                 except (ValueError, TypeError):
                     pass
 
@@ -861,13 +930,23 @@ def check_area_surcharge(payload: Dict[str, Any], db: Session = Depends(get_db))
 
     if surcharge_rule:
         svc_name = surcharge_rule.service or service or "Express"
-        loc_str = surcharge_rule.city or surcharge_rule.zipCode or location_name or "Area"
-        msg = f"({loc_str} Surcharge applied with {svc_name} service)"
+        rate_val = surcharge_rule.amount
+        curr_val = surcharge_rule.currency or "USD"
+        type_val = getattr(surcharge_rule, "surchargeType", None) or "RES"
+        if rate_val is not None:
+            msg = f"{rate_val} {curr_val} per kg will be applied as {type_val} for this address while being delivered by {svc_name}"
+        else:
+            loc_str = surcharge_rule.city or surcharge_rule.zipCode or location_name or "Area"
+            msg = f"Surcharge will be applied as {type_val} for this address ({loc_str}) while being delivered by {svc_name}"
         return {
             "hasSurcharge": True,
             "success": True,
-            "surchargeType": msg,
+            "surchargeType": type_val,
             "surchargeMessage": msg,
+            "formattedWarning": msg,
+            "rate": rate_val,
+            "currency": curr_val,
+            "type": type_val,
             "service": svc_name,
             "city": surcharge_rule.city,
             "zipCode": surcharge_rule.zipCode

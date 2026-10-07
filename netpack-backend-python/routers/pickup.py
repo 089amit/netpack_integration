@@ -165,7 +165,8 @@ class PickupStatusUpdate(BaseModel):
 
 
 class BatchPickupStatusUpdate(BaseModel):
-    ids: List[int]
+    ids: Optional[List[int]] = None
+    pickupIds: Optional[List[int]] = None
     status: str = "PICKED_UP"
     riderNotes: Optional[str] = None
 
@@ -409,10 +410,11 @@ def batch_update_pickup_status(
     Available for Admin, Operator, and CSD staff.
     """
     requester = get_requester_identity(authorization, db)
-    if not payload.ids:
+    target_ids = payload.ids or payload.pickupIds or []
+    if not target_ids:
         raise HTTPException(status_code=400, detail="No pickup IDs provided")
 
-    query = db.query(Enquiry).filter(Enquiry.id.in_(payload.ids))
+    query = db.query(Enquiry).filter(Enquiry.id.in_(target_ids))
     if requester.is_user_or_customer:
         query = query.filter(get_user_enquiry_filter(requester))
 

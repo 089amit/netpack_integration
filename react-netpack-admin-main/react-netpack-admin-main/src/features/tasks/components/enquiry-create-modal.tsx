@@ -1003,19 +1003,18 @@ export function EnquiryModalForm({
         // Remove boxes
         newBoxes = newBoxes.slice(0, num)
       }
-      // Point 8: If exactly 1 box, auto-assign all items to Box 1 if empty
+      // If exactly 1 box, auto-assign all items with exact available quantities to Box 1
       if (
         num === 1 &&
         newBoxes.length === 1 &&
-        (!newBoxes[0].itemSelections || newBoxes[0].itemSelections.length === 0) &&
         prev.items &&
         prev.items.length > 0
       ) {
         newBoxes[0] = {
           ...newBoxes[0],
           itemSelections: prev.items.map((it: any, idx: number) => ({
-            itemId: it.id || `item-${idx}`,
-            quantity: parseInt(it.quantity) || 1,
+            itemId: String(idx),
+            quantity: Math.max(1, parseInt(it.quantity) || 1),
           })),
         } as Box
       }
@@ -1027,19 +1026,30 @@ export function EnquiryModalForm({
     })
   }
 
-  // Point 8: Auto-assign items to Box 1 if only 1 box exists and it has no item selections
+  // Auto-assign and sync items to Box 1 if only 1 box exists (user does not need to select numbers)
   useEffect(() => {
     if (formData?.boxes?.length === 1 && formData.items && formData.items.length > 0) {
       const box1 = formData.boxes[0]
-      if (!box1.itemSelections || box1.itemSelections.length === 0) {
+      const targetSelections = formData.items.map((it: any, idx: number) => ({
+        itemId: String(idx),
+        quantity: Math.max(1, parseInt(it.quantity) || 1),
+      }))
+
+      const isMismatch =
+        !box1.itemSelections ||
+        box1.itemSelections.length !== targetSelections.length ||
+        targetSelections.some(
+          (tgt, i) =>
+            box1.itemSelections[i]?.itemId !== tgt.itemId ||
+            box1.itemSelections[i]?.quantity !== tgt.quantity
+        )
+
+      if (isMismatch) {
         setFormData((prev) => {
           if (!prev || !prev.boxes || prev.boxes.length !== 1) return prev
           const updatedBox = {
             ...prev.boxes[0],
-            itemSelections: prev.items.map((it: any, idx: number) => ({
-              itemId: it.id || `item-${idx}`,
-              quantity: parseInt(it.quantity) || 1,
-            })),
+            itemSelections: targetSelections,
           }
           return {
             ...prev,

@@ -183,6 +183,9 @@ export function DataTableRowActions<TData>({
           <DropdownMenuItem
             onClick={() => {
               const mawbParam = task.mawbNumber || task.id
+              if (mawbParam) {
+                localStorage.setItem('netpack_selected_custom_mawb', String(mawbParam))
+              }
               window.location.href = `/custom-manifest?mawb=${encodeURIComponent(mawbParam)}`
             }}
           >

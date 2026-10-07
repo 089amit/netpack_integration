@@ -174,7 +174,7 @@ export function ReceiverSection({
 
         const data = await res.json()
         if (data.success || data.hasSurcharge) {
-          setSurchargeType(data.surchargeMessage || data.surchargeType || null)
+          setSurchargeType(data.formattedWarning || data.surchargeMessage || data.message || data.surchargeType || null)
         } else {
           setSurchargeType(null)
         }
@@ -457,9 +457,9 @@ export function ReceiverSection({
 
         {/* Display surcharge info */}
         {surchargeType && (
-          <div className='mt-3 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'>
-            <span>⚠️</span>
-            <span>{surchargeType.includes('Surcharge') ? surchargeType : `${surchargeType} Surcharge Applied`}</span>
+          <div className='mt-3 flex items-center gap-2 rounded-md border border-red-400 bg-red-50 px-3.5 py-2.5 text-xs font-semibold text-red-700 shadow-sm dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'>
+            <span className='text-sm shrink-0'>⚠️</span>
+            <span>{surchargeType}</span>
           </div>
         )}
       </div>

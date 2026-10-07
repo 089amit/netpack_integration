@@ -211,8 +211,10 @@ export const WEBSITE_CONTENT_ENDPOINTS = {
 
 export const SURCHARGE_ENDPOINTS = {
   LIST: `${BASE_URL}/surcharges`,
+  CREATE: `${BASE_URL}/surcharges`,
   UPLOAD: `${BASE_URL}/surcharges/upload`,
   CHECK: `${BASE_URL}/surcharges/check`,
+  SAMPLE: `${BASE_URL}/surcharges/sample`,
   DELETE: (id: number | string) => `${BASE_URL}/surcharges/${id}`,
   CLEAR_ALL: `${BASE_URL}/surcharges/clear-all`,
 }

@@ -6,13 +6,19 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 
 from database import get_db, Base, engine
 from models.location import SurchargeRule
 
-# Ensure table exists in database
+# Ensure table and surchargeType column exist in database
 Base.metadata.create_all(bind=engine, tables=[SurchargeRule.__table__])
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE surcharge_rules ADD COLUMN surchargeType VARCHAR(50) DEFAULT 'RES'"))
+        conn.commit()
+except Exception:
+    pass
 
 router = APIRouter(prefix="/api/surcharges", tags=["Surcharges"])
 
@@ -22,6 +28,7 @@ class SurchargeCheckRequest(BaseModel):
     city: Optional[str] = None
     service: Optional[str] = None
     country: Optional[str] = None
+    countryName: Optional[str] = None
 
 
 class SurchargeRuleCreate(BaseModel):
@@ -31,7 +38,65 @@ class SurchargeRuleCreate(BaseModel):
     country: Optional[str] = None
     amount: Optional[float] = None
     currency: Optional[str] = "USD"
+    surchargeType: Optional[str] = "RES"
     description: Optional[str] = None
+
+
+@router.post("")
+@router.post("/")
+def create_surcharge_rule(
+    payload: SurchargeRuleCreate,
+    db: Session = Depends(get_db)
+):
+    rule = SurchargeRule(
+        zipCode=payload.zipCode.strip() if payload.zipCode else None,
+        service=payload.service.strip() if payload.service else "Express",
+        city=payload.city.strip() if payload.city else None,
+        country=payload.country.strip() if payload.country else None,
+        amount=payload.amount,
+        currency=(payload.currency or "USD").upper().strip(),
+        surchargeType=(payload.surchargeType or "RES").upper().strip(),
+        description=payload.description.strip() if payload.description else None,
+        isActive=True,
+        createdAt=datetime.utcnow(),
+        updatedAt=datetime.utcnow()
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return {
+        "message": "Surcharge rule created successfully",
+        "data": {
+            "id": rule.id,
+            "zipCode": rule.zipCode,
+            "service": rule.service,
+            "city": rule.city,
+            "country": rule.country,
+            "amount": rule.amount,
+            "currency": rule.currency,
+            "surchargeType": getattr(rule, "surchargeType", "RES"),
+            "description": rule.description,
+            "isActive": rule.isActive,
+            "createdAt": rule.createdAt.isoformat() if rule.createdAt else None
+        }
+    }
+
+
+@router.get("/sample")
+def download_sample_csv():
+    from fastapi.responses import Response
+    sample_content = (
+        "Code,Service,City,Country,Rate,Currency,Type\n"
+        "800,Aramex,Darwin,Australia,2.56,USD,RES\n"
+        "249,UPS,Scotland,UK,100,EUR,EAS\n"
+        "90210,DHL,Beverly Hills,United States,25.00,USD,RES\n"
+        "EC1A 1BB,FedEx,London,United Kingdom,30.00,GBP,EAS\n"
+    )
+    return Response(
+        content=sample_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=surcharge_sample_template.csv"}
+    )
 
 
 @router.get("")
@@ -50,7 +115,8 @@ def get_surcharge_rules(
                 SurchargeRule.zipCode.ilike(s),
                 SurchargeRule.city.ilike(s),
                 SurchargeRule.service.ilike(s),
-                SurchargeRule.country.ilike(s)
+                SurchargeRule.country.ilike(s),
+                SurchargeRule.surchargeType.ilike(s)
             )
         )
     total = query.count()
@@ -69,6 +135,7 @@ def get_surcharge_rules(
                 "country": r.country,
                 "amount": r.amount,
                 "currency": r.currency,
+                "surchargeType": getattr(r, "surchargeType", "RES") or "RES",
                 "description": r.description,
                 "isActive": r.isActive,
                 "createdAt": r.createdAt.isoformat() if r.createdAt else None
@@ -84,36 +151,51 @@ async def upload_surcharges_file(
     db: Session = Depends(get_db)
 ):
     """
-    Accepts CSV or Excel (.xlsx/.xls) file containing:
-    'Zip code', 'Service', 'City' (case-insensitive headers).
+    Accepts CSV or Excel (.xlsx/.xls) file containing columns:
+    'Code'/'Zip code', 'Service', 'City', 'Country', 'Rate'/'Amount', 'Currency', 'Type' (RES/EAS).
     """
     filename = (file.filename or "").lower()
     content = await file.read()
 
     rows_data: List[Dict[str, Any]] = []
 
+    def _parse_row(norm: Dict[str, Any]):
+        zip_val = norm.get("code") or norm.get("zip code") or norm.get("zipcode") or norm.get("zip") or norm.get("postal code") or norm.get("postcode")
+        service_val = norm.get("service") or norm.get("service name") or norm.get("carrier") or "Standard Express"
+        city_val = norm.get("city") or norm.get("location") or norm.get("town")
+        country_val = norm.get("country") or norm.get("country code")
+        raw_amt = norm.get("rate") or norm.get("amount") or norm.get("charge") or norm.get("fee")
+        currency_val = (norm.get("currency") or norm.get("curr") or "USD").upper().strip()
+        type_val = (norm.get("type") or norm.get("surchargetype") or norm.get("category") or "RES").upper().strip()
+        
+        parsed_amt = None
+        if raw_amt:
+            try:
+                parsed_amt = float(str(raw_amt).replace(",", "").strip())
+            except (ValueError, TypeError):
+                parsed_amt = None
+
+        if zip_val or city_val or country_val:
+            rows_data.append({
+                "zipCode": str(zip_val).strip() if zip_val else None,
+                "service": str(service_val).strip(),
+                "city": str(city_val).strip() if city_val else None,
+                "country": str(country_val).strip() if country_val else None,
+                "amount": parsed_amt,
+                "currency": currency_val,
+                "surchargeType": type_val
+            })
+
     if filename.endswith(".csv") or filename.endswith(".txt"):
         try:
-            text = content.decode("utf-8-sig")
+            text_data = content.decode("utf-8-sig")
         except UnicodeDecodeError:
-            text = content.decode("latin-1")
+            text_data = content.decode("latin-1")
 
-        reader = csv.DictReader(io.StringIO(text))
+        reader = csv.DictReader(io.StringIO(text_data))
         for row in reader:
-            # Normalize keys to lowercase stripped
-            norm = {k.strip().lower(): (v.strip() if v else "") for k, v in row.items() if k}
-            zip_val = norm.get("zip code") or norm.get("zipcode") or norm.get("zip") or norm.get("postal code") or norm.get("postcode")
-            service_val = norm.get("service") or norm.get("service name") or norm.get("carrier")
-            city_val = norm.get("city") or norm.get("location") or norm.get("town")
-            country_val = norm.get("country") or norm.get("country code")
-
-            if zip_val or city_val:
-                rows_data.append({
-                    "zipCode": zip_val or None,
-                    "service": service_val or "Standard Express",
-                    "city": city_val or None,
-                    "country": country_val or None
-                })
+            norm = {str(k).strip().lower(): (str(v).strip() if v else "") for k, v in row.items() if k}
+            _parse_row(norm)
     elif filename.endswith(".xlsx") or filename.endswith(".xls"):
         try:
             import openpyxl
@@ -127,25 +209,15 @@ async def upload_surcharges_file(
                 if not any(row):
                     continue
                 row_dict = dict(zip(headers, row))
-                zip_val = str(row_dict.get("zip code") or row_dict.get("zipcode") or row_dict.get("zip") or row_dict.get("postal code") or row_dict.get("postcode") or "").strip()
-                service_val = str(row_dict.get("service") or row_dict.get("service name") or row_dict.get("carrier") or "").strip()
-                city_val = str(row_dict.get("city") or row_dict.get("location") or row_dict.get("town") or "").strip()
-                country_val = str(row_dict.get("country") or "").strip()
-
-                if zip_val or city_val:
-                    rows_data.append({
-                        "zipCode": zip_val or None,
-                        "service": service_val or "Standard Express",
-                        "city": city_val or None,
-                        "country": country_val or None
-                    })
+                norm = {str(k).strip().lower(): (str(v).strip() if v is not None else "") for k, v in row_dict.items() if k}
+                _parse_row(norm)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to parse Excel file: {str(e)}")
     else:
         raise HTTPException(status_code=400, detail="Unsupported file format. Please upload a .csv or .xlsx file.")
 
     if not rows_data:
-        raise HTTPException(status_code=400, detail="No valid surcharge rows found in file. Ensure headers include 'Zip code', 'Service', 'City'.")
+        raise HTTPException(status_code=400, detail="No valid surcharge rows found in file. Supported headers: Code, Service, City, Country, Rate, Currency, Type.")
 
     inserted_count = 0
     now = datetime.utcnow()
@@ -155,6 +227,9 @@ async def upload_surcharges_file(
             service=item["service"],
             city=item["city"],
             country=item.get("country"),
+            amount=item.get("amount"),
+            currency=item.get("currency") or "USD",
+            surchargeType=item.get("surchargeType") or "RES",
             isActive=True,
             createdAt=now,
             updatedAt=now
@@ -177,11 +252,12 @@ def check_surcharge(
     """
     Checks if given postal code or city matches any uploaded surcharge rules.
     Returns:
-    { "hasSurcharge": true, "message": "(... Surcharge applied with ... service)", "service": "...", ... }
+    { "hasSurcharge": true, "message": "...", "formattedWarning": "...", "service": "...", "amount": 2.56, "currency": "USD", "type": "RES" }
     """
     zip_code = (payload.postalCode or "").strip()
     city = (payload.city or "").strip()
     service = (payload.service or "").strip()
+    country = (payload.country or payload.countryName or "").strip()
 
     if not zip_code and not city:
         return {"hasSurcharge": False}
@@ -205,15 +281,27 @@ def check_surcharge(
 
     if match:
         svc_name = match.service or service or "Express"
-        loc_str = match.city or match.zipCode or "Destination"
-        msg = f"({loc_str} Surcharge applied with {svc_name} service)"
+        rate_val = match.amount
+        curr_val = match.currency or "USD"
+        type_val = getattr(match, "surchargeType", None) or "RES"
+
+        if rate_val is not None:
+            formatted_msg = f"{rate_val} {curr_val} per kg will be applied as {type_val} for this address while being delivered by {svc_name}"
+        else:
+            loc_str = match.city or match.zipCode or "Destination"
+            formatted_msg = f"Surcharge will be applied as {type_val} for this address ({loc_str}) while being delivered by {svc_name}"
+
         return {
             "hasSurcharge": True,
-            "message": msg,
+            "message": formatted_msg,
+            "formattedWarning": formatted_msg,
             "service": svc_name,
             "city": match.city,
             "zipCode": match.zipCode,
+            "country": match.country,
             "amount": match.amount,
+            "currency": curr_val,
+            "type": type_val,
             "ruleId": match.id
         }
 

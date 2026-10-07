@@ -33,6 +33,48 @@ function formatDateTime(isoStr?: string | null): string {
   }
 }
 
+function playNotificationChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+    const now = ctx.currentTime
+
+    // Two-tone pleasant notification chime
+    const osc1 = ctx.createOscillator()
+    const gain1 = ctx.createGain()
+    osc1.type = 'sine'
+    osc1.frequency.setValueAtTime(587.33, now) // D5
+    gain1.gain.setValueAtTime(0.25, now)
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3)
+    osc1.connect(gain1)
+    gain1.connect(ctx.destination)
+    osc1.start(now)
+    osc1.stop(now + 0.3)
+
+    const osc2 = ctx.createOscillator()
+    const gain2 = ctx.createGain()
+    osc2.type = 'sine'
+    osc2.frequency.setValueAtTime(880, now + 0.12) // A5
+    gain2.gain.setValueAtTime(0.3, now + 0.12)
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5)
+    osc2.connect(gain2)
+    gain2.connect(ctx.destination)
+    osc2.start(now + 0.12)
+    osc2.stop(now + 0.5)
+  } catch (err) {
+    console.warn('Notification audio chime error:', err)
+  }
+}
+
+function triggerVibrationAlert() {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200, 100, 300])
+    }
+  } catch {}
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Screen = 'home' | 'shipments' | 'book' | 'notifications' | 'profile' | 'rateenquiry' | 'tracking'
@@ -63,6 +105,7 @@ interface Shipment {
   weightProofImageUrl?: string
   riderName?: string
   riderPhone?: string
+  pickupLocations?: Array<{ id?: number; location: string; phoneNumber?: string; note?: string }>
 }
 
 interface NotificationItem {
@@ -2286,9 +2329,33 @@ function BookScreen({
   const [pickupPhone, setPickupPhone] = useState(userSavedPhone)
   const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[0])
   const [pickupNotes, setPickupNotes] = useState('')
+  const [extraStops, setExtraStops] = useState<
+    Array<{ id: string; address: string; phone: string; timeSlot: string; notes: string }>
+  >([])
   const [submitted, setSubmitted] = useState(false)
   const [bookingTracking, setBookingTracking] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const handleAddPickupStop = () => {
+    setExtraStops(prev => [
+      ...prev,
+      {
+        id: `stop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        address: '',
+        phone: userSavedPhone || '',
+        timeSlot: TIME_SLOTS[0],
+        notes: '',
+      },
+    ])
+  }
+
+  const handleRemovePickupStop = (id: string) => {
+    setExtraStops(prev => prev.filter(s => s.id !== id))
+  }
+
+  const handleUpdatePickupStop = (id: string, field: string, val: string) => {
+    setExtraStops(prev => prev.map(s => (s.id === id ? { ...s, [field]: val } : s)))
+  }
 
   const handleUseMyAddressForPickup = () => {
     if (userSavedAddress) {
@@ -2319,6 +2386,24 @@ function BookScreen({
 
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('netpack_customer_token') : null
+
+      const allPickupLocations = doorstepPickup
+        ? [
+            {
+              location: pickupAddress,
+              phone: pickupPhone,
+              timeSlot: timeSlot,
+              note: pickupNotes,
+            },
+            ...extraStops.map(s => ({
+              location: s.address,
+              phone: s.phone,
+              timeSlot: s.timeSlot,
+              note: s.notes,
+            })),
+          ].filter(p => p.location && p.location.trim().length > 0)
+        : []
+
       const payloadData = {
         commodity: commodity || 'General Cargo',
         approximateWeight: parseFloat(weight) || 1,
@@ -2333,6 +2418,7 @@ function BookScreen({
         pickupPhone,
         pickupPreferredTime: timeSlot,
         pickupNote: pickupNotes,
+        pickupLocations: allPickupLocations,
       }
 
       let res = await fetch(`${API_BASE}/api/customer/enquiries`, {
@@ -2647,6 +2733,84 @@ function BookScreen({
                 <FieldLabel>Pickup Notes for Driver</FieldLabel>
                 <TextInput placeholder="e.g., Near landmark, call before arriving" value={pickupNotes} onChange={setPickupNotes} />
               </div>
+
+              {/* Extra Pickup Stops */}
+              {extraStops.map((stop, sIdx) => (
+                <div key={stop.id} className="bg-blue-50/40 rounded-xl border border-blue-200/80 p-3.5 space-y-3 relative">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-blue-200/50">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
+                        {sIdx + 2}
+                      </span>
+                      <span className="text-xs font-bold text-[#0D1B2A]">
+                        Additional Pickup Location #{sIdx + 2}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePickupStop(stop.id)}
+                      className="text-red-500 hover:text-red-600 text-[11px] font-semibold flex items-center gap-1 cursor-pointer active:scale-95"
+                    >
+                      <IconClose size={12} /> Remove
+                    </button>
+                  </div>
+
+                  <div>
+                    <FieldLabel required>Stop #{sIdx + 2} Address in Kathmandu</FieldLabel>
+                    <TextInput
+                      placeholder="e.g., Patan, Baneshwor, Baluwatar"
+                      value={stop.address}
+                      onChange={v => handleUpdatePickupStop(stop.id, 'address', v)}
+                    />
+                  </div>
+
+                  <div>
+                    <FieldLabel required>Contact Phone for Stop #{sIdx + 2}</FieldLabel>
+                    <TextInput
+                      placeholder="e.g., 98XXXXXXXX"
+                      value={stop.phone}
+                      onChange={v => handleUpdatePickupStop(stop.id, 'phone', v)}
+                      type="tel"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <FieldLabel>Time Slot</FieldLabel>
+                      <div className="relative">
+                        <select
+                          value={stop.timeSlot}
+                          onChange={e => handleUpdatePickupStop(stop.id, 'timeSlot', e.target.value)}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none font-medium"
+                        >
+                          {TIME_SLOTS.map(t => (
+                            <option key={t}>{t}</option>
+                          ))}
+                        </select>
+                        <IconChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <FieldLabel>Notes / Landmark</FieldLabel>
+                      <TextInput
+                        placeholder="e.g., Near landmark"
+                        value={stop.notes}
+                        onChange={v => handleUpdatePickupStop(stop.id, 'notes', v)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Add Another Pickup Location Button */}
+              <button
+                type="button"
+                onClick={handleAddPickupStop}
+                className="w-full py-2.5 px-3 rounded-xl border border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 text-blue-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.99]"
+              >
+                <span>+ Add Another Pickup Location (Multi-Stop)</span>
+              </button>
             </div>
           )}
 
@@ -2659,9 +2823,9 @@ function BookScreen({
             </button>
             <button
               onClick={handleConfirmBooking}
-              disabled={submitting}
+              disabled={submitting || (doorstepPickup && (!pickupAddress.trim() || !pickupPhone.trim()))}
               style={{ fontFamily: 'Jost, sans-serif' }}
-              className="flex-[2] bg-[#0D1B2A] text-white font-600 text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 active:opacity-90 shadow-md shadow-slate-300 cursor-pointer"
+              className="flex-[2] bg-[#0D1B2A] disabled:bg-gray-300 text-white font-600 text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 active:opacity-90 shadow-md shadow-slate-300 cursor-pointer"
             >
               {submitting ? 'Confirming...' : 'Confirm & Request Pickup'}
               <IconArrowRight size={16} />
@@ -3045,7 +3209,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
 
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword
   const signupValid = Boolean(
-    fullName && email && phone && address1 && city && country && password && confirmPassword && password === confirmPassword
+    fullName && email && phone && address1 && city && stateProvince.trim() && country && password && confirmPassword && password === confirmPassword
   )
   const loginValid = Boolean(loginEmail && loginPassword)
 
@@ -3104,6 +3268,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
           address1: address1.trim(),
           address2: address2 ? address2.trim() : null,
           city: city.trim(),
+          state: stateProvince.trim(),
           postcode: postcode ? postcode.trim() : null,
           countryId: selectedOpt.id,
         }),
@@ -3480,8 +3645,8 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
                 <TextInput placeholder="City" value={city} onChange={setCity} />
               </div>
               <div>
-                <FieldLabel>State / Province</FieldLabel>
-                <TextInput placeholder="State (optional)" value={stateProvince} onChange={setStateProvince} />
+                <FieldLabel required>State / Province</FieldLabel>
+                <TextInput placeholder="State / Province" value={stateProvince} onChange={setStateProvince} />
               </div>
             </div>
 
@@ -3553,6 +3718,7 @@ function OnboardingModal({
   const [address1, setAddress1] = useState('')
   const [address2, setAddress2] = useState('')
   const [city, setCity] = useState('Kathmandu')
+  const [stateProvince, setStateProvince] = useState('')
   const [postcode, setPostcode] = useState('')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -3591,6 +3757,7 @@ function OnboardingModal({
         setAddress1(customerUser.address1 || '')
         setAddress2(customerUser.address2 || '')
         setCity(customerUser.city || 'Kathmandu')
+        setStateProvince(customerUser.state || '')
         setPostcode(customerUser.postcode || '')
         setPhotoUrl(customerUser.photoUrl || null)
       }
@@ -3648,6 +3815,10 @@ function OnboardingModal({
       toast.error('Please enter Address Line 1')
       return
     }
+    if (!stateProvince.trim()) {
+      toast.error('Please enter State / Province')
+      return
+    }
     if (!customerToken) return
 
     setSaving(true)
@@ -3661,6 +3832,7 @@ function OnboardingModal({
       address1: address1.trim(),
       address2: address2 ? address2.trim() : null,
       city: city.trim() || 'Kathmandu',
+      state: stateProvince.trim(),
       postcode: postcode ? postcode.trim() : null,
       countryId: matchedOpt?.id || 1,
       country: selectedCountry,
@@ -3857,19 +4029,25 @@ function OnboardingModal({
                 />
               </div>
 
-              {/* 5. City & Postcode in 2 columns */}
+              {/* 5. City & State / Province in 2 columns */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <FieldLabel required>City</FieldLabel>
                   <TextInput placeholder="City" value={city} onChange={setCity} />
                 </div>
                 <div>
-                  <FieldLabel>Postcode</FieldLabel>
-                  <TextInput placeholder="Postcode" value={postcode} onChange={setPostcode} />
+                  <FieldLabel required>State / Province</FieldLabel>
+                  <TextInput placeholder="State / Province" value={stateProvince} onChange={setStateProvince} />
                 </div>
               </div>
 
-              {/* 6. Telephone with Dynamic Dial Code Badge */}
+              {/* 6. Postcode */}
+              <div>
+                <FieldLabel>Postcode</FieldLabel>
+                <TextInput placeholder="Postcode" value={postcode} onChange={setPostcode} />
+              </div>
+
+              {/* 7. Telephone with Dynamic Dial Code Badge */}
               <div>
                 <FieldLabel required>Telephone</FieldLabel>
                 <div className="flex gap-2">
@@ -3890,7 +4068,7 @@ function OnboardingModal({
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={saving || !name.trim() || !phone.trim() || !address1.trim()}
+                  disabled={saving || !name.trim() || !phone.trim() || !address1.trim() || !stateProvince.trim()}
                   style={{ fontFamily: 'Jost, sans-serif' }}
                   className="w-full bg-[#2563EB] disabled:bg-gray-300 text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 transition-all cursor-pointer"
                 >
@@ -4002,6 +4180,7 @@ export default function CustomerPWA() {
 
   // Real backend state: clean empty default so new accounts have 0 consignments
   const [shipments, setShipments] = useState<Shipment[]>([])
+  const prevStatusesRef = useRef<Record<string, string>>({})
   const [customerToken, setCustomerToken] = useState<string | null>(() => {
     return typeof window !== 'undefined' ? localStorage.getItem('netpack_customer_token') : null
   })
@@ -4167,6 +4346,7 @@ export default function CustomerPWA() {
             receiverCity: b.receiverCity,
             riderName: b.riderName,
             riderPhone: b.riderPhone,
+            pickupLocations: b.pickupLocations || [],
             weightProofImages: Array.isArray(b.weightProofImages) && b.weightProofImages.length > 0
               ? b.weightProofImages
               : b.weightProofImageUrl
@@ -4174,6 +4354,27 @@ export default function CustomerPWA() {
               : [],
             weightProofImageUrl: b.weightProofImageUrl,
           }))
+
+          // Check for status changes to trigger sound/vibration chime
+          let hasStatusChange = false
+          const prevMap = prevStatusesRef.current
+          const isInitialLoad = Object.keys(prevMap).length === 0
+          const currentMap: Record<string, string> = {}
+
+          mapped.forEach(s => {
+            currentMap[s.id] = s.status
+            if (!isInitialLoad && prevMap[s.id] && prevMap[s.id] !== s.status) {
+              hasStatusChange = true
+              toast.info(`Shipment ${s.tracking} updated: ${s.status.replace(/_/g, ' ').toUpperCase()}`)
+            }
+          })
+          prevStatusesRef.current = currentMap
+
+          if (hasStatusChange) {
+            playNotificationChime()
+            triggerVibrationAlert()
+          }
+
           setShipments(mapped)
         } else {
           setShipments([])
@@ -4186,19 +4387,24 @@ export default function CustomerPWA() {
 
   useEffect(() => {
     fetchShipments()
-    if (customerToken) {
-      fetch(`${API_BASE}/api/customer/profile`, {
-        headers: { Authorization: `Bearer ${customerToken}` },
+    if (!customerToken) return
+
+    // Auto poll shipments every 20 seconds for real-time tracking updates
+    const pollInterval = setInterval(fetchShipments, 20000)
+
+    fetch(`${API_BASE}/api/customer/profile`, {
+      headers: { Authorization: `Bearer ${customerToken}` },
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (data && data.id) {
+          setCustomerUser(data)
+          localStorage.setItem('netpack_customer_user', JSON.stringify(data))
+        }
       })
-        .then(res => (res.ok ? res.json() : null))
-        .then(data => {
-          if (data && data.id) {
-            setCustomerUser(data)
-            localStorage.setItem('netpack_customer_user', JSON.stringify(data))
-          }
-        })
-        .catch(() => {})
-    }
+      .catch(() => {})
+
+    return () => clearInterval(pollInterval)
   }, [customerToken])
 
   const handleSignOut = () => {

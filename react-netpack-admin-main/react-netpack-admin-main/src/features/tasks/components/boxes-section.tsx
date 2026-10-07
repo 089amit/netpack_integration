@@ -122,6 +122,7 @@ export function BoxesSection({
               5000
             const lps =
               (box.length || 0) + 2 * (box.breadth || 0) + 2 * (box.height || 0)
+            const isActualWeightWarning = (box.weight || 0) > countryWeightLimit
             const isVolWarning = volWeight > countryWeightLimit
             const isLpsWarning = lps > 300
             const volHighlight = volWeight > (box.weight || 0)
@@ -144,13 +145,13 @@ export function BoxesSection({
                   <div
                     className={cn(
                       'inline-flex items-center rounded-full px-3 py-1 text-sm font-medium transition-colors',
-                      chareableweight > countryWeightLimit
-                        ? 'bg-red-100 text-red-600'
+                      chareableweight > countryWeightLimit || isActualWeightWarning
+                        ? 'bg-red-100 text-red-600 font-semibold'
                         : 'bg-green-100 text-green-800'
                     )}
                   >
                     CW: {chareableweight} kg
-                    {chareableweight > countryWeightLimit && (
+                    {(chareableweight > countryWeightLimit || isActualWeightWarning) && (
                       <span className='ml-1 text-xs font-normal'>
                         (Exceeds {countryWeightLimit} kg limit{countryName ? ` for ${countryName}` : ''})
                       </span>
@@ -261,10 +262,15 @@ export function BoxesSection({
                       }
                       className={cn(
                         'h-8',
-                        currentBoxErrors?.weight &&
-                          'border-red-500 ring-1 ring-red-500'
+                        (currentBoxErrors?.weight || isActualWeightWarning) &&
+                          'border-red-500 ring-1 ring-red-500 text-red-600 font-semibold'
                       )}
                     />
+                    {isActualWeightWarning && (
+                      <p className='text-[10px] text-red-600 mt-0.5 leading-tight font-medium'>
+                        Exceeds {countryWeightLimit} kg
+                      </p>
+                    )}
                   </div>
 
                   <div

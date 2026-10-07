@@ -59,6 +59,7 @@ class CustomerSignupRequest(BaseModel):
     address1: Optional[str] = None
     address2: Optional[str] = None
     city: Optional[str] = None
+    state: Optional[str] = None
     postcode: Optional[str] = None
     countryId: Optional[int] = None
     country: Optional[str] = None
@@ -149,6 +150,7 @@ class CustomerEnquiryCreateRequest(BaseModel):
     pickupPhone: Optional[str] = None
     pickupNote: Optional[str] = None
     pickupPreferredTime: Optional[str] = None
+    pickupLocations: Optional[List[Dict[str, Any]]] = None
 
 
 # ─── Auth Dependencies ───────────────────────────────────────────────────────
@@ -483,6 +485,7 @@ def customer_signup(
         address1=payload.address1,
         address2=payload.address2,
         city=payload.city or "Kathmandu",
+        state=payload.state,
         postcode=payload.postcode,
         countryId=country_id,
         photoUrl=payload.photoUrl
@@ -804,19 +807,35 @@ def create_customer_enquiry(
 
     # Optional Doorstep Pickup Request
     if payload.isPickupRequired:
-        pickup_loc = payload.pickupAddress or sender_address
-        pickup_ph = payload.pickupPhone or sender_phone
-        pickup_note_str = payload.pickupNote or ""
-        if payload.pickupPreferredTime:
-            pickup_note_str = f"Preferred: {payload.pickupPreferredTime}. {pickup_note_str}".strip()
+        if payload.pickupLocations and len(payload.pickupLocations) > 0:
+            for p_loc in payload.pickupLocations:
+                loc_str = (p_loc.get("location") or p_loc.get("address") or sender_address or "").strip()
+                if loc_str:
+                    note_str = p_loc.get("note") or p_loc.get("notes") or ""
+                    time_slot = p_loc.get("timeSlot") or p_loc.get("preferredTime")
+                    if time_slot:
+                        note_str = f"Preferred: {time_slot}. {note_str}".strip()
+                    pickup_entry = PickupLocationEnquiry(
+                        enquiryId=enq.id,
+                        location=loc_str,
+                        phoneNumber=(p_loc.get("phoneNumber") or p_loc.get("phone") or sender_phone or "").strip(),
+                        note=note_str
+                    )
+                    db.add(pickup_entry)
+        else:
+            pickup_loc = payload.pickupAddress or sender_address
+            pickup_ph = payload.pickupPhone or sender_phone
+            pickup_note_str = payload.pickupNote or ""
+            if payload.pickupPreferredTime:
+                pickup_note_str = f"Preferred: {payload.pickupPreferredTime}. {pickup_note_str}".strip()
 
-        pickup_entry = PickupLocationEnquiry(
-            enquiryId=enq.id,
-            location=pickup_loc,
-            phoneNumber=pickup_ph,
-            note=pickup_note_str
-        )
-        db.add(pickup_entry)
+            pickup_entry = PickupLocationEnquiry(
+                enquiryId=enq.id,
+                location=pickup_loc,
+                phoneNumber=pickup_ph,
+                note=pickup_note_str
+            )
+            db.add(pickup_entry)
 
     # Generate milestone notification for customer
     notif = Notification(
@@ -864,6 +883,11 @@ def get_customer_shipments(
         conditions.append(Enquiry.createdBy == current_customer.userId)
     if current_customer.email:
         conditions.append(Enquiry.senderEmail.ilike(current_customer.email.strip()))
+    if current_customer.phone and current_customer.phone.strip():
+        clean_phone = current_customer.phone.strip()
+        conditions.append(Enquiry.senderPhone == clean_phone)
+        if len(clean_phone) >= 9:
+            conditions.append(Enquiry.senderPhone.like(f"%{clean_phone[-9:]}"))
 
     enquiries = db.query(Enquiry).filter(or_(*conditions)).order_by(Enquiry.createdAt.desc()).all()
     
@@ -891,6 +915,16 @@ def get_customer_shipments(
 
         proof_images = [u.strip() for u in (e.weightProofImageUrl or "").split(",") if u.strip()]
 
+        locs = [
+            {
+                "id": pl.id,
+                "location": pl.location,
+                "phoneNumber": pl.phoneNumber,
+                "note": pl.note
+            }
+            for pl in (e.pickupLocations or [])
+        ]
+
         result.append({
             "id": e.id,
             "shipmentId": linked_shipment.id if linked_shipment else None,
@@ -912,6 +946,7 @@ def get_customer_shipments(
             "trackingMode": getattr(e, "trackingMode", "MANUAL") or "MANUAL",
             "isPickupRequired": getattr(e, "pickupRequired", True),
             "isPacked": is_packed,
+            "pickupLocations": locs,
             "riderName": (e.pickupStaff.fullName or e.pickupStaff.username) if e.pickupStaff else None,
             "riderPhone": e.pickupStaff.phoneNumber if e.pickupStaff else None,
             "pickedUpAt": e.pickedUpAt.isoformat() if e.pickedUpAt else None,
@@ -920,6 +955,37 @@ def get_customer_shipments(
         })
 
     return result
+
+
+@router.get("/shipments/{enquiry_id}/pickup-locations")
+def get_shipment_pickup_locations(
+    enquiry_id: int,
+    current_customer: Customer = Depends(get_current_customer),
+    db: Session = Depends(get_db)
+):
+    enq = db.query(Enquiry).filter(Enquiry.id == enquiry_id).first()
+    if not enq:
+        raise HTTPException(status_code=404, detail="Enquiry not found")
+    
+    is_owner = (
+        enq.customerId == current_customer.id or
+        (current_customer.userId and enq.createdBy == current_customer.userId) or
+        (current_customer.email and enq.senderEmail and enq.senderEmail.lower() == current_customer.email.lower()) or
+        (current_customer.phone and enq.senderPhone and current_customer.phone[-9:] in enq.senderPhone)
+    )
+    if not is_owner:
+        raise HTTPException(status_code=403, detail="Not authorized to view this shipment's pickup locations")
+
+    return [
+        {
+            "id": pl.id,
+            "location": pl.location,
+            "phoneNumber": pl.phoneNumber,
+            "note": pl.note,
+            "createdAt": pl.createdAt.isoformat() if pl.createdAt else None
+        }
+        for pl in (enq.pickupLocations or [])
+    ]
 
 
 # ─── Customer Notifications ──────────────────────────────────────────────────
