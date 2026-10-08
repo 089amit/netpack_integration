@@ -62,6 +62,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/health", tags=["Health"])
+def health_check():
+    import sys
+    from config import DATABASE_URL
+    db_masked = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else ("sqlite" if "sqlite" in DATABASE_URL else "configured")
+    db_status = "ok"
+    try:
+        from database import SessionLocal
+        from sqlalchemy import text
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    return {
+        "status": "healthy" if db_status == "ok" else "degraded",
+        "python_version": sys.version.split(" ")[0],
+        "database": db_masked,
+        "database_status": db_status,
+        "serverless": bool(os.getenv("VERCEL"))
+    }
+
 # Mount uploaded files safely
 try:
     if not config.UPLOADS_DIR.exists():

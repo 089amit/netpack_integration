@@ -45,13 +45,35 @@ def _format_content(row: WebsiteContent):
 @router.get("")
 @router.get("/")
 def get_website_content(db: Session = Depends(get_db)):
-    content = db.query(WebsiteContent).first()
-    if not content:
-        content = WebsiteContent()
-        db.add(content)
-        db.commit()
-        db.refresh(content)
-    return _format_content(content)
+    try:
+        content = db.query(WebsiteContent).first()
+        if not content:
+            content = WebsiteContent()
+            db.add(content)
+            db.commit()
+            db.refresh(content)
+        return _format_content(content)
+    except Exception as e:
+        print(f"[WebsiteContent Warning] Fallback content served: {e}")
+        return {
+            "id": 1,
+            "heroTitle": "Fast & Reliable Courier Services in Teku, Kathmandu",
+            "heroSubtitle": "Your trusted partner for secure package delivery across Nepal and worldwide. Track your shipment in real-time.",
+            "heroBadge": "Teku, Kathmandu Headquarters",
+            "contactPhone": "015339942",
+            "contactEmail": "admin@netpacklogistic.com",
+            "contactAddress": "Teku Road, Ward No. 15, Kathmandu, Nepal",
+            "businessHours": "10:00 am - 5:00 pm (Sun - Fri)",
+            "tickerItems": [
+                "Reliable International Air Cargo",
+                "Express Express Courier to 220+ Countries",
+                "Daily Kathmandu Pickup & Delivery",
+                "Live Real-Time Package Tracking"
+            ],
+            "festiveTheme": "auto",
+            "festiveGreeting": "Happy Vijaya Dashami & Deepawali 2081! Wishing peace and prosperity to all our valued clients.",
+            "updatedAt": None
+        }
 
 @router.put("")
 @router.put("/")

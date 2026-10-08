@@ -33,7 +33,7 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
     public static final String PREFS_NAME = "netpack_customer_prefs";
     public static final String KEY_SERVER_URL = "server_url";
     public static final String KEY_LAST_NOTIF_ID = "last_notification_id";
-    public static final String DEFAULT_SERVER_URL = "http://192.168.1.6:8000";
+    public static final String DEFAULT_SERVER_URL = "https://netpackintegration.vercel.app";
 
     @Override
     public void onReceive(Context context, Intent intent) {
