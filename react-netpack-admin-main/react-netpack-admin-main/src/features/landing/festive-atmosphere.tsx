@@ -13,6 +13,12 @@ export interface FestivalMetadata {
   badgeText: string
   bannerGradient: string
   emoji: string
+  // Dynamic UI theme tokens
+  rootBg: string
+  headerBg: string
+  cardGlassBg: string
+  heroGlow: string
+  accentBorder: string
 }
 
 export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
@@ -22,11 +28,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'बडा दशैँ',
     tag: 'Festive Season',
     defaultGreeting: 'बडा दशैँको हार्दिक मङ्गलमय शुभकामना | Happy Vijaya Dashami!',
-    badgeBg: 'bg-amber-500/10 dark:bg-amber-500/20',
-    badgeBorder: 'border-amber-500/30',
-    badgeText: 'text-amber-800 dark:text-amber-200',
-    bannerGradient: 'from-amber-500/15 via-orange-500/10 to-transparent',
+    badgeBg: 'bg-amber-500/15 dark:bg-amber-500/25',
+    badgeBorder: 'border-amber-500/40',
+    badgeText: 'text-amber-900 dark:text-amber-200',
+    bannerGradient: 'from-amber-500/20 via-orange-500/15 to-transparent',
     emoji: '🪁',
+    rootBg: 'bg-gradient-to-b from-[#FFFDF6] via-[#FFF9EE] to-[#FEF3DC]/80 dark:from-[#0B101E] dark:via-[#161208] dark:to-[#1C1306]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#121828]/80 border-b border-amber-200/60 dark:border-amber-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#141A2E]/80 border border-amber-200/60 dark:border-amber-500/20 shadow-xl shadow-amber-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(245,158,11,0.22),transparent_70%)]',
+    accentBorder: 'border-amber-500/30',
   },
   tihar: {
     id: 'tihar',
@@ -34,11 +45,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'शुभ दिपावली तथा तिहार',
     tag: 'Festival of Lights',
     defaultGreeting: 'शुभ दिपावली तथा तिहारको हार्दिक मङ्गलमय शुभकामना | Happy Deepawali & Tihar!',
-    badgeBg: 'bg-yellow-500/10 dark:bg-yellow-500/20',
-    badgeBorder: 'border-yellow-500/30',
-    badgeText: 'text-yellow-800 dark:text-yellow-200',
-    bannerGradient: 'from-yellow-500/15 via-amber-500/10 to-transparent',
+    badgeBg: 'bg-yellow-500/15 dark:bg-yellow-500/25',
+    badgeBorder: 'border-yellow-500/40',
+    badgeText: 'text-yellow-900 dark:text-yellow-200',
+    bannerGradient: 'from-yellow-500/20 via-amber-500/15 to-transparent',
     emoji: '🪔',
+    rootBg: 'bg-gradient-to-b from-[#FFFDF5] via-[#FFFBEB] to-[#FEF3C7]/70 dark:from-[#090E1D] dark:via-[#140F04] dark:to-[#1B1102]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#0E1528]/80 border-b border-yellow-300/60 dark:border-yellow-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#121A30]/80 border border-yellow-200/60 dark:border-yellow-500/20 shadow-xl shadow-yellow-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(234,179,8,0.24),transparent_70%)]',
+    accentBorder: 'border-yellow-500/30',
   },
   chhath: {
     id: 'chhath',
@@ -46,11 +62,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'छठ पर्व',
     tag: 'Sun Celebration',
     defaultGreeting: 'छठ पर्वको पावन अवसरमा हार्दिक शुभकामना | Happy Chhath Puja!',
-    badgeBg: 'bg-orange-500/10 dark:bg-orange-500/20',
-    badgeBorder: 'border-orange-500/30',
-    badgeText: 'text-orange-800 dark:text-orange-200',
-    bannerGradient: 'from-orange-500/15 via-red-500/10 to-transparent',
+    badgeBg: 'bg-orange-500/15 dark:bg-orange-500/25',
+    badgeBorder: 'border-orange-500/40',
+    badgeText: 'text-orange-900 dark:text-orange-200',
+    bannerGradient: 'from-orange-500/20 via-red-500/15 to-transparent',
     emoji: '🌅',
+    rootBg: 'bg-gradient-to-b from-[#FFFBF5] via-[#FFF5EB] to-[#FED7AA]/60 dark:from-[#0B101D] dark:via-[#170E07] dark:to-[#1E1108]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#121626]/80 border-b border-orange-200/60 dark:border-orange-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#15172B]/80 border border-orange-200/60 dark:border-orange-500/20 shadow-xl shadow-orange-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(249,115,22,0.24),transparent_70%)]',
+    accentBorder: 'border-orange-500/30',
   },
   christmas: {
     id: 'christmas',
@@ -58,11 +79,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'क्रिसमस',
     tag: 'Winter Holidays',
     defaultGreeting: 'Merry Christmas & Joyful Season Greetings from Netpack Logistics!',
-    badgeBg: 'bg-emerald-500/10 dark:bg-emerald-500/20',
-    badgeBorder: 'border-emerald-500/30',
-    badgeText: 'text-emerald-800 dark:text-emerald-200',
-    bannerGradient: 'from-emerald-500/15 via-teal-500/10 to-transparent',
+    badgeBg: 'bg-emerald-500/15 dark:bg-emerald-500/25',
+    badgeBorder: 'border-emerald-500/40',
+    badgeText: 'text-emerald-900 dark:text-emerald-200',
+    bannerGradient: 'from-emerald-500/20 via-teal-500/15 to-transparent',
     emoji: '❄️',
+    rootBg: 'bg-gradient-to-b from-[#F8FAFC] via-[#F1F5F9] to-[#E2E8F0]/80 dark:from-[#070D18] dark:via-[#09182A] dark:to-[#0C1E34]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#0A1628]/80 border-b border-sky-200/60 dark:border-sky-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#0E1C32]/80 border border-sky-200/60 dark:border-sky-500/20 shadow-xl shadow-sky-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(14,165,233,0.22),transparent_70%)]',
+    accentBorder: 'border-sky-500/30',
   },
   new_year: {
     id: 'new_year',
@@ -70,11 +96,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'नयाँ वर्ष सन् २०२७',
     tag: 'Global Celebration',
     defaultGreeting: 'Happy New Year! Wishing you worldwide speed, prosperity & success.',
-    badgeBg: 'bg-indigo-500/10 dark:bg-indigo-500/20',
-    badgeBorder: 'border-indigo-500/30',
-    badgeText: 'text-indigo-800 dark:text-indigo-200',
-    bannerGradient: 'from-indigo-500/15 via-purple-500/10 to-transparent',
+    badgeBg: 'bg-indigo-500/15 dark:bg-indigo-500/25',
+    badgeBorder: 'border-indigo-500/40',
+    badgeText: 'text-indigo-900 dark:text-indigo-200',
+    bannerGradient: 'from-indigo-500/20 via-purple-500/15 to-transparent',
     emoji: '🎉',
+    rootBg: 'bg-gradient-to-b from-[#FAF8FF] via-[#F5F3FF] to-[#EDE9FE]/80 dark:from-[#0A0D1D] dark:via-[#120E28] dark:to-[#191136]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#0E122A]/80 border-b border-indigo-200/60 dark:border-indigo-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#131735]/80 border border-indigo-200/60 dark:border-indigo-500/20 shadow-xl shadow-indigo-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(99,102,241,0.22),transparent_70%)]',
+    accentBorder: 'border-indigo-500/30',
   },
   labour_day: {
     id: 'labour_day',
@@ -82,11 +113,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'अन्तर्राष्ट्रिय श्रमिक दिवस',
     tag: 'May 1 Tribute',
     defaultGreeting: 'अन्तर्राष्ट्रिय श्रमिक दिवसको शुभकामना | Happy International Workers’ Day!',
-    badgeBg: 'bg-rose-500/10 dark:bg-rose-500/20',
-    badgeBorder: 'border-rose-500/30',
-    badgeText: 'text-rose-800 dark:text-rose-200',
-    bannerGradient: 'from-rose-500/15 via-pink-500/10 to-transparent',
+    badgeBg: 'bg-rose-500/15 dark:bg-rose-500/25',
+    badgeBorder: 'border-rose-500/40',
+    badgeText: 'text-rose-900 dark:text-rose-200',
+    bannerGradient: 'from-rose-500/20 via-pink-500/15 to-transparent',
     emoji: '⚙️',
+    rootBg: 'bg-gradient-to-b from-[#FFF8F8] via-[#FFF1F2] to-[#FFE4E6]/70 dark:from-[#0D101C] dark:via-[#190C12] dark:to-[#220E17]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#111425]/80 border-b border-rose-200/60 dark:border-rose-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#16172D]/80 border border-rose-200/60 dark:border-rose-500/20 shadow-xl shadow-rose-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(244,63,94,0.2),transparent_70%)]',
+    accentBorder: 'border-rose-500/30',
   },
   maghe_sankranti: {
     id: 'maghe_sankranti',
@@ -94,11 +130,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'माघे सङ्क्रान्ति',
     tag: 'Winter Solstice',
     defaultGreeting: 'माघे सङ्क्रान्तिको पावन शुभकामना | Happy Maghe Sankranti!',
-    badgeBg: 'bg-amber-600/10 dark:bg-amber-600/20',
-    badgeBorder: 'border-amber-600/30',
-    badgeText: 'text-amber-900 dark:text-amber-100',
-    bannerGradient: 'from-amber-600/15 via-yellow-600/10 to-transparent',
+    badgeBg: 'bg-amber-600/15 dark:bg-amber-600/25',
+    badgeBorder: 'border-amber-600/40',
+    badgeText: 'text-amber-950 dark:text-amber-100',
+    bannerGradient: 'from-amber-600/20 via-yellow-600/15 to-transparent',
     emoji: '☀️',
+    rootBg: 'bg-gradient-to-b from-[#FFFDF7] via-[#FFF8EC] to-[#FEF0D6]/80 dark:from-[#0B101E] dark:via-[#171206] dark:to-[#1E1508]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#10172A]/80 border-b border-amber-200/60 dark:border-amber-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#151C32]/80 border border-amber-200/60 dark:border-amber-500/20 shadow-xl shadow-amber-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(217,119,6,0.22),transparent_70%)]',
+    accentBorder: 'border-amber-600/30',
   },
   lhosar: {
     id: 'lhosar',
@@ -106,11 +147,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'ल्होसार (सोनाम / ग्याल्पो / तमु)',
     tag: 'Himalayan New Year',
     defaultGreeting: 'ल्होसारको हार्दिक मङ्गलमय शुभकामना | Tashi Delek & Happy Lhosar!',
-    badgeBg: 'bg-cyan-500/10 dark:bg-cyan-500/20',
-    badgeBorder: 'border-cyan-500/30',
-    badgeText: 'text-cyan-800 dark:text-cyan-200',
-    bannerGradient: 'from-cyan-500/15 via-blue-500/10 to-transparent',
+    badgeBg: 'bg-cyan-500/15 dark:bg-cyan-500/25',
+    badgeBorder: 'border-cyan-500/40',
+    badgeText: 'text-cyan-900 dark:text-cyan-200',
+    bannerGradient: 'from-cyan-500/20 via-blue-500/15 to-transparent',
     emoji: '🚩',
+    rootBg: 'bg-gradient-to-b from-[#F6FDFF] via-[#ECFEFF] to-[#CFFAFE]/70 dark:from-[#061120] dark:via-[#091D2C] dark:to-[#0C2436]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#0A1A2E]/80 border-b border-cyan-200/60 dark:border-cyan-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#0E2036]/80 border border-cyan-200/60 dark:border-cyan-500/20 shadow-xl shadow-cyan-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(6,182,212,0.22),transparent_70%)]',
+    accentBorder: 'border-cyan-500/30',
   },
   holi: {
     id: 'holi',
@@ -118,11 +164,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'फागु पूर्णिमा (होली)',
     tag: 'Festival of Colors',
     defaultGreeting: 'रङ्गीन फागु पूर्णिमा तथा होलीको शुभकामना | Happy Holi to All!',
-    badgeBg: 'bg-pink-500/10 dark:bg-pink-500/20',
-    badgeBorder: 'border-pink-500/30',
-    badgeText: 'text-pink-800 dark:text-pink-200',
-    bannerGradient: 'from-pink-500/15 via-purple-500/10 to-transparent',
+    badgeBg: 'bg-pink-500/15 dark:bg-pink-500/25',
+    badgeBorder: 'border-pink-500/40',
+    badgeText: 'text-pink-900 dark:text-pink-200',
+    bannerGradient: 'from-pink-500/20 via-purple-500/15 to-transparent',
     emoji: '🎨',
+    rootBg: 'bg-gradient-to-b from-[#FFF8FD] via-[#FDF2F8] to-[#FCE7F3]/80 dark:from-[#0D1020] dark:via-[#1A0E23] dark:to-[#22102E]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#12152E]/80 border-b border-pink-200/60 dark:border-pink-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#181938]/80 border border-pink-200/60 dark:border-pink-500/20 shadow-xl shadow-pink-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(236,72,153,0.22),transparent_70%)]',
+    accentBorder: 'border-pink-500/30',
   },
   nepali_new_year: {
     id: 'nepali_new_year',
@@ -130,11 +181,16 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'नयाँ वर्ष (बैशाख १)',
     tag: 'Bikram Sambat',
     defaultGreeting: 'नयाँ वर्षको हार्दिक मङ्गलमय शुभकामना | Happy Nepali New Year!',
-    badgeBg: 'bg-red-500/10 dark:bg-red-500/20',
-    badgeBorder: 'border-red-500/30',
-    badgeText: 'text-red-800 dark:text-red-200',
-    bannerGradient: 'from-red-500/15 via-rose-500/10 to-transparent',
+    badgeBg: 'bg-red-500/15 dark:bg-red-500/25',
+    badgeBorder: 'border-red-500/40',
+    badgeText: 'text-red-900 dark:text-red-200',
+    bannerGradient: 'from-red-500/20 via-rose-500/15 to-transparent',
     emoji: '🌸',
+    rootBg: 'bg-gradient-to-b from-[#FFF9FA] via-[#FFF1F2] to-[#FFE4E6]/70 dark:from-[#0D111F] dark:via-[#1B0E17] dark:to-[#24101E]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#11162A]/80 border-b border-rose-200/60 dark:border-rose-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#171A35]/80 border border-rose-200/60 dark:border-rose-500/20 shadow-xl shadow-rose-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(244,63,94,0.22),transparent_70%)]',
+    accentBorder: 'border-rose-500/30',
   },
   buddha_jayanti: {
     id: 'buddha_jayanti',
@@ -142,12 +198,45 @@ export const FESTIVAL_METADATA: Record<string, FestivalMetadata> = {
     nepaliName: 'बुद्ध जयन्ती',
     tag: 'Peace from Nepal',
     defaultGreeting: 'बुद्ध जयन्तीको शान्तिमय शुभकामना | Happy Buddha Jayanti - Peace from Nepal!',
-    badgeBg: 'bg-amber-500/10 dark:bg-amber-500/20',
-    badgeBorder: 'border-amber-500/30',
-    badgeText: 'text-amber-800 dark:text-amber-200',
-    bannerGradient: 'from-amber-500/15 via-yellow-500/10 to-transparent',
+    badgeBg: 'bg-amber-500/15 dark:bg-amber-500/25',
+    badgeBorder: 'border-amber-500/40',
+    badgeText: 'text-amber-900 dark:text-amber-200',
+    bannerGradient: 'from-amber-500/20 via-yellow-500/15 to-transparent',
     emoji: '🪷',
+    rootBg: 'bg-gradient-to-b from-[#FFFDF6] via-[#FFFBEB] to-[#FEF3C7]/70 dark:from-[#0A1020] dark:via-[#171407] dark:to-[#1F1905]',
+    headerBg: 'backdrop-blur-2xl bg-white/75 dark:bg-[#10172C]/80 border-b border-amber-200/60 dark:border-amber-500/20',
+    cardGlassBg: 'backdrop-blur-xl bg-white/75 dark:bg-[#151D34]/80 border border-amber-200/60 dark:border-amber-500/20 shadow-xl shadow-amber-500/5',
+    heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(245,158,11,0.22),transparent_70%)]',
+    accentBorder: 'border-amber-500/30',
   },
+}
+
+export const DEFAULT_CLEAN_THEME: FestivalMetadata = {
+  id: 'none',
+  name: 'Clean Corporate',
+  nepaliName: 'Netpack Standard',
+  tag: 'Standard',
+  defaultGreeting: '',
+  badgeBg: 'bg-blue-50 dark:bg-white/[0.05]',
+  badgeBorder: 'border-blue-200/80 dark:border-white/10',
+  badgeText: 'text-blue-700 dark:text-sky-300',
+  bannerGradient: 'from-blue-500/10 via-sky-500/5 to-transparent',
+  emoji: '📦',
+  rootBg: 'bg-[#FBFBFD] dark:bg-[#070D18]',
+  headerBg: 'backdrop-blur-xl bg-white/80 dark:bg-[#0A1128]/85 border-b border-slate-200/70 dark:border-white/[0.08]',
+  cardGlassBg: 'backdrop-blur-xl bg-white/90 dark:bg-[#0A1128]/90 border border-slate-200/80 dark:border-white/10 shadow-xl',
+  heroGlow: 'bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(37,99,235,0.1),transparent_70%)]',
+  accentBorder: 'border-slate-200 dark:border-white/10',
+}
+
+/**
+ * Returns dynamic UI theme classes for the active festival
+ */
+export function getFestivalTheme(theme?: string): FestivalMetadata {
+  if (theme && FESTIVAL_METADATA[theme]) {
+    return FESTIVAL_METADATA[theme]
+  }
+  return DEFAULT_CLEAN_THEME
 }
 
 /**
@@ -211,7 +300,7 @@ export function getEffectiveFestiveTheme(themeSetting?: string): string {
 }
 
 /**
- * Ambient Festive Background Particles & Overlays
+ * Large, High-Fidelity Ambient Background Visuals & Lighting Meshes
  */
 export function FestiveAtmosphereBackground({ theme }: { theme: string }) {
   if (!theme || theme === 'none' || !FESTIVAL_METADATA[theme]) {
@@ -219,114 +308,190 @@ export function FestiveAtmosphereBackground({ theme }: { theme: string }) {
   }
 
   return (
-    <div className='pointer-events-none fixed inset-0 overflow-hidden z-20 select-none'>
+    <div className='pointer-events-none fixed inset-0 overflow-hidden z-10 select-none'>
       <style>{`
-        @keyframes floatKite1 {
-          0% { transform: translate(0, 0) rotate(-6deg); }
-          50% { transform: translate(30px, -20px) rotate(4deg); }
-          100% { transform: translate(0, 0) rotate(-6deg); }
+        @keyframes floatKiteA {
+          0% { transform: translate3d(0, 0, 0) rotate(-6deg); }
+          50% { transform: translate3d(45px, -35px, 0) rotate(5deg); }
+          100% { transform: translate3d(0, 0, 0) rotate(-6deg); }
         }
-        @keyframes floatKite2 {
-          0% { transform: translate(0, 0) rotate(5deg); }
-          50% { transform: translate(-25px, -15px) rotate(-5deg); }
-          100% { transform: translate(0, 0) rotate(5deg); }
+        @keyframes floatKiteB {
+          0% { transform: translate3d(0, 0, 0) rotate(6deg); }
+          50% { transform: translate3d(-40px, -28px, 0) rotate(-4deg); }
+          100% { transform: translate3d(0, 0, 0) rotate(6deg); }
         }
-        @keyframes fallPetal {
-          0% { transform: translateY(-50px) rotate(0deg); opacity: 0; }
-          20% { opacity: 0.8; }
-          80% { opacity: 0.8; }
-          100% { transform: translateY(105vh) rotate(360deg); opacity: 0; }
+        @keyframes floatKiteC {
+          0% { transform: translate3d(0, 0, 0) rotate(-4deg) scale(0.9); }
+          50% { transform: translate3d(30px, -20px, 0) rotate(6deg) scale(0.95); }
+          100% { transform: translate3d(0, 0, 0) rotate(-4deg) scale(0.9); }
         }
-        @keyframes fallSnow {
-          0% { transform: translateY(-20px) translateX(0); opacity: 0; }
+        @keyframes tailSway {
+          0%, 100% { transform: rotate(-8deg); }
+          50% { transform: rotate(12deg); }
+        }
+        @keyframes fallJamara {
+          0% { transform: translate3d(0, -60px, 0) rotate(0deg); opacity: 0; }
+          15% { opacity: 0.85; }
+          85% { opacity: 0.85; }
+          100% { transform: translate3d(60px, 105vh, 0) rotate(360deg); opacity: 0; }
+        }
+        @keyframes fallSnowLarge {
+          0% { transform: translate3d(0, -30px, 0) rotate(0deg); opacity: 0; }
           15% { opacity: 0.9; }
           85% { opacity: 0.9; }
-          100% { transform: translateY(105vh) translateX(40px); opacity: 0; }
+          100% { transform: translate3d(50px, 105vh, 0) rotate(180deg); opacity: 0; }
         }
-        @keyframes twinkleGlow {
-          0%, 100% { opacity: 0.4; transform: scale(0.95); }
-          50% { opacity: 1; transform: scale(1.1); }
+        @keyframes fairyLightBlink {
+          0%, 100% { opacity: 0.55; transform: scale(0.96); filter: drop-shadow(0 0 4px currentColor); }
+          50% { opacity: 1; transform: scale(1.08); filter: drop-shadow(0 0 14px currentColor); }
         }
-        @keyframes prayerFlagWave {
+        @keyframes diyaFlicker {
+          0%, 100% { transform: scale(1) skewX(0deg); opacity: 0.92; filter: drop-shadow(0 0 12px #F59E0B); }
+          25% { transform: scale(1.06, 0.97) skewX(2deg); opacity: 1; filter: drop-shadow(0 0 18px #EA580C); }
+          50% { transform: scale(0.95, 1.05) skewX(-1.5deg); opacity: 0.88; filter: drop-shadow(0 0 10px #F59E0B); }
+          75% { transform: scale(1.04, 1.02) skewX(1deg); opacity: 0.98; filter: drop-shadow(0 0 16px #D97706); }
+        }
+        @keyframes prayerFlagBreeze {
           0%, 100% { transform: skewX(0deg) rotate(0deg); }
-          50% { transform: skewX(6deg) rotate(3deg); }
+          50% { transform: skewX(10deg) rotate(4deg); }
         }
-        @keyframes lotusDrift {
-          0% { transform: translateY(30px) scale(0.9); opacity: 0; }
-          30% { opacity: 0.7; }
-          70% { opacity: 0.7; }
-          100% { transform: translateY(-40px) scale(1.05); opacity: 0; }
+        @keyframes gulalCloudFloat {
+          0% { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.25; }
+          50% { transform: translate3d(30px, -20px, 0) scale(1.1); opacity: 0.45; }
+          100% { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.25; }
+        }
+        @keyframes lotusFloatSacred {
+          0% { transform: translate3d(0, 40px, 0) scale(0.85); opacity: 0; }
+          25% { opacity: 0.8; }
+          75% { opacity: 0.8; }
+          100% { transform: translate3d(20px, -60px, 0) scale(1.1); opacity: 0; }
         }
       `}</style>
 
-      {/* ── 1. DASHAIN (बडा दशैँ) ── */}
+      {/* ── 1. DASHAIN (बडा दशैँ): Prominent Kites, Golden Harvest Rays & Jamara Petals ── */}
       {theme === 'dashain' && (
         <>
-          {/* Top subtle golden autumn sky wash */}
-          <div className='absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-amber-500/[0.06] to-transparent' />
+          {/* Top Warm Autumn Sunburst & Sky Atmosphere */}
+          <div className='absolute top-0 left-0 right-0 h-[480px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(245,158,11,0.18),transparent_75%)] pointer-events-none' />
 
-          {/* Soaring Kites (चङ्गा) in sky */}
+          {/* Large Primary Flying Kite (Top-Right) */}
           <div
-            className='absolute top-20 right-[12%] opacity-85 dark:opacity-75'
-            style={{ animation: 'floatKite1 8s ease-in-out infinite' }}
+            className='absolute top-16 right-[10%] opacity-90'
+            style={{ animation: 'floatKiteA 8s ease-in-out infinite' }}
           >
-            <svg width='54' height='68' viewBox='0 0 60 80' fill='none'>
-              <path d='M30 0 L56 32 L30 64 L4 32 Z' fill='#EA580C' stroke='#C2410C' strokeWidth='1.5' />
-              <path d='M30 0 L30 64' stroke='#FED7AA' strokeWidth='1.5' />
-              <path d='M4 32 Q30 42 56 32' stroke='#FED7AA' strokeWidth='1.5' fill='none' />
-              {/* Kite Tail */}
-              <path d='M30 64 Q34 72 28 80 Q22 88 30 96' stroke='#EA580C' strokeWidth='2' fill='none' strokeDasharray='2 2' />
-              <polygon points='26,82 32,82 29,86' fill='#F59E0B' />
+            <svg width='84' height='120' viewBox='0 0 84 120' fill='none' className='drop-shadow-lg'>
+              {/* Main Diamond Canvas with 4 Quadrants */}
+              <polygon points='42,0 80,44 42,88 4,44' fill='#EA580C' stroke='#C2410C' strokeWidth='2' />
+              <polygon points='42,0 80,44 42,44' fill='#F97316' />
+              <polygon points='4,44 42,44 42,88' fill='#F59E0B' />
+              {/* Curved Bamboo Spine & Cross Strut */}
+              <line x1='42' y1='0' x2='42' y2='88' stroke='#FEF08A' strokeWidth='2' />
+              <path d='M4,44 Q42,56 80,44' stroke='#FEF08A' strokeWidth='2' fill='none' />
+              {/* Fluttering Tail & Ribbon Ties */}
+              <g style={{ transformOrigin: '42px 88px', animation: 'tailSway 3s ease-in-out infinite' }}>
+                <path d='M42,88 Q48,98 38,108 Q46,116 40,126' stroke='#EA580C' strokeWidth='2.5' fill='none' />
+                <polygon points='34,102 44,102 39,108' fill='#EAB308' />
+                <polygon points='36,120 46,120 41,126' fill='#DC2626' />
+              </g>
             </svg>
           </div>
 
+          {/* Second Soaring Kite (Left Sky) */}
           <div
-            className='absolute top-36 left-[8%] opacity-70 hidden md:block'
-            style={{ animation: 'floatKite2 10s ease-in-out infinite' }}
+            className='absolute top-32 left-[6%] opacity-85 hidden md:block'
+            style={{ animation: 'floatKiteB 10s ease-in-out infinite' }}
           >
-            <svg width='44' height='58' viewBox='0 0 60 80' fill='none'>
-              <path d='M30 0 L56 32 L30 64 L4 32 Z' fill='#2563EB' stroke='#1D4ED8' strokeWidth='1.5' />
-              <path d='M30 0 L30 64' stroke='#BFDBFE' strokeWidth='1.5' />
-              <path d='M4 32 Q30 42 56 32' stroke='#BFDBFE' strokeWidth='1.5' fill='none' />
-              <path d='M30 64 Q26 72 32 80' stroke='#2563EB' strokeWidth='1.5' fill='none' />
+            <svg width='72' height='100' viewBox='0 0 72 100' fill='none' className='drop-shadow-md'>
+              <polygon points='36,0 68,38 36,76 4,38' fill='#2563EB' stroke='#1D4ED8' strokeWidth='1.8' />
+              <polygon points='36,0 68,38 36,38' fill='#3B82F6' />
+              <polygon points='4,38 36,38 36,76' fill='#06B6D4' />
+              <line x1='36' y1='0' x2='36' y2='76' stroke='#BFDBFE' strokeWidth='1.8' />
+              <path d='M4,38 Q36,48 68,38' stroke='#BFDBFE' strokeWidth='1.8' fill='none' />
+              <g style={{ transformOrigin: '36px 76px', animation: 'tailSway 2.5s ease-in-out infinite' }}>
+                <path d='M36,76 Q30,86 40,94 Q32,102 38,110' stroke='#2563EB' strokeWidth='2' fill='none' />
+                <polygon points='32,90 40,90 36,95' fill='#F59E0B' />
+              </g>
             </svg>
           </div>
 
-          {/* Gentle floating golden barley / jamara leaves */}
-          {[15, 35, 55, 75, 90].map((left, idx) => (
+          {/* Third High-Altitude Kite (Mid Sky) */}
+          <div
+            className='absolute top-20 left-[48%] opacity-70 hidden lg:block'
+            style={{ animation: 'floatKiteC 12s ease-in-out infinite' }}
+          >
+            <svg width='54' height='76' viewBox='0 0 54 76' fill='none' className='drop-shadow-xs'>
+              <polygon points='27,0 52,28 27,56 2,28' fill='#10B981' stroke='#059669' strokeWidth='1.5' />
+              <polygon points='27,0 52,28 27,28' fill='#34D399' />
+              <line x1='27' y1='0' x2='27' y2='56' stroke='#D1FAE5' strokeWidth='1.5' />
+              <path d='M2,28 Q27,36 52,28' stroke='#D1FAE5' strokeWidth='1.5' fill='none' />
+              <path d='M27,56 Q32,64 24,72' stroke='#10B981' strokeWidth='1.8' fill='none' />
+            </svg>
+          </div>
+
+          {/* Drifting Golden Barley (Jamara) & Saffron Marigold Petals */}
+          {[10, 24, 40, 58, 72, 88].map((leftPos, i) => (
             <div
-              key={idx}
-              className='absolute top-0 text-amber-500/60 dark:text-amber-400/50 text-xs'
+              key={i}
+              className='absolute top-0 text-amber-500/80 dark:text-amber-300/75'
               style={{
-                left: `${left}%`,
-                animation: `fallPetal ${12 + (idx % 4) * 3}s linear infinite`,
-                animationDelay: `${idx * 2.5}s`,
+                left: `${leftPos}%`,
+                animation: `fallJamara ${11 + (i % 4) * 3}s linear infinite`,
+                animationDelay: `${i * 2}s`,
               }}
             >
-              🌾
+              {i % 2 === 0 ? (
+                // Golden Jamara Stalk
+                <svg width='28' height='36' viewBox='0 0 28 36' fill='none'>
+                  <path d='M14,0 Q18,12 14,36' stroke='#EAB308' strokeWidth='2.2' />
+                  <path d='M14,6 Q24,4 20,12' stroke='#F59E0B' strokeWidth='2' />
+                  <path d='M14,12 Q4,10 8,18' stroke='#EAB308' strokeWidth='2' />
+                  <path d='M14,20 Q24,18 19,26' stroke='#F59E0B' strokeWidth='2' />
+                </svg>
+              ) : (
+                // Saffron Marigold Blossom Petal
+                <svg width='24' height='24' viewBox='0 0 24 24' fill='none'>
+                  <circle cx='12' cy='12' r='5' fill='#F97316' />
+                  <circle cx='12' cy='7' r='3.5' fill='#FBBF24' />
+                  <circle cx='12' cy='17' r='3.5' fill='#FBBF24' />
+                  <circle cx='7' cy='12' r='3.5' fill='#FBBF24' />
+                  <circle cx='17' cy='12' r='3.5' fill='#FBBF24' />
+                </svg>
+              )}
             </div>
           ))}
         </>
       )}
 
-      {/* ── 2. TIHAR & DEEPAWALI (तिहार) ── */}
+      {/* ── 2. TIHAR & DEEPAWALI (तिहार): Glowing Fairy Lights & Ornate Brass Diyas ── */}
       {theme === 'tihar' && (
         <>
-          {/* Twinkling fairy lights garland along header */}
-          <div className='absolute top-0 left-0 right-0 h-10 flex items-center justify-around px-4 pointer-events-none z-10'>
-            {Array.from({ length: 24 }).map((_, i) => {
-              const colors = ['#F59E0B', '#EF4444', '#10B981', '#3B82F6', '#EAB308']
-              const color = colors[i % colors.length]
+          {/* Top Twilight Deepawali Lighting Wash */}
+          <div className='absolute top-0 left-0 right-0 h-[450px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(234,179,8,0.2),transparent_75%)] pointer-events-none' />
+
+          {/* Full-Width Fairy Lights Garland along the Header */}
+          <div className='absolute top-0 left-0 right-0 h-14 flex items-center justify-between px-2 sm:px-6 z-20 pointer-events-none'>
+            {Array.from({ length: 30 }).map((_, i) => {
+              const palette = [
+                { color: '#F59E0B', glow: 'rgba(245, 158, 11, 0.7)' },
+                { color: '#EF4444', glow: 'rgba(239, 68, 68, 0.7)' },
+                { color: '#10B981', glow: 'rgba(16, 185, 129, 0.7)' },
+                { color: '#3B82F6', glow: 'rgba(59, 130, 246, 0.7)' },
+                { color: '#FBBF24', glow: 'rgba(251, 191, 36, 0.7)' },
+              ]
+              const p = palette[i % palette.length]
               return (
                 <div key={i} className='flex flex-col items-center'>
-                  <div className='w-0.5 h-3 bg-slate-400/40 dark:bg-white/20' />
+                  {/* Garland Wire Swag */}
+                  <div className='w-0.5 h-3 bg-slate-500/40 dark:bg-slate-300/30' />
+                  {/* Glowing Teardrop Bulb */}
                   <div
-                    className='w-2.5 h-3.5 rounded-full shadow-sm'
+                    className='w-3 h-4.5 rounded-full'
                     style={{
-                      backgroundColor: color,
-                      boxShadow: `0 0 8px ${color}`,
-                      animation: `twinkleGlow ${1.5 + (i % 3) * 0.4}s ease-in-out infinite`,
-                      animationDelay: `${(i % 5) * 0.3}s`,
+                      backgroundColor: p.color,
+                      color: p.color,
+                      boxShadow: `0 0 10px ${p.glow}, 0 0 20px ${p.glow}`,
+                      animation: `fairyLightBlink ${1.4 + (i % 4) * 0.3}s ease-in-out infinite`,
+                      animationDelay: `${(i % 6) * 0.25}s`,
                     }}
                   />
                 </div>
@@ -334,119 +499,179 @@ export function FestiveAtmosphereBackground({ theme }: { theme: string }) {
             })}
           </div>
 
-          {/* Warm floating glowing diya embers in lower atmosphere */}
-          <div className='absolute bottom-6 left-6 opacity-80 hidden sm:flex items-center gap-2 bg-amber-500/10 backdrop-blur-xs p-2 rounded-2xl border border-amber-500/20'>
-            <span className='text-2xl animate-pulse'>🪔</span>
-            <span className='text-[11px] font-semibold text-amber-800 dark:text-amber-200'>
-              शुभ दिपावली
-            </span>
+          {/* Prominent Glowing Brass Diya (Bottom-Left) */}
+          <div className='absolute bottom-6 left-6 z-20 hidden sm:block'>
+            <div className='relative flex flex-col items-center'>
+              {/* Flame Halos */}
+              <div
+                className='w-6 h-10 rounded-full bg-gradient-to-t from-orange-500 via-amber-400 to-yellow-200'
+                style={{
+                  clipPath: 'polygon(50% 0%, 85% 60%, 50% 100%, 15% 60%)',
+                  animation: 'diyaFlicker 1.8s ease-in-out infinite',
+                }}
+              />
+              {/* Brass Diya Lamp Body */}
+              <svg width='76' height='36' viewBox='0 0 76 36' fill='none' className='-mt-2 drop-shadow-xl'>
+                <path d='M4,8 Q38,36 72,8 Q74,18 64,28 Q38,36 12,28 Q2,18 4,8 Z' fill='#D97706' stroke='#B45309' strokeWidth='1.5' />
+                <ellipse cx='38' cy='8' rx='34' ry='6' fill='#F59E0B' />
+                <ellipse cx='38' cy='7' rx='28' ry='4' fill='#78350F' />
+              </svg>
+              <div className='text-[11px] font-bold text-amber-900 dark:text-amber-200 tracking-wider mt-1'>
+                शुभ दिपावली
+              </div>
+            </div>
+          </div>
+
+          {/* Prominent Glowing Brass Diya (Bottom-Right) */}
+          <div className='absolute bottom-6 right-6 z-20 hidden md:block'>
+            <div className='relative flex flex-col items-center'>
+              <div
+                className='w-6 h-10 rounded-full bg-gradient-to-t from-orange-500 via-amber-400 to-yellow-200'
+                style={{
+                  clipPath: 'polygon(50% 0%, 85% 60%, 50% 100%, 15% 60%)',
+                  animation: 'diyaFlicker 2.1s ease-in-out infinite 0.4s',
+                }}
+              />
+              <svg width='76' height='36' viewBox='0 0 76 36' fill='none' className='-mt-2 drop-shadow-xl'>
+                <path d='M4,8 Q38,36 72,8 Q74,18 64,28 Q38,36 12,28 Q2,18 4,8 Z' fill='#D97706' stroke='#B45309' strokeWidth='1.5' />
+                <ellipse cx='38' cy='8' rx='34' ry='6' fill='#F59E0B' />
+                <ellipse cx='38' cy='7' rx='28' ry='4' fill='#78350F' />
+              </svg>
+            </div>
           </div>
         </>
       )}
 
-      {/* ── 3. CHHATH PUJA (छठ पर्व) ── */}
+      {/* ── 3. CHHATH PUJA: Radiant Morning Sunburst & Holy River Shimmer ── */}
       {theme === 'chhath' && (
         <>
-          {/* Saffron sunrise aura from top center */}
-          <div className='absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-[radial-gradient(ellipse_at_top,rgba(249,115,22,0.18),transparent_70%)]' />
-          {/* Subtle rising golden sunbeams */}
-          <div className='absolute top-4 right-1/4 opacity-60 animate-pulse text-amber-500 text-3xl'>
-            ☀️
+          <div className='absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1100px] h-[500px] bg-[radial-gradient(ellipse_at_top,rgba(249,115,22,0.22),rgba(234,88,12,0.1)_40%,transparent_75%)] pointer-events-none' />
+          {/* Majestic Rising Sun Disc in top sky */}
+          <div className='absolute top-8 left-1/2 -translate-x-1/2 flex items-center justify-center opacity-85'>
+            <div className='w-24 h-24 rounded-full bg-gradient-to-b from-yellow-300 via-orange-400 to-red-500 shadow-[0_0_60px_rgba(249,115,22,0.6)] animate-pulse' />
           </div>
         </>
       )}
 
-      {/* ── 4. CHRISTMAS (क्रिसमस) ── */}
+      {/* ── 4. CHRISTMAS: Multi-Depth Crystalline Snowflakes & Frosted Vignette ── */}
       {theme === 'christmas' && (
         <>
-          {/* Crystalline snowfall particles */}
-          {[5, 18, 32, 45, 60, 72, 85, 95].map((pos, i) => (
+          <div className='absolute top-0 left-0 right-0 h-[420px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(14,165,233,0.18),transparent_75%)] pointer-events-none' />
+          {/* Crystalline SVG Snowflakes */}
+          {[6, 16, 28, 42, 56, 68, 80, 92].map((xPos, idx) => (
             <div
-              key={i}
-              className='absolute top-0 text-sky-400/70 dark:text-white/80'
+              key={idx}
+              className='absolute top-0 text-sky-400/80 dark:text-sky-200/90'
               style={{
-                left: `${pos}%`,
-                fontSize: `${12 + (i % 3) * 5}px`,
-                animation: `fallSnow ${9 + (i % 4) * 2.5}s linear infinite`,
-                animationDelay: `${i * 1.8}s`,
+                left: `${xPos}%`,
+                animation: `fallSnowLarge ${8 + (idx % 4) * 3}s linear infinite`,
+                animationDelay: `${idx * 1.5}s`,
               }}
             >
-              ❄
+              <svg
+                width={idx % 2 === 0 ? '28' : '20'}
+                height={idx % 2 === 0 ? '28' : '20'}
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='1.8'
+                strokeLinecap='round'
+                className='drop-shadow-xs'
+              >
+                <line x1='12' y1='2' x2='12' y2='22' />
+                <line x1='2' y1='12' x2='22' y2='12' />
+                <line x1='5' y1='5' x2='19' y2='19' />
+                <line x1='5' y1='19' x2='19' y2='5' />
+                <path d='M10,4 L12,2 L14,4' />
+                <path d='M10,20 L12,22 L14,20' />
+                <path d='M4,10 L2,12 L4,14' />
+                <path d='M20,10 L22,12 L20,14' />
+              </svg>
             </div>
           ))}
-          {/* Subtle holiday pine wash */}
-          <div className='absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-emerald-500/[0.04] to-transparent' />
         </>
       )}
 
-      {/* ── 5. ENGLISH NEW YEAR ── */}
+      {/* ── 5. ENGLISH NEW YEAR: Midnight Fireworks Sparks & Starry Trails ── */}
       {theme === 'new_year' && (
         <>
-          {/* Celebration sparks in sky */}
-          {[12, 28, 48, 68, 88].map((x, i) => (
+          <div className='absolute top-0 left-0 right-0 h-[450px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(99,102,241,0.22),transparent_75%)] pointer-events-none' />
+          {[12, 30, 50, 72, 88].map((x, i) => (
             <div
               key={i}
-              className='absolute top-14 text-indigo-400 dark:text-indigo-300'
+              className='absolute top-16 text-indigo-400 dark:text-indigo-300 drop-shadow-md'
               style={{
                 left: `${x}%`,
-                animation: `twinkleGlow ${2 + (i % 3) * 0.5}s ease-in-out infinite`,
-                animationDelay: `${i * 0.6}s`,
+                animation: `fairyLightBlink ${2 + (i % 3) * 0.5}s ease-in-out infinite`,
+                animationDelay: `${i * 0.5}s`,
               }}
             >
-              ✨
+              <svg width='36' height='36' viewBox='0 0 36 36' fill='none'>
+                <path d='M18,0 L20,14 L36,18 L20,22 L18,36 L16,22 L0,18 L16,14 Z' fill='#FBBF24' />
+              </svg>
             </div>
           ))}
-          <div className='absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-indigo-500/[0.07] to-transparent' />
         </>
       )}
 
-      {/* ── 6. LABOUR DAY (श्रमिक दिवस) ── */}
+      {/* ── 6. LABOUR DAY: May 1 Dignity of Labour Laurel & Gear Emblem ── */}
       {theme === 'labour_day' && (
         <>
-          <div className='absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-rose-500/[0.05] to-transparent' />
-          <div className='absolute bottom-6 right-6 opacity-60 hidden sm:flex items-center gap-2 bg-rose-500/10 p-2 rounded-2xl border border-rose-500/20'>
-            <span className='text-lg'>⚙️</span>
-            <span className='text-[10px] font-semibold text-rose-800 dark:text-rose-200'>
+          <div className='absolute top-0 left-0 right-0 h-[380px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(244,63,94,0.18),transparent_75%)] pointer-events-none' />
+          <div className='absolute bottom-8 right-8 opacity-75 hidden sm:flex items-center gap-3 backdrop-blur-md bg-white/70 dark:bg-slate-900/70 p-3 rounded-2xl border border-rose-500/30 shadow-lg'>
+            <svg width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='#E11D48' strokeWidth='2'>
+              <circle cx='12' cy='12' r='3' />
+              <path d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z' />
+            </svg>
+            <div className='text-xs font-bold text-rose-950 dark:text-rose-100'>
               Honoring Workers Worldwide
-            </span>
+            </div>
           </div>
         </>
       )}
 
-      {/* ── 7. MAGHE SANKRANTI (माघे सङ्क्रान्ति) ── */}
+      {/* ── 7. MAGHE SANKRANTI: Winter Solstice Kites & Dawn Amber Rays ── */}
       {theme === 'maghe_sankranti' && (
         <>
-          <div className='absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-amber-600/[0.06] to-transparent' />
+          <div className='absolute top-0 left-0 right-0 h-[450px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(217,119,6,0.2),transparent_75%)] pointer-events-none' />
           <div
-            className='absolute top-24 right-[15%] opacity-75'
-            style={{ animation: 'floatKite1 9s ease-in-out infinite' }}
+            className='absolute top-20 right-[15%] opacity-90'
+            style={{ animation: 'floatKiteA 9s ease-in-out infinite' }}
           >
-            <span className='text-3xl'>🪁</span>
+            <svg width='76' height='108' viewBox='0 0 76 108' fill='none' className='drop-shadow-lg'>
+              <polygon points='38,0 72,40 38,80 4,40' fill='#D97706' stroke='#B45309' strokeWidth='2' />
+              <line x1='38' y1='0' x2='38' y2='80' stroke='#FEF3C7' strokeWidth='2' />
+              <path d='M4,40 Q38,50 72,40' stroke='#FEF3C7' strokeWidth='2' fill='none' />
+              <path d='M38,80 Q44,90 34,100' stroke='#D97706' strokeWidth='2.2' fill='none' />
+            </svg>
           </div>
         </>
       )}
 
-      {/* ── 8. LHOSAR (ल्होसार) ── */}
+      {/* ── 8. LHOSAR: Authentic 5-Color Himalayan Tibetan Prayer Flags (Lungta) ── */}
       {theme === 'lhosar' && (
         <>
-          {/* 5-Color Tibetan Prayer Flags (Lungta) along top edge */}
-          <div className='absolute top-0 left-0 right-0 flex items-start justify-around px-2 z-10'>
-            {Array.from({ length: 20 }).map((_, idx) => {
-              const flagColors = [
-                'bg-blue-600', // Blue (Sky)
-                'bg-slate-100 dark:bg-slate-200 border border-slate-300', // White (Air)
-                'bg-red-600', // Red (Fire)
-                'bg-emerald-600', // Green (Water)
-                'bg-yellow-500', // Yellow (Earth)
+          <div className='absolute top-0 left-0 right-0 h-[420px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(6,182,212,0.18),transparent_75%)] pointer-events-none' />
+          {/* Prominent Prayer Flags String across Top Edge */}
+          <div className='absolute top-0 left-0 right-0 flex items-start justify-around px-1 z-20 pointer-events-none'>
+            {Array.from({ length: 22 }).map((_, idx) => {
+              const flags = [
+                { bg: '#2563EB', text: 'Blue (Sky)' },
+                { bg: '#F8FAFC', border: '#CBD5E1', text: 'White (Air)' },
+                { bg: '#DC2626', text: 'Red (Fire)' },
+                { bg: '#10B981', text: 'Green (Water)' },
+                { bg: '#EAB308', text: 'Yellow (Earth)' },
               ]
-              const c = flagColors[idx % flagColors.length]
+              const f = flags[idx % flags.length]
               return (
                 <div
                   key={idx}
-                  className={`w-5 sm:w-7 h-7 sm:h-9 ${c} shadow-xs rounded-b-xs origin-top`}
+                  className='w-6 sm:w-8 h-9 sm:h-12 shadow-sm rounded-b-xs origin-top'
                   style={{
-                    animation: `prayerFlagWave ${2.5 + (idx % 3) * 0.4}s ease-in-out infinite`,
-                    animationDelay: `${idx * 0.15}s`,
+                    backgroundColor: f.bg,
+                    border: f.border ? `1px solid ${f.border}` : 'none',
+                    animation: `prayerFlagBreeze ${2.4 + (idx % 3) * 0.4}s ease-in-out infinite`,
+                    animationDelay: `${idx * 0.12}s`,
                     clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 85%, 0 100%)',
                   }}
                 />
@@ -456,72 +681,78 @@ export function FestiveAtmosphereBackground({ theme }: { theme: string }) {
         </>
       )}
 
-      {/* ── 9. HOLI (फागु पूर्णिमा) ── */}
+      {/* ── 9. HOLI: Painterly Translucent Gulal Clouds & Splashes ── */}
       {theme === 'holi' && (
         <>
-          {/* Floating pastel gulal dust particles */}
-          {[10, 25, 45, 65, 80, 92].map((x, i) => {
-            const powders = ['🌸', '💛', '💠', '💜', '🟠']
-            const powder = powders[i % powders.length]
-            return (
-              <div
-                key={i}
-                className='absolute top-0 opacity-70'
-                style={{
-                  left: `${x}%`,
-                  fontSize: `${14 + (i % 3) * 4}px`,
-                  animation: `fallPetal ${10 + (i % 4) * 2}s linear infinite`,
-                  animationDelay: `${i * 1.5}s`,
-                }}
-              >
-                {powder}
-              </div>
-            )
-          })}
-        </>
-      )}
-
-      {/* ── 10. NEPALI NEW YEAR (नव वर्ष बैशाख १) ── */}
-      {theme === 'nepali_new_year' && (
-        <>
-          {/* Falling pink rhododendron petals */}
-          {[8, 22, 38, 56, 74, 88].map((left, idx) => (
-            <div
-              key={idx}
-              className='absolute top-0 text-rose-500/70 dark:text-rose-400/60'
-              style={{
-                left: `${left}%`,
-                fontSize: `${13 + (idx % 3) * 4}px`,
-                animation: `fallPetal ${11 + (idx % 3) * 3}s linear infinite`,
-                animationDelay: `${idx * 2}s`,
-              }}
-            >
-              🌸
-            </div>
-          ))}
-          <div className='absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-rose-500/[0.05] to-transparent' />
-        </>
-      )}
-
-      {/* ── 11. BUDDHA JAYANTI (बुद्ध जयन्ती) ── */}
-      {theme === 'buddha_jayanti' && (
-        <>
-          {/* Sacred lotus blossoms drifting upwards */}
-          {[15, 40, 65, 85].map((pos, i) => (
+          <div className='absolute top-0 left-0 right-0 h-[460px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(236,72,153,0.18),transparent_75%)] pointer-events-none' />
+          {/* Floating Vibrant Pastel Powder Clouds */}
+          {[
+            { color: '#EC4899', top: '12%', left: '8%', size: 'w-44 h-44' },
+            { color: '#06B6D4', top: '22%', right: '12%', size: 'w-48 h-48' },
+            { color: '#EAB308', top: '35%', left: '42%', size: 'w-40 h-40' },
+            { color: '#8B5CF6', top: '18%', right: '35%', size: 'w-44 h-44' },
+          ].map((c, i) => (
             <div
               key={i}
-              className='absolute bottom-10 text-amber-500/70 dark:text-amber-400/70'
+              className={`absolute rounded-full blur-3xl opacity-35 ${c.size}`}
+              style={{
+                backgroundColor: c.color,
+                top: c.top,
+                left: c.left,
+                right: c.right,
+                animation: 'gulalCloudFloat 7s ease-in-out infinite',
+                animationDelay: `${i * 1.5}s`,
+              }}
+            />
+          ))}
+        </>
+      )}
+
+      {/* ── 10. NEPALI NEW YEAR: Falling Pink & Crimson Rhododendron (Laligurans) Petals ── */}
+      {theme === 'nepali_new_year' && (
+        <>
+          <div className='absolute top-0 left-0 right-0 h-[450px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(244,63,94,0.18),transparent_75%)] pointer-events-none' />
+          {[8, 22, 38, 54, 70, 86].map((pos, idx) => (
+            <div
+              key={idx}
+              className='absolute top-0 text-rose-500/80 dark:text-rose-400/80'
               style={{
                 left: `${pos}%`,
-                fontSize: `${18 + (i % 2) * 6}px`,
-                animation: `lotusDrift ${8 + (i % 3) * 2}s ease-in-out infinite`,
+                animation: `fallJamara ${10 + (idx % 3) * 3}s linear infinite`,
+                animationDelay: `${idx * 1.8}s`,
+              }}
+            >
+              <svg width='26' height='26' viewBox='0 0 24 24' fill='none'>
+                <path d='M12,2 C15,6 18,10 18,14 C18,18 15,22 12,22 C9,22 6,18 6,14 C6,10 9,6 12,2 Z' fill='#E11D48' />
+                <path d='M12,6 C14,9 15,12 15,15 C15,17 13.5,19 12,19 C10.5,19 9,17 9,15 C9,12 10,9 12,6 Z' fill='#FB7185' />
+              </svg>
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* ── 11. BUDDHA JAYANTI: Sacred Ascending Lotus Blooms & Serene Halo ── */}
+      {theme === 'buddha_jayanti' && (
+        <>
+          <div className='absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1200px] h-[480px] bg-[radial-gradient(ellipse_at_top,rgba(245,158,11,0.18),transparent_75%)] pointer-events-none' />
+          {[16, 42, 68, 88].map((leftVal, i) => (
+            <div
+              key={i}
+              className='absolute bottom-12 opacity-80'
+              style={{
+                left: `${leftVal}%`,
+                animation: `lotusFloatSacred ${9 + (i % 2) * 3}s ease-in-out infinite`,
                 animationDelay: `${i * 2.2}s`,
               }}
             >
-              🪷
+              <svg width='44' height='36' viewBox='0 0 44 36' fill='none' className='drop-shadow-md'>
+                <path d='M22,2 C28,12 36,18 36,26 C36,32 30,34 22,34 C14,34 8,32 8,26 C8,18 16,12 22,2 Z' fill='#F59E0B' />
+                <path d='M22,10 C26,16 30,22 30,27 C30,31 26,32 22,32 C18,32 14,31 14,27 C14,22 18,16 22,10 Z' fill='#FEF08A' />
+                <path d='M4,22 C10,22 16,26 18,32 C12,34 6,32 4,22 Z' fill='#D97706' />
+                <path d='M40,22 C34,22 28,26 26,32 C32,34 38,32 40,22 Z' fill='#D97706' />
+              </svg>
             </div>
           ))}
-          <div className='absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-[radial-gradient(ellipse_at_top,rgba(245,158,11,0.12),transparent_70%)]' />
         </>
       )}
     </div>
@@ -550,13 +781,13 @@ export function FestiveGreetingRibbon({
   const greetingText = customGreeting?.trim() || meta.defaultGreeting
 
   return (
-    <div className='relative z-30 border-b border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 backdrop-blur-md py-2 px-4'>
+    <div className='relative z-30 border-b border-amber-500/20 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 backdrop-blur-xl py-2 px-4 shadow-xs'>
       <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs'>
         <div className='flex items-center gap-2 text-center sm:text-left'>
-          <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-200 font-bold shrink-0 text-sm'>
+          <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/25 text-amber-900 dark:text-amber-200 font-bold shrink-0 text-sm'>
             {meta.emoji}
           </span>
-          <span className='font-semibold text-slate-800 dark:text-slate-100 tracking-wide'>
+          <span className='font-semibold text-slate-900 dark:text-slate-100 tracking-wide'>
             {greetingText}
           </span>
         </div>
@@ -564,17 +795,17 @@ export function FestiveGreetingRibbon({
         <div className='flex items-center gap-2.5 shrink-0'>
           <Badge
             variant='outline'
-            className='text-[10px] px-2 py-0.5 border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200 font-bold'
+            className='text-[10px] px-2 py-0.5 border-amber-500/40 bg-amber-500/15 text-amber-900 dark:text-amber-200 font-bold'
           >
             {meta.nepaliName}
           </Badge>
           <button
             type='button'
             onClick={onToggleEffects}
-            className='text-[11px] text-muted-foreground hover:text-foreground underline transition-colors cursor-pointer'
+            className='text-[11px] text-muted-foreground hover:text-foreground underline transition-colors cursor-pointer font-medium'
             title='Toggle festive background animations'
           >
-            {effectsEnabled ? 'Animations: On' : 'Animations: Off'}
+            {effectsEnabled ? 'Effects: Active' : 'Effects: Muted'}
           </button>
         </div>
       </div>
@@ -605,8 +836,8 @@ export function FestiveFloatingToggle({
       <button
         type='button'
         onClick={onToggle}
-        className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md bg-white/85 dark:bg-[#0A1128]/85 border border-slate-200 dark:border-white/15 text-slate-800 dark:text-slate-200 shadow-lg hover:bg-slate-50 dark:hover:bg-white/10 transition-all cursor-pointer'
-        title={`Toggle ${meta.name} animations`}
+        className='inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold backdrop-blur-xl bg-white/80 dark:bg-[#0A1128]/80 border border-slate-200 dark:border-white/15 text-slate-800 dark:text-slate-200 shadow-xl hover:bg-white dark:hover:bg-[#0A1128] hover:scale-105 active:scale-95 transition-all cursor-pointer'
+        title={`Toggle ${meta.name} atmosphere`}
       >
         <span>{meta.emoji}</span>
         <span>{meta.name}: {enabled ? 'Active' : 'Muted'}</span>

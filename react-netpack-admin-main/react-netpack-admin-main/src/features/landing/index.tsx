@@ -42,6 +42,7 @@ import { isAuthenticated } from '@/lib/auth'
 import { SERVER_URL } from '@/constants/endpoint'
 import {
   getEffectiveFestiveTheme,
+  getFestivalTheme,
   FestiveAtmosphereBackground,
   FestiveGreetingRibbon,
   FestiveFloatingToggle,
@@ -292,6 +293,11 @@ export default function LandingPage() {
     [siteContent.festiveTheme]
   )
 
+  const activeTheme = useMemo(
+    () => getFestivalTheme(festiveEffectsEnabled ? effectiveFestiveTheme : 'none'),
+    [effectiveFestiveTheme, festiveEffectsEnabled]
+  )
+
   useEffect(() => {
     fetch(`${API_BASE}/api/website-content`)
       .then((res) => {
@@ -522,14 +528,14 @@ export default function LandingPage() {
   const visibleCheckpoints = isCheckpointsExpanded ? checkpointsList : checkpointsList.slice(0, 3)
 
   return (
-    <div className='min-h-screen bg-[#FBFBFD] dark:bg-[#070D18] text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white font-sans antialiased'>
+    <div className={`min-h-screen ${activeTheme.rootBg} text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white font-sans antialiased transition-colors duration-500 relative`}>
       {/* ── AMBIENT FESTIVE SEASON PARTICLES & OVERLAY ─────────────────────── */}
       {festiveEffectsEnabled && (
         <FestiveAtmosphereBackground theme={effectiveFestiveTheme} />
       )}
 
       {/* ── HEADER NAVIGATION (APPLE FROSTED STYLE) ───────────────────────── */}
-      <header className='backdrop-blur-xl bg-white/80 dark:bg-[#0A1128]/85 border-b border-slate-200/70 dark:border-white/[0.08] sticky top-0 z-50 transition-all'>
+      <header className={`${activeTheme.headerBg} sticky top-0 z-50 transition-all duration-300`}>
         <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='flex items-center justify-between h-16 sm:h-18'>
             {/* Logo */}
@@ -745,8 +751,8 @@ export default function LandingPage() {
 
       {/* ── HERO SECTION: CLEAN APPLE TYPOGRAPHY & REFINE UI ──────────────── */}
       <section className='relative py-16 sm:py-20 lg:py-24 border-b border-slate-200/80 dark:border-white/[0.08] overflow-hidden'>
-        {/* Subtle Ambient Radial Glow */}
-        <div className='absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1440px] h-[450px] bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(37,99,235,0.1),transparent_70%)] pointer-events-none -z-10' />
+        {/* Ambient Thematic Radial Glow */}
+        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1440px] h-[480px] ${activeTheme.heroGlow} pointer-events-none -z-10 transition-all duration-500`} />
 
         <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 relative z-10'>
           <div className='grid lg:grid-cols-2 gap-12 lg:gap-14 items-center'>
@@ -786,7 +792,7 @@ export default function LandingPage() {
               </div>
 
               {/* Netpack Mobile App Card */}
-              <div className='rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-white/[0.03] backdrop-blur-md p-4 sm:p-5 shadow-xs hover:shadow-md transition-all duration-300'>
+              <div className={`rounded-3xl ${activeTheme.cardGlassBg} p-4 sm:p-5 transition-all duration-300`}>
                 <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
                   <div className='flex items-center gap-3.5'>
                     <img
@@ -844,7 +850,7 @@ export default function LandingPage() {
                 ].map((feat, fIdx) => (
                   <div
                     key={fIdx}
-                    className='flex items-center gap-2.5 p-2.5 rounded-2xl border border-slate-100 dark:border-white/[0.04] bg-white/60 dark:bg-white/[0.02] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200'
+                    className={`flex items-center gap-2.5 p-2.5 rounded-2xl ${activeTheme.cardGlassBg} hover:-translate-y-0.5 hover:shadow-md transition-all duration-200`}
                   >
                     <div className='p-2 rounded-xl bg-slate-50 dark:bg-white/[0.06] shrink-0'>
                       {feat.icon}
@@ -865,7 +871,7 @@ export default function LandingPage() {
                 alt='Netpack Logistic delivery truck in Kathmandu'
                 className='w-full h-auto rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 object-cover transition-transform duration-500 group-hover:scale-[1.01]'
               />
-              <div className='absolute -bottom-5 -left-5 backdrop-blur-xl bg-white/90 dark:bg-[#0A1128]/90 p-4 rounded-2xl shadow-xl border border-slate-200/80 dark:border-white/10 flex items-center gap-3 animate-float'>
+              <div className={`absolute -bottom-5 -left-5 ${activeTheme.cardGlassBg} p-4 rounded-2xl shadow-xl flex items-center gap-3 animate-float`}>
                 <div className='relative flex h-3.5 w-3.5'>
                   <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75' />
                   <span className='relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500' />
@@ -884,7 +890,7 @@ export default function LandingPage() {
       <section
         id='tracking'
         ref={trackingBoxRef}
-        className='py-20 sm:py-24 px-4 bg-white dark:bg-[#070D18] border-b border-slate-200/80 dark:border-white/[0.08]'
+        className='py-20 sm:py-24 px-4 border-b border-slate-200/80 dark:border-white/[0.08] relative'
       >
         <div className='max-w-5xl xl:max-w-6xl mx-auto space-y-8 text-center'>
           <div className='space-y-3'>
@@ -904,7 +910,7 @@ export default function LandingPage() {
           </div>
 
           {/* Clean Frosted Tracking Command Box */}
-          <div className='rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#0A1128] shadow-xl p-5 sm:p-7 space-y-4'>
+          <div className={`rounded-3xl ${activeTheme.cardGlassBg} p-5 sm:p-7 space-y-4`}>
             <form onSubmit={handleTrack} className='flex flex-col sm:flex-row gap-3'>
               <div className='relative flex-1'>
                 <Search className='absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none' />
@@ -944,7 +950,7 @@ export default function LandingPage() {
             {trackingData && (
               <div className='pt-5 text-left space-y-5 border-t border-slate-100 dark:border-white/[0.08] animate-in fade-in-50 duration-300'>
                 {/* Status Hero Card */}
-                <div className='rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] p-5 space-y-4'>
+                <div className={`rounded-2xl ${activeTheme.cardGlassBg} p-5 space-y-4`}>
                   <div className='flex flex-wrap items-center justify-between gap-3'>
                     <div className='space-y-1'>
                       <div className='flex items-center gap-2'>
@@ -995,7 +1001,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* ── MILESTONES & LIFECYCLE ── */}
-                <div className='rounded-2xl border border-slate-200/70 dark:border-white/10 bg-card p-5 space-y-3 shadow-xs'>
+                <div className={`rounded-2xl ${activeTheme.cardGlassBg} p-5 space-y-3`}>
                   <div className='flex items-center justify-between'>
                     <div className='flex items-center gap-2'>
                       <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
@@ -1114,7 +1120,7 @@ export default function LandingPage() {
 
                 {/* ── CHECKPOINTS TIMELINE ── */}
                 {checkpointsList.length > 0 && (
-                  <div className='rounded-2xl border border-slate-200/70 dark:border-white/10 bg-card p-5 space-y-3 shadow-xs'>
+                  <div className={`rounded-2xl ${activeTheme.cardGlassBg} p-5 space-y-3`}>
                     <div className='flex items-center justify-between'>
                       <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
                         Transit Checkpoints &amp; Scans ({checkpointsList.length})
@@ -1154,7 +1160,7 @@ export default function LandingPage() {
 
                 {/* ── PACKAGE DETAILS ACCORDION ── */}
                 {trackingData.packages && trackingData.packages.length > 0 && (
-                  <div className='rounded-2xl border border-slate-200/70 dark:border-white/10 bg-card p-5 space-y-3 shadow-xs'>
+                  <div className={`rounded-2xl ${activeTheme.cardGlassBg} p-5 space-y-3`}>
                     <button
                       type='button'
                       onClick={() => setIsPackageDetailsOpen(!isPackageDetailsOpen)}
@@ -1193,7 +1199,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── SPECIALIZED SERVICES SECTION (#services) ───────────────────────── */}
-      <section id='services' className='py-20 sm:py-24 bg-background border-b border-gray-200 dark:border-slate-800'>
+      <section id='services' className='py-20 sm:py-24 border-b border-gray-200 dark:border-slate-800 relative'>
         <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='text-center mb-16 space-y-3'>
             <h2
@@ -1209,7 +1215,7 @@ export default function LandingPage() {
 
           <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-8'>
             {/* Card 1: Door-to-Door to Canada, UK, Europe & USA */}
-            <div className='bg-card flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-white/10 p-8 shadow-xs hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left'>
+            <div className={`flex flex-col justify-between rounded-3xl ${activeTheme.cardGlassBg} p-8 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left`}>
               <div className='space-y-4'>
                 <div className='flex items-center justify-between'>
                   <div className='p-3 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200'>
@@ -1257,7 +1263,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 2: Import from China */}
-            <div className='bg-card flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-white/10 p-8 shadow-xs hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left'>
+            <div className={`flex flex-col justify-between rounded-3xl ${activeTheme.cardGlassBg} p-8 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left`}>
               <div className='space-y-4'>
                 <div className='flex items-center justify-between'>
                   <div className='p-3 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200'>
@@ -1305,7 +1311,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 3: Import from India */}
-            <div className='bg-card flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-white/10 p-8 shadow-xs hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left'>
+            <div className={`flex flex-col justify-between rounded-3xl ${activeTheme.cardGlassBg} p-8 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left`}>
               <div className='space-y-4'>
                 <div className='flex items-center justify-between'>
                   <div className='p-3 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200'>
@@ -1354,7 +1360,7 @@ export default function LandingPage() {
           </div>
 
           {/* Stats Banner */}
-          <div className='mt-16 bg-slate-50/80 dark:bg-white/[0.03] rounded-3xl p-8 lg:p-12 border border-slate-200/80 dark:border-white/10 shadow-xs'>
+          <div className={`mt-16 rounded-3xl p-8 lg:p-12 ${activeTheme.cardGlassBg}`}>
             <div className='grid md:grid-cols-3 gap-8 items-center text-center'>
               <div className='space-y-1'>
                 <div className='text-4xl lg:text-5xl font-extrabold text-blue-600 dark:text-sky-400 font-mono'>5000+</div>
@@ -1380,7 +1386,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── ABOUT SECTION (#about) ─────────────────────────────────────────── */}
-      <section id='about' className='py-20 sm:py-24 bg-background border-b border-gray-200 dark:border-slate-800'>
+      <section id='about' className='py-20 sm:py-24 border-b border-gray-200 dark:border-slate-800 relative'>
         <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='text-center mb-16 space-y-3'>
             <h2
@@ -1440,7 +1446,7 @@ export default function LandingPage() {
                 alt='Netpack Logistic office'
                 className='w-full h-auto rounded-3xl shadow-xl border border-slate-200 dark:border-white/10 object-cover'
               />
-              <div className='absolute -bottom-5 -right-5 bg-white dark:bg-[#0A1128] p-5 rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 animate-float'>
+              <div className={`absolute -bottom-5 -right-5 ${activeTheme.cardGlassBg} p-5 rounded-2xl shadow-xl animate-float`}>
                 <div className='text-center'>
                   <div className='text-3xl font-extrabold text-blue-600 dark:text-sky-400'>15+</div>
                   <div className='text-xs font-semibold text-slate-500'>Years Serving Nepal</div>
@@ -1451,15 +1457,15 @@ export default function LandingPage() {
 
           {/* 3 Metric Cards */}
           <div className='grid md:grid-cols-3 gap-6 text-center'>
-            <div className='bg-card p-6 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs hover:-translate-y-1 transition-transform duration-200'>
+            <div className={`p-6 rounded-2xl ${activeTheme.cardGlassBg} hover:-translate-y-1 transition-transform duration-200`}>
               <div className='text-3xl font-extrabold text-blue-600 dark:text-sky-400 mb-1 font-mono'>15+</div>
               <div className='text-xs font-semibold text-slate-500'>Years of Service</div>
             </div>
-            <div className='bg-card p-6 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs hover:-translate-y-1 transition-transform duration-200'>
+            <div className={`p-6 rounded-2xl ${activeTheme.cardGlassBg} hover:-translate-y-1 transition-transform duration-200`}>
               <div className='text-3xl font-extrabold text-blue-600 dark:text-sky-400 mb-1 font-mono'>75+</div>
               <div className='text-xs font-semibold text-slate-500'>Delivery Locations</div>
             </div>
-            <div className='bg-card p-6 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs hover:-translate-y-1 transition-transform duration-200'>
+            <div className={`p-6 rounded-2xl ${activeTheme.cardGlassBg} hover:-translate-y-1 transition-transform duration-200`}>
               <div className='text-3xl font-extrabold text-blue-600 dark:text-sky-400 mb-1 font-mono'>99.8%</div>
               <div className='text-xs font-semibold text-slate-500'>On-Time Delivery</div>
             </div>
@@ -1468,7 +1474,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── CONTACT SECTION (#contact) ─────────────────────────────────────── */}
-      <section id='contact' className='py-20 sm:py-24 bg-slate-50/70 dark:bg-[#0A1128]/40 border-b border-gray-200 dark:border-slate-800'>
+      <section id='contact' className='py-20 sm:py-24 border-b border-gray-200 dark:border-slate-800 relative'>
         <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='text-center mb-16 space-y-3'>
             <h2
@@ -1484,7 +1490,7 @@ export default function LandingPage() {
 
           <div className='grid lg:grid-cols-3 gap-10 text-left'>
             {/* Contact details */}
-            <div className='space-y-6'>
+            <div className={`space-y-6 rounded-3xl ${activeTheme.cardGlassBg} p-6 sm:p-8`}>
               <h3 className='text-xl font-bold text-slate-900 dark:text-white'>Contact Information</h3>
               <div className='space-y-5'>
                 <div className='flex items-start gap-4'>
@@ -1537,7 +1543,7 @@ export default function LandingPage() {
 
             {/* Message form */}
             <div className='lg:col-span-2'>
-              <div className='rounded-3xl border border-slate-200 dark:border-white/10 bg-card p-6 sm:p-8 shadow-xs'>
+              <div className={`rounded-3xl ${activeTheme.cardGlassBg} p-6 sm:p-8 shadow-xs`}>
                 <h3 className='text-xl font-bold text-slate-900 dark:text-white mb-1'>Send us a Message</h3>
                 <p className='text-xs text-slate-500 mb-6'>Fill out the form below and we&apos;ll get back to you within 24 hours.</p>
 
@@ -1617,8 +1623,8 @@ export default function LandingPage() {
           </div>
 
           {/* Embedded Google Map */}
-          <div className='mt-16 rounded-3xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm'>
-            <div className='bg-card p-4 border-b border-border/70 flex items-center justify-between'>
+          <div className={`mt-16 rounded-3xl overflow-hidden ${activeTheme.cardGlassBg}`}>
+            <div className='p-4 border-b border-border/70 flex items-center justify-between'>
               <div>
                 <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Find Us on the Map</h4>
                 <p className='text-xs text-slate-500'>Visit our main office in Teku, Kathmandu</p>
