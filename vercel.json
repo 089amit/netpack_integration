@@ -19,38 +19,9 @@
       }
     },
     {
-      "source": "/assets/(.*)",
-      "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/assets/$1"
-      }
-    },
-    {
-      "source": "/download/(.*)",
-      "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/download/$1"
-      }
-    },
-    {
-      "source": "/images/(.*)",
-      "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/images/$1"
-      }
-    },
-    {
-      "source": "/(.*\\.(?:ico|png|svg|json|webmanifest|js|css|apk|txt|xml))",
-      "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/$1"
-      }
-    },
-    {
       "source": "/(.*)",
       "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/index.html"
+        "service": "react-netpack-admin-main"
       }
     }
   ]
