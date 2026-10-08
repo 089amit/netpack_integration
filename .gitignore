@@ -39,6 +39,13 @@ dist/
 react-netpack-admin-main/react-netpack-admin-main/dist/
 react-netpack-admin-main/react-netpack-admin-main/node_modules/
 
+# ─── Android Build Artifacts ────────────────────────────────────────────────
+android/*/gen/
+android/*/obj/
+android/*/bin/
+android/*/*.zip
+android/*/*.apk
+
 # ─── Uploads / User Files ────────────────────────────────────────────────────
 netpack-backend-python/uploads/
 uploads/

@@ -40,14 +40,10 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { isAuthenticated } from '@/lib/auth'
 import { SERVER_URL } from '@/constants/endpoint'
-import {
-  getEffectiveFestiveTheme,
-  getFestivalTheme,
-  FestiveAtmosphereBackground,
-  FestiveLogoAdornment,
-} from './festive-atmosphere'
 
 const API_BASE = SERVER_URL
+const CARD_GLASS_BG = 'bg-white/80 dark:bg-[#0A1128]/80 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-lg shadow-slate-200/30 dark:shadow-none'
+const HERO_GLOW = 'bg-radial from-blue-500/10 via-transparent to-transparent blur-3xl'
 
 function formatDateTime(isoStr?: string | null): string {
   if (!isoStr) return 'Date & time pending'
@@ -90,31 +86,42 @@ function getShortMilestoneLabel(label: string) {
   return label.split(' ')[0]
 }
 
-function InstallGuideModal({
+function MobileAppInstallModal({
   open,
   onClose,
+  initialTab = 'android',
   isIos,
   isInAppBrowser = false,
 }: {
   open: boolean
   onClose: () => void
+  initialTab?: 'android' | 'ios'
   isIos: boolean
   isInAppBrowser?: boolean
 }) {
+  const [activeTab, setActiveTab] = useState<'android' | 'ios'>('android')
+
+  useEffect(() => {
+    if (open) {
+      setActiveTab(isIos ? 'ios' : initialTab)
+    }
+  }, [open, isIos, initialTab])
+
   if (!open) return null
+
   return (
-    <div className='fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200'>
-      <div className='bg-white dark:bg-[#0A1128] rounded-3xl w-full max-w-sm border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden p-6'>
+    <div className='fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200'>
+      <div className='bg-white dark:bg-[#0A1128] rounded-3xl w-full max-w-md border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden p-6 sm:p-7'>
         <div className='flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/10'>
           <div className='flex items-center gap-3'>
-            <div className='w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20'>
-              <Smartphone className='w-5 h-5' />
+            <div className='w-11 h-11 rounded-2xl bg-[#0D1B2A] dark:bg-blue-600 flex items-center justify-center text-white shadow-md'>
+              <Smartphone className='w-5 h-5 text-amber-400 dark:text-white' />
             </div>
             <div>
-              <h3 style={{ fontFamily: 'Jost, sans-serif' }} className='font-bold text-base text-[#0D1B2A] dark:text-white'>
-                Install Netpack App
+              <h3 style={{ fontFamily: 'Jost, sans-serif' }} className='font-bold text-lg text-[#0D1B2A] dark:text-white'>
+                NetPack Mobile Apps
               </h3>
-              <p className='text-xs text-muted-foreground'>Home screen app installation</p>
+              <p className='text-xs text-muted-foreground'>Android APKs &amp; iOS PWA Installation</p>
             </div>
           </div>
           <button
@@ -125,81 +132,151 @@ function InstallGuideModal({
           </button>
         </div>
 
-        <div className='py-4 space-y-3.5 text-xs text-slate-600 dark:text-slate-300'>
-          {isInAppBrowser && (
-            <div className='p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 mb-2'>
-              <div className='flex items-center gap-1.5 font-bold text-xs text-amber-800 dark:text-amber-300'>
-                <span>⚠️</span>
-                <span>You are browsing inside an in-app browser</span>
+        {/* Platform Switcher Tabs */}
+        <div className='grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-white/[0.06] rounded-2xl my-4 text-xs font-semibold'>
+          <button
+            type='button'
+            onClick={() => setActiveTab('android')}
+            className={`py-2 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'android'
+                ? 'bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            🤖 Android (.APK)
+          </button>
+          <button
+            type='button'
+            onClick={() => setActiveTab('ios')}
+            className={`py-2 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'ios'
+                ? 'bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            🍎 iPhone / Web App
+          </button>
+        </div>
+
+        {activeTab === 'android' ? (
+          <div className='space-y-3.5'>
+            {/* Customer APK Card */}
+            <div className='p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 hover:border-amber-500/40 transition-all'>
+              <div className='flex items-start justify-between gap-3'>
+                <div className='flex items-center gap-2.5'>
+                  <div className='w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold text-lg'>
+                    📦
+                  </div>
+                  <div>
+                    <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Customer App</h4>
+                    <p className='text-[11px] text-muted-foreground'>Doorstep pickups, tracking &amp; verified weights</p>
+                  </div>
+                </div>
+                <span className='text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-300 shrink-0'>
+                  ~66 KB
+                </span>
               </div>
-              <p className='text-[11px] text-amber-800/90 dark:text-amber-200/90 mt-1 leading-snug'>
-                Apple and WhatsApp prevent installing home screen apps directly.
-              </p>
-              <div className='mt-2.5 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-amber-500/20 text-[11px] font-semibold text-slate-800 dark:text-white flex items-center gap-2'>
-                <span className='text-amber-600 font-bold'>👉</span>
-                <span>Tap <strong>⋯</strong> in corner and select <strong>"Open in Safari"</strong></span>
+              <div className='mt-3.5 flex items-center gap-2'>
+                <a
+                  href={`${SERVER_URL}/download/customer.apk`}
+                  download='Netpack-Customer.apk'
+                  className='flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-[#0D1B2A] font-bold text-xs transition-all shadow-sm'
+                >
+                  <Download className='w-3.5 h-3.5' />
+                  <span>Download Customer APK</span>
+                </a>
+                <a
+                  href='/pwa'
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='py-2.5 px-3 rounded-xl border border-slate-300 dark:border-white/15 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-semibold text-xs'
+                  title='Launch Web Version'
+                >
+                  Open Web
+                </a>
               </div>
             </div>
-          )}
 
-          {isIos ? (
-            <>
-              <p className='font-semibold text-slate-900 dark:text-white text-xs'>
-                Follow these 3 steps on iPhone / iPad:
-              </p>
-              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/40'>
-                <div className='w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-bold'>1</div>
-                <div className='leading-relaxed text-xs'>
-                  In Safari, tap the <strong>Share</strong> button <span className='inline-block px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border text-[11px] font-mono'>[↑]</span> at the bottom bar.
-                  <p className='text-[10px] text-muted-foreground mt-0.5'>(In Chrome for iOS: tap 3 dots <strong>⋯</strong> in corner)</p>
+            {/* Rider Dispatch APK Card */}
+            <div className='p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 hover:border-blue-500/40 transition-all'>
+              <div className='flex items-start justify-between gap-3'>
+                <div className='flex items-center gap-2.5'>
+                  <div className='w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 font-bold text-lg'>
+                    🚴
+                  </div>
+                  <div>
+                    <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Rider Dispatch App</h4>
+                    <p className='text-[11px] text-muted-foreground'>Field dispatch, audio chime alerts &amp; Bluetooth scale</p>
+                  </div>
                 </div>
+                <span className='text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-300 shrink-0'>
+                  ~87 KB
+                </span>
               </div>
-              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/40'>
-                <div className='w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-bold'>2</div>
-                <p className='leading-relaxed text-xs'>
-                  Scroll down the share sheet and tap <strong>"Add to Home Screen"</strong> <span className='inline-block px-1 py-0.5 rounded bg-white dark:bg-slate-800 border text-[10px] font-mono'>➕</span>.
-                </p>
+              <div className='mt-3.5 flex items-center gap-2'>
+                <a
+                  href={`${SERVER_URL}/download/rider.apk`}
+                  download='Netpack-Rider.apk'
+                  className='flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#0D1B2A] hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold text-xs transition-all shadow-sm'
+                >
+                  <Download className='w-3.5 h-3.5' />
+                  <span>Download Rider APK</span>
+                </a>
+                <a
+                  href='/pickup-pwa'
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='py-2.5 px-3 rounded-xl border border-slate-300 dark:border-white/15 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-semibold text-xs'
+                  title='Launch Web Version'
+                >
+                  Open Web
+                </a>
               </div>
-              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/40'>
-                <div className='w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-bold'>3</div>
-                <p className='leading-relaxed text-xs'>
-                  Tap <strong>Add</strong> in the top right. Launch the <strong>Netpack</strong> icon directly from your home screen!
-                </p>
+            </div>
+
+            <div className='p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-[11px] leading-relaxed'>
+              <strong>🔔 Background Notifications:</strong> Both APKs receive push updates even when closed! Once downloaded, tap the APK in your downloads and allow <em>Install unknown apps</em> to install.
+            </div>
+          </div>
+        ) : (
+          <div className='space-y-3 text-xs text-slate-600 dark:text-slate-300'>
+            {isInAppBrowser && (
+              <div className='p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-[11px] mb-2'>
+                <span>👉 Tap <strong>⋯</strong> and select <strong>"Open in Safari"</strong> to install.</span>
               </div>
-            </>
-          ) : (
-            <>
-              <p className='font-semibold text-slate-900 dark:text-white text-xs'>
-                Follow these steps on Android / Chrome:
-              </p>
-              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/40'>
-                <div className='w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-bold'>1</div>
-                <p className='leading-relaxed text-xs'>
-                  Tap the browser <strong>Three Dots (⋮)</strong> menu in the upper corner.
-                </p>
-              </div>
-              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/40'>
-                <div className='w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-bold'>2</div>
-                <p className='leading-relaxed text-xs'>
-                  Choose <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
-                </p>
-              </div>
-              <div className='flex items-start gap-3 bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/40'>
-                <div className='w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-bold'>3</div>
-                <p className='leading-relaxed text-xs'>
-                  Confirm installation. Launch from home screen for full-screen offline experience!
-                </p>
-              </div>
-            </>
-          )}
-        </div>
+            )}
+            <p className='font-semibold text-slate-900 dark:text-white text-xs'>
+              Install on iPhone / iPad (Safari):
+            </p>
+            <div className='flex items-start gap-2.5 bg-blue-50/80 dark:bg-blue-950/40 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+              <div className='w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center shrink-0 text-[11px] font-bold'>1</div>
+              <p className='text-xs'>Tap the <strong>Share</strong> button <span className='font-mono'>[↑]</span> at the bottom bar of Safari.</p>
+            </div>
+            <div className='flex items-start gap-2.5 bg-blue-50/80 dark:bg-blue-950/40 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+              <div className='w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center shrink-0 text-[11px] font-bold'>2</div>
+              <p className='text-xs'>Scroll down and tap <strong>"Add to Home Screen"</strong> ➕.</p>
+            </div>
+            <div className='flex items-start gap-2.5 bg-blue-50/80 dark:bg-blue-950/40 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40'>
+              <div className='w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center shrink-0 text-[11px] font-bold'>3</div>
+              <p className='text-xs'>Tap <strong>Add</strong>. Launch NetPack from your home screen!</p>
+            </div>
+            <div className='grid grid-cols-2 gap-2 pt-1'>
+              <a href='/pwa' className='text-center py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-xs'>
+                Open Customer Web
+              </a>
+              <a href='/pickup-pwa' className='text-center py-2.5 rounded-xl bg-slate-800 text-white font-semibold text-xs'>
+                Open Rider Web
+              </a>
+            </div>
+          </div>
+        )}
 
         <button
           onClick={onClose}
           style={{ fontFamily: 'Jost, sans-serif' }}
-          className='w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all cursor-pointer shadow-lg shadow-blue-500/20 active:scale-[0.98]'
+          className='w-full mt-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all cursor-pointer'
         >
-          Got it
+          Close
         </button>
       </div>
     </div>
@@ -211,7 +288,6 @@ export default function LandingPage() {
   const [isAuth, setIsAuth] = useState(false)
 
   // PWA Install Prompt & Device Detection
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstallGuideModal, setShowInstallGuideModal] = useState(false)
   const isIos = useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -259,19 +335,7 @@ export default function LandingPage() {
       'TIA Customs Clearance: Operational',
       'Coverage: 75+ Hubs Across Nepal & Worldwide',
     ],
-    festiveTheme: 'auto',
-    festiveGreeting: '',
   })
-
-  const effectiveFestiveTheme = useMemo(
-    () => getEffectiveFestiveTheme(siteContent.festiveTheme),
-    [siteContent.festiveTheme]
-  )
-
-  const activeTheme = useMemo(
-    () => getFestivalTheme(effectiveFestiveTheme),
-    [effectiveFestiveTheme]
-  )
 
   useEffect(() => {
     fetch(`${API_BASE}/api/website-content`)
@@ -294,8 +358,6 @@ export default function LandingPage() {
               Array.isArray(data.tickerItems) && data.tickerItems.length > 0
                 ? data.tickerItems
                 : prev.tickerItems,
-            festiveTheme: data.festiveTheme || prev.festiveTheme,
-            festiveGreeting: data.festiveGreeting || prev.festiveGreeting,
           }))
         }
       })
@@ -306,39 +368,16 @@ export default function LandingPage() {
 
   const trackingBoxRef = useRef<HTMLDivElement>(null)
 
-  // Auth check & PWA install listener
+  // Auth check
   useEffect(() => {
     setIsAuth(isAuthenticated())
-
-    const handlePrompt = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e)
-    }
-    window.addEventListener('beforeinstallprompt', handlePrompt)
-    return () => window.removeEventListener('beforeinstallprompt', handlePrompt)
   }, [])
 
-  const handleInstallClick = async (target: 'customer' | 'rider' = 'customer') => {
-    if (target === 'rider') {
-      window.location.href = '/pickup-pwa?install=1'
-      return
-    }
+  const [installModalTab, setInstallModalTab] = useState<'android' | 'ios'>('android')
 
-    if (deferredPrompt) {
-      try {
-        deferredPrompt.prompt()
-        const { outcome } = await deferredPrompt.userChoice
-        if (outcome === 'accepted') {
-          toast.success('Netpack App installed to your phone!')
-        }
-        setDeferredPrompt(null)
-      } catch (err) {
-        console.warn('Install prompt error:', err)
-        setShowInstallGuideModal(true)
-      }
-    } else {
-      setShowInstallGuideModal(true)
-    }
+  const handleInstallClick = (_target: 'customer' | 'rider' = 'customer') => {
+    setInstallModalTab('android')
+    setShowInstallGuideModal(true)
   }
 
   const handleTrack = async (e?: React.FormEvent) => {
@@ -503,22 +542,18 @@ export default function LandingPage() {
   const visibleCheckpoints = isCheckpointsExpanded ? checkpointsList : checkpointsList.slice(0, 3)
 
   return (
-    <div className={`min-h-screen ${activeTheme.rootBg} text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white font-sans antialiased transition-colors duration-500 relative`}>
-      {/* ── AMBIENT FESTIVE SEASON PARTICLES & OVERLAY ─────────────────────── */}
-      <FestiveAtmosphereBackground theme={effectiveFestiveTheme} />
-
+    <div className='min-h-screen bg-[#FBFBFD] dark:bg-[#070D18] text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white font-sans antialiased transition-colors duration-500 relative'>
       {/* ── HEADER NAVIGATION (APPLE FROSTED STYLE) ───────────────────────── */}
-      <header className={`${activeTheme.headerBg} sticky top-0 z-50 transition-all duration-300`}>
+      <header className='bg-white/80 dark:bg-[#0A1128]/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/10 sticky top-0 z-50 transition-all duration-300'>
         <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='flex items-center justify-between h-16 sm:h-18'>
-            {/* Logo with Cultural Festive Adornment */}
+            {/* Logo */}
             <a href='/' className='flex items-center gap-2 group active:scale-95 transition-transform'>
               <img
                 src='/alzlogo.png'
                 alt='Netpack Logo'
                 className='h-9 sm:h-10 w-auto object-contain transition-all duration-300 group-hover:scale-105 drop-shadow-xs'
               />
-              <FestiveLogoAdornment theme={effectiveFestiveTheme} />
             </a>
 
             {/* Desktop Navigation Links */}
@@ -718,24 +753,17 @@ export default function LandingPage() {
       {/* ── HERO SECTION: CLEAN APPLE TYPOGRAPHY & REFINE UI ──────────────── */}
       <section className='relative py-16 sm:py-20 lg:py-24 border-b border-slate-200/80 dark:border-white/[0.08] overflow-hidden'>
         {/* Ambient Thematic Radial Glow */}
-        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1440px] h-[480px] ${activeTheme.heroGlow} pointer-events-none -z-10 transition-all duration-500`} />
+        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1440px] h-[480px] ${HERO_GLOW} pointer-events-none -z-10 transition-all duration-500`} />
 
         <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 relative z-10'>
           <div className='grid lg:grid-cols-2 gap-12 lg:gap-14 items-center'>
             {/* Left Column Copy */}
             <div className='space-y-7 text-left'>
               <div className='space-y-4'>
-                {effectiveFestiveTheme && effectiveFestiveTheme !== 'none' ? (
-                  <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full ${activeTheme.badgeBg} border ${activeTheme.badgeBorder} ${activeTheme.badgeText} text-xs font-semibold tracking-wide shadow-xs`}>
-                    <span className='text-sm'>{activeTheme.emoji}</span>
-                    <span>{siteContent.festiveGreeting?.trim() || activeTheme.defaultGreeting}</span>
-                  </div>
-                ) : (
-                  <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-white/[0.05] border border-blue-200/80 dark:border-white/10 text-blue-700 dark:text-sky-300 text-xs font-semibold uppercase tracking-wider shadow-xs'>
-                    <Sparkles className='h-3.5 w-3.5 text-blue-600 dark:text-sky-400' />
-                    <span>{siteContent.heroBadge}</span>
-                  </div>
-                )}
+                <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-white/[0.05] border border-blue-200/80 dark:border-white/10 text-blue-700 dark:text-sky-300 text-xs font-semibold uppercase tracking-wider shadow-xs'>
+                  <Sparkles className='h-3.5 w-3.5 text-blue-600 dark:text-sky-400' />
+                  <span>{siteContent.heroBadge}</span>
+                </div>
                 <h1
                   style={{ fontFamily: 'Jost, sans-serif' }}
                   className='text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white leading-[1.12] tracking-tight'
@@ -765,7 +793,7 @@ export default function LandingPage() {
               </div>
 
               {/* Netpack Mobile App Card */}
-              <div className={`rounded-3xl ${activeTheme.cardGlassBg} p-4 sm:p-5 transition-all duration-300`}>
+              <div className={`rounded-3xl ${CARD_GLASS_BG} p-4 sm:p-5 transition-all duration-300`}>
                 <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
                   <div className='flex items-center gap-3.5'>
                     <img
@@ -823,7 +851,7 @@ export default function LandingPage() {
                 ].map((feat, fIdx) => (
                   <div
                     key={fIdx}
-                    className={`flex items-center gap-2.5 p-2.5 rounded-2xl ${activeTheme.cardGlassBg} hover:-translate-y-0.5 hover:shadow-md transition-all duration-200`}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-2xl ${CARD_GLASS_BG} hover:-translate-y-0.5 hover:shadow-md transition-all duration-200`}
                   >
                     <div className='p-2 rounded-xl bg-slate-50 dark:bg-white/[0.06] shrink-0'>
                       {feat.icon}
@@ -844,7 +872,7 @@ export default function LandingPage() {
                 alt='Netpack Logistic delivery truck in Kathmandu'
                 className='w-full h-auto rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 object-cover transition-transform duration-500 group-hover:scale-[1.01]'
               />
-              <div className={`absolute -bottom-5 -left-5 ${activeTheme.cardGlassBg} p-4 rounded-2xl shadow-xl flex items-center gap-3 animate-float`}>
+              <div className={`absolute -bottom-5 -left-5 ${CARD_GLASS_BG} p-4 rounded-2xl shadow-xl flex items-center gap-3 animate-float`}>
                 <div className='relative flex h-3.5 w-3.5'>
                   <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75' />
                   <span className='relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500' />
@@ -883,7 +911,7 @@ export default function LandingPage() {
           </div>
 
           {/* Clean Frosted Tracking Command Box */}
-          <div className={`rounded-3xl ${activeTheme.cardGlassBg} p-5 sm:p-7 space-y-4`}>
+          <div className={`rounded-3xl ${CARD_GLASS_BG} p-5 sm:p-7 space-y-4`}>
             <form onSubmit={handleTrack} className='flex flex-col sm:flex-row gap-3'>
               <div className='relative flex-1'>
                 <Search className='absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none' />
@@ -923,7 +951,7 @@ export default function LandingPage() {
             {trackingData && (
               <div className='pt-5 text-left space-y-5 border-t border-slate-100 dark:border-white/[0.08] animate-in fade-in-50 duration-300'>
                 {/* Status Hero Card */}
-                <div className={`rounded-2xl ${activeTheme.cardGlassBg} p-5 space-y-4`}>
+                <div className={`rounded-2xl ${CARD_GLASS_BG} p-5 space-y-4`}>
                   <div className='flex flex-wrap items-center justify-between gap-3'>
                     <div className='space-y-1'>
                       <div className='flex items-center gap-2'>
@@ -974,7 +1002,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* ── MILESTONES & LIFECYCLE ── */}
-                <div className={`rounded-2xl ${activeTheme.cardGlassBg} p-5 space-y-3`}>
+                <div className={`rounded-2xl ${CARD_GLASS_BG} p-5 space-y-3`}>
                   <div className='flex items-center justify-between'>
                     <div className='flex items-center gap-2'>
                       <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
@@ -1093,7 +1121,7 @@ export default function LandingPage() {
 
                 {/* ── CHECKPOINTS TIMELINE ── */}
                 {checkpointsList.length > 0 && (
-                  <div className={`rounded-2xl ${activeTheme.cardGlassBg} p-5 space-y-3`}>
+                  <div className={`rounded-2xl ${CARD_GLASS_BG} p-5 space-y-3`}>
                     <div className='flex items-center justify-between'>
                       <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
                         Transit Checkpoints &amp; Scans ({checkpointsList.length})
@@ -1133,7 +1161,7 @@ export default function LandingPage() {
 
                 {/* ── PACKAGE DETAILS ACCORDION ── */}
                 {trackingData.packages && trackingData.packages.length > 0 && (
-                  <div className={`rounded-2xl ${activeTheme.cardGlassBg} p-5 space-y-3`}>
+                  <div className={`rounded-2xl ${CARD_GLASS_BG} p-5 space-y-3`}>
                     <button
                       type='button'
                       onClick={() => setIsPackageDetailsOpen(!isPackageDetailsOpen)}
@@ -1188,7 +1216,7 @@ export default function LandingPage() {
 
           <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-8'>
             {/* Card 1: Door-to-Door to Canada, UK, Europe & USA */}
-            <div className={`flex flex-col justify-between rounded-3xl ${activeTheme.cardGlassBg} p-8 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left`}>
+            <div className={`flex flex-col justify-between rounded-3xl ${CARD_GLASS_BG} p-8 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left`}>
               <div className='space-y-4'>
                 <div className='flex items-center justify-between'>
                   <div className='p-3 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200'>
@@ -1236,7 +1264,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 2: Import from China */}
-            <div className={`flex flex-col justify-between rounded-3xl ${activeTheme.cardGlassBg} p-8 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left`}>
+            <div className={`flex flex-col justify-between rounded-3xl ${CARD_GLASS_BG} p-8 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left`}>
               <div className='space-y-4'>
                 <div className='flex items-center justify-between'>
                   <div className='p-3 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200'>
@@ -1284,7 +1312,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 3: Import from India */}
-            <div className={`flex flex-col justify-between rounded-3xl ${activeTheme.cardGlassBg} p-8 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left`}>
+            <div className={`flex flex-col justify-between rounded-3xl ${CARD_GLASS_BG} p-8 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 hover:border-blue-500/40 group text-left`}>
               <div className='space-y-4'>
                 <div className='flex items-center justify-between'>
                   <div className='p-3 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200'>
@@ -1333,7 +1361,7 @@ export default function LandingPage() {
           </div>
 
           {/* Stats Banner */}
-          <div className={`mt-16 rounded-3xl p-8 lg:p-12 ${activeTheme.cardGlassBg}`}>
+          <div className={`mt-16 rounded-3xl p-8 lg:p-12 ${CARD_GLASS_BG}`}>
             <div className='grid md:grid-cols-3 gap-8 items-center text-center'>
               <div className='space-y-1'>
                 <div className='text-4xl lg:text-5xl font-extrabold text-blue-600 dark:text-sky-400 font-mono'>5000+</div>
@@ -1419,7 +1447,7 @@ export default function LandingPage() {
                 alt='Netpack Logistic office'
                 className='w-full h-auto rounded-3xl shadow-xl border border-slate-200 dark:border-white/10 object-cover'
               />
-              <div className={`absolute -bottom-5 -right-5 ${activeTheme.cardGlassBg} p-5 rounded-2xl shadow-xl animate-float`}>
+              <div className={`absolute -bottom-5 -right-5 ${CARD_GLASS_BG} p-5 rounded-2xl shadow-xl animate-float`}>
                 <div className='text-center'>
                   <div className='text-3xl font-extrabold text-blue-600 dark:text-sky-400'>15+</div>
                   <div className='text-xs font-semibold text-slate-500'>Years Serving Nepal</div>
@@ -1430,15 +1458,15 @@ export default function LandingPage() {
 
           {/* 3 Metric Cards */}
           <div className='grid md:grid-cols-3 gap-6 text-center'>
-            <div className={`p-6 rounded-2xl ${activeTheme.cardGlassBg} hover:-translate-y-1 transition-transform duration-200`}>
+            <div className={`p-6 rounded-2xl ${CARD_GLASS_BG} hover:-translate-y-1 transition-transform duration-200`}>
               <div className='text-3xl font-extrabold text-blue-600 dark:text-sky-400 mb-1 font-mono'>15+</div>
               <div className='text-xs font-semibold text-slate-500'>Years of Service</div>
             </div>
-            <div className={`p-6 rounded-2xl ${activeTheme.cardGlassBg} hover:-translate-y-1 transition-transform duration-200`}>
+            <div className={`p-6 rounded-2xl ${CARD_GLASS_BG} hover:-translate-y-1 transition-transform duration-200`}>
               <div className='text-3xl font-extrabold text-blue-600 dark:text-sky-400 mb-1 font-mono'>75+</div>
               <div className='text-xs font-semibold text-slate-500'>Delivery Locations</div>
             </div>
-            <div className={`p-6 rounded-2xl ${activeTheme.cardGlassBg} hover:-translate-y-1 transition-transform duration-200`}>
+            <div className={`p-6 rounded-2xl ${CARD_GLASS_BG} hover:-translate-y-1 transition-transform duration-200`}>
               <div className='text-3xl font-extrabold text-blue-600 dark:text-sky-400 mb-1 font-mono'>99.8%</div>
               <div className='text-xs font-semibold text-slate-500'>On-Time Delivery</div>
             </div>
@@ -1463,7 +1491,7 @@ export default function LandingPage() {
 
           <div className='grid lg:grid-cols-3 gap-10 text-left'>
             {/* Contact details */}
-            <div className={`space-y-6 rounded-3xl ${activeTheme.cardGlassBg} p-6 sm:p-8`}>
+            <div className={`space-y-6 rounded-3xl ${CARD_GLASS_BG} p-6 sm:p-8`}>
               <h3 className='text-xl font-bold text-slate-900 dark:text-white'>Contact Information</h3>
               <div className='space-y-5'>
                 <div className='flex items-start gap-4'>
@@ -1516,7 +1544,7 @@ export default function LandingPage() {
 
             {/* Message form */}
             <div className='lg:col-span-2'>
-              <div className={`rounded-3xl ${activeTheme.cardGlassBg} p-6 sm:p-8 shadow-xs`}>
+              <div className={`rounded-3xl ${CARD_GLASS_BG} p-6 sm:p-8 shadow-xs`}>
                 <h3 className='text-xl font-bold text-slate-900 dark:text-white mb-1'>Send us a Message</h3>
                 <p className='text-xs text-slate-500 mb-6'>Fill out the form below and we&apos;ll get back to you within 24 hours.</p>
 
@@ -1596,7 +1624,7 @@ export default function LandingPage() {
           </div>
 
           {/* Embedded Google Map */}
-          <div className={`mt-16 rounded-3xl overflow-hidden ${activeTheme.cardGlassBg}`}>
+          <div className={`mt-16 rounded-3xl overflow-hidden ${CARD_GLASS_BG}`}>
             <div className='p-4 border-b border-border/70 flex items-center justify-between'>
               <div>
                 <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Find Us on the Map</h4>
@@ -1700,7 +1728,6 @@ export default function LandingPage() {
             <div className='space-y-4'>
               <div className='flex items-center gap-2'>
                 <img src='/alzlogo.png' alt='Netpack Logo' className='h-9 w-auto brightness-110' />
-                <FestiveLogoAdornment theme={effectiveFestiveTheme} />
               </div>
               <p className='leading-relaxed text-slate-400'>
                 Your trusted logistics partner in Nepal, delivering excellence with every package since 2009.
@@ -1742,15 +1769,26 @@ export default function LandingPage() {
                 <li><a href='#tracking' className='hover:text-white transition-colors'>Track Package</a></li>
                 <li><a href='#about' className='hover:text-white transition-colors'>About Us</a></li>
                 <li><a href='#contact' className='hover:text-white transition-colors'>Contact</a></li>
-                <li><a href='/pwa' className='hover:text-white transition-colors'>Customer App</a></li>
+                <li><a href='/pwa' className='hover:text-white transition-colors'>Customer Portal</a></li>
                 <li>
-                  <button
-                    type='button'
-                    onClick={() => handleInstallClick('rider')}
-                    className='hover:text-white transition-colors text-left text-xs cursor-pointer'
+                  <a
+                    href={`${SERVER_URL}/download/customer.apk`}
+                    download='Netpack-Customer.apk'
+                    className='hover:text-amber-400 transition-colors flex items-center gap-1.5'
                   >
-                    Install Rider App
-                  </button>
+                    <span>Download Customer APK</span>
+                    <span className='text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono'>~66KB</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`${SERVER_URL}/download/rider.apk`}
+                    download='Netpack-Rider.apk'
+                    className='hover:text-sky-400 transition-colors flex items-center gap-1.5'
+                  >
+                    <span>Download Rider APK</span>
+                    <span className='text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded font-mono'>~87KB</span>
+                  </a>
                 </li>
                 <li><a href='/sign-in' className='hover:text-white transition-colors'>Staff Portal Login</a></li>
               </ul>
@@ -1790,9 +1828,10 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      <InstallGuideModal
+      <MobileAppInstallModal
         open={showInstallGuideModal}
         onClose={() => setShowInstallGuideModal(false)}
+        initialTab={installModalTab}
         isIos={isIos}
         isInAppBrowser={isInAppBrowser}
       />

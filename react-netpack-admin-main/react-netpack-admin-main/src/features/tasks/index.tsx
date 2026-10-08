@@ -114,7 +114,14 @@ export default function Enquiries() {
             mapEnquiryToTableRow(enquiry)
           )
           setData(mappedData)
-          setPagination(result.pagination)
+          setPagination({
+            page: result.pagination.page,
+            limit: result.pagination.limit,
+            totalItems: result.pagination.totalItems ?? (result.pagination as any).totalRecords ?? 0,
+            totalPages: result.pagination.totalPages,
+            hasNextPage: Boolean(result.pagination.hasNextPage ?? (result.pagination as any).hasNext ?? (result.pagination.page < result.pagination.totalPages)),
+            hasPreviousPage: Boolean(result.pagination.hasPreviousPage ?? (result.pagination as any).hasPrev ?? (result.pagination.page > 1)),
+          })
         }
       } catch (err) {
         setError('Failed to load enquiries')

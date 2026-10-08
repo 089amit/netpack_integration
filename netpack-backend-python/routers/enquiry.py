@@ -191,9 +191,12 @@ def get_all_enquiries(
             "page": page,
             "limit": limit,
             "totalRecords": total_records,
+            "totalItems": total_records,
             "totalPages": total_pages,
             "hasNext": page < total_pages,
-            "hasPrev": page > 1
+            "hasPrev": page > 1,
+            "hasNextPage": page < total_pages,
+            "hasPreviousPage": page > 1
         },
         "data": [format_enquiry_response(e) for e in enquiries]
     }

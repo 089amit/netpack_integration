@@ -1,0 +1,9 @@
+{
+  "name": "netpack-logistics",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NetPack Logistics - Enterprise Airway Bill & Cargo Platform",
+  "scripts": {
+    "build": "cd react-netpack-admin-main/react-netpack-admin-main && npm install && npm run build"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "buildCommand": "cd react-netpack-admin-main/react-netpack-admin-main && npm install && npm run build",
+  "outputDirectory": "react-netpack-admin-main/react-netpack-admin-main/dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/download/(.*)",
+      "destination": "/download/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

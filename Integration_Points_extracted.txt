@@ -1,0 +1,24 @@
+Integration Points
+When a shipment is deleted from Shipment, its status should automatically go to Pending, so that it can be deleted from Enquiry too.
+On the Pickups tabs, give an option to Admin/Operator and CSD to mark as picked up, by selection or individually.
+Always send a push notification to the app for every tracking status change. Also send an email to the sender’s email on enquiry generation and shipment delivery.
+In MAWB, when clicked to Customs and Chambers Hub, it redirects to Customs and Chambers but not with the same MAWB I clicked on.
+Moving to Rates → connect weight limits on the Route tab (country-wise) with Enquiry. Currently there is a default weight-per-box limit of 30 kg; with the new system there should be a warning according to the selected country.
+Make Address Line 2 optional for sender/receiver when creating new accounts. Add the option to enter all required fields: Name, Company name (if yes), Address Line 1, Address Line 2 (if yes), City, State, Postcode, Country, Country code (auto-filled by country), Telephone, Email (if yes).
+If the currency is anything other than USD while doing an enquiry, it should be automatically converted to USD using the foreign exchange rate, because USD is used in every official document.
+If there is only one box, select the total number of items at once in the Select Items field; this will reduce time.
+For Admin/CSD and Operation, we do not need the Handover & Collection mode also.
+I do not think the address verification logic is working, because if the provided address is incorrect, the system should show a warning with a suggestion.
+There is a surcharges logic in the previous system which is not working well. Let us add a sidebar button in Admin where we upload a file for surcharges, which has Zip code, Service and City fields. If the zip code/city matches the file while creating an enquiry, it should show "(... Surcharge applied with ... service)".
+In Recent Shipments on the dashboard, remove the phone number because it displays "no phone"; display the consignee name instead. Also make the Tracking/Status button clickable so it shows the tracking page, as in Enquiry.
+Bugs on Previous Points
+Point 3 – Push notification not working: when the tracking status is changed, it shows as a notification on the PWA but does not ring, vibrate or pop up on the notification panel. Also, Recent Shipments is not showing on the PWA, e.g. enquiry no. 820.
+Point 6 – State is not listed in the PWA after signing in with Google, and while signing up, State is not marked as mandatory.
+Point 8 – If the selected box is 1, the system shows error 500.
+Point 11 – In the sample CSV, also add the currency column, like: 800 | Aramex | Darwin | Australia | 2.56 | USD | RES and 249 | UPS | Scotland | UK | 100 | Euro | EAS.
+RES and EAS are surcharge types; they should be listed in another column.
+Also add a button in the Admin panel to create a new surcharge rule, because if only one rule needs to be added, we currently have to upload the whole CSV file.
+If the rule matches the address file while doing an enquiry, it should display, in red like a warning: "2.56 AUD per kg will be applied as RES for this address while being delivered by UPS/FedEx etc."
+Additional Case
+If a customer is booking a shipment, there can be multiple pickup locations for a single shipment. So we have to give the customer an option to add locations and pickup details for a single shipment/consignment until the status is Shipment Created (meaning if Pending, Enquiry Generated, Picked Up, Packed, etc.).
+Also, a push notification should go to the rider if there is more than one pickup location.

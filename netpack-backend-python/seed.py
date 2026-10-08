@@ -130,11 +130,12 @@ def seed_database():
             for c_name in c_names:
                 country_to_zone[c_name.lower()] = created_zones.get(z_name)
 
+        existing_countries = {c.name.lower(): c for c in db.query(Country).all()}
         created_countries = {}
         seeded_count = 0
         for c in WORLD_COUNTRIES:
             c_name = c["name"]
-            country = db.query(Country).filter(Country.name == c_name).first()
+            country = existing_countries.get(c_name.lower())
             if not country:
                 matched_zone = country_to_zone.get(c_name.lower())
                 country = Country(
@@ -146,8 +147,9 @@ def seed_database():
                 db.add(country)
                 seeded_count += 1
             created_countries[c_name] = country
-        db.commit()
-        print(f"[OK] World destination countries seeded ({seeded_count} new, {len(WORLD_COUNTRIES)} total).")
+        if seeded_count > 0:
+            db.commit()
+        print(f"[OK] World destination countries verified ({seeded_count} new, {len(created_countries)} total).")
 
         # 5b. Seed Customer Account
         customer_email = "customer@netpack.com"

@@ -31,10 +31,14 @@ export function DataTablePagination<TData>({
   // Use server-side pagination if available, otherwise fall back to client-side
   const isServerSide = !!pagination
   const currentPage = isServerSide ? pagination.page : table.getState().pagination.pageIndex + 1
-  const totalPages = isServerSide ? pagination.totalPages : table.getPageCount()
+  const totalPages = isServerSide ? (pagination.totalPages || 1) : table.getPageCount()
   const pageSize = isServerSide ? pagination.limit : table.getState().pagination.pageSize
-  const hasNextPage = isServerSide ? pagination.hasNextPage : table.getCanNextPage()
-  const hasPreviousPage = isServerSide ? pagination.hasPreviousPage : table.getCanPreviousPage()
+  const hasNextPage = isServerSide
+    ? Boolean(pagination.hasNextPage ?? (pagination as any).hasNext ?? (currentPage < totalPages))
+    : table.getCanNextPage()
+  const hasPreviousPage = isServerSide
+    ? Boolean(pagination.hasPreviousPage ?? (pagination as any).hasPrev ?? (currentPage > 1))
+    : table.getCanPreviousPage()
 
   const handlePreviousPage = () => {
     if (isServerSide && onPageChange) {

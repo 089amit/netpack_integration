@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NetPack Rider</string>
+    <string name="channel_name">NetPack Rider Dispatch Alerts</string>
+    <string name="channel_description">Urgent pickup orders, field dispatch alerts, and customer location alerts</string>
+</resources>

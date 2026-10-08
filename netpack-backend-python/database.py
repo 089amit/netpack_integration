@@ -231,15 +231,15 @@ def run_auto_migrations(target_engine):
                     user_role_id = user_role[0]
                     conn.execute(sa.text("""
                         UPDATE users 
-                        SET roleId = :user_role_id
-                        WHERE roleId = :admin_role_id
+                        SET "roleId" = :user_role_id
+                        WHERE "roleId" = :admin_role_id
                           AND LOWER(email) NOT IN ('admin@example.com', 'admin@netpack.com', 'admin@netpacklogistic.com', 'app.netpack@gmail.com', 'kiran.netpack@gmail.com')
                           AND LOWER(email) NOT LIKE '%superadmin%'
                     """), {"user_role_id": user_role_id, "admin_role_id": admin_role_id})
                     # Ensure official NetPack administrators maintain ADMIN role
                     conn.execute(sa.text("""
                         UPDATE users
-                        SET roleId = :admin_role_id
+                        SET "roleId" = :admin_role_id
                         WHERE LOWER(email) IN ('app.netpack@gmail.com', 'kiran.netpack@gmail.com')
                     """), {"admin_role_id": admin_role_id})
                     conn.commit()
@@ -253,10 +253,10 @@ def run_auto_migrations(target_engine):
         # 3. Ensure all Users are also present in Customers table
         if "users" in table_names and "customers" in table_names:
             try:
-                users = conn.execute(sa.text("SELECT id, fullName, email, phoneNumber, isOrganization, organizationName, address1, city, state, postcode, countryId FROM users")).fetchall()
+                users = conn.execute(sa.text('SELECT "id", "fullName", "email", "phoneNumber", "isOrganization", "organizationName", "address1", "city", "state", "postcode", "countryId" FROM users')).fetchall()
                 for u in users:
                     u_id, u_name, u_email, u_phone, u_is_org, u_org_name, u_addr, u_city, u_state, u_postcode, u_country_id = u
-                    c = conn.execute(sa.text("SELECT id FROM customers WHERE userId = :uid OR email = :email"), {"uid": u_id, "email": u_email}).fetchone()
+                    c = conn.execute(sa.text('SELECT "id" FROM customers WHERE "userId" = :uid OR "email" = :email'), {"uid": u_id, "email": u_email}).fetchone()
                     if not c:
                         # Get a default country if user has no countryId
                         target_country = u_country_id
@@ -266,9 +266,9 @@ def run_auto_migrations(target_engine):
 
                         conn.execute(sa.text("""
                             INSERT INTO customers (
-                                name, phone, email, isOrganization, organizationName,
-                                address1, city, state, countryId, postcode, userId,
-                                createdAt, updatedAt
+                                "name", "phone", "email", "isOrganization", "organizationName",
+                                "address1", "city", "state", "countryId", "postcode", "userId",
+                                "createdAt", "updatedAt"
                             ) VALUES (
                                 :name, :phone, :email, :isOrg, :orgName,
                                 :address1, :city, :state, :countryId, :postcode, :userId,
@@ -339,8 +339,8 @@ def run_auto_migrations(target_engine):
                     adm = conn.execute(sa.text("SELECT id FROM users WHERE LOWER(email) = 'admin@example.com'")).fetchone()
                     if not adm:
                         conn.execute(sa.text("""
-                            INSERT INTO users (email, username, password, fullName, phoneNumber, roleId, isActive, countryId, city, address1, createdAt, updatedAt)
-                            VALUES ('admin@example.com', 'admin', :pw, 'System Administrator', '+977-9800000000', :roleId, 1, :countryId, 'Kathmandu', 'Thamel', :now, :now)
+                            INSERT INTO users (email, username, password, "fullName", "phoneNumber", "roleId", "isActive", "countryId", city, address1, "createdAt", "updatedAt")
+                            VALUES ('admin@example.com', 'admin', :pw, 'System Administrator', '+977-9800000000', :roleId, true, :countryId, 'Kathmandu', 'Thamel', :now, :now)
                         """), {
                             "pw": get_password_hash("Admin@123"),
                             "roleId": admin_role[0],
@@ -355,8 +355,8 @@ def run_auto_migrations(target_engine):
                     drv = conn.execute(sa.text("SELECT id FROM users WHERE LOWER(email) = 'driver@netpack.com'")).fetchone()
                     if not drv:
                         conn.execute(sa.text("""
-                            INSERT INTO users (email, username, password, fullName, phoneNumber, roleId, isActive, countryId, city, address1, createdAt, updatedAt)
-                            VALUES ('driver@netpack.com', 'rider-01', :pw, 'Ram Shrestha (Field Rider)', '+977-9841234567', :roleId, 1, :countryId, 'Kathmandu', 'New Road', :now, :now)
+                            INSERT INTO users (email, username, password, "fullName", "phoneNumber", "roleId", "isActive", "countryId", city, address1, "createdAt", "updatedAt")
+                            VALUES ('driver@netpack.com', 'rider-01', :pw, 'Ram Shrestha (Field Rider)', '+977-9841234567', :roleId, true, :countryId, 'Kathmandu', 'New Road', :now, :now)
                         """), {
                             "pw": get_password_hash("Driver@123"),
                             "roleId": pickup_role[0],
@@ -371,8 +371,8 @@ def run_auto_migrations(target_engine):
                     courier = conn.execute(sa.text("SELECT id FROM users WHERE LOWER(email) = 'courier@netpack.com'")).fetchone()
                     if not courier:
                         conn.execute(sa.text("""
-                            INSERT INTO users (email, username, password, fullName, phoneNumber, roleId, isActive, countryId, city, address1, createdAt, updatedAt)
-                            VALUES ('courier@netpack.com', 'courier-01', :pw, 'Sita Sharma (Express Cargo)', '+977-9851000000', :roleId, 1, :countryId, 'Kathmandu', 'Dillibazar', :now, :now)
+                            INSERT INTO users (email, username, password, "fullName", "phoneNumber", "roleId", "isActive", "countryId", city, address1, "createdAt", "updatedAt")
+                            VALUES ('courier@netpack.com', 'courier-01', :pw, 'Sita Sharma (Express Cargo)', '+977-9851000000', :roleId, true, :countryId, 'Kathmandu', 'Dillibazar', :now, :now)
                         """), {
                             "pw": get_password_hash("Courier@123"),
                             "roleId": user_role[0],
@@ -386,7 +386,7 @@ def run_auto_migrations(target_engine):
                 cust = conn.execute(sa.text("SELECT id FROM customers WHERE LOWER(email) = 'customer@netpack.com'")).fetchone()
                 if not cust:
                     conn.execute(sa.text("""
-                        INSERT INTO customers (name, email, phone, password, address1, address2, city, state, countryId, postcode, createdAt, updatedAt)
+                        INSERT INTO customers (name, email, phone, password, address1, address2, city, state, "countryId", postcode, "createdAt", "updatedAt")
                         VALUES ('NetPack Loyal Customer', 'customer@netpack.com', '+977-9812345678', :pw, 'Baluwatar Road, Ward 4', 'Near Embassy', 'Kathmandu', 'Bagmati', :countryId, '44600', :now, :now)
                     """), {
                         "pw": get_password_hash("Customer@123"),

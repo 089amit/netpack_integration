@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NetPack</string>
+    <string name="channel_name">NetPack Notifications</string>
+    <string name="channel_description">Real-time package tracking and dispatch updates</string>
+</resources>
