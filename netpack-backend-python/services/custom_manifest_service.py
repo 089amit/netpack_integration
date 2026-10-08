@@ -14,8 +14,15 @@ from docx import Document
 from num2words import num2words
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates', 'CHAMBER_template.docx')
-TEMP_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'temp_outputs')
-os.makedirs(TEMP_OUTPUT_DIR, exist_ok=True)
+if os.getenv("VERCEL") or os.path.exists("/tmp"):
+    TEMP_OUTPUT_DIR = os.path.join("/tmp", "temp_outputs")
+else:
+    TEMP_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'temp_outputs')
+
+try:
+    os.makedirs(TEMP_OUTPUT_DIR, exist_ok=True)
+except Exception:
+    pass
 
 THIN_BORDER = Border(
     left=Side(style='thin', color='000000'),
