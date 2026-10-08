@@ -29,7 +29,10 @@ from services.email_service import send_enquiry_booking_notification, send_user_
 router = APIRouter(prefix="/api/customer", tags=["Customer Portal"])
 
 AVATARS_DIR = config.UPLOADS_DIR / "avatars"
-AVATARS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    AVATARS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
 
 # In-memory store for PWA login verification codes: email -> (code, expiry)
 _pwa_email_codes: Dict[str, Tuple[str, datetime]] = {}

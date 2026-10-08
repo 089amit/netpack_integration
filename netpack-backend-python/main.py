@@ -62,8 +62,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount uploaded files
-app.mount("/uploads", StaticFiles(directory=str(config.UPLOADS_DIR)), name="uploads")
+# Mount uploaded files safely
+try:
+    if not config.UPLOADS_DIR.exists():
+        config.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(config.UPLOADS_DIR)), name="uploads")
+except Exception as _mount_err:
+    print(f"[Warning] Could not mount /uploads directory: {_mount_err}")
 
 # Import and register routers
 from routers import (

@@ -10,12 +10,21 @@ if PERSISTENT_ENV_DIR:
     DATA_DIR = Path(PERSISTENT_ENV_DIR).resolve()
 elif os.path.isdir("/data") and os.access("/data", os.W_OK):
     DATA_DIR = Path("/data").resolve()
+elif os.getenv("VERCEL") or os.path.exists("/tmp"):
+    DATA_DIR = Path("/tmp").resolve()
 else:
     DATA_DIR = BASE_DIR
 
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
+
 UPLOADS_DIR = DATA_DIR / "uploads"
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
 
 # Load environment variables from .env file if present
 ENV_FILE = BASE_DIR / ".env"

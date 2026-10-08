@@ -28,9 +28,12 @@ from services.auth_service import (
 
 router = APIRouter(prefix="/api/pickups", tags=["Pickups"])
 
-# Ensure uploads directory for pickup proofs exists
+# Ensure uploads directory for pickup proofs exists safely
 PICKUP_PROOFS_DIR = config.UPLOADS_DIR / "pickup_proofs"
-PICKUP_PROOFS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    PICKUP_PROOFS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
 
 
 def format_pickup_item(e: Enquiry) -> Dict[str, Any]:

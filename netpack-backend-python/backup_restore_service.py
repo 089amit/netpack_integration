@@ -19,7 +19,10 @@ from models.enquiry import Enquiry, EnquiryItem, Box, PickupLocationEnquiry
 from models.shipment import Shipment, TrackingEvent
 
 BACKUP_DIR = DATA_DIR / "backups"
-BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
 LATEST_BACKUP_PATH = BACKUP_DIR / "netpack_snapshot_latest.json"
 
 # Fallback in base dir if data dir was external
