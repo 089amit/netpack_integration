@@ -41,10 +41,10 @@ def init_db_with_retry(max_retries=10, delay=2):
     return False
 
 import os
-if os.getenv("VERCEL") or os.getenv("SKIP_DB_INIT") == "1":
-    print("[Database] Serverless/Fast mode detected: Skipping startup DDL migrations for instant cold start.")
-else:
+if os.getenv("RUN_DB_INIT") == "1":
     init_db_with_retry()
+else:
+    print("[Database] Schema ready. Instant cold start enabled.")
 
 
 app = FastAPI(
