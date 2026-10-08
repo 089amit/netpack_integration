@@ -44,8 +44,7 @@ import {
   getEffectiveFestiveTheme,
   getFestivalTheme,
   FestiveAtmosphereBackground,
-  FestiveGreetingRibbon,
-  FestiveFloatingToggle,
+  FestiveLogoAdornment,
 } from './festive-atmosphere'
 
 const API_BASE = SERVER_URL
@@ -264,38 +263,14 @@ export default function LandingPage() {
     festiveGreeting: '',
   })
 
-  // Festive Atmosphere visitor toggle (persisted in localStorage)
-  const [festiveEffectsEnabled, setFestiveEffectsEnabled] = useState<boolean>(true)
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('netpack_festive_disabled')
-      if (stored === '1') setFestiveEffectsEnabled(false)
-    } catch {
-      // ignore
-    }
-  }, [])
-
-  const handleToggleFestiveEffects = () => {
-    setFestiveEffectsEnabled((prev) => {
-      const next = !prev
-      try {
-        if (!next) localStorage.setItem('netpack_festive_disabled', '1')
-        else localStorage.removeItem('netpack_festive_disabled')
-      } catch {
-        // ignore
-      }
-      return next
-    })
-  }
-
   const effectiveFestiveTheme = useMemo(
     () => getEffectiveFestiveTheme(siteContent.festiveTheme),
     [siteContent.festiveTheme]
   )
 
   const activeTheme = useMemo(
-    () => getFestivalTheme(festiveEffectsEnabled ? effectiveFestiveTheme : 'none'),
-    [effectiveFestiveTheme, festiveEffectsEnabled]
+    () => getFestivalTheme(effectiveFestiveTheme),
+    [effectiveFestiveTheme]
   )
 
   useEffect(() => {
@@ -530,21 +505,20 @@ export default function LandingPage() {
   return (
     <div className={`min-h-screen ${activeTheme.rootBg} text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white font-sans antialiased transition-colors duration-500 relative`}>
       {/* ── AMBIENT FESTIVE SEASON PARTICLES & OVERLAY ─────────────────────── */}
-      {festiveEffectsEnabled && (
-        <FestiveAtmosphereBackground theme={effectiveFestiveTheme} />
-      )}
+      <FestiveAtmosphereBackground theme={effectiveFestiveTheme} />
 
       {/* ── HEADER NAVIGATION (APPLE FROSTED STYLE) ───────────────────────── */}
       <header className={`${activeTheme.headerBg} sticky top-0 z-50 transition-all duration-300`}>
         <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='flex items-center justify-between h-16 sm:h-18'>
-            {/* Logo */}
-            <a href='/' className='flex items-center gap-3 group active:scale-95 transition-transform'>
+            {/* Logo with Cultural Festive Adornment */}
+            <a href='/' className='flex items-center gap-2 group active:scale-95 transition-transform'>
               <img
                 src='/alzlogo.png'
                 alt='Netpack Logo'
                 className='h-9 sm:h-10 w-auto object-contain transition-all duration-300 group-hover:scale-105 drop-shadow-xs'
               />
+              <FestiveLogoAdornment theme={effectiveFestiveTheme} />
             </a>
 
             {/* Desktop Navigation Links */}
@@ -741,14 +715,6 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── FESTIVE SEASON GREETING BANNER ─────────────────────────────────── */}
-      <FestiveGreetingRibbon
-        theme={effectiveFestiveTheme}
-        customGreeting={siteContent.festiveGreeting}
-        effectsEnabled={festiveEffectsEnabled}
-        onToggleEffects={handleToggleFestiveEffects}
-      />
-
       {/* ── HERO SECTION: CLEAN APPLE TYPOGRAPHY & REFINE UI ──────────────── */}
       <section className='relative py-16 sm:py-20 lg:py-24 border-b border-slate-200/80 dark:border-white/[0.08] overflow-hidden'>
         {/* Ambient Thematic Radial Glow */}
@@ -759,10 +725,17 @@ export default function LandingPage() {
             {/* Left Column Copy */}
             <div className='space-y-7 text-left'>
               <div className='space-y-4'>
-                <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-white/[0.05] border border-blue-200/80 dark:border-white/10 text-blue-700 dark:text-sky-300 text-xs font-semibold uppercase tracking-wider shadow-xs'>
-                  <Sparkles className='h-3.5 w-3.5 text-blue-600 dark:text-sky-400' />
-                  <span>{siteContent.heroBadge}</span>
-                </div>
+                {effectiveFestiveTheme && effectiveFestiveTheme !== 'none' ? (
+                  <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full ${activeTheme.badgeBg} border ${activeTheme.badgeBorder} ${activeTheme.badgeText} text-xs font-semibold tracking-wide shadow-xs`}>
+                    <span className='text-sm'>{activeTheme.emoji}</span>
+                    <span>{siteContent.festiveGreeting?.trim() || activeTheme.defaultGreeting}</span>
+                  </div>
+                ) : (
+                  <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-white/[0.05] border border-blue-200/80 dark:border-white/10 text-blue-700 dark:text-sky-300 text-xs font-semibold uppercase tracking-wider shadow-xs'>
+                    <Sparkles className='h-3.5 w-3.5 text-blue-600 dark:text-sky-400' />
+                    <span>{siteContent.heroBadge}</span>
+                  </div>
+                )}
                 <h1
                   style={{ fontFamily: 'Jost, sans-serif' }}
                   className='text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white leading-[1.12] tracking-tight'
@@ -1727,6 +1700,7 @@ export default function LandingPage() {
             <div className='space-y-4'>
               <div className='flex items-center gap-2'>
                 <img src='/alzlogo.png' alt='Netpack Logo' className='h-9 w-auto brightness-110' />
+                <FestiveLogoAdornment theme={effectiveFestiveTheme} />
               </div>
               <p className='leading-relaxed text-slate-400'>
                 Your trusted logistics partner in Nepal, delivering excellence with every package since 2009.
@@ -1815,13 +1789,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
-      {/* Floating Festive Atmosphere Toggle Pill */}
-      <FestiveFloatingToggle
-        theme={effectiveFestiveTheme}
-        enabled={festiveEffectsEnabled}
-        onToggle={handleToggleFestiveEffects}
-      />
 
       <InstallGuideModal
         open={showInstallGuideModal}

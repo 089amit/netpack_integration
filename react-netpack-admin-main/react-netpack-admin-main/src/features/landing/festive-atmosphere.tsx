@@ -760,18 +760,209 @@ export function FestiveAtmosphereBackground({ theme }: { theme: string }) {
 }
 
 /**
- * Top Festive Greeting Ribbon (Displayed cleanly right below Header / above Hero)
+ * Beside-the-Logo Festive Cultural Adornment
+ * Adds Dashain Rato Tika & Jamara, Tihar Diya, Christmas Holly, etc. right next to the Netpack logo
+ */
+export function FestiveLogoAdornment({ theme }: { theme: string }) {
+  if (!theme || theme === 'none' || !FESTIVAL_METADATA[theme]) {
+    return null
+  }
+
+  return (
+    <div className='inline-flex items-center shrink-0 select-none pointer-events-none transition-transform duration-300 group-hover:scale-105'>
+      {/* ── DASHAIN: Authentic Rato Tika with Akshata Rice & Golden Jamara Sprigs ── */}
+      {theme === 'dashain' && (
+        <div className='relative flex items-center -ml-0.5' title='शुभ विजया दशमी | Rato Tika & Jamara'>
+          <svg width='36' height='36' viewBox='0 0 36 36' fill='none' className='overflow-visible drop-shadow-sm'>
+            {/* Lush Golden-Green Jamara (Barley Sprout blades fanning out from behind tika) */}
+            <g strokeLinecap='round'>
+              {/* Outer Left Blade */}
+              <path d='M18 27 C14 18 7 12 2 7' stroke='#EAB308' strokeWidth='2.2' />
+              {/* Mid Left Blade */}
+              <path d='M18 27 C15 17 10 10 6 3' stroke='#84CC16' strokeWidth='2' />
+              {/* Central Tall Sprout Blade */}
+              <path d='M18 27 C18 14 16 6 14 1' stroke='#EAB308' strokeWidth='2.4' />
+              {/* Mid Right Blade */}
+              <path d='M18 27 C21 16 24 9 27 2' stroke='#84CC16' strokeWidth='2' />
+              {/* Outer Right Blade */}
+              <path d='M18 27 C22 18 28 12 34 6' stroke='#EAB308' strokeWidth='2.2' />
+              {/* Fresh Tender Young Stalks */}
+              <path d='M18 27 C20 20 26 15 32 13' stroke='#FACC15' strokeWidth='1.6' />
+              <path d='M18 27 C15 21 11 16 4 14' stroke='#A3E635' strokeWidth='1.6' />
+            </g>
+
+            {/* Sacred Crimson Rato Tika with Akshata Rice */}
+            <circle cx='18' cy='27' r='7.8' fill='#991B1B' opacity='0.25' />
+            <circle cx='18' cy='27' r='7.2' fill='#DC2626' stroke='#991B1B' strokeWidth='0.8' />
+            <circle cx='17' cy='26' r='5.2' fill='#EF4444' />
+
+            {/* Textured Akshata Rice Grains (चामलको अक्षता) embedded on Tika */}
+            <ellipse cx='15' cy='25' rx='1.1' ry='2.1' transform='rotate(-25 15 25)' fill='#FFFFFE' stroke='#FEF08A' strokeWidth='0.4' />
+            <ellipse cx='19.5' cy='25.5' rx='1.1' ry='1.9' transform='rotate(25 19.5 25.5)' fill='#FFFFFE' stroke='#FEF08A' strokeWidth='0.4' />
+            <ellipse cx='17.5' cy='28.5' rx='1' ry='2' transform='rotate(-5 17.5 28.5)' fill='#FFFFFE' stroke='#FEF08A' strokeWidth='0.4' />
+            <ellipse cx='14.5' cy='28' rx='0.9' ry='1.7' transform='rotate(40 14.5 28)' fill='#FFFFFE' stroke='#FEF08A' strokeWidth='0.4' />
+            <ellipse cx='20.5' cy='28.5' rx='0.9' ry='1.6' transform='rotate(-35 20.5 28.5)' fill='#FFFFFE' stroke='#FEF08A' strokeWidth='0.4' />
+          </svg>
+        </div>
+      )}
+
+      {/* ── TIHAR: Glowing Traditional Brass Diya with Flickering Flame ── */}
+      {theme === 'tihar' && (
+        <div className='relative flex items-center -ml-0.5' title='शुभ दिपावली | Glowing Diya'>
+          <svg width='36' height='36' viewBox='0 0 36 36' fill='none' className='overflow-visible drop-shadow-md'>
+            {/* Flickering Flame with Ambient Halos */}
+            <g style={{ transformOrigin: '18px 16px', animation: 'diyaFlicker 1.8s ease-in-out infinite' }}>
+              <circle cx='18' cy='11' r='8' fill='rgba(245, 158, 11, 0.28)' filter='blur(2px)' />
+              <path d='M18 3 C21.5 7.5 22.5 12 18 16 C13.5 12 14.5 7.5 18 3 Z' fill='#EA580C' />
+              <path d='M18 5 C20.5 8.5 21 12 18 15 C15 12 15.5 8.5 18 5 Z' fill='#F59E0B' />
+              <path d='M18 7.5 C19.5 10 20 12.5 18 14.5 C16 12.5 16.5 10 18 7.5 Z' fill='#FEF08A' />
+            </g>
+
+            {/* Ornate Brass Diya Bowl */}
+            <path d='M6 16 C7 24 13 30 18 30 C23 30 29 24 30 16 Z' fill='#D97706' stroke='#B45309' strokeWidth='1.2' />
+            <ellipse cx='18' cy='16' rx='12' ry='3.5' fill='#F59E0B' />
+            <ellipse cx='18' cy='15.5' rx='9.5' ry='2.2' fill='#78350F' />
+            <path d='M14 30 L22 30 L20 33 L16 33 Z' fill='#B45309' />
+          </svg>
+        </div>
+      )}
+
+      {/* ── CHRISTMAS: Winter Holly Leaves & Crimson Berries ── */}
+      {theme === 'christmas' && (
+        <div className='relative flex items-center -ml-0.5' title='Merry Christmas'>
+          <svg width='34' height='34' viewBox='0 0 34 34' fill='none' className='drop-shadow-xs'>
+            <path d='M12 24 C8 21 6 15 10 12 C13 14 15 17 17 21 Z' fill='#059669' stroke='#047857' strokeWidth='0.8' />
+            <path d='M22 24 C26 21 28 15 24 12 C21 14 19 17 17 21 Z' fill='#10B981' stroke='#059669' strokeWidth='0.8' />
+            <circle cx='15' cy='23' r='3.5' fill='#DC2626' stroke='#991B1B' strokeWidth='0.6' />
+            <circle cx='19' cy='23' r='3.5' fill='#EF4444' stroke='#991B1B' strokeWidth='0.6' />
+            <circle cx='17' cy='20' r='3.2' fill='#B91C1C' stroke='#7F1D1D' strokeWidth='0.6' />
+            <circle cx='14.2' cy='22' r='0.8' fill='white' />
+            <circle cx='18.2' cy='22' r='0.8' fill='white' />
+          </svg>
+        </div>
+      )}
+
+      {/* ── CHHATH: Sacred Rising Surya ── */}
+      {theme === 'chhath' && (
+        <div className='relative flex items-center -ml-0.5' title='छठ पर्व | Surya Arghya'>
+          <svg width='34' height='34' viewBox='0 0 34 34' fill='none'>
+            <circle cx='17' cy='17' r='7' fill='#F97316' />
+            <circle cx='17' cy='17' r='5' fill='#FBBF24' />
+            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, k) => (
+              <line
+                key={k}
+                x1='17'
+                y1='7'
+                x2='17'
+                y2='4'
+                stroke='#EA580C'
+                strokeWidth='1.8'
+                strokeLinecap='round'
+                transform={`rotate(${angle} 17 17)`}
+              />
+            ))}
+          </svg>
+        </div>
+      )}
+
+      {/* ── LHOSAR: Himalayan Sacred Prayer Ribbons ── */}
+      {theme === 'lhosar' && (
+        <div className='relative flex items-center -ml-0.5' title='Tashi Delek | Lhosar'>
+          <svg width='34' height='34' viewBox='0 0 34 34' fill='none'>
+            <path d='M6 6 Q12 18 10 28' stroke='#2563EB' strokeWidth='2.2' strokeLinecap='round' />
+            <path d='M14 4 Q20 16 18 29' stroke='#DC2626' strokeWidth='2.2' strokeLinecap='round' />
+            <path d='M22 6 Q28 18 26 28' stroke='#EAB308' strokeWidth='2.2' strokeLinecap='round' />
+            <circle cx='10' cy='8' r='2' fill='#10B981' />
+            <circle cx='18' cy='6' r='2' fill='#06B6D4' />
+            <circle cx='26' cy='8' r='2' fill='#F8FAFC' stroke='#94A3B8' strokeWidth='0.6' />
+          </svg>
+        </div>
+      )}
+
+      {/* ── HOLI: Vibrant Gulal Color Splashes ── */}
+      {theme === 'holi' && (
+        <div className='relative flex items-center -ml-0.5' title='Happy Holi'>
+          <svg width='34' height='34' viewBox='0 0 34 34' fill='none'>
+            <circle cx='13' cy='16' r='5.5' fill='#EC4899' />
+            <circle cx='21' cy='14' r='4.5' fill='#06B6D4' />
+            <circle cx='17' cy='22' r='5' fill='#EAB308' />
+            <circle cx='10' cy='22' r='2' fill='#8B5CF6' />
+            <circle cx='24' cy='22' r='2.2' fill='#10B981' />
+          </svg>
+        </div>
+      )}
+
+      {/* ── NEPALI NEW YEAR: Blooming Rhododendron Laligurans ── */}
+      {theme === 'nepali_new_year' && (
+        <div className='relative flex items-center -ml-0.5' title='नयाँ वर्ष | Laligurans'>
+          <svg width='34' height='34' viewBox='0 0 34 34' fill='none'>
+            <circle cx='17' cy='17' r='3.5' fill='#991B1B' />
+            <circle cx='17' cy='11' r='4.5' fill='#E11D48' />
+            <circle cx='23' cy='15' r='4.5' fill='#E11D48' />
+            <circle cx='21' cy='22' r='4.5' fill='#BE123C' />
+            <circle cx='13' cy='22' r='4.5' fill='#BE123C' />
+            <circle cx='11' cy='15' r='4.5' fill='#E11D48' />
+            <circle cx='17' cy='17' r='2' fill='#FEF08A' />
+          </svg>
+        </div>
+      )}
+
+      {/* ── BUDDHA JAYANTI: Sacred Golden Lotus ── */}
+      {theme === 'buddha_jayanti' && (
+        <div className='relative flex items-center -ml-0.5' title='बुद्ध जयन्ती | Sacred Lotus'>
+          <svg width='34' height='34' viewBox='0 0 34 34' fill='none'>
+            <path d='M17 5 C21 13 27 18 27 24 C27 29 22 30 17 30 C12 30 7 29 7 24 C7 18 13 13 17 5 Z' fill='#F59E0B' />
+            <path d='M17 11 C20 16 23 21 23 25 C23 28 20 29 17 29 C14 29 11 28 11 25 C11 21 14 16 17 11 Z' fill='#FEF08A' />
+            <path d='M4 22 C9 22 13 25 15 29 C10 30 5 29 4 22 Z' fill='#D97706' />
+            <path d='M30 22 C25 22 21 25 19 29 C24 30 29 29 30 22 Z' fill='#D97706' />
+          </svg>
+        </div>
+      )}
+
+      {/* ── MAGHE SANKRANTI: Winter Solstice Diamond Motif ── */}
+      {theme === 'maghe_sankranti' && (
+        <div className='relative flex items-center -ml-0.5' title='माघे सङ्क्रान्ति'>
+          <svg width='34' height='34' viewBox='0 0 34 34' fill='none'>
+            <polygon points='17,4 27,15 17,26 7,15' fill='#D97706' stroke='#B45309' strokeWidth='1' />
+            <line x1='17' y1='4' x2='17' y2='26' stroke='#FEF3C7' strokeWidth='1.2' />
+            <path d='M7,15 Q17,20 27,15' stroke='#FEF3C7' strokeWidth='1.2' fill='none' />
+            <path d='M17,26 Q20,30 16,33' stroke='#D97706' strokeWidth='1.5' fill='none' />
+          </svg>
+        </div>
+      )}
+
+      {/* ── ENGLISH NEW YEAR: Golden Starburst Sparkle ── */}
+      {theme === 'new_year' && (
+        <div className='relative flex items-center -ml-0.5' title='Happy New Year'>
+          <svg width='34' height='34' viewBox='0 0 34 34' fill='none'>
+            <path d='M17 2 L19 13 L30 17 L19 21 L17 32 L15 21 L4 17 L15 13 Z' fill='#FBBF24' />
+            <circle cx='17' cy='17' r='2' fill='#FFF' />
+          </svg>
+        </div>
+      )}
+
+      {/* ── LABOUR DAY: Laurel & Solidarity Emblem ── */}
+      {theme === 'labour_day' && (
+        <div className='relative flex items-center -ml-0.5' title='International Workers’ Day'>
+          <svg width='34' height='34' viewBox='0 0 34 34' fill='none' stroke='#E11D48' strokeWidth='1.8'>
+            <circle cx='17' cy='17' r='4' />
+            <path d='M17 7 V11 M17 23 V27 M7 17 H11 M23 17 H27' strokeLinecap='round' />
+          </svg>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Top Festive Greeting Ribbon (Optional)
  */
 export function FestiveGreetingRibbon({
   theme,
   customGreeting,
-  effectsEnabled,
-  onToggleEffects,
 }: {
   theme: string
   customGreeting?: string
-  effectsEnabled: boolean
-  onToggleEffects: () => void
 }) {
   if (!theme || theme === 'none' || !FESTIVAL_METADATA[theme]) {
     return null
@@ -782,8 +973,8 @@ export function FestiveGreetingRibbon({
 
   return (
     <div className='relative z-30 border-b border-amber-500/20 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 backdrop-blur-xl py-2 px-4 shadow-xs'>
-      <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs'>
-        <div className='flex items-center gap-2 text-center sm:text-left'>
+      <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto flex items-center justify-between gap-2 text-xs'>
+        <div className='flex items-center gap-2 text-left'>
           <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/25 text-amber-900 dark:text-amber-200 font-bold shrink-0 text-sm'>
             {meta.emoji}
           </span>
@@ -792,38 +983,24 @@ export function FestiveGreetingRibbon({
           </span>
         </div>
 
-        <div className='flex items-center gap-2.5 shrink-0'>
-          <Badge
-            variant='outline'
-            className='text-[10px] px-2 py-0.5 border-amber-500/40 bg-amber-500/15 text-amber-900 dark:text-amber-200 font-bold'
-          >
-            {meta.nepaliName}
-          </Badge>
-          <button
-            type='button'
-            onClick={onToggleEffects}
-            className='text-[11px] text-muted-foreground hover:text-foreground underline transition-colors cursor-pointer font-medium'
-            title='Toggle festive background animations'
-          >
-            {effectsEnabled ? 'Effects: Active' : 'Effects: Muted'}
-          </button>
-        </div>
+        <Badge
+          variant='outline'
+          className='text-[10px] px-2 py-0.5 border-amber-500/40 bg-amber-500/15 text-amber-900 dark:text-amber-200 font-bold'
+        >
+          {meta.nepaliName}
+        </Badge>
       </div>
     </div>
   )
 }
 
 /**
- * Subtle Floating Toggle Pill at bottom right corner
+ * Subtle Floating Toggle Pill (Optional)
  */
 export function FestiveFloatingToggle({
   theme,
-  enabled,
-  onToggle,
 }: {
   theme: string
-  enabled: boolean
-  onToggle: () => void
 }) {
   if (!theme || theme === 'none' || !FESTIVAL_METADATA[theme]) {
     return null
@@ -833,15 +1010,12 @@ export function FestiveFloatingToggle({
 
   return (
     <div className='fixed bottom-5 right-5 z-40 print:hidden'>
-      <button
-        type='button'
-        onClick={onToggle}
-        className='inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold backdrop-blur-xl bg-white/80 dark:bg-[#0A1128]/80 border border-slate-200 dark:border-white/15 text-slate-800 dark:text-slate-200 shadow-xl hover:bg-white dark:hover:bg-[#0A1128] hover:scale-105 active:scale-95 transition-all cursor-pointer'
-        title={`Toggle ${meta.name} atmosphere`}
+      <div
+        className='inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold backdrop-blur-xl bg-white/80 dark:bg-[#0A1128]/80 border border-slate-200 dark:border-white/15 text-slate-800 dark:text-slate-200 shadow-xl'
       >
         <span>{meta.emoji}</span>
-        <span>{meta.name}: {enabled ? 'Active' : 'Muted'}</span>
-      </button>
+        <span>{meta.name}</span>
+      </div>
     </div>
   )
 }
