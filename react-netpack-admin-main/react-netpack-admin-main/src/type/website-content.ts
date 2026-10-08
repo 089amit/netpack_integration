@@ -8,5 +8,7 @@ export interface WebsiteContent {
   contactAddress: string
   businessHours: string
   tickerItems: string[]
+  festiveTheme?: string
+  festiveGreeting?: string
   updatedAt?: string
 }

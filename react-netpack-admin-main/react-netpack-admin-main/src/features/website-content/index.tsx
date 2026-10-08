@@ -25,10 +25,105 @@ import {
   CheckCircle2,
   Radio,
   ExternalLink,
+  Palette,
 } from 'lucide-react'
 import http from '@/utils/http'
 import { WEBSITE_CONTENT_ENDPOINTS } from '@/constants/endpoint'
 import { WebsiteContent } from '@/type/website-content'
+
+export const FESTIVE_THEMES = [
+  {
+    id: 'auto',
+    name: 'Auto Smart Calendar',
+    tag: 'Dynamic',
+    description: 'Auto-detects active Nepali & global festival based on current calendar date.',
+    defaultGreeting: 'Seasonal cultural greetings auto-selected by active festival date.',
+  },
+  {
+    id: 'none',
+    name: 'Clean Corporate (Off)',
+    tag: 'Standard',
+    description: 'Clean Apple / Linear aesthetic without festive particle animations.',
+    defaultGreeting: '',
+  },
+  {
+    id: 'dashain',
+    name: 'Dashain (बडा दशैँ)',
+    tag: 'Sep / Oct',
+    description: 'Soaring kites in autumn sky, golden barley (jamara) & marigold aura.',
+    defaultGreeting: 'बडा दशैँको हार्दिक मङ्गलमय शुभकामना | Happy Vijaya Dashami!',
+  },
+  {
+    id: 'tihar',
+    name: 'Tihar & Deepawali (तिहार)',
+    tag: 'Oct / Nov',
+    description: 'Twinkling fairy lights top curtain, warm glowing diyas (दीयो) & sparkles.',
+    defaultGreeting: 'शुभ दिपावली तथा तिहारको हार्दिक मङ्गलमय शुभकामना | Happy Deepawali & Tihar!',
+  },
+  {
+    id: 'chhath',
+    name: 'Chhath Puja (छठ पर्व)',
+    tag: 'November',
+    description: 'Saffron sunrise aura, water ripples & holy evening arghya vibes.',
+    defaultGreeting: 'छठ पर्वको पावन अवसरमा हार्दिक शुभकामना | Happy Chhath Puja!',
+  },
+  {
+    id: 'christmas',
+    name: 'Christmas (क्रिसमस)',
+    tag: 'December',
+    description: 'Gentle drifting snowflakes, frosted pine tree aura & holiday warmth.',
+    defaultGreeting: 'Merry Christmas & Joyful Season Greetings from Netpack Logistics!',
+  },
+  {
+    id: 'new_year',
+    name: 'English New Year',
+    tag: 'Jan 1st',
+    description: 'Midnight golden celebration sparks, fireworks glow & festive countdown.',
+    defaultGreeting: 'Happy New Year! Wishing you worldwide speed, prosperity & success.',
+  },
+  {
+    id: 'labour_day',
+    name: 'Labour Day (श्रमिक दिवस)',
+    tag: 'May 1st',
+    description: 'Dignity of labour tribute, golden gear & frontline workforce solidarity.',
+    defaultGreeting: 'अन्तर्राष्ट्रिय श्रमिक दिवसको शुभकामना | Happy International Workers’ Day!',
+  },
+  {
+    id: 'maghe_sankranti',
+    name: 'Maghe Sankranti (माघे सङ्क्रान्ति)',
+    tag: 'January',
+    description: 'Winter solstice hearth warmth, kites & auspicious harvest sun rays.',
+    defaultGreeting: 'माघे सङ्क्रान्तिको पावन शुभकामना | Happy Maghe Sankranti!',
+  },
+  {
+    id: 'lhosar',
+    name: 'Lhosar (ल्होसार)',
+    tag: 'Jan - Feb',
+    description: '5-color Himalayan prayer flags (Lungta) gently fluttering along the header.',
+    defaultGreeting: 'ल्होसारको हार्दिक मङ्गलमय शुभकामना | Tashi Delek & Happy Lhosar!',
+  },
+  {
+    id: 'holi',
+    name: 'Holi (फागु पूर्णिमा)',
+    tag: 'March',
+    description: 'Floating vibrant pastel gulal powder particles (pink, yellow, cyan).',
+    defaultGreeting: 'रङ्गीन फागु पूर्णिमा तथा होलीको शुभकामना | Happy Holi to All!',
+  },
+  {
+    id: 'nepali_new_year',
+    name: 'Nepali New Year (नव वर्ष बैशाख १)',
+    tag: 'April',
+    description: 'Drifting pink rhododendron (लालीगुराँस) petals & spring dawn warmth.',
+    defaultGreeting: 'नयाँ वर्षको हार्दिक मङ्गलमय शुभकामना | Happy Nepali New Year!',
+  },
+  {
+    id: 'buddha_jayanti',
+    name: 'Buddha Jayanti (बुद्ध जयन्ती)',
+    tag: 'May',
+    description: 'Sacred lotus blossoms floating gently, peace mantra glow & serene light.',
+    defaultGreeting: 'बुद्ध जयन्तीको शान्तिमय शुभकामना | Happy Buddha Jayanti - Peace from Nepal!',
+  },
+]
 
 const DEFAULT_CONTENT: WebsiteContent = {
   heroTitle: 'Fast & Reliable Courier Services in Teku, Kathmandu',
@@ -45,6 +140,8 @@ const DEFAULT_CONTENT: WebsiteContent = {
     'TIA Customs Clearance: Operational',
     'Coverage: 75+ Hubs Across Nepal & Worldwide',
   ],
+  festiveTheme: 'auto',
+  festiveGreeting: '',
 }
 
 export default function WebsiteContentPage() {
@@ -73,6 +170,8 @@ export default function WebsiteContentPage() {
             Array.isArray(res.tickerItems) && res.tickerItems.length > 0
               ? res.tickerItems
               : DEFAULT_CONTENT.tickerItems,
+          festiveTheme: res.festiveTheme || DEFAULT_CONTENT.festiveTheme,
+          festiveGreeting: res.festiveGreeting || DEFAULT_CONTENT.festiveGreeting,
           updatedAt: res.updatedAt,
         })
         if (res.updatedAt) {
@@ -293,7 +392,125 @@ export default function WebsiteContentPage() {
               </CardContent>
             </Card>
 
-            {/* 2. Hero Headline Section */}
+            {/* 2. Festive Season Theme & Ambient Atmosphere */}
+            <Card className='border shadow-xs'>
+              <CardHeader className='pb-3'>
+                <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-2'>
+                  <div className='flex items-center gap-2'>
+                    <div className='h-8 w-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center'>
+                      <Palette className='h-4 w-4' />
+                    </div>
+                    <div>
+                      <CardTitle className='text-base font-bold'>Festive Season Theme &amp; Cultural Atmosphere</CardTitle>
+                      <CardDescription className='text-xs'>
+                        Auto-adjust or force ambient background animations and greetings for Nepali and international festivals.
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant='outline' className='text-xs font-semibold px-2.5 py-1 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 w-fit'>
+                    Active: {FESTIVE_THEMES.find((t) => t.id === (formData.festiveTheme || 'auto'))?.name || 'Auto Smart Calendar'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className='space-y-4 pt-1'>
+                {/* Theme Selector Grid */}
+                <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5'>
+                  {FESTIVE_THEMES.map((theme) => {
+                    const isSelected = (formData.festiveTheme || 'auto') === theme.id
+                    return (
+                      <button
+                        type='button'
+                        key={theme.id}
+                        onClick={() => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            festiveTheme: theme.id,
+                          }))
+                        }}
+                        className={`text-left p-3 rounded-xl border transition-all cursor-pointer relative flex flex-col justify-between min-h-[92px] ${
+                          isSelected
+                            ? 'border-primary ring-2 ring-primary/20 bg-primary/5 dark:bg-primary/10 shadow-xs'
+                            : 'border-border/80 hover:border-border hover:bg-muted/50 bg-card'
+                        }`}
+                      >
+                        <div className='space-y-1'>
+                          <div className='flex items-center justify-between gap-1'>
+                            <span className='font-bold text-xs text-foreground'>
+                              {theme.name}
+                            </span>
+                            <Badge
+                              variant='secondary'
+                              className={`text-[10px] px-1.5 py-0 h-4 shrink-0 ${
+                                isSelected ? 'bg-primary text-primary-foreground font-bold' : ''
+                              }`}
+                            >
+                              {theme.tag}
+                            </Badge>
+                          </div>
+                          <p className='text-[11px] text-muted-foreground leading-snug line-clamp-2'>
+                            {theme.description}
+                          </p>
+                        </div>
+
+                        {isSelected && (
+                          <div className='flex items-center gap-1 text-[10px] text-primary font-semibold mt-2'>
+                            <CheckCircle2 className='h-3 w-3' />
+                            <span>Currently Selected</span>
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Custom Festival Greeting Input */}
+                <div className='pt-2 border-t border-border/80 space-y-2'>
+                  <div className='flex items-center justify-between'>
+                    <label className='text-xs font-semibold text-foreground flex items-center gap-1.5'>
+                      <Sparkles className='h-3.5 w-3.5 text-amber-500' />
+                      <span>Custom Holiday Greeting Banner (Optional)</span>
+                    </label>
+                    {formData.festiveGreeting ? (
+                      <button
+                        type='button'
+                        onClick={() => setFormData((prev) => ({ ...prev, festiveGreeting: '' }))}
+                        className='text-[11px] text-muted-foreground hover:text-foreground underline cursor-pointer'
+                      >
+                        Clear to use festival default
+                      </button>
+                    ) : (
+                      <button
+                        type='button'
+                        onClick={() => {
+                          const active = FESTIVE_THEMES.find((t) => t.id === formData.festiveTheme)
+                          if (active && active.defaultGreeting && active.id !== 'auto' && active.id !== 'none') {
+                            setFormData((prev) => ({ ...prev, festiveGreeting: active.defaultGreeting }))
+                          }
+                        }}
+                        className='text-[11px] text-primary hover:underline cursor-pointer'
+                      >
+                        Insert festival template greeting
+                      </button>
+                    )}
+                  </div>
+
+                  <Input
+                    value={formData.festiveGreeting || ''}
+                    onChange={(e) => setFormData({ ...formData, festiveGreeting: e.target.value })}
+                    placeholder={
+                      FESTIVE_THEMES.find((t) => t.id === (formData.festiveTheme || 'auto'))?.defaultGreeting ||
+                      'e.g. बडा दशैँको हार्दिक मङ्गलमय शुभकामना | Happy Vijaya Dashami!'
+                    }
+                    className='h-9 text-xs'
+                  />
+                  <p className='text-[11px] text-muted-foreground'>
+                    Appears as a prominent yet elegant frosted ribbon banner above the homepage hero during the festival. If left empty, Netpack uses the authentic greeting for the active festival.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 3. Hero Headline Section */}
             <Card className='border shadow-xs'>
               <CardHeader className='pb-3'>
                 <div className='flex items-center gap-2'>

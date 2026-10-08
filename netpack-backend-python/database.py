@@ -164,6 +164,22 @@ def run_auto_migrations(target_engine):
                     pass
                 print(f"[Migration Warning] surcharge_rules column reconciliation: {e}")
 
+        # 1e. Add festiveTheme and festiveGreeting to website_contents table if needed
+        if "website_contents" in table_names:
+            try:
+                existing_wc_cols = {col["name"].lower() for col in inspector.get_columns("website_contents")}
+                if "festivetheme" not in existing_wc_cols:
+                    conn.execute(sa.text('ALTER TABLE website_contents ADD COLUMN "festiveTheme" VARCHAR(50) DEFAULT \'auto\''))
+                if "festivegreeting" not in existing_wc_cols:
+                    conn.execute(sa.text('ALTER TABLE website_contents ADD COLUMN "festiveGreeting" VARCHAR(255)'))
+                conn.commit()
+            except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                print(f"[Migration Warning] website_contents festive columns check: {e}")
+
         # 2. Ensure baseline roles exist
         if "roles" in table_names:
             try:

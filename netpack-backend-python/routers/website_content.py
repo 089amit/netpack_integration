@@ -17,6 +17,8 @@ class WebsiteContentPayload(BaseModel):
     contactAddress: Optional[str] = None
     businessHours: Optional[str] = None
     tickerItems: Optional[List[str]] = None
+    festiveTheme: Optional[str] = None
+    festiveGreeting: Optional[str] = None
 
 def _format_content(row: WebsiteContent):
     ticker_list = []
@@ -35,6 +37,8 @@ def _format_content(row: WebsiteContent):
         "contactAddress": row.contactAddress or "Teku Road, Ward No. 15, Kathmandu, Nepal",
         "businessHours": row.businessHours or "10:00 am - 5:00 pm (Sun - Fri)",
         "tickerItems": ticker_list,
+        "festiveTheme": getattr(row, "festiveTheme", None) or "auto",
+        "festiveGreeting": getattr(row, "festiveGreeting", None) or "",
         "updatedAt": row.updatedAt.isoformat() if row.updatedAt else None
     }
 
@@ -77,6 +81,10 @@ def update_website_content(payload: WebsiteContentPayload, db: Session = Depends
         content.businessHours = payload.businessHours
     if payload.tickerItems is not None:
         content.tickerItems = json.dumps(payload.tickerItems)
+    if payload.festiveTheme is not None:
+        content.festiveTheme = payload.festiveTheme
+    if payload.festiveGreeting is not None:
+        content.festiveGreeting = payload.festiveGreeting
 
     db.commit()
     db.refresh(content)

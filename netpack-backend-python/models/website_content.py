@@ -14,4 +14,6 @@ class WebsiteContent(Base):
     contactAddress = Column(String(255), default="Teku Road, Ward No. 15, Kathmandu, Nepal")
     businessHours = Column(String(100), default="10:00 am - 5:00 pm (Sun - Fri)")
     tickerItems = Column(Text, default='["Air Cargo Route: KTM ➔ DXB (Daily Direct)", "Kathmandu Valley Pickup: Active (20-30 min dispatch)", "TIA Customs Clearance: Operational", "Coverage: 75+ Hubs Across Nepal & Worldwide"]')
+    festiveTheme = Column(String(50), default="auto")
+    festiveGreeting = Column(String(255), nullable=True)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

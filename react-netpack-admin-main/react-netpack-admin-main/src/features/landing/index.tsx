@@ -40,6 +40,12 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { isAuthenticated } from '@/lib/auth'
 import { SERVER_URL } from '@/constants/endpoint'
+import {
+  getEffectiveFestiveTheme,
+  FestiveAtmosphereBackground,
+  FestiveGreetingRibbon,
+  FestiveFloatingToggle,
+} from './festive-atmosphere'
 
 const API_BASE = SERVER_URL
 
@@ -253,7 +259,38 @@ export default function LandingPage() {
       'TIA Customs Clearance: Operational',
       'Coverage: 75+ Hubs Across Nepal & Worldwide',
     ],
+    festiveTheme: 'auto',
+    festiveGreeting: '',
   })
+
+  // Festive Atmosphere visitor toggle (persisted in localStorage)
+  const [festiveEffectsEnabled, setFestiveEffectsEnabled] = useState<boolean>(true)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('netpack_festive_disabled')
+      if (stored === '1') setFestiveEffectsEnabled(false)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const handleToggleFestiveEffects = () => {
+    setFestiveEffectsEnabled((prev) => {
+      const next = !prev
+      try {
+        if (!next) localStorage.setItem('netpack_festive_disabled', '1')
+        else localStorage.removeItem('netpack_festive_disabled')
+      } catch {
+        // ignore
+      }
+      return next
+    })
+  }
+
+  const effectiveFestiveTheme = useMemo(
+    () => getEffectiveFestiveTheme(siteContent.festiveTheme),
+    [siteContent.festiveTheme]
+  )
 
   useEffect(() => {
     fetch(`${API_BASE}/api/website-content`)
@@ -276,6 +313,8 @@ export default function LandingPage() {
               Array.isArray(data.tickerItems) && data.tickerItems.length > 0
                 ? data.tickerItems
                 : prev.tickerItems,
+            festiveTheme: data.festiveTheme || prev.festiveTheme,
+            festiveGreeting: data.festiveGreeting || prev.festiveGreeting,
           }))
         }
       })
@@ -484,9 +523,14 @@ export default function LandingPage() {
 
   return (
     <div className='min-h-screen bg-[#FBFBFD] dark:bg-[#070D18] text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white font-sans antialiased'>
+      {/* ── AMBIENT FESTIVE SEASON PARTICLES & OVERLAY ─────────────────────── */}
+      {festiveEffectsEnabled && (
+        <FestiveAtmosphereBackground theme={effectiveFestiveTheme} />
+      )}
+
       {/* ── HEADER NAVIGATION (APPLE FROSTED STYLE) ───────────────────────── */}
       <header className='backdrop-blur-xl bg-white/80 dark:bg-[#0A1128]/85 border-b border-slate-200/70 dark:border-white/[0.08] sticky top-0 z-50 transition-all'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+        <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='flex items-center justify-between h-16 sm:h-18'>
             {/* Logo */}
             <a href='/' className='flex items-center gap-3 group active:scale-95 transition-transform'>
@@ -645,7 +689,7 @@ export default function LandingPage() {
 
       {/* ── AUTOMATED LIVE LOGISTICS STATUS TICKER (LINEAR OBSIDIAN STYLE) ─── */}
       <div className='bg-[#050A14] text-slate-300 border-b border-white/[0.08] text-xs py-2 px-3 sm:px-6 overflow-hidden relative shadow-inner'>
-        <div className='max-w-7xl mx-auto flex items-center gap-3'>
+        <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto flex items-center gap-3'>
           <div className='flex items-center gap-2 shrink-0 font-bold text-sky-400 text-[11px] uppercase tracking-wider bg-[#050A14] pr-2 z-10'>
             <span className='relative flex h-2 w-2'>
               <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75' />
@@ -691,12 +735,20 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* ── FESTIVE SEASON GREETING BANNER ─────────────────────────────────── */}
+      <FestiveGreetingRibbon
+        theme={effectiveFestiveTheme}
+        customGreeting={siteContent.festiveGreeting}
+        effectsEnabled={festiveEffectsEnabled}
+        onToggleEffects={handleToggleFestiveEffects}
+      />
+
       {/* ── HERO SECTION: CLEAN APPLE TYPOGRAPHY & REFINE UI ──────────────── */}
       <section className='relative py-16 sm:py-20 lg:py-24 border-b border-slate-200/80 dark:border-white/[0.08] overflow-hidden'>
         {/* Subtle Ambient Radial Glow */}
-        <div className='absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[450px] bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(37,99,235,0.1),transparent_70%)] pointer-events-none -z-10' />
+        <div className='absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1440px] h-[450px] bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(37,99,235,0.1),transparent_70%)] pointer-events-none -z-10' />
 
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10'>
+        <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 relative z-10'>
           <div className='grid lg:grid-cols-2 gap-12 lg:gap-14 items-center'>
             {/* Left Column Copy */}
             <div className='space-y-7 text-left'>
@@ -834,7 +886,7 @@ export default function LandingPage() {
         ref={trackingBoxRef}
         className='py-20 sm:py-24 px-4 bg-white dark:bg-[#070D18] border-b border-slate-200/80 dark:border-white/[0.08]'
       >
-        <div className='max-w-4xl mx-auto space-y-8 text-center'>
+        <div className='max-w-5xl xl:max-w-6xl mx-auto space-y-8 text-center'>
           <div className='space-y-3'>
             <span className='inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-white/[0.06] border border-blue-200 dark:border-white/10 text-blue-700 dark:text-sky-300 text-xs font-semibold tracking-wide uppercase'>
               <Plane className='h-3.5 w-3.5 text-blue-600 dark:text-sky-400' />
@@ -1142,7 +1194,7 @@ export default function LandingPage() {
 
       {/* ── SPECIALIZED SERVICES SECTION (#services) ───────────────────────── */}
       <section id='services' className='py-20 sm:py-24 bg-background border-b border-gray-200 dark:border-slate-800'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+        <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='text-center mb-16 space-y-3'>
             <h2
               style={{ fontFamily: 'Jost, sans-serif' }}
@@ -1329,7 +1381,7 @@ export default function LandingPage() {
 
       {/* ── ABOUT SECTION (#about) ─────────────────────────────────────────── */}
       <section id='about' className='py-20 sm:py-24 bg-background border-b border-gray-200 dark:border-slate-800'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+        <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='text-center mb-16 space-y-3'>
             <h2
               style={{ fontFamily: 'Jost, sans-serif' }}
@@ -1417,7 +1469,7 @@ export default function LandingPage() {
 
       {/* ── CONTACT SECTION (#contact) ─────────────────────────────────────── */}
       <section id='contact' className='py-20 sm:py-24 bg-slate-50/70 dark:bg-[#0A1128]/40 border-b border-gray-200 dark:border-slate-800'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+        <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='text-center mb-16 space-y-3'>
             <h2
               style={{ fontFamily: 'Jost, sans-serif' }}
@@ -1602,8 +1654,8 @@ export default function LandingPage() {
         <div className='absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none' />
         <div className='absolute bottom-0 left-0 -mb-10 -ml-10 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none' />
 
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10'>
-          <div className='max-w-5xl mx-auto rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900/95 to-[#0A1128] p-6 md:p-10 shadow-2xl'>
+        <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 relative z-10'>
+          <div className='max-w-6xl xl:max-w-[1360px] mx-auto rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900/95 to-[#0A1128] p-6 md:p-10 shadow-2xl'>
             <div className='grid lg:grid-cols-12 gap-8 items-center'>
               <div className='lg:col-span-8 space-y-4 text-left'>
                 <div className='flex items-center gap-3.5'>
@@ -1664,7 +1716,7 @@ export default function LandingPage() {
 
       {/* ── FOOTER ─────────────────────────────────────────────────────────── */}
       <footer className='bg-[#050A14] text-slate-400 text-xs py-14 mt-auto border-t border-white/[0.08]'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+        <div className='max-w-[1440px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12'>
           <div className='grid md:grid-cols-2 lg:grid-cols-4 gap-8 text-left'>
             <div className='space-y-4'>
               <div className='flex items-center gap-2'>
@@ -1757,6 +1809,13 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Floating Festive Atmosphere Toggle Pill */}
+      <FestiveFloatingToggle
+        theme={effectiveFestiveTheme}
+        enabled={festiveEffectsEnabled}
+        onToggle={handleToggleFestiveEffects}
+      />
 
       <InstallGuideModal
         open={showInstallGuideModal}
