@@ -13,15 +13,45 @@
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/:path*",
       "destination": {
-        "service": "netpack-backend-python"
+        "service": "netpack-backend-python",
+        "path": "/api/:path*"
       }
     },
     {
-      "source": "/(.*)",
+      "source": "/assets/:path*",
       "destination": {
-        "service": "react-netpack-admin-main"
+        "service": "react-netpack-admin-main",
+        "path": "/assets/:path*"
+      }
+    },
+    {
+      "source": "/download/:path*",
+      "destination": {
+        "service": "react-netpack-admin-main",
+        "path": "/download/:path*"
+      }
+    },
+    {
+      "source": "/images/:path*",
+      "destination": {
+        "service": "react-netpack-admin-main",
+        "path": "/images/:path*"
+      }
+    },
+    {
+      "source": "/:file([^/]+\\.[^/]+)",
+      "destination": {
+        "service": "react-netpack-admin-main",
+        "path": "/:file"
+      }
+    },
+    {
+      "source": "/:path*",
+      "destination": {
+        "service": "react-netpack-admin-main",
+        "path": "/index.html"
       }
     }
   ]
