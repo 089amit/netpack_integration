@@ -2,7 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
     "react-netpack-admin-main": {
-      "root": "react-netpack-admin-main/react-netpack-admin-main"
+      "root": "react-netpack-admin-main/react-netpack-admin-main",
+      "framework": "vite"
     },
     "netpack-backend-python": {
       "root": "netpack-backend-python",

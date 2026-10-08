@@ -140,13 +140,14 @@ app.include_router(website_content.router)
 app.include_router(surcharges.router)
 app.include_router(forex.router)
 
-@app.on_event("shutdown")
-def on_shutdown_backup():
-    try:
-        from backup_restore_service import create_database_backup
-        create_database_backup()
-    except Exception as e:
-        print(f"[Shutdown Warning] Failed writing backup snapshot: {e}")
+if not os.getenv("VERCEL"):
+    @app.on_event("shutdown")
+    def on_shutdown_backup():
+        try:
+            from backup_restore_service import create_database_backup
+            create_database_backup()
+        except Exception as e:
+            print(f"[Shutdown Warning] Failed writing backup snapshot: {e}")
 
 # Database snapshot export endpoint
 @app.get("/api/admin/backup-database", tags=["Admin"])
