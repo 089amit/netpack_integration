@@ -1,19 +1,33 @@
 {
-  "version": 2,
-  "buildCommand": "cd react-netpack-admin-main/react-netpack-admin-main && npm install && npm run build",
-  "outputDirectory": "react-netpack-admin-main/react-netpack-admin-main/dist",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "react-netpack-admin-main": {
+      "root": "react-netpack-admin-main/react-netpack-admin-main"
+    },
+    "netpack-backend-python": {
+      "root": "netpack-backend-python",
+      "framework": "fastapi",
+      "entrypoint": "main:app"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "destination": {
+        "service": "netpack-backend-python"
+      }
     },
     {
       "source": "/download/(.*)",
-      "destination": "/download/$1"
+      "destination": {
+        "service": "react-netpack-admin-main"
+      }
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": {
+        "service": "react-netpack-admin-main"
+      }
     }
   ]
 }
