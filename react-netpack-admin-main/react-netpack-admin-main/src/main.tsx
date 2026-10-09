@@ -18,13 +18,13 @@ import './index.css'
 // Generated Routes
 import { routeTree } from './routeTree.gen'
 
-// Register PWA Service Workers immediately
+// Unregister any legacy service workers
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  const isPickup = window.location.pathname.startsWith('/pickup-pwa')
-  const swPath = isPickup ? '/sw-pickup.js' : '/sw.js'
-  navigator.serviceWorker
-    .register(swPath)
-    .catch((err) => console.warn('SW registration warning:', err))
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister().catch(() => {})
+    }
+  }).catch(() => {})
 }
 
 // Check if current page is an auth page or public customer/rider PWA

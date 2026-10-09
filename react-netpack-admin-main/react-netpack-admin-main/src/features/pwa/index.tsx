@@ -577,6 +577,14 @@ const IconPhone = ({ size = 16, className = '' }: { size?: number; className?: s
   </svg>
 )
 
+const IconDownload = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+)
+
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 function Header({
@@ -4212,6 +4220,26 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: any, token: s
           </div>
         )}
 
+        {/* Direct Android APK Download Option */}
+        <a
+          href="/download/customer.apk"
+          download="customer.apk"
+          className="bg-white rounded-2xl border border-blue-200/80 p-3.5 mt-5 shadow-xs flex items-center justify-between gap-3 text-left no-underline hover:border-blue-400 transition-all cursor-pointer"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20 text-white">
+              <IconDownload size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-bold text-[#0D1B2A] truncate">Download Customer Android App</p>
+              <p className="text-[11px] text-gray-500 truncate">Install native APK for tracking updates</p>
+            </div>
+          </div>
+          <span className="px-3 py-1.5 rounded-xl bg-[#2563EB] text-white text-[12px] font-semibold shrink-0">
+            Download APK
+          </span>
+        </a>
+
         <p className="text-center text-[11px] text-gray-400 mt-6 leading-relaxed px-4">
           By continuing, you agree to NetPack's Terms of Service and Privacy Policy.
         </p>
@@ -4909,20 +4937,6 @@ export default function CustomerPWA() {
                   onClick: () => handleTrackNav(s.tracking, 'home'),
                 },
               })
-
-              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                try {
-                  const n = new Notification(`Shipment ${s.tracking} Updated`, {
-                    body: `Status: ${s.status.replace(/_/g, ' ').toUpperCase()} • Destination: ${s.destination}`,
-                    icon: '/images/netpack-icon-192.png',
-                    data: { tracking: s.tracking },
-                  })
-                  n.onclick = () => {
-                    window.focus()
-                    handleTrackNav(s.tracking, 'home')
-                  }
-                } catch {}
-              }
             }
           })
           prevStatusesRef.current = currentMap
@@ -4978,7 +4992,23 @@ export default function CustomerPWA() {
     return () => clearInterval(pollInterval)
   }, [customerToken])
 
+  // Sync login / logout state to Android native wrapper if running in APK WebView
+  useEffect(() => {
+    if (customerToken && customerUser) {
+      try {
+        (window as any).NetPackNative?.onLogin(customerToken, JSON.stringify(customerUser))
+      } catch {}
+    } else {
+      try {
+        (window as any).NetPackNative?.onLogout()
+      } catch {}
+    }
+  }, [customerToken, customerUser])
+
   const handleSignOut = () => {
+    try {
+      (window as any).NetPackNative?.onLogout()
+    } catch {}
     localStorage.removeItem('netpack_customer_token')
     localStorage.removeItem('netpack_customer_user')
     setCustomerToken(null)
@@ -5005,6 +5035,9 @@ export default function CustomerPWA() {
         {!customerUser ? (
           <AuthScreen
             onAuthenticated={(user, token) => {
+              try {
+                (window as any).NetPackNative?.onLogin(token, JSON.stringify(user))
+              } catch {}
               setCustomerUser(user)
               setCustomerToken(token)
               const userKey = user.id || user.email || 'customer'

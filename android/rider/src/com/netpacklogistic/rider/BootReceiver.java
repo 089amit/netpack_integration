@@ -5,6 +5,7 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.SystemClock;
 
@@ -17,12 +18,27 @@ public class BootReceiver extends BroadcastReceiver {
             Intent.ACTION_MY_PACKAGE_REPLACED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
             
-            scheduleAlertChecks(context);
+            SharedPreferences prefs = context.getSharedPreferences(
+                NotificationAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE
+            );
+            if (prefs.getBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, false)) {
+                scheduleAlertChecks(context);
+            } else {
+                NotificationAlarmReceiver.cancelAlerts(context);
+            }
         }
     }
 
     public static void scheduleAlertChecks(Context context) {
         try {
+            SharedPreferences prefs = context.getSharedPreferences(
+                NotificationAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE
+            );
+            if (!prefs.getBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, false)) {
+                NotificationAlarmReceiver.cancelAlerts(context);
+                return;
+            }
+
             AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
             if (am == null) return;
 

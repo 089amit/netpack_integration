@@ -23,6 +23,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -50,6 +51,52 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST_CODE = 2001;
     private static final int PERMISSION_REQUEST_CODE = 2002;
 
+    public class WebAppInterface {
+        @JavascriptInterface
+        public void onLogin(String token, String customerJson) {
+            try {
+                SharedPreferences prefs = getSharedPreferences(
+                    NotificationAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE
+                );
+                prefs.edit()
+                    .putBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, true)
+                    .putString(NotificationAlarmReceiver.KEY_AUTH_TOKEN, token != null ? token : "")
+                    .putString(NotificationAlarmReceiver.KEY_USER_DATA, customerJson != null ? customerJson : "")
+                    .apply();
+                BootReceiver.scheduleNotificationChecks(MainActivity.this);
+                android.util.Log.d("NetPack", "Native onLogin: customer authenticated, scheduled notifications.");
+            } catch (Throwable t) {
+                android.util.Log.e("NetPack", "onLogin error", t);
+            }
+        }
+
+        @JavascriptInterface
+        public void onLogout() {
+            try {
+                SharedPreferences prefs = getSharedPreferences(
+                    NotificationAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE
+                );
+                prefs.edit()
+                    .putBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, false)
+                    .remove(NotificationAlarmReceiver.KEY_AUTH_TOKEN)
+                    .remove(NotificationAlarmReceiver.KEY_USER_DATA)
+                    .apply();
+                NotificationAlarmReceiver.cancelNotifications(MainActivity.this);
+                android.util.Log.d("NetPack", "Native onLogout: customer logged out, cancelled notifications.");
+            } catch (Throwable t) {
+                android.util.Log.e("NetPack", "onLogout error", t);
+            }
+        }
+
+        @JavascriptInterface
+        public boolean isLoggedIn() {
+            SharedPreferences prefs = getSharedPreferences(
+                NotificationAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE
+            );
+            return prefs.getBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, false);
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,10 +122,17 @@ public class MainActivity extends Activity {
             }
         } catch (Throwable ignored) {}
 
-        // Initialize Notification Channel & Schedule Background Alarm safely
+        // Initialize Notification Channel & Schedule Background Alarm safely ONLY if logged in
         try {
             NotificationAlarmReceiver.createNotificationChannel(this);
-            BootReceiver.scheduleNotificationChecks(this);
+            SharedPreferences prefs = getSharedPreferences(
+                NotificationAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE
+            );
+            if (prefs.getBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, false)) {
+                BootReceiver.scheduleNotificationChecks(this);
+            } else {
+                NotificationAlarmReceiver.cancelNotifications(this);
+            }
         } catch (Throwable t) {
             android.util.Log.e("NetPack", "Failed to schedule notifications", t);
         }
@@ -140,6 +194,9 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
+
+        // Bind JavaScript Interface for two-way native sync
+        wv.addJavascriptInterface(new WebAppInterface(), "NetPackNative");
 
         wv.setWebChromeClient(new WebChromeClient() {
             @Override

@@ -4,19 +4,9 @@ import CustomerPWA from '@/features/pwa'
 
 function CustomerPWARoute() {
   useEffect(() => {
-    document.title = 'Netpack'
-    const link = document.querySelector('link[rel="manifest"]') as HTMLLinkElement
-    if (link) {
-      link.href = '/manifest.webmanifest'
-    }
-    const appleIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement
-    if (appleIcon) {
-      appleIcon.href = '/images/netpack-icon-192.png'
-    }
+    document.title = 'Netpack Customer Portal'
     return () => {
       document.title = 'Netpack Admin'
-      if (link) link.href = '/manifest.webmanifest'
-      if (appleIcon) appleIcon.href = '/images/netpack-icon-192.png'
     }
   }, [])
 

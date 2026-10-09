@@ -33,14 +33,14 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
     public static final String PREFS_NAME = "netpack_rider_prefs";
     public static final String KEY_SERVER_URL = "server_url";
     public static final String KEY_LAST_PICKUP_ID = "last_pickup_id";
+    public static final String KEY_IS_LOGGED_IN = "is_logged_in";
+    public static final String KEY_AUTH_TOKEN = "auth_token";
+    public static final String KEY_USER_DATA = "user_data";
     public static final String DEFAULT_SERVER_URL = "https://netpackintegration.vercel.app";
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        // 1. Re-arm the next alarm for continuous background monitoring (every 60s)
-        rearmAlarm(context);
-
-        // 2. Check if this is a direct test trigger
+        // Direct test trigger is always allowed (for debugging)
         if (intent != null && "ACTION_TEST_RIDER_ALERT".equals(intent.getAction())) {
             fireNotification(
                 context,
@@ -51,7 +51,20 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
             return;
         }
 
-        // 3. Perform network check in background thread
+        // Check login state: DO NOT poll or notify if logged out!
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false);
+
+        if (!isLoggedIn) {
+            Log.d(TAG, "Rider is logged out. Cancelling all alarms and dismissing notifications.");
+            cancelAlerts(context);
+            return;
+        }
+
+        // 1. Re-arm the next alarm for continuous background monitoring (every 60s)
+        rearmAlarm(context);
+
+        // 2. Perform network check in background thread
         new Thread(() -> checkBackendForPickups(context)).start();
     }
 
@@ -81,10 +94,42 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
         }
     }
 
+    public static void cancelAlerts(Context context) {
+        try {
+            AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (am != null) {
+                Intent alarmIntent = new Intent(context, NotificationAlarmReceiver.class);
+                alarmIntent.setAction("com.netpacklogistic.rider.CHECK_ALERTS");
+
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    flags |= PendingIntent.FLAG_IMMUTABLE;
+                }
+
+                PendingIntent pi = PendingIntent.getBroadcast(context, 2001, alarmIntent, flags);
+                am.cancel(pi);
+            }
+
+            NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancelAll();
+            }
+            Log.d(TAG, "All rider alarms and notifications cancelled.");
+        } catch (Throwable e) {
+            Log.e(TAG, "Error cancelling rider alerts: " + e.getMessage());
+        }
+    }
+
     private void checkBackendForPickups(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false);
+        if (!isLoggedIn) {
+            return;
+        }
+
         String serverUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL);
         int lastId = prefs.getInt(KEY_LAST_PICKUP_ID, 0);
+        String token = prefs.getString(KEY_AUTH_TOKEN, "");
 
         HttpURLConnection conn = null;
         try {
@@ -98,6 +143,9 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
             conn.setConnectTimeout(8000);
             conn.setReadTimeout(8000);
             conn.setRequestProperty("Accept", "application/json");
+            if (token != null && !token.isEmpty()) {
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+            }
 
             int responseCode = conn.getResponseCode();
             if (responseCode == 200) {
@@ -132,6 +180,10 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
                     prefs.edit().putInt(KEY_LAST_PICKUP_ID, latestId).apply();
                     fireNotification(context, latestId, alertTitle, alertBody);
                 }
+            } else if (responseCode == 401 || responseCode == 403) {
+                // Token invalid: mark logged out and stop alarms
+                prefs.edit().putBoolean(KEY_IS_LOGGED_IN, false).apply();
+                cancelAlerts(context);
             }
         } catch (Exception e) {
             Log.d(TAG, "Rider alert check error: " + e.getMessage());
