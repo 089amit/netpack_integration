@@ -26,7 +26,6 @@ import {
   EyeOff,
   Bike,
   LogOut,
-  Download,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
@@ -821,26 +820,6 @@ export default function PickupRiderPWA() {
                 </button>
               </form>
             </div>
-
-            {/* Direct Android APK Download Option */}
-            <a
-              href='/download/rider.apk'
-              download='rider.apk'
-              className='bg-white dark:bg-[#152336] rounded-2xl border border-blue-200/80 dark:border-blue-900/60 p-3.5 mt-4 shadow-sm flex items-center justify-between gap-3 text-left no-underline hover:border-blue-400 transition-all cursor-pointer'
-            >
-              <div className='flex items-center gap-3 min-w-0'>
-                <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20 text-white'>
-                  <Download className='w-5 h-5' />
-                </div>
-                <div className='min-w-0'>
-                  <p className='text-[13px] font-bold text-[#0D1B2A] dark:text-white truncate'>Download Rider Android App</p>
-                  <p className='text-[11px] text-muted-foreground truncate'>Install native APK for background alerts</p>
-                </div>
-              </div>
-              <span className='px-3 py-1.5 rounded-xl bg-[#2563EB] text-white text-[12px] font-semibold shrink-0'>
-                Download APK
-              </span>
-            </a>
 
             <p className='text-center text-[11px] text-muted-foreground leading-relaxed px-4 pt-3'>
               NetPack Field Operations • Kathmandu Central Hub Teku

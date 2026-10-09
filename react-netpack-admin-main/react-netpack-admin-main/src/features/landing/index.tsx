@@ -89,24 +89,10 @@ function getShortMilestoneLabel(label: string) {
 function MobileAppInstallModal({
   open,
   onClose,
-  initialTab = 'android',
-  isIos,
-  isInAppBrowser = false,
 }: {
   open: boolean
   onClose: () => void
-  initialTab?: 'android' | 'ios'
-  isIos: boolean
-  isInAppBrowser?: boolean
 }) {
-  const [activeTab, setActiveTab] = useState<'android' | 'ios'>('android')
-
-  useEffect(() => {
-    if (open) {
-      setActiveTab(isIos ? 'ios' : initialTab)
-    }
-  }, [open, isIos, initialTab])
-
   if (!open) return null
 
   return (
@@ -119,9 +105,9 @@ function MobileAppInstallModal({
             </div>
             <div>
               <h3 style={{ fontFamily: 'Jost, sans-serif' }} className='font-bold text-lg text-[#0D1B2A] dark:text-white'>
-                NetPack Mobile Apps
+                NetPack Android Apps
               </h3>
-              <p className='text-xs text-muted-foreground'>Android APKs &amp; iOS PWA Installation</p>
+              <p className='text-xs text-muted-foreground'>Official APK Downloads</p>
             </div>
           </div>
           <button
@@ -132,149 +118,72 @@ function MobileAppInstallModal({
           </button>
         </div>
 
-        {/* Platform Switcher Tabs */}
-        <div className='grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-white/[0.06] rounded-2xl my-4 text-xs font-semibold'>
-          <button
-            type='button'
-            onClick={() => setActiveTab('android')}
-            className={`py-2 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'android'
-                ? 'bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            🤖 Android (.APK)
-          </button>
-          <button
-            type='button'
-            onClick={() => setActiveTab('ios')}
-            className={`py-2 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'ios'
-                ? 'bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            🍎 iPhone / Web App
-          </button>
+        <div className='space-y-3.5 my-4'>
+          {/* Customer APK Card */}
+          <div className='p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 hover:border-amber-500/40 transition-all'>
+            <div className='flex items-start justify-between gap-3'>
+              <div className='flex items-center gap-2.5'>
+                <div className='w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold text-lg'>
+                  📦
+                </div>
+                <div>
+                  <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Customer App</h4>
+                  <p className='text-[11px] text-muted-foreground'>Doorstep pickups, tracking &amp; verified weights</p>
+                </div>
+              </div>
+              <span className='text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-300 shrink-0'>
+                ~70 KB
+              </span>
+            </div>
+            <div className='mt-3.5 flex items-center gap-2'>
+              <a
+                href={`${SERVER_URL}/download/customer.apk`}
+                download='Netpack-Customer.apk'
+                className='flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-[#0D1B2A] font-bold text-xs transition-all shadow-sm'
+              >
+                <Download className='w-3.5 h-3.5' />
+                <span>Download Customer APK</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Rider Dispatch APK Card */}
+          <div className='p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 hover:border-blue-500/40 transition-all'>
+            <div className='flex items-start justify-between gap-3'>
+              <div className='flex items-center gap-2.5'>
+                <div className='w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 font-bold text-lg'>
+                  🚴
+                </div>
+                <div>
+                  <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Rider Dispatch App</h4>
+                  <p className='text-[11px] text-muted-foreground'>Field dispatch, audio chime alerts &amp; Bluetooth scale</p>
+                </div>
+              </div>
+              <span className='text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-300 shrink-0'>
+                ~87 KB
+              </span>
+            </div>
+            <div className='mt-3.5 flex items-center gap-2'>
+              <a
+                href={`${SERVER_URL}/download/rider.apk`}
+                download='Netpack-Rider.apk'
+                className='flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#0D1B2A] hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold text-xs transition-all shadow-sm'
+              >
+                <Download className='w-3.5 h-3.5' />
+                <span>Download Rider APK</span>
+              </a>
+            </div>
+          </div>
+
+          <div className='p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-[11px] leading-relaxed'>
+            <strong>🔔 Background Notifications:</strong> Both APKs receive push updates even when closed! Once downloaded, tap the APK in your downloads and allow <em>Install unknown apps</em> to install.
+          </div>
         </div>
-
-        {activeTab === 'android' ? (
-          <div className='space-y-3.5'>
-            {/* Customer APK Card */}
-            <div className='p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 hover:border-amber-500/40 transition-all'>
-              <div className='flex items-start justify-between gap-3'>
-                <div className='flex items-center gap-2.5'>
-                  <div className='w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold text-lg'>
-                    📦
-                  </div>
-                  <div>
-                    <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Customer App</h4>
-                    <p className='text-[11px] text-muted-foreground'>Doorstep pickups, tracking &amp; verified weights</p>
-                  </div>
-                </div>
-                <span className='text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-300 shrink-0'>
-                  ~66 KB
-                </span>
-              </div>
-              <div className='mt-3.5 flex items-center gap-2'>
-                <a
-                  href={`${SERVER_URL}/download/customer.apk`}
-                  download='Netpack-Customer.apk'
-                  className='flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-[#0D1B2A] font-bold text-xs transition-all shadow-sm'
-                >
-                  <Download className='w-3.5 h-3.5' />
-                  <span>Download Customer APK</span>
-                </a>
-                <a
-                  href='/pwa'
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='py-2.5 px-3 rounded-xl border border-slate-300 dark:border-white/15 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-semibold text-xs'
-                  title='Launch Web Version'
-                >
-                  Open Web
-                </a>
-              </div>
-            </div>
-
-            {/* Rider Dispatch APK Card */}
-            <div className='p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 hover:border-blue-500/40 transition-all'>
-              <div className='flex items-start justify-between gap-3'>
-                <div className='flex items-center gap-2.5'>
-                  <div className='w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 font-bold text-lg'>
-                    🚴
-                  </div>
-                  <div>
-                    <h4 className='font-bold text-sm text-slate-900 dark:text-white'>Rider Dispatch App</h4>
-                    <p className='text-[11px] text-muted-foreground'>Field dispatch, audio chime alerts &amp; Bluetooth scale</p>
-                  </div>
-                </div>
-                <span className='text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-300 shrink-0'>
-                  ~87 KB
-                </span>
-              </div>
-              <div className='mt-3.5 flex items-center gap-2'>
-                <a
-                  href={`${SERVER_URL}/download/rider.apk`}
-                  download='Netpack-Rider.apk'
-                  className='flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#0D1B2A] hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold text-xs transition-all shadow-sm'
-                >
-                  <Download className='w-3.5 h-3.5' />
-                  <span>Download Rider APK</span>
-                </a>
-                <a
-                  href='/pickup-pwa'
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='py-2.5 px-3 rounded-xl border border-slate-300 dark:border-white/15 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-semibold text-xs'
-                  title='Launch Web Version'
-                >
-                  Open Web
-                </a>
-              </div>
-            </div>
-
-            <div className='p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-[11px] leading-relaxed'>
-              <strong>🔔 Background Notifications:</strong> Both APKs receive push updates even when closed! Once downloaded, tap the APK in your downloads and allow <em>Install unknown apps</em> to install.
-            </div>
-          </div>
-        ) : (
-          <div className='space-y-3 text-xs text-slate-600 dark:text-slate-300'>
-            {isInAppBrowser && (
-              <div className='p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-[11px] mb-2'>
-                <span>👉 Tap <strong>⋯</strong> and select <strong>"Open in Safari"</strong> to install.</span>
-              </div>
-            )}
-            <p className='font-semibold text-slate-900 dark:text-white text-xs'>
-              Install on iPhone / iPad (Safari):
-            </p>
-            <div className='flex items-start gap-2.5 bg-blue-50/80 dark:bg-blue-950/40 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40'>
-              <div className='w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center shrink-0 text-[11px] font-bold'>1</div>
-              <p className='text-xs'>Tap the <strong>Share</strong> button <span className='font-mono'>[↑]</span> at the bottom bar of Safari.</p>
-            </div>
-            <div className='flex items-start gap-2.5 bg-blue-50/80 dark:bg-blue-950/40 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40'>
-              <div className='w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center shrink-0 text-[11px] font-bold'>2</div>
-              <p className='text-xs'>Scroll down and tap <strong>"Add to Home Screen"</strong> ➕.</p>
-            </div>
-            <div className='flex items-start gap-2.5 bg-blue-50/80 dark:bg-blue-950/40 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40'>
-              <div className='w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center shrink-0 text-[11px] font-bold'>3</div>
-              <p className='text-xs'>Tap <strong>Add</strong>. Launch NetPack from your home screen!</p>
-            </div>
-            <div className='grid grid-cols-2 gap-2 pt-1'>
-              <a href='/pwa' className='text-center py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-xs'>
-                Open Customer Web
-              </a>
-              <a href='/pickup-pwa' className='text-center py-2.5 rounded-xl bg-slate-800 text-white font-semibold text-xs'>
-                Open Rider Web
-              </a>
-            </div>
-          </div>
-        )}
 
         <button
           onClick={onClose}
           style={{ fontFamily: 'Jost, sans-serif' }}
-          className='w-full mt-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all cursor-pointer'
+          className='w-full mt-2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all cursor-pointer'
         >
           Close
         </button>
@@ -287,19 +196,8 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAuth, setIsAuth] = useState(false)
 
-  // PWA Install Prompt & Device Detection
+  // APK Install / Download Modal State
   const [showInstallGuideModal, setShowInstallGuideModal] = useState(false)
-  const isIos = useMemo(() => {
-    if (typeof navigator === 'undefined') return false
-    return (
-      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-    )
-  }, [])
-  const isInAppBrowser = useMemo(() => {
-    if (typeof navigator === 'undefined') return false
-    return /WhatsApp|FBAN|FBAV|Instagram|Line|Messenger/i.test(navigator.userAgent)
-  }, [])
 
   // Live Tracking state
   const [trackingId, setTrackingId] = useState('')
@@ -373,10 +271,17 @@ export default function LandingPage() {
     setIsAuth(isAuthenticated())
   }, [])
 
-  const [installModalTab, setInstallModalTab] = useState<'android' | 'ios'>('android')
+  const handleInstallClick = (target: 'customer' | 'rider' = 'customer') => {
+    // 1. Trigger direct APK file download immediately in the browser
+    const apkUrl = target === 'rider' ? `${SERVER_URL}/download/rider.apk` : `${SERVER_URL}/download/customer.apk`
+    const link = document.createElement('a')
+    link.href = apkUrl
+    link.download = target === 'rider' ? 'Netpack-Rider.apk' : 'Netpack-Customer.apk'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
 
-  const handleInstallClick = (_target: 'customer' | 'rider' = 'customer') => {
-    setInstallModalTab('android')
+    // 2. Open clean APK modal with installation guide and alternate download
     setShowInstallGuideModal(true)
   }
 
@@ -1831,9 +1736,6 @@ export default function LandingPage() {
       <MobileAppInstallModal
         open={showInstallGuideModal}
         onClose={() => setShowInstallGuideModal(false)}
-        initialTab={installModalTab}
-        isIos={isIos}
-        isInAppBrowser={isInAppBrowser}
       />
     </div>
   )
