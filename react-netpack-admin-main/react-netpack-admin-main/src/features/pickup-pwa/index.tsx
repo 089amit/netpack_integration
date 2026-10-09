@@ -261,9 +261,11 @@ export default function PickupRiderPWA() {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     return localStorage.getItem('netpack_rider_sound') !== 'false'
   })
+  const hasNotificationSupport = typeof window !== 'undefined' && 'Notification' in window
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
-    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+    hasNotificationSupport ? Notification.permission : 'default'
   )
+  const [dismissNotificationBanner, setDismissNotificationBanner] = useState<boolean>(false)
   const [newPickupAlert, setNewPickupAlert] = useState<any | null>(null)
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null)
   const [installPrompt, setInstallPrompt] = useState<any>(null)
@@ -440,8 +442,8 @@ export default function PickupRiderPWA() {
   }
 
   const requestNotificationPermission = async () => {
-    if (typeof Notification === 'undefined') {
-      toast.error('Web notifications are not supported by this browser.')
+    if (!hasNotificationSupport) {
+      toast.info('Open this page in Google Chrome or download the NetPack Rider Android app for lock-screen alerts.')
       return
     }
     try {
@@ -1211,25 +1213,49 @@ export default function PickupRiderPWA() {
       {/* ─── Main Content Container ────────────────────────────────────────── */}
       <main className='max-w-[430px] mx-auto w-full px-3.5 pt-3 space-y-3'>
 
-        {/* Notification Permission Callout (if not yet granted) */}
-        {notificationPermission !== 'granted' && (
+        {/* Notification Permission Callout (if not yet granted and not dismissed) */}
+        {!dismissNotificationBanner && notificationPermission !== 'granted' && (
           <div className='p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3'>
             <div className='flex items-start gap-2.5'>
               <AlertTriangle className='h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5' />
               <div className='text-xs'>
-                <div className='font-bold text-foreground'>Push Notifications Disabled</div>
+                <div className='font-bold text-foreground'>
+                  {hasNotificationSupport ? 'Push Notifications Disabled' : 'In-App Browser Detected'}
+                </div>
                 <div className='text-muted-foreground text-[11px]'>
-                  Enable notifications so you hear new customer pickups while driving or screen locked.
+                  {hasNotificationSupport
+                    ? 'Enable notifications so you hear new customer pickups while driving or screen locked.'
+                    : 'Open in Chrome or install the NetPack Rider Android app for lock-screen alerts.'}
                 </div>
               </div>
             </div>
-            <Button
-              size='sm'
-              className='bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs h-7 px-2.5 shrink-0'
-              onClick={requestNotificationPermission}
-            >
-              Enable
-            </Button>
+            <div className='flex items-center gap-1.5 shrink-0'>
+              {hasNotificationSupport ? (
+                <Button
+                  size='sm'
+                  className='bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs h-7 px-2.5 shrink-0'
+                  onClick={requestNotificationPermission}
+                >
+                  Enable
+                </Button>
+              ) : (
+                <a
+                  href='/download/rider.apk'
+                  download='rider.apk'
+                  className='bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs h-7 px-2.5 rounded-md flex items-center shrink-0 no-underline'
+                >
+                  Get App
+                </a>
+              )}
+              <button
+                type='button'
+                onClick={() => setDismissNotificationBanner(true)}
+                className='text-muted-foreground hover:text-foreground text-xs p-1 cursor-pointer'
+                title='Dismiss'
+              >
+                ✕
+              </button>
+            </div>
           </div>
         )}
 
