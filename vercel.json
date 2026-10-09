@@ -3,7 +3,13 @@
   "services": {
     "react-netpack-admin-main": {
       "root": "react-netpack-admin-main/react-netpack-admin-main",
-      "framework": "vite"
+      "framework": "vite",
+      "rewrites": [
+        {
+          "source": "/(.*)",
+          "destination": "/index.html"
+        }
+      ]
     },
     "netpack-backend-python": {
       "root": "netpack-backend-python",
@@ -13,45 +19,21 @@
   },
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/(.*)",
       "destination": {
-        "service": "netpack-backend-python",
-        "path": "/api/:path*"
+        "service": "netpack-backend-python"
       }
     },
     {
-      "source": "/assets/:path*",
+      "source": "/uploads/(.*)",
       "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/assets/:path*"
+        "service": "netpack-backend-python"
       }
     },
     {
-      "source": "/download/:path*",
+      "source": "/(.*)",
       "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/download/:path*"
-      }
-    },
-    {
-      "source": "/images/:path*",
-      "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/images/:path*"
-      }
-    },
-    {
-      "source": "/:file([^/]+\\.[^/]+)",
-      "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/:file"
-      }
-    },
-    {
-      "source": "/:path*",
-      "destination": {
-        "service": "react-netpack-admin-main",
-        "path": "/index.html"
+        "service": "react-netpack-admin-main"
       }
     }
   ]
