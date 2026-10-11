@@ -1,5 +1,5 @@
 """
-NetPack Logistics - 1-Click SQLite to PostgreSQL Migration Tool
+NetPack Logistic - 1-Click SQLite to PostgreSQL Migration Tool
 Copies all existing roles, users, countries, rates, enquiries, boxes, shipments,
 and tracking events from local netpack.db directly into target PostgreSQL.
 Usage:

@@ -1,7 +1,7 @@
 @echo off
-title NetPack Logistics React Frontend
+title NetPack Logistic React Frontend
 echo ====================================================
-echo Starting NetPack Logistics React Admin Dashboard...
+echo Starting NetPack Logistic React Admin Dashboard...
 echo ====================================================
 cd /d "%~dp0react-netpack-admin-main\react-netpack-admin-main"
 

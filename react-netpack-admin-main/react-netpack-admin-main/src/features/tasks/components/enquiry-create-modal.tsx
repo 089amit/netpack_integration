@@ -1377,7 +1377,7 @@ export function EnquiryModalForm({
                     )}
                   </div>
                   <p className='text-xs text-muted-foreground'>
-                    Sender delivers parcel directly to Netpack Cargo Logistics Hub.
+                    Sender delivers parcel directly to NetPack Cargo Logistic Hub.
                   </p>
                 </div>
               </button>
@@ -1503,7 +1503,7 @@ export function EnquiryModalForm({
                   Self Drop-off Selected
                 </p>
                 <p className='text-xs text-emerald-700 dark:text-emerald-400'>
-                  Customer will bring shipment directly to Netpack Cargo Logistics Hub. No pickup boy will be dispatched.
+                  Customer will bring shipment directly to NetPack Cargo Logistic Hub. No pickup boy will be dispatched.
                 </p>
               </div>
             )}

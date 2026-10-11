@@ -8,7 +8,7 @@ from models.customer import Notification
 router = APIRouter(prefix="/api/notification", tags=["Notifications"])
 
 class NotificationSendRequest(BaseModel):
-    title: Optional[str] = "NetPack Notification"
+    title: Optional[str] = "NetPack Logistic Notification"
     body: Optional[str] = None
     description: Optional[str] = None
     userId: Optional[int] = None
@@ -16,7 +16,7 @@ class NotificationSendRequest(BaseModel):
     scope: Optional[str] = "ALL_USERS"
 
 class BulkNotificationRequest(BaseModel):
-    title: Optional[str] = "NetPack Notification"
+    title: Optional[str] = "NetPack Logistic Notification"
     body: Optional[str] = None
     description: Optional[str] = None
     customerIds: Optional[List[int]] = None
@@ -26,7 +26,7 @@ class BulkNotificationRequest(BaseModel):
 @router.post("/sendNotification")
 def send_notification(payload: NotificationSendRequest, db: Session = Depends(get_db)):
     n = Notification(
-        title=payload.title or "NetPack Notification",
+        title=payload.title or "NetPack Logistic Notification",
         body=payload.body or payload.description or "",
         userId=payload.userId,
         customerId=payload.customerId,
@@ -40,7 +40,7 @@ def send_notification(payload: NotificationSendRequest, db: Session = Depends(ge
 
 @router.post("/send-bulk-notification")
 def send_bulk_notification(payload: BulkNotificationRequest, db: Session = Depends(get_db)):
-    notif_title = payload.title or "NetPack Notification"
+    notif_title = payload.title or "NetPack Logistic Notification"
     notif_body = payload.body or payload.description or ""
     target_ids = payload.customerIds or payload.userIds or []
 

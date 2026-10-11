@@ -88,7 +88,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 SMTP_USER = os.getenv("SMTP_USER", os.getenv("EMAIL_USER", ""))
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", os.getenv("EMAIL_PASSWORD", ""))
 SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USER", "info@netpacklogistic.com"))
-SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "NetPack Logistics")
+SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "NetPack Logistic")
 SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "True").lower() in ("true", "1", "yes")
 SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "False").lower() in ("true", "1", "yes")
 

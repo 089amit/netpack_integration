@@ -189,7 +189,7 @@ class TrackingMoreService:
             "courier_code": slug,
             "customer_name": customer_name or "",
             "title": title or f"Netpack Shipment {clean_num}",
-            "note": note or "Tracked via Netpack Logistics Integration"
+            "note": note or "Tracked via NetPack Logistic Integration"
         }
 
         try:

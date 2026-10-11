@@ -173,7 +173,7 @@ export function DataTableRowActions<
       rows.push(['Country:', 'NEPAL', '', '', 'TOTAL WT :', totalWeight, 'KGS'])
       rows.push([
         'Tel.#',
-        'TEL: 015339942',
+        'TEL: +977 15339942',
         '',
         '',
         'TOTAL DIM WGT :',

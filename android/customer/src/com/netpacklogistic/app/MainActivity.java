@@ -293,7 +293,7 @@ public class MainActivity extends Activity {
         errorLayout.setVisibility(View.GONE);
 
         TextView title = new TextView(this);
-        title.setText("NetPack Logistics");
+        title.setText("NetPack Logistic");
         title.setTextColor(Color.parseColor("#F59E0B"));
         title.setTextSize(24);
         title.setGravity(Gravity.CENTER);

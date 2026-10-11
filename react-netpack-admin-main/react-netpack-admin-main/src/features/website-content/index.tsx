@@ -72,7 +72,7 @@ export const FESTIVE_THEMES = [
     name: 'Christmas (क्रिसमस)',
     tag: 'December',
     description: 'Gentle drifting snowflakes, frosted pine tree aura & holiday warmth.',
-    defaultGreeting: 'Merry Christmas & Joyful Season Greetings from Netpack Logistics!',
+    defaultGreeting: 'Merry Christmas & Joyful Season Greetings from NetPack Logistic!',
   },
   {
     id: 'new_year',
@@ -130,8 +130,8 @@ const DEFAULT_CONTENT: WebsiteContent = {
   heroSubtitle:
     'Your trusted partner for secure package delivery across Nepal and worldwide. Track your shipment in real-time.',
   heroBadge: 'Teku, Kathmandu Headquarters',
-  contactPhone: '015339942',
-  contactEmail: 'admin@netpacklogistic.com',
+  contactPhone: '+977 15339942',
+  contactEmail: 'info@netpacklogistic.com',
   contactAddress: 'Teku Road, Ward No. 15, Kathmandu, Nepal',
   businessHours: '10:00 am - 5:00 pm (Sun - Fri)',
   tickerItems: [
@@ -599,7 +599,7 @@ export default function WebsiteContentPage() {
                     <Input
                       value={formData.contactPhone}
                       onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                      placeholder='015339942'
+                      placeholder='+977 15339942'
                       className='h-9 text-xs'
                     />
                   </div>
@@ -613,7 +613,7 @@ export default function WebsiteContentPage() {
                       type='email'
                       value={formData.contactEmail}
                       onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                      placeholder='admin@netpacklogistic.com'
+                      placeholder='info@netpacklogistic.com'
                       className='h-9 text-xs'
                     />
                   </div>

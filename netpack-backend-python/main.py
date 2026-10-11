@@ -48,7 +48,7 @@ else:
 
 
 app = FastAPI(
-    title="NetPack Logistics API (Python)",
+    title="NetPack Logistic API (Python)",
     description="Enterprise Logistics & Airway Bill Integration API built with FastAPI and SQLite",
     version="1.0.0"
 )
@@ -242,7 +242,7 @@ def download_portal():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetPack Logistics - Mobile Apps Download</title>
+    <title>NetPack Logistic - Mobile Apps Download</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
         body {{ background: #0D1B2A; color: #FFFFFF; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }}
@@ -263,7 +263,7 @@ def download_portal():
 </head>
 <body>
     <div class="card">
-        <h1>NetPack Logistics</h1>
+        <h1>NetPack Logistic</h1>
         <p class="subtitle">Official Android Testing Apps with background push alerts and verified warehouse weighing.</p>
         <div class="btn-group">
             <a href="/download/customer.apk" class="btn btn-customer">
@@ -330,7 +330,7 @@ else:
     @app.get("/", tags=["Health"])
     def root():
         return {
-            "message": "NetPack Logistics Python API is running",
+            "message": "NetPack Logistic Python API is running",
             "docs": "/docs",
             "redoc": "/redoc",
             "version": "1.0.0"

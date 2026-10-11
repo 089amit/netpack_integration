@@ -1,7 +1,7 @@
 @echo off
-title NetPack Logistics Python Backend
+title NetPack Logistic Python Backend
 echo ====================================================
-echo Starting NetPack Logistics Python API (FastAPI)...
+echo Starting NetPack Logistic Python API (FastAPI)...
 echo ====================================================
 cd /d "%~dp0netpack-backend-python"
 

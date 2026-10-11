@@ -3044,7 +3044,7 @@ function BookScreen({
           <IconBox size={16} className="text-blue-600" />
         </div>
         <div>
-          <p className="text-[13px] font-semibold text-blue-900">Professional Packaging by NetPack Logistics</p>
+          <p className="text-[13px] font-semibold text-blue-900">Professional Packaging by NetPack Logistic</p>
           <p className="text-[12px] text-blue-700/80 mt-0.5 leading-relaxed">
             Specify your <strong>commodity</strong> and <strong>approximate weight</strong> — our hub handles packaging to airline specs.
           </p>
@@ -4404,7 +4404,7 @@ function OnboardingModal({
     const userKey = customerUser?.id || customerUser?.email || 'customer'
     localStorage.setItem(`netpack_onboarded_${userKey}`, 'completed')
     localStorage.setItem('netpack_tutorial_completed', 'true')
-    toast.success('Welcome to NetPack Logistics!')
+    toast.success('Welcome to NetPack Logistic!')
     onClose()
   }
 
@@ -4782,7 +4782,7 @@ export default function CustomerPWA() {
     // Clean initial welcome notification
     list.push({
       id: 'notif-welcome',
-      title: 'Welcome to NetPack Logistics!',
+      title: 'Welcome to NetPack Logistic!',
       body: 'Book international express consignments and request doorstep rider pickup across Kathmandu.',
       time: 'Account Active',
       read: false,

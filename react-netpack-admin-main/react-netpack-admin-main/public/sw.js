@@ -1,4 +1,4 @@
-// Netpack Logistics - Customer PWA Service Worker
+// Netpack Logistic - Customer PWA Service Worker
 // Enables PWA installation, caching, and offline support
 
 const CACHE_NAME = 'netpack-customer-v2'

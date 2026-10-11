@@ -327,7 +327,7 @@ export function ShipmentTrackingDialog({
       {
         id: 'ENQUIRY_GENERATED',
         label: 'Enquiry Generated',
-        description: 'Shipment enquiry registered with NetPack Logistics',
+        description: 'Shipment enquiry registered with NetPack Logistic',
         timestamp: enquiryCp?.timestamp || liveData?.enquiryCreatedAt,
         icon: <PackageSearch className='h-3.5 w-3.5' />,
       },

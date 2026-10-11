@@ -407,7 +407,7 @@ def verify_address(payload: VerifyAddressRequest):
                     headers={
                         "Content-Type": "application/json",
                         "X-Goog-Api-Key": google_api_key,
-                        "User-Agent": "NetPackLogistics-AddressVerifier/2.0"
+                        "User-Agent": "NetPackLogistic-AddressVerifier/2.0"
                     }
                 )
                 with urllib.request.urlopen(req, timeout=5) as resp:
@@ -430,7 +430,7 @@ def verify_address(payload: VerifyAddressRequest):
                         headers={
                             "X-Goog-Api-Key": google_api_key,
                             "X-Goog-FieldMask": "id,displayName,formattedAddress,addressComponents,location",
-                            "User-Agent": "NetPackLogistics-AddressVerifier/2.0"
+                            "User-Agent": "NetPackLogistic-AddressVerifier/2.0"
                         }
                     )
                     with urllib.request.urlopen(det_req, timeout=5) as det_resp:
@@ -528,7 +528,7 @@ def verify_address(payload: VerifyAddressRequest):
         osm_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q_osm)}&format=json&addressdetails=1&limit=1"
         osm_req = urllib.request.Request(
             osm_url,
-            headers={"User-Agent": "NetPackLogistics-GeocodingFallback/2.0 (info@netpacklogistic.com)"}
+            headers={"User-Agent": "NetPackLogistic-GeocodingFallback/2.0 (info@netpacklogistic.com)"}
         )
         with urllib.request.urlopen(osm_req, timeout=5) as osm_resp:
             osm_res = json.loads(osm_resp.read().decode("utf-8"))

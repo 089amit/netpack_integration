@@ -422,7 +422,7 @@ def resolve_valid_customer_id(db: Session, enquiry: Enquiry) -> int:
         fallback_cust = Customer(
             id=1,
             name=enquiry.senderName or "NetPack Walk-in / Direct Shipper",
-            phone=enquiry.senderPhone or "+977-01-5339942",
+            phone=enquiry.senderPhone or "+977 15339942",
             email=enquiry.senderEmail or "walkin@netpacklogistic.com",
             countryId=c_id,
             address1=enquiry.senderAddressLine1 or "Kathmandu HQ"

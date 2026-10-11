@@ -1,4 +1,4 @@
-# NetPack Logistics - Dual APK Compilation & Signing Engine
+# NetPack Logistic - Dual APK Compilation & Signing Engine
 $ErrorActionPreference = "Stop"
 
 $JAVA_HOME = "C:\Users\Postronix\.bubblewrap\jdk\jdk-17.0.11+9"
@@ -25,7 +25,7 @@ $KS_ALIAS = "netpack"
 # 1. Ensure Keystore exists
 if (!(Test-Path $KEYSTORE)) {
     Write-Host "Creating signing keystore..." -ForegroundColor Cyan
-    & $KEYTOOL -genkeypair -keystore $KEYSTORE -storepass $KS_PASS -keypass $KS_PASS -alias $KS_ALIAS -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=NetPack Logistics, OU=Mobile, O=NetPack, L=Kathmandu, C=NP"
+    & $KEYTOOL -genkeypair -keystore $KEYSTORE -storepass $KS_PASS -keypass $KS_PASS -alias $KS_ALIAS -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=NetPack Logistic, OU=Mobile, O=NetPack, L=Kathmandu, C=NP"
 }
 
 New-Item -ItemType Directory -Force -Path "$ROOT_DIR\build-apk" | Out-Null

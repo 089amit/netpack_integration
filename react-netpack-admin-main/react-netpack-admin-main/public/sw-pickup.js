@@ -1,4 +1,4 @@
-// Netpack Logistics - Pickup Rider Service Worker
+// Netpack Logistic - Pickup Rider Service Worker
 // Handles Push Notifications, Background Sync, PWA Installation, and Network Lifecycle
 
 const CACHE_NAME = 'netpack-rider-v2'

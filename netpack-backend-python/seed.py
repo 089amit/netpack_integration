@@ -308,13 +308,13 @@ def seed_database():
             db.add(TermsAndPolicy(
                 title="Terms and Conditions",
                 slug="terms-and-conditions",
-                content="<p>Welcome to NetPack Logistics. By booking cargo with us, you agree to our standard freight terms and international airway bill carriage regulations.</p>",
+                content="<p>Welcome to NetPack Logistic. By booking cargo with us, you agree to our standard freight terms and international airway bill carriage regulations.</p>",
                 isActive=True
             ))
             db.add(TermsAndPolicy(
                 title="Privacy & Data Protection Policy",
                 slug="privacy-policy",
-                content="<p>NetPack Logistics respects customer confidentiality and secures shipper and consignee information.</p>",
+                content="<p>NetPack Logistic respects customer confidentiality and secures shipper and consignee information.</p>",
                 isActive=True
             ))
             db.commit()

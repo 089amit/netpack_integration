@@ -123,7 +123,7 @@ def resolve_country(db: Session, country_id: Optional[int] = None, country_name:
 
 # ─── Booking Request Schema ──────────────────────────────────────────────────
 # Rules: Customers CANNOT specify packing boxes or dimensions.
-# NetPack Logistics handles packing at the warehouse.
+# NetPack Logistic handles packing at the warehouse.
 # Customers only supply Commodity description and Approximate Weight!
 
 class CustomerEnquiryCreateRequest(BaseModel):
@@ -247,8 +247,8 @@ def build_pwa_verification_code_html(email: str, code: str) -> str:
 <body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
 <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
   <div style="background: #0D1B2A; padding: 24px; text-align: center;">
-    <h1 style="color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px;">NETPACK</h1>
-    <p style="color: #60A5FA; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Express Global Logistics</p>
+    <h1 style="color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px;">NETPACK LOGISTIC</h1>
+    <p style="color: #60A5FA; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Express Global Freight</p>
   </div>
   <div style="padding: 28px 24px; text-align: center;">
     <h2 style="color: #0f172a; margin-top: 0; font-size: 18px;">Customer Portal Verification Code</h2>
@@ -263,7 +263,7 @@ def build_pwa_verification_code_html(email: str, code: str) -> str:
     </p>
   </div>
   <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; font-size: 12px; color: #94a3b8; text-align: center;">
-    <p style="margin: 0;">&copy; NetPack Logistics &bull; Kathmandu, Nepal &bull; info@netpacklogistic.com</p>
+    <p style="margin: 0;">&copy; NetPack Logistic &bull; Kathmandu, Nepal &bull; info@netpacklogistic.com</p>
   </div>
 </div>
 </body>
@@ -283,7 +283,7 @@ def customer_send_login_code(
     code = f"{random.randint(100000, 999999)}"
     _pwa_email_codes[clean_email] = (code, datetime.utcnow() + timedelta(minutes=15))
 
-    subject = f"[NetPack Logistics] Your Sign-in Verification Code: {code}"
+    subject = f"[NetPack Logistic] Your Sign-in Verification Code: {code}"
     html = build_pwa_verification_code_html(clean_email, code)
     send_email(
         to_emails=clean_email,
@@ -516,7 +516,7 @@ def customer_signup(
 
     # Welcome notification in portal
     welcome_notif = Notification(
-        title="Welcome to NetPack Logistics!",
+        title="Welcome to NetPack Logistic!",
         body=f"Namaste {customer.name}, welcome aboard. You can now book express shipments, request doorstep pickups, and track your global cargo in real-time.",
         customerId=customer.id,
         scope="SPECIFIC_CUSTOMER",
@@ -623,7 +623,7 @@ def customer_google_auth(payload: CustomerGoogleAuthRequest, db: Session = Depen
         db.refresh(customer)
 
         welcome_notif = Notification(
-            title="Welcome to NetPack Logistics!",
+            title="Welcome to NetPack Logistic!",
             body=f"Welcome {customer.name}! You have signed in with Google. Book your first consignment and request doorstep pickup anytime.",
             customerId=customer.id,
             scope="SPECIFIC_CUSTOMER",
@@ -855,7 +855,7 @@ def create_customer_enquiry(
         title="Shipment Booking Confirmed",
         body=f"Your booking for '{payload.commodity}' (~{payload.approximateWeight} kg) has been received. Tracking No: {tracking_no}. " +
              ("Doorstep pickup has been requested. " if payload.isPickupRequired else "Please drop off at our counter. ") +
-             "Packing and labeling will be handled professionally by NetPack Logistics at our Central Warehouse.",
+             "Packing and labeling will be handled professionally by NetPack Logistic at our Central Warehouse.",
         customerId=current_customer.id,
         scope="SPECIFIC_CUSTOMER",
         isRead=False

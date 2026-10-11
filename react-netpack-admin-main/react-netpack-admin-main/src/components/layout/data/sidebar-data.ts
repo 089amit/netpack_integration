@@ -18,7 +18,7 @@ export const sidebarData: SidebarData = {
   },
   teams: [
     {
-      name: 'NETPACK LOGISTICS',
+      name: 'NETPACK LOGISTIC',
       logo: Command,
       plan: '',
     },

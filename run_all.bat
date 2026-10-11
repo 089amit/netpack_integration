@@ -1,7 +1,7 @@
 @echo off
-title NetPack Logistics Master Launcher
+title NetPack Logistic Master Launcher
 echo ====================================================
-echo Starting NetPack Logistics Services...
+echo Starting NetPack Logistic Services...
 echo ====================================================
 echo.
 echo [1/2] Launching Python Backend in a new window...

@@ -55,7 +55,7 @@ def fetch_nrb_daily_rates() -> Dict[str, Any]:
         req = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "NetPackLogistics-ForexClient/1.0 (Integration; info@netpacklogistic.com)",
+                "User-Agent": "NetPackLogistic-ForexClient/1.0 (Integration; info@netpacklogistic.com)",
                 "Accept": "application/json"
             }
         )

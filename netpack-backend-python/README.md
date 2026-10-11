@@ -1,6 +1,6 @@
-# NetPack Logistics Python Backend (FastAPI + SQLite)
+# NetPack Logistic Python Backend (FastAPI + SQLite)
 
-Welcome to the Python backend for **NetPack Logistics**. This backend replaces the original Node.js/Express service, running natively with your installed **Python 3.14** and using **SQLite** (zero external database configuration required).
+Welcome to the Python backend for **NetPack Logistic**. This backend replaces the original Node.js/Express service, running natively with your installed **Python 3.14** and using **SQLite** (zero external database configuration required).
 
 ---
 

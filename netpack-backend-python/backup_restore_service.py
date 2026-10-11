@@ -1,5 +1,5 @@
 """
-NetPack Logistics - Automated Database Backup & Snapshot Service
+NetPack Logistic - Automated Database Backup & Snapshot Service
 Provides JSON-based snapshot export and restore across SQLite and PostgreSQL,
 safeguarding data against ephemeral container redeployments.
 """

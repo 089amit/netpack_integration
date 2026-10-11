@@ -95,7 +95,7 @@ export function BulkNotifcationDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const finalTitle = subject.trim() || 'NetPack Logistics Notification'
+    const finalTitle = subject.trim() || 'NetPack Logistic Notification'
 
     if (!textContent.trim()) {
       toast.error('Please enter notification description', { duration: 3000 })

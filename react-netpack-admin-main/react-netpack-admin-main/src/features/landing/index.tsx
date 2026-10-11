@@ -223,8 +223,8 @@ export default function LandingPage() {
     heroSubtitle:
       'Your trusted partner for secure package delivery across Nepal. Professional logistics solutions with real-time tracking and guaranteed delivery.',
     heroBadge: 'Teku, Kathmandu Headquarters',
-    contactPhone: '015339942',
-    contactEmail: 'admin@netpacklogistic.com',
+    contactPhone: '+977 15339942',
+    contactEmail: 'info@netpacklogistic.com',
     contactAddress: 'Teku Road, Ward No. 15, Kathmandu, Nepal',
     businessHours: '10:00 am - 5:00 pm (Sun - Fri)',
     tickerItems: [
@@ -377,7 +377,7 @@ export default function LandingPage() {
       {
         id: 'ENQUIRY_GENERATED',
         label: 'Enquiry Generated',
-        description: 'Shipment enquiry registered with NetPack Logistics',
+        description: 'Shipment enquiry registered with NetPack Logistic',
         timestamp: enquiryCp?.timestamp || trackingData.enquiryCreatedAt,
         icon: <PackageSearch className='h-3.5 w-3.5' />,
       },

@@ -52,7 +52,7 @@ def send_email_sync(
         return {"success": False, "error": "No valid recipient email addresses provided"}
 
     sender_email = from_email or config.SMTP_FROM_EMAIL or config.SMTP_USER or "info@netpacklogistic.com"
-    sender_name = from_name or config.SMTP_FROM_NAME or "NetPack Logistics"
+    sender_name = from_name or config.SMTP_FROM_NAME or "NetPack Logistic"
 
     if not is_smtp_configured():
         logger.info(
@@ -212,7 +212,7 @@ def build_booking_html(
     is_receiver_copy: bool = False,
     tracking_url: str = "https://netpacklogistic.com"
 ) -> str:
-    """Builds a responsive, modern HTML email template for NetPack Logistics."""
+    """Builds a responsive, modern HTML email template for NetPack Logistic."""
     tracking_no = getattr(enquiry, "trackingNumber", "NP-000000")
     sender_name = getattr(enquiry, "senderName", "Sender") or "Shipper"
     receiver_name = getattr(enquiry, "receiverName", "Consignee") or "Consignee"
@@ -227,19 +227,19 @@ def build_booking_html(
         badge_text = "CONSIGNEE COPY"
         greeting = f"Namaste / Hello {receiver_name},"
         headline = "An Express Air Consignment Has Been Booked for You"
-        summary_p = f"An international express shipment destined to you has been booked by <strong>{sender_name}</strong> via NetPack Logistics. You can track this parcel in real-time."
+        summary_p = f"An international express shipment destined to you has been booked by <strong>{sender_name}</strong> via NetPack Logistic. You can track this parcel in real-time."
     else:
         badge_text = "BOOKING CONFIRMATION"
         greeting = f"Namaste / Hello {sender_name},"
         headline = "Your Shipment Booking is Confirmed"
-        summary_p = f"Thank you for choosing NetPack Logistics. Your air consignment (Tracking #<strong>{tracking_no}</strong>) has been registered in our system and is ready for logistics processing."
+        summary_p = f"Thank you for choosing NetPack Logistic. Your air consignment (Tracking #<strong>{tracking_no}</strong>) has been registered in our system and is ready for logistic processing."
 
     return f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NetPack Logistics - AWB {tracking_no}</title>
+<title>NetPack Logistic - AWB {tracking_no}</title>
 <style>
   body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 0; color: #1e293b; }}
   .container {{ max-width: 600px; margin: 24px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }}
@@ -266,7 +266,7 @@ def build_booking_html(
 <body>
 <div class="container">
   <div class="header">
-    <h1>NETPACK LOGISTICS</h1>
+    <h1>NETPACK LOGISTIC</h1>
     <div class="badge">{badge_text}</div>
   </div>
 
@@ -297,19 +297,15 @@ def build_booking_html(
         <td class="label">Package Details</td>
         <td class="val">{boxes} box(es) &bull; ~{weight} kg</td>
       </tr>
-      <tr>
-        <td class="label">Service</td>
-        <td class="val">Worldwide Express Air Cargo</td>
-      </tr>
     </table>
 
     <a href="{tracking_url}" class="btn-track" target="_blank">Track Consignment Live</a>
   </div>
 
   <div class="footer">
-    <p><strong>NetPack Logistics Pvt. Ltd.</strong></p>
+    <p><strong>NetPack Logistic</strong></p>
     <p>Cargo & Courier Services Worldwide | Kathmandu, Nepal</p>
-    <p>Hotline: +977-1-4567890 | Email: <a href="mailto:info@netpacklogistic.com">info@netpacklogistic.com</a></p>
+    <p>Hotline: +977 15339942 | Email: <a href="mailto:info@netpacklogistic.com">info@netpacklogistic.com</a></p>
     <p style="margin-top: 10px; font-size: 11px; color: #cbd5e1;">This is an automated operational notification. If you received this by mistake, please contact support.</p>
   </div>
 </div>
@@ -334,7 +330,7 @@ def send_enquiry_booking_notification(
 
     # 1. Send confirmation to Sender (if email exists)
     if sender_email and "@" in sender_email:
-        subject = f"[NetPack Logistics] Booking Confirmation - AWB #{tracking_no}"
+        subject = f"[NetPack Logistic] Booking Confirmation - AWB #{tracking_no}"
         html = build_booking_html(enquiry, is_receiver_copy=False, tracking_url=tracking_url)
         send_email(
             to_emails=sender_email,
@@ -348,7 +344,7 @@ def send_enquiry_booking_notification(
     if receiver_email and "@" in receiver_email:
         # Avoid double-sending if sender and receiver email are the exact same
         if receiver_email.lower() != sender_email.lower():
-            subject = f"[NetPack Logistics] Incoming Consignment Notification - AWB #{tracking_no}"
+            subject = f"[NetPack Logistic] Incoming Consignment Notification - AWB #{tracking_no}"
             html = build_booking_html(enquiry, is_receiver_copy=True, tracking_url=tracking_url)
             send_email(
                 to_emails=receiver_email,
@@ -375,7 +371,7 @@ def build_delivery_html(item, tracking_url: str = "") -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NetPack Logistics - Consignment Delivered</title>
+<title>NetPack Logistic - Consignment Delivered</title>
 <style>
   body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 0; color: #1e293b; }}
   .container {{ max-width: 600px; margin: 24px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }}
@@ -399,7 +395,7 @@ def build_delivery_html(item, tracking_url: str = "") -> str:
 <body>
 <div class="container">
   <div class="header">
-    <h1>NETPACK LOGISTICS</h1>
+    <h1>NETPACK LOGISTIC</h1>
     <div class="badge">Shipment Delivered &#10004;</div>
   </div>
 
@@ -422,19 +418,15 @@ def build_delivery_html(item, tracking_url: str = "") -> str:
         <td class="label">Destination</td>
         <td class="val">{dest_loc}</td>
       </tr>
-      <tr>
-        <td class="label">Carrier / Service</td>
-        <td class="val">NetPack Worldwide Express Delivery</td>
-      </tr>
     </table>
 
     <a href="{tracking_url}" class="btn-track" target="_blank">View Delivery Summary</a>
   </div>
 
   <div class="footer">
-    <p><strong>NetPack Logistics Pvt. Ltd.</strong></p>
+    <p><strong>NetPack Logistic</strong></p>
     <p>Cargo & Courier Services Worldwide | Kathmandu, Nepal</p>
-    <p>Hotline: +977-1-4567890 | Email: <a href="mailto:info@netpacklogistic.com" style="color: #059669;">info@netpacklogistic.com</a></p>
+    <p>Hotline: +977 15339942 | Email: <a href="mailto:info@netpacklogistic.com" style="color: #059669;">info@netpacklogistic.com</a></p>
   </div>
 </div>
 </body>
@@ -456,7 +448,7 @@ def send_shipment_delivery_notification(
     frontend_base = getattr(config, "FRONTEND_URL", "http://localhost:8000") or "http://localhost:8000"
     tracking_url = f"{frontend_base.rstrip('/')}/#track?q={tracking_no}"
 
-    subject = f"[NetPack Logistics] Shipment Delivered Successfully - AWB #{tracking_no}"
+    subject = f"[NetPack Logistic] Shipment Delivered Successfully - AWB #{tracking_no}"
     html = build_delivery_html(enquiry, tracking_url=tracking_url)
 
     if sender_email and "@" in sender_email:
@@ -481,11 +473,11 @@ def send_shipment_delivery_notification(
 def test_smtp_connection(target_email: str) -> dict:
 
     """Diagnostic tool to verify SMTP server handshake and credentials."""
-    subject = "[NetPack Logistics] SMTP Integration Diagnostic Ping"
+    subject = "[NetPack Logistic] SMTP Integration Diagnostic Ping"
     html = f"""
     <div style="font-family: sans-serif; padding: 20px; border: 1px solid #22c55e; border-radius: 8px; max-width: 500px;">
       <h2 style="color: #16a34a; margin-top: 0;">&#10004; NetPack SMTP Test Successful</h2>
-      <p>Congratulations! Your SMTP credentials configured on NetPack Logistics backend are active and operational.</p>
+      <p>Congratulations! Your SMTP credentials configured on NetPack Logistic backend are active and operational.</p>
       <p><strong>Host:</strong> {config.SMTP_HOST}:{config.SMTP_PORT}</p>
       <p><strong>User:</strong> {config.SMTP_USER}</p>
       <p><strong>Target:</strong> {target_email}</p>
@@ -521,8 +513,8 @@ def build_user_welcome_html(
 <body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
 <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
   <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 24px 30px; text-align: left;">
-    <h1 style="color: #ffffff; margin: 0; font-size: 20px; letter-spacing: -0.5px;">NetPack Logistics</h1>
-    <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 13px;">Enterprise Freight & Logistics Management</p>
+    <h1 style="color: #ffffff; margin: 0; font-size: 20px; letter-spacing: -0.5px;">NetPack Logistic</h1>
+    <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 13px;">Enterprise Freight & Logistic Management</p>
   </div>
   <div style="padding: 28px 30px;">
     <h2 style="color: #0f172a; margin-top: 0; font-size: 18px;">Welcome to NetPack, {full_name}!</h2>
@@ -536,7 +528,7 @@ def build_user_welcome_html(
     </div>
   </div>
   <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; font-size: 12px; color: #64748b; text-align: center;">
-    <p style="margin: 0;">NetPack Logistics Cargo Terminal, Kathmandu, Nepal</p>
+    <p style="margin: 0;">NetPack Logistic Cargo Terminal, Kathmandu, Nepal</p>
     <p style="margin: 4px 0 0 0;">Need help? Email <a href="mailto:info@netpacklogistic.com" style="color: #0284c7;">info@netpacklogistic.com</a></p>
   </div>
 </div>
@@ -560,7 +552,7 @@ def send_user_welcome_email(
     else:
         login_url = f"{frontend_base.rstrip('/')}/sign-in"
 
-    subject = f"[NetPack Logistics] Welcome to NetPack — Your Account Details"
+    subject = f"[NetPack Logistic] Welcome to NetPack — Your Account Details"
     html = build_user_welcome_html(
         full_name=full_name,
         email=to_email,
@@ -585,13 +577,13 @@ def build_forgot_password_html(full_name: str, reset_code: str, reset_url: str =
 <body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
 <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
   <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px;">
-    <h1 style="color: #ffffff; margin: 0; font-size: 19px;">NetPack Logistics</h1>
+    <h1 style="color: #ffffff; margin: 0; font-size: 19px;">NetPack Logistic</h1>
     <p style="color: #94a3b8; margin: 3px 0 0 0; font-size: 12px;">Security & Account Recovery</p>
   </div>
   <div style="padding: 26px 28px;">
     <h2 style="color: #0f172a; margin-top: 0; font-size: 17px;">Password Reset Request</h2>
     <p style="font-size: 14px; line-height: 1.6; color: #475569;">
-      Hello {full_name}, we received a request to reset your password for your NetPack Logistics account.
+      Hello {full_name}, we received a request to reset your password for your NetPack Logistic account.
     </p>
     <div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 16px; margin: 20px 0; text-align: center;">
       <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Your Security Verification Code</p>
@@ -605,7 +597,7 @@ def build_forgot_password_html(full_name: str, reset_code: str, reset_url: str =
     </div>
   </div>
   <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; font-size: 12px; color: #64748b; text-align: center;">
-    <p style="margin: 0;">NetPack Logistics Security Team &bull; info@netpacklogistic.com</p>
+    <p style="margin: 0;">NetPack Logistic Security Team &bull; info@netpacklogistic.com</p>
   </div>
 </div>
 </body>
@@ -621,7 +613,7 @@ def send_forgot_password_email(
     """Dispatches password reset verification email."""
     frontend_base = getattr(config, "FRONTEND_URL", "http://localhost:8000") or "http://localhost:8000"
     reset_url = f"{frontend_base.rstrip('/')}/otp?email={to_email}"
-    subject = f"[NetPack Logistics] Password Reset Verification Code: {reset_code}"
+    subject = f"[NetPack Logistic] Password Reset Verification Code: {reset_code}"
     html = build_forgot_password_html(full_name=full_name, reset_code=reset_code, reset_url=reset_url)
     send_email(
         to_emails=to_email,

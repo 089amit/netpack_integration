@@ -165,7 +165,7 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
                         prefs.edit().putInt(KEY_LAST_NOTIF_ID, newestId).apply();
                     } else if (newestId > lastId) {
                         // Found new notification!
-                        String title = newest.optString("title", "NetPack Logistics Update");
+                        String title = newest.optString("title", "NetPack Logistic Update");
                         String body = newest.optString("body", "");
                         if (body.isEmpty()) {
                             body = newest.optString("description", "You have a new shipment update.");

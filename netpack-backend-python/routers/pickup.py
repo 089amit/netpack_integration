@@ -191,7 +191,7 @@ def rider_login(payload: RiderLoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid Rider ID/Email or password")
 
     if not user.isActive:
-        raise HTTPException(status_code=403, detail="Rider account is deactivated. Please contact NetPack dispatch.")
+        raise HTTPException(status_code=403, detail="Rider account is deactivated. Please contact NetPack Logistic dispatch.")
 
     role_name = (user.role.name if user.role else "").upper()
     if role_name not in ["PICKUP", "ADMIN", "OPERATION"]:
