@@ -100,20 +100,61 @@ export default function Shipments() {
       }>(`${SHIPMENT_ENDPOINT.ALL_SHIPMENTS}?${params.toString()}`)
 
       if (result?.data && result?.pagination) {
-        const mappedData: ShipmentItem[] = result.data.map((shipment: any) => ({
-          id: shipment.id.toString(),
-          status: shipment.status,
-          customerPhone: shipment.customerPhone || 'N/A',
-          destinationCountryName: shipment.destinationCountryName || 'N/A',
-          forwardingCompanyName: shipment.forwardingCompanyName || 'N/A',
-          serviceName: shipment.serviceName || 'N/A',
-          reciverName: shipment.reciverName,
-          customerId: shipment.customerId,
-          enquiryId: shipment.enquiryId,
-          mawbId: shipment.mawbId,
-          forwardingCompanyId: shipment.forwardingCompanyId,
-          serviceId: shipment.serviceId,
-          countryId: shipment.countryId,
+        const mappedData: ShipmentItem[] = result.data.map((shipment: any) => {
+          const senderCountry = (
+            shipment.senderCountry ||
+            shipment.enquiryDetails?.senderCountry ||
+            shipment.enquiry?.senderCountry ||
+            'Nepal'
+          ).trim().toLowerCase()
+
+          // Prioritize receiver country over sender country
+          let destCountry =
+            shipment.receiverCountry ||
+            shipment.enquiryDetails?.receiverCountry ||
+            shipment.enquiry?.receiverCountry ||
+            shipment.destinationCountryName ||
+            ''
+
+          if (
+            !destCountry ||
+            destCountry.trim().toLowerCase() === senderCountry
+          ) {
+            if (
+              shipment.receiverCountry &&
+              shipment.receiverCountry.trim().toLowerCase() !== senderCountry
+            ) {
+              destCountry = shipment.receiverCountry
+            } else if (
+              shipment.enquiryDetails?.receiverCountry &&
+              shipment.enquiryDetails.receiverCountry.trim().toLowerCase() !== senderCountry
+            ) {
+              destCountry = shipment.enquiryDetails.receiverCountry
+            } else if (
+              shipment.enquiry?.receiverCountry &&
+              shipment.enquiry.receiverCountry.trim().toLowerCase() !== senderCountry
+            ) {
+              destCountry = shipment.enquiry.receiverCountry
+            }
+          }
+
+          return {
+            id: shipment.id.toString(),
+            status: shipment.status,
+            customerPhone: shipment.customerPhone || 'N/A',
+            destinationCountryName: destCountry || shipment.destinationCountryName || 'N/A',
+            receiverCountry: destCountry || shipment.receiverCountry,
+            senderCountry: shipment.senderCountry || shipment.enquiryDetails?.senderCountry,
+            forwardingCompanyName: shipment.forwardingCompanyName || 'N/A',
+            serviceName: shipment.serviceName || 'N/A',
+            reciverName: shipment.reciverName || shipment.receiverName,
+            receiverName: shipment.receiverName || shipment.reciverName,
+            customerId: shipment.customerId,
+            enquiryId: shipment.enquiryId,
+            mawbId: shipment.mawbId,
+            forwardingCompanyId: shipment.forwardingCompanyId,
+            serviceId: shipment.serviceId,
+            countryId: shipment.countryId,
           senderName:
             shipment.senderName || shipment.enquiryDetails?.senderName || 'N/A',
           senderPhone:
@@ -159,7 +200,8 @@ export default function Shipments() {
                   ) * 100
                 ) / 100
               : 0),
-        }))
+          }
+        })
         setData(mappedData)
         setPagination(result.pagination)
       }

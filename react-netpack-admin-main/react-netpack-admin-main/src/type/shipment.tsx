@@ -73,6 +73,9 @@ export interface ShipmentItem {
   senderPhone?: string
   senderOrganization?: string
   reciverName?: string
+  receiverName?: string
+  receiverCountry?: string
+  senderCountry?: string
 
   // 👇 Add these if you're using them in form
   customerId?: number

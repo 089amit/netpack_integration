@@ -24,21 +24,46 @@ from services.email_service import send_shipment_delivery_notification
 router = APIRouter(prefix="/api/shipments", tags=["Shipments"])
 
 def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
-    # 1. Destination Country
+    # 1. Destination Country (Receiver Country)
+    enq = s.enquiry
+    sender_country = (enq.senderCountry if (enq and enq.senderCountry) else "Nepal").strip().lower()
+
     dest_country_name = ""
     country_id = s.countryId
-    if s.country and s.country.name:
-        dest_country_name = s.country.name
-    elif s.enquiry and s.enquiry.country and s.enquiry.country.name:
-        dest_country_name = s.enquiry.country.name
-        if not country_id:
-            country_id = s.enquiry.country.id
-    elif s.enquiry and s.enquiry.destinationLocation:
-        dest_country_name = s.enquiry.destinationLocation
+
+    # Primary source of truth: Receiver country on Enquiry
+    if enq and enq.receiverCountry and enq.receiverCountry.strip():
+        dest_country_name = enq.receiverCountry.strip()
+    # Secondary: Shipment country if assigned and NOT sender country
+    elif s.country and s.country.name and s.country.name.strip().lower() != sender_country:
+        dest_country_name = s.country.name.strip()
+    # Tertiary: Enquiry country foreign-key target if NOT sender country
+    elif enq and enq.country and enq.country.name and enq.country.name.strip().lower() != sender_country:
+        dest_country_name = enq.country.name.strip()
+    # Quaternary: Destination location if present
+    elif enq and enq.destinationLocation and enq.destinationLocation.strip():
+        dest_country_name = enq.destinationLocation.strip()
+    # Fallback to foreign key country name on shipment or enquiry
+    elif s.country and s.country.name:
+        dest_country_name = s.country.name.strip()
+    elif enq and enq.country and enq.country.name:
+        dest_country_name = enq.country.name.strip()
     elif country_id and db:
         c = db.query(Country).filter(Country.id == country_id).first()
         if c:
             dest_country_name = c.name
+
+    if not dest_country_name:
+        dest_country_name = "International"
+
+    # Synchronize country_id to destination country if possible
+    if db and dest_country_name:
+        cur_c = db.query(Country).filter(Country.id == country_id).first() if country_id else None
+        if not cur_c or cur_c.name.strip().lower() != dest_country_name.strip().lower():
+            matching_c = db.query(Country).filter(Country.name.ilike(dest_country_name.strip())).first()
+            if matching_c:
+                country_id = matching_c.id
+
 
     # 2. Customer / Shipper Information
     cust_name = ""
@@ -264,6 +289,7 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
         "senderOrganization": sender_org,
         "receiverName": receiver_name,
         "reciverName": receiver_name,
+        "receiverCountry": dest_country_name,
         "destinationCountryName": dest_country_name,
         "forwardingCompanyName": fc_name,
         "serviceName": service_name,
@@ -331,7 +357,8 @@ def get_all_shipments(
             (Shipment.forwardingNumber.ilike(s)) |
             (Shipment.agent.ilike(s)) |
             (Enquiry.senderName.ilike(s)) |
-            (Enquiry.receiverName.ilike(s))
+            (Enquiry.receiverName.ilike(s)) |
+            (Enquiry.receiverCountry.ilike(s))
         )
 
     total_records = query.count()
@@ -413,13 +440,36 @@ def resolve_valid_customer_id(db: Session, enquiry: Enquiry) -> int:
 
 
 def resolve_valid_country_id(db: Session, enquiry: Enquiry) -> Optional[int]:
-    """Safely resolves countryId to avoid foreign key errors."""
+    """Safely resolves countryId to the receiver/destination country to avoid foreign key errors."""
+    sender_c = (enquiry.senderCountry or "Nepal").strip().lower()
+    # 1. Match Country record by receiverCountry name
+    if enquiry.receiverCountry and enquiry.receiverCountry.strip():
+        c = db.query(Country).filter(Country.name.ilike(enquiry.receiverCountry.strip())).first()
+        if c:
+            return c.id
+    # 2. Match Country record by destinationLocation if not sender country
+    if enquiry.destinationLocation and enquiry.destinationLocation.strip():
+        c = db.query(Country).filter(Country.name.ilike(enquiry.destinationLocation.strip())).first()
+        if c and c.name.strip().lower() != sender_c:
+            return c.id
+    # 3. Use destinationCountry foreign key only if it does not point to sender country
+    if enquiry.destinationCountry:
+        c = db.query(Country).filter(Country.id == enquiry.destinationCountry).first()
+        if c and c.name.strip().lower() != sender_c:
+            return c.id
+    # 4. Check enquiry.country relation if not sender country
+    if enquiry.country and enquiry.country.name and enquiry.country.name.strip().lower() != sender_c:
+        return enquiry.country.id
+    # 5. Partial match on receiverCountry
+    if enquiry.receiverCountry and enquiry.receiverCountry.strip():
+        c = db.query(Country).filter(Country.name.ilike(f"%{enquiry.receiverCountry.strip()}%")).first()
+        if c:
+            return c.id
+    # 6. Fallback
     if enquiry.destinationCountry:
         c = db.query(Country).filter(Country.id == enquiry.destinationCountry).first()
         if c:
             return c.id
-    if enquiry.country:
-        return enquiry.country.id
     return None
 
 
@@ -678,7 +728,7 @@ def update_shipment(id: int, payload: ShipmentUpdateRequest, db: Session = Depen
             ).order_by(TrackingEvent.id.desc()).first()
 
             if not last_te or last_te.activity != clean_note:
-                dest_country = s.country.name if s.country else (s.enquiry.receiverCountry if s.enquiry else "Destination Hub")
+                dest_country = (s.enquiry.receiverCountry if (s.enquiry and s.enquiry.receiverCountry) else (s.country.name if s.country else "Destination Hub"))
                 loc = "Kathmandu, Nepal" if s.status in ("ENQUIRY_GENERATED", "PICKED_UP", "SHIPMENT_CREATED") else f"{dest_country} Hub / Transit"
                 tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or s.forwardingNumber or f"NET-{s.id}"
                 te = TrackingEvent(
@@ -781,7 +831,7 @@ def update_shipment_status(
     if payload.note and payload.note.strip():
         clean_note = payload.note.strip()
         s.note = clean_note
-        dest_country = s.country.name if s.country else (s.enquiry.receiverCountry if s.enquiry else "Destination Hub")
+        dest_country = (s.enquiry.receiverCountry if (s.enquiry and s.enquiry.receiverCountry) else (s.country.name if s.country else "Destination Hub"))
         loc = payload.location or ("Kathmandu, Nepal" if payload.status in ("ENQUIRY_GENERATED", "PICKED_UP", "SHIPMENT_CREATED") else f"{dest_country} Hub / Transit")
         te = TrackingEvent(
             shipmentId=s.id,

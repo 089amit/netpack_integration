@@ -99,11 +99,41 @@ export const columns: ColumnDef<ShipmentItem>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Destination' />
     ),
-    cell: ({ row }) => (
-      <div className='truncate'>
-        {row.getValue('destinationCountryName') || 'N/A'}
-      </div>
-    ),
+    cell: ({ row }) => {
+      const orig = row.original as any
+      const senderCountry = (
+        orig?.senderCountry ||
+        orig?.enquiryDetails?.senderCountry ||
+        'Nepal'
+      ).trim().toLowerCase()
+
+      let value =
+        (row.getValue('destinationCountryName') as string) ||
+        orig?.receiverCountry ||
+        orig?.enquiryDetails?.receiverCountry ||
+        ''
+
+      if (value && value.trim().toLowerCase() === senderCountry) {
+        if (
+          orig?.receiverCountry &&
+          orig.receiverCountry.trim().toLowerCase() !== senderCountry
+        ) {
+          value = orig.receiverCountry
+        } else if (
+          orig?.enquiryDetails?.receiverCountry &&
+          orig.enquiryDetails.receiverCountry.trim().toLowerCase() !== senderCountry
+        ) {
+          value = orig.enquiryDetails.receiverCountry
+        }
+      }
+
+      return <div className='truncate font-medium'>{value || 'N/A'}</div>
+    },
+    filterFn: (row, id, value) => {
+      const orig = row.original as any
+      const cellValue = String(row.getValue(id) || orig?.receiverCountry || '')
+      return cellValue.toLowerCase().includes(String(value).toLowerCase())
+    },
   },
   {
     accessorKey: 'mawbNumber',

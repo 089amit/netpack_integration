@@ -493,3 +493,67 @@ def run_auto_migrations(target_engine):
                 except Exception:
                     pass
                 print(f"[Migration Warning] Orphan boxes synchronization: {e}")
+
+        # 8. Synchronize receiver destination country with countries table
+        if "enquiries" in table_names and "countries" in table_names and "shipments" in table_names:
+            try:
+                if is_pg:
+                    conn.execute(sa.text("""
+                        UPDATE enquiries e
+                        SET "destinationCountry" = c.id
+                        FROM countries c
+                        WHERE LOWER(TRIM(e."receiverCountry")) = LOWER(TRIM(c.name))
+                          AND e."receiverCountry" IS NOT NULL
+                          AND TRIM(e."receiverCountry") <> ''
+                          AND (
+                            e."destinationCountry" IS NULL 
+                            OR e."destinationCountry" NOT IN (
+                              SELECT id FROM countries WHERE LOWER(TRIM(name)) = LOWER(TRIM(e."receiverCountry"))
+                            )
+                          )
+                    """))
+                    conn.execute(sa.text("""
+                        UPDATE shipments s
+                        SET "countryId" = e."destinationCountry"
+                        FROM enquiries e
+                        WHERE s."enquiryId" = e.id
+                          AND e."destinationCountry" IS NOT NULL
+                          AND (s."countryId" IS NULL OR s."countryId" <> e."destinationCountry")
+                    """))
+                    conn.commit()
+                else:
+                    conn.execute(sa.text("""
+                        UPDATE enquiries
+                        SET destinationCountry = (
+                            SELECT c.id FROM countries c 
+                            WHERE LOWER(TRIM(c.name)) = LOWER(TRIM(enquiries.receiverCountry)) 
+                            LIMIT 1
+                        )
+                        WHERE receiverCountry IS NOT NULL 
+                          AND TRIM(receiverCountry) <> ''
+                          AND EXISTS (
+                            SELECT 1 FROM countries c 
+                            WHERE LOWER(TRIM(c.name)) = LOWER(TRIM(enquiries.receiverCountry))
+                          )
+                    """))
+                    conn.execute(sa.text("""
+                        UPDATE shipments
+                        SET countryId = (
+                            SELECT e.destinationCountry FROM enquiries e 
+                            WHERE e.id = shipments.enquiryId 
+                            LIMIT 1
+                        )
+                        WHERE enquiryId IS NOT NULL
+                          AND EXISTS (
+                            SELECT 1 FROM enquiries e 
+                            WHERE e.id = shipments.enquiryId AND e.destinationCountry IS NOT NULL
+                          )
+                    """))
+                    conn.commit()
+            except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                print(f"[Migration Warning] Destination country sync: {e}")
+
