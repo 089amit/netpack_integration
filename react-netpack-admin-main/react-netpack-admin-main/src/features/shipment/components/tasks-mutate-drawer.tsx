@@ -11,6 +11,7 @@ import {
   FORWARDING_COMPANY_ENDPOINTS,
   MAWB_ENDPOINTS,
   SHIPMENT_ENDPOINT,
+  CUSTOM_MANIFEST_ENDPOINTS,
 } from '@/constants/endpoint'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,9 +34,10 @@ import {
 } from '@/components/ui/sheet'
 import { SelectDropdown } from '@/components/select-dropdown'
 import { shipmentFormSchema, ShipmentForm } from '../data/schema'
-import { Check, ChevronsUpDown, Scissors, Boxes } from 'lucide-react'
+import { Check, ChevronsUpDown, Scissors, Boxes, Globe, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { BreakHawbDialog } from './break-hawb-dialog'
+import { CustomClearanceDialog } from './custom-clearance-dialog'
 import { cn } from '@/lib/utils'
 import {
   Popover,
@@ -70,6 +72,8 @@ export function TasksMutateDrawer({
   const [forwardingCompanyServices, setForwardingCompanyServices] = useState([])
   const [agents, setAgents] = useState([])
   const [mawbs, setMawbs] = useState<any[]>([])
+  const [hubs, setHubs] = useState<any[]>([])
+  const [isCustomClearanceOpen, setIsCustomClearanceOpen] = useState(false)
   const [mawbSearchTerm, setMawbSearchTerm] = useState('')
   const [isComboboxOpen, setIsComboboxOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -89,6 +93,7 @@ export function TasksMutateDrawer({
     forwardingNumber: currentRow?.forwardingNumber ?? '',
     note: currentRow?.note ?? '',
     trackingMode: ((currentRow as any)?.trackingMode === 'API' ? 'API' : 'MANUAL') as any,
+    customManifestHub: (currentRow as any)?.customManifestHub ?? '',
     agentId:
       typeof (currentRow as any)?.agentId === 'number'
         ? (currentRow as any).agentId
@@ -127,39 +132,51 @@ export function TasksMutateDrawer({
   const watchAgent = form.watch('agentId')
 
   // Load dropdown options initially
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const [fcRes, agentRes, mawbRes] = await Promise.all([
-          http
-            .get<any>(FORWARDING_COMPANY_ENDPOINTS.GET_ALL_COMPANIES)
-            .then((res) => res.data),
-          http
-            .get<any>(AGENTS_ENDPOINTS.GET_ALL_AGENTS)
-            .then((res) => res.data),
-          http
-            .get<any>(MAWB_ENDPOINTS.GET_ALL_MAWBS + '?limit=5')
-            .then((res) => res.data),
-        ])
+  const fetchInitialData = async () => {
+    try {
+      const [fcRes, agentRes, mawbRes, hubRes] = await Promise.all([
+        http
+          .get<any>(FORWARDING_COMPANY_ENDPOINTS.GET_ALL_COMPANIES)
+          .then((res) => res.data),
+        http
+          .get<any>(AGENTS_ENDPOINTS.GET_ALL_AGENTS)
+          .then((res) => res.data),
+        http
+          .get<any>(MAWB_ENDPOINTS.GET_ALL_MAWBS + '?limit=5')
+          .then((res) => res.data),
+        http
+          .get<any>(CUSTOM_MANIFEST_ENDPOINTS.GET_HUBS)
+          .catch(() => []),
+      ])
 
-        setForwardingCompanies(fcRes || [])
-        setAgents(agentRes || [])
-        setMawbs(mawbRes || [])
+      setForwardingCompanies(fcRes || [])
+      setAgents(agentRes || [])
+      setMawbs(mawbRes || [])
+      const hubData =
+        Array.isArray(hubRes) && hubRes.length > 0
+          ? hubRes
+          : [
+              { id: 1, code: 'AUS', name: 'Australia Gateway' },
+              { id: 2, code: 'LHR', name: 'London Heathrow Hub' },
+              { id: 3, code: 'DXB', name: 'Dubai Hub' },
+            ]
+      setHubs(hubData)
 
-        // Preselect agent if editing existing shipment
-        if (isUpdate && currentRow?.agent && Array.isArray(agentRes)) {
-          const match = (agentRes as any[]).find(
-            (a: any) => a?.code === (currentRow as any).agent
-          )
-          if (match) {
-            form.setValue('agentId', match.id)
-          }
+      // Preselect agent if editing existing shipment
+      if (isUpdate && currentRow?.agent && Array.isArray(agentRes)) {
+        const match = (agentRes as any[]).find(
+          (a: any) => a?.code === (currentRow as any).agent
+        )
+        if (match) {
+          form.setValue('agentId', match.id)
         }
-      } catch (error) {
-        console.error('❌ Error fetching dropdown data:', error)
       }
+    } catch (error) {
+      console.error('❌ Error fetching dropdown data:', error)
     }
+  }
 
+  useEffect(() => {
     fetchInitialData()
   }, [])
 
@@ -213,6 +230,7 @@ export function TasksMutateDrawer({
               customerId: data.customerId || undefined,
               enquiryId: data.enquiryId || undefined,
               mawbId: data.mawbId ?? undefined,
+              customManifestHub: data.customManifestHub ?? '',
               forwardingCompanyId: data.forwardingCompanyId ?? undefined,
               serviceId: data.serviceId ?? undefined,
               countryId: data.countryId ?? undefined,
@@ -598,6 +616,74 @@ export function TasksMutateDrawer({
             </div>
           )}
 
+          {/* ── Custom Clearance Hub Card ── */}
+          {isUpdate && currentRow && (
+            <div className='rounded-xl border border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/60 p-4 space-y-3 mb-5 shadow-2xs'>
+              <div className='flex items-center justify-between flex-wrap gap-2'>
+                <div className='flex items-center gap-2'>
+                  <Globe className='h-4 w-4 text-amber-600' />
+                  <span className='text-xs font-bold uppercase tracking-wider text-amber-950 dark:text-amber-200'>
+                    Custom Clearance Hub
+                  </span>
+                </div>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setIsCustomClearanceOpen(true)}
+                  className='h-7 text-xs font-semibold gap-1.5 border-amber-500/50 bg-background text-amber-800 dark:text-amber-300 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 shadow-xs'
+                >
+                  <Globe className='h-3.5 w-3.5 text-amber-600' />
+                  <span>Assign Custom Clearance Hub</span>
+                </Button>
+              </div>
+
+              <div className='flex items-center justify-between rounded-md bg-background border p-3 text-xs'>
+                <div>
+                  <span className='text-[10px] text-muted-foreground uppercase font-semibold block'>
+                    Assigned Clearance Hub
+                  </span>
+                  <div className='mt-1 flex items-center gap-2'>
+                    {form.watch('customManifestHub') || (currentRow as any)?.customManifestHub ? (
+                      <Badge className='bg-amber-600 hover:bg-amber-700 text-white font-bold tracking-wide px-2.5 py-0.5 text-xs'>
+                        🏛️ Custom Manifest {form.watch('customManifestHub') || (currentRow as any)?.customManifestHub}
+                      </Badge>
+                    ) : (
+                      <span className='text-muted-foreground italic font-medium'>
+                        Not assigned to any customs hub yet
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {(form.watch('customManifestHub') || (currentRow as any)?.customManifestHub) && (
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='sm'
+                    onClick={async () => {
+                      form.setValue('customManifestHub', '', { shouldDirty: true })
+                      if (currentRow?.id) {
+                        try {
+                          await http.put(`${SHIPMENT_ENDPOINT.ALL_SHIPMENTS}/${currentRow.id}`, {
+                            customManifestHub: null,
+                          })
+                          toast.success('Unassigned from Custom Clearance Hub')
+                          onSuccess?.()
+                        } catch (e) {
+                          console.error(e)
+                        }
+                      }
+                    }}
+                    className='h-7 text-[11px] text-muted-foreground hover:text-red-600'
+                  >
+                    Clear Hub
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-5'>
               {!isUpdate && (
@@ -877,6 +963,47 @@ export function TasksMutateDrawer({
                   </FormItem>
                 )}
               />
+
+              <FormField
+                name='customManifestHub'
+                render={({ field }) => (
+                  <FormItem>
+                    <div className='flex items-center justify-between'>
+                      <FormLabel>Custom Clearance Hub</FormLabel>
+                      {isUpdate && (
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='sm'
+                          onClick={() => setIsCustomClearanceOpen(true)}
+                          className='h-6 px-2 text-[11px] font-semibold text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+                        >
+                          <Plus className='mr-1 h-3 w-3' /> Manage / Add Hubs
+                        </Button>
+                      )}
+                    </div>
+                    <SelectDropdown
+                      defaultValue={field.value || 'none'}
+                      onValueChange={(val) => {
+                        if (val === '' || val === 'none') {
+                          field.onChange(null)
+                        } else {
+                          field.onChange(val)
+                        }
+                      }}
+                      placeholder='Select Custom Manifest Hub (Optional)'
+                      items={[
+                        { label: 'None (Unassigned)', value: 'none' },
+                        ...hubs.map((hub: any) => ({
+                          label: `Custom Manifest ${hub.code} (${hub.name})`,
+                          value: hub.code,
+                        })),
+                      ]}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </form>
           </Form>
         </div>
@@ -917,6 +1044,35 @@ export function TasksMutateDrawer({
         }
       }}
     />
+
+    {currentRow && (
+      <CustomClearanceDialog
+        open={isCustomClearanceOpen}
+        onClose={() => setIsCustomClearanceOpen(false)}
+        selectedShipments={[shipmentDetails || currentRow]}
+        onSuccess={async () => {
+          setIsCustomClearanceOpen(false)
+          if (currentRow?.id) {
+            try {
+              const res = await http.get<any>(
+                SHIPMENT_ENDPOINT.GET_BY_ID(currentRow.id)
+              )
+              const data = res?.data || res
+              if (data) {
+                setShipmentDetails(data)
+                form.setValue(
+                  'customManifestHub',
+                  data.customManifestHub ?? ''
+                )
+              }
+            } catch (e) {
+              console.error(e)
+            }
+          }
+          onSuccess?.()
+        }}
+      />
+    )}
   </>
   )
 }

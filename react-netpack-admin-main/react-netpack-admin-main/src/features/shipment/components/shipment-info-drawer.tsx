@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
 import {
   Sheet,
   SheetContent,
@@ -91,6 +92,20 @@ export function GetShipmentInfoDrawer({
                       Destination Country
                     </dt>
                     <dd>{shipmentData.destinationCountryName}</dd>
+                  </div>
+                  <div>
+                    <dt className='text-muted-foreground'>
+                      Custom Clearance Hub
+                    </dt>
+                    <dd className='mt-0.5'>
+                      {shipmentData.customManifestHub ? (
+                        <Badge className='bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs'>
+                          Custom Manifest {shipmentData.customManifestHub}
+                        </Badge>
+                      ) : (
+                        <span className='text-muted-foreground'>N/A</span>
+                      )}
+                    </dd>
                   </div>
                 </dl>
               </div>
