@@ -26,6 +26,7 @@ import {
   ExternalLink,
   Copy,
   Boxes,
+  Scale,
   Send,
   Facebook,
   Twitter,
@@ -70,14 +71,18 @@ function getProgressPercent(status?: string): number {
   if (s.includes('CARRIER_SCANNED') || s.includes('CARRIER')) return 78
   if (s.includes('ARRIVED_AT_HUB') || s.includes('HUB') || s.includes('CUSTOMS')) return 60
   if (s.includes('TRANSIT')) return 45
-  if (s.includes('SHIPMENT_CREATED')) return 30
-  if (s.includes('PICKED_UP') || s.includes('PICKUP')) return 18
+  if (s.includes('SHIPMENT_CREATED')) return 32
+  if (s.includes('WT_DIMENSION_VERIFIED') || s.includes('DIMENSION_VERIFIED') || s.includes('WEIGHT_VERIFIED')) return 26
+  if (s.includes('PACKED')) return 20
+  if (s.includes('PICKED_UP') || s.includes('PICKUP')) return 14
   return 8
 }
 
 function getShortMilestoneLabel(label: string) {
   if (label.includes('Enquiry')) return 'Enquiry'
-  if (label.includes('Picked Up') || label.includes('Pickup')) return 'Picked Up'
+  if (label.includes('Picked Up') || label.includes('Pickup') || label.includes('Drop-off')) return 'Picked Up'
+  if (label.includes('Packed')) return 'Packed'
+  if (label.includes('Weight') || label.includes('Verified')) return 'Verified'
   if (label.includes('Created')) return 'Created'
   if (label.includes('In Transit') || label.includes('Transit')) return 'In Transit'
   if (label.includes('Hub')) return 'At Hub'
@@ -346,18 +351,20 @@ export default function LandingPage() {
     }, 800)
   }
 
-  // Tracking Milestones Resolver
+  // Tracking Milestones Resolver (Flowchart-aligned)
   const trackingMilestones = useMemo(() => {
     if (!trackingData) return []
     const checkpoints = trackingData.checkpoints || []
 
     const enquiryCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'ENQUIRY_GENERATED')
     const pickupCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'PICKED_UP')
+    const packedCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'PACKED')
+    const wtDimCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'WT_DIMENSION_VERIFIED')
     const createdCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'SHIPMENT_CREATED')
     const transitCp = checkpoints.find(
       (cp: any) =>
         (cp.status || '').toUpperCase() === 'IN_TRANSIT' &&
-        (!cp.source || cp.source.includes('AIRLINE') || cp.source.includes('INTERNAL') || cp.source.includes('MAWB'))
+        (!cp.source || cp.source.includes('AIRLINE') || cp.source.includes('INTERNAL') || cp.source.includes('MAWB') || cp.source.includes('MANUAL'))
     )
     const hubCp = checkpoints.find((cp: any) => (cp.status || '').toUpperCase() === 'ARRIVED_AT_HUB')
     const carrierCp = checkpoints.find(
@@ -372,6 +379,7 @@ export default function LandingPage() {
     const dest = trackingData.destination || 'Overseas'
     const displayHawb = trackingData.hawbNumber || trackingData.trackingNumber || 'Consignment'
     const isSelfDrop = trackingData.isSelfDrop || trackingData.pickupRequired === false
+    const trackingMode = trackingData.trackingMode || 'MANUAL'
 
     return [
       {
@@ -391,23 +399,49 @@ export default function LandingPage() {
         icon: <Truck className='h-3.5 w-3.5' />,
       },
       {
+        id: 'PACKED',
+        label: 'Cargo Packed',
+        description:
+          packedCp?.activity ||
+          'Cargo securely packed, dimensioned & boxed by NetPack operations',
+        timestamp: packedCp?.timestamp,
+        icon: <Boxes className='h-3.5 w-3.5' />,
+      },
+      {
+        id: 'WT_DIMENSION_VERIFIED',
+        label: 'Weight & Dim Verified',
+        description:
+          wtDimCp?.activity ||
+          `Actual weight & dimensions verified by operations (${trackingData.weight || 'Verified'} kg)`,
+        timestamp: wtDimCp?.timestamp,
+        icon: <Scale className='h-3.5 w-3.5' />,
+      },
+      {
         id: 'SHIPMENT_CREATED',
         label: 'Shipment Created',
-        description: `HAWB allocated (${displayHawb}) & prepared for overseas routing`,
+        description: createdCp?.activity || `HAWB allocated (${displayHawb}) & prepared for overseas routing`,
         timestamp: createdCp?.timestamp || enquiryCp?.timestamp,
         icon: <PackageOpen className='h-3.5 w-3.5' />,
       },
       {
         id: 'IN_TRANSIT',
         label: 'In Transit',
-        description: transitCp?.activity || `Air cargo departed Kathmandu (KTM) on scheduled route to ${dest}`,
+        description:
+          transitCp?.activity ||
+          (trackingMode === 'MANUAL'
+            ? `In Transit on scheduled cargo route to ${dest}`
+            : `Air cargo departed Kathmandu (KTM) on scheduled flight to ${dest}`),
         timestamp: transitCp?.timestamp || trackingData.departureDate,
         icon: <Plane className='h-3.5 w-3.5' />,
       },
       {
         id: 'ARRIVED_AT_HUB',
         label: 'Arrived at Hub',
-        description: hubCp?.activity || `Landed & cleared destination cargo hub terminal`,
+        description:
+          hubCp?.activity ||
+          (trackingMode === 'MANUAL'
+            ? `Arrived at Destination Hub (${dest})`
+            : `Landed & cleared through ${dest} destination cargo terminal`),
         timestamp: hubCp?.timestamp || trackingData.arrivalDate,
         icon: <Warehouse className='h-3.5 w-3.5' />,
       },
@@ -433,12 +467,15 @@ export default function LandingPage() {
     const s = (trackingData.currentStatus || '').toUpperCase()
     let highest = 0
     trackingMilestones.forEach((stg, i) => {
-      if (stg.id === 'CARRIER_SCANNED' && (s.includes('CARRIER') || s.includes('OUT_FOR_DELIVERY'))) highest = i
-      else if (stg.id === 'ARRIVED_AT_HUB' && (s.includes('ARRIVED_AT_HUB') || s.includes('HUB'))) highest = i
-      else if (stg.id === 'IN_TRANSIT' && s.includes('TRANSIT')) highest = i
-      else if (stg.id === 'SHIPMENT_CREATED' && s.includes('SHIPMENT_CREATED')) highest = i
-      else if (stg.id === 'PICKED_UP' && (s.includes('PICKED_UP') || s.includes('PICKUP'))) highest = i
-      else if (stg.id === 'ENQUIRY_GENERATED' && (s.includes('PENDING') || s.includes('ENQUIRY'))) highest = i
+      if (stg.id === 'DELIVERED' && s.includes('DELIVERED')) highest = Math.max(highest, i)
+      else if (stg.id === 'CARRIER_SCANNED' && (s.includes('CARRIER') || s.includes('OUT_FOR_DELIVERY'))) highest = Math.max(highest, i)
+      else if (stg.id === 'ARRIVED_AT_HUB' && (s.includes('ARRIVED_AT_HUB') || s.includes('HUB'))) highest = Math.max(highest, i)
+      else if (stg.id === 'IN_TRANSIT' && s.includes('TRANSIT')) highest = Math.max(highest, i)
+      else if (stg.id === 'SHIPMENT_CREATED' && s.includes('SHIPMENT_CREATED')) highest = Math.max(highest, i)
+      else if (stg.id === 'WT_DIMENSION_VERIFIED' && (s.includes('WT_DIMENSION_VERIFIED') || s.includes('DIMENSION_VERIFIED') || s.includes('WEIGHT_VERIFIED'))) highest = Math.max(highest, i)
+      else if (stg.id === 'PACKED' && s.includes('PACKED')) highest = Math.max(highest, i)
+      else if (stg.id === 'PICKED_UP' && (s.includes('PICKED_UP') || s.includes('PICKUP'))) highest = Math.max(highest, i)
+      else if (stg.id === 'ENQUIRY_GENERATED' && (s.includes('PENDING') || s.includes('ENQUIRY'))) highest = Math.max(highest, i)
     })
     return highest
   }, [trackingData, trackingMilestones])
@@ -1065,39 +1102,69 @@ export default function LandingPage() {
                 )}
 
                 {/* ── PACKAGE DETAILS ACCORDION ── */}
-                {trackingData.packages && trackingData.packages.length > 0 && (
-                  <div className={`rounded-2xl ${CARD_GLASS_BG} p-5 space-y-3`}>
-                    <button
-                      type='button'
-                      onClick={() => setIsPackageDetailsOpen(!isPackageDetailsOpen)}
-                      className='w-full flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground cursor-pointer'
-                    >
-                      <div className='flex items-center gap-1.5'>
-                        <Boxes className='h-4 w-4 text-blue-600' />
-                        <span>Box Weights, Dimensions &amp; Packing List ({trackingData.packages.length} Boxes)</span>
-                      </div>
-                      {isPackageDetailsOpen ? <ChevronUp className='h-4 w-4' /> : <ChevronDown className='h-4 w-4' />}
-                    </button>
+                {(() => {
+                  const packageList = (trackingData.boxes && trackingData.boxes.length > 0)
+                    ? trackingData.boxes
+                    : (trackingData.packages && trackingData.packages.length > 0 ? trackingData.packages : [])
+                  if (!packageList.length) return null
 
-                    {isPackageDetailsOpen && (
-                      <div className='space-y-3 pt-3 text-xs border-t border-slate-100 dark:border-white/10'>
-                        {trackingData.packages.map((pkg: any, pIdx: number) => (
-                          <div key={pIdx} className='p-3.5 rounded-xl bg-muted/40 border border-border/70 space-y-1.5'>
-                            <div className='flex items-center justify-between font-bold'>
-                              <span>Box #{pkg.boxNumber || pIdx + 1}</span>
-                              <span className='font-mono'>
-                                {pkg.actualWeight ? `${pkg.actualWeight} kg` : 'Weight pending'}
-                              </span>
-                            </div>
-                            <p className='text-muted-foreground text-[11px] font-mono'>
-                              Dimensions: {pkg.length || '-'} × {pkg.width || '-'} × {pkg.height || '-'} cm (Vol: {pkg.volumetricWeight || '-'} kg)
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                  return (
+                    <div className={`rounded-2xl ${CARD_GLASS_BG} p-5 space-y-3`}>
+                      <button
+                        type='button'
+                        onClick={() => setIsPackageDetailsOpen(!isPackageDetailsOpen)}
+                        className='w-full flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground cursor-pointer'
+                      >
+                        <div className='flex items-center gap-1.5'>
+                          <Boxes className='h-4 w-4 text-blue-600' />
+                          <span>Box Weights, Dimensions &amp; Packing List ({packageList.length} Boxes)</span>
+                        </div>
+                        {isPackageDetailsOpen ? <ChevronUp className='h-4 w-4' /> : <ChevronDown className='h-4 w-4' />}
+                      </button>
+
+                      {isPackageDetailsOpen && (
+                        <div className='space-y-3 pt-3 text-xs border-t border-slate-100 dark:border-white/10'>
+                          {packageList.map((pkg: any, pIdx: number) => {
+                            const dims = pkg.dimensions || (pkg.length && (pkg.width || pkg.breadth) && pkg.height
+                              ? `${pkg.length} × ${pkg.width || pkg.breadth} × ${pkg.height} cm`
+                              : null)
+                            const wt = pkg.weight || pkg.actualWeight
+
+                            return (
+                              <div key={pIdx} className='p-3.5 rounded-xl bg-muted/40 border border-border/70 space-y-2'>
+                                <div className='flex items-center justify-between font-bold'>
+                                  <span>Box #{pkg.boxNumber || pIdx + 1}</span>
+                                  <span className='font-mono text-primary'>
+                                    {wt ? `${wt} kg` : 'Weight pending'}
+                                  </span>
+                                </div>
+                                {dims && (
+                                  <p className='text-muted-foreground text-[11px] font-mono'>
+                                    Dimensions: {dims} {pkg.volumetricWeight ? `(Vol: ${pkg.volumetricWeight} kg)` : ''}
+                                  </p>
+                                )}
+                                {pkg.items && pkg.items.length > 0 && (
+                                  <div className='pt-1.5 border-t border-border/50'>
+                                    <div className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1'>
+                                      Packed Items:
+                                    </div>
+                                    <div className='flex flex-wrap gap-1.5'>
+                                      {pkg.items.map((itm: any, itmIdx: number) => (
+                                        <span key={itmIdx} className='px-2 py-0.5 rounded bg-background border text-[11px] font-medium'>
+                                          {itm.item || 'Item'} ({itm.pieces || 1} {itm.pieces === 1 ? 'pc' : 'pcs'})
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             )}
           </div>

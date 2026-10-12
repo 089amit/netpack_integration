@@ -674,6 +674,8 @@ export function TasksMutateDrawer({
                       items={[
                         { label: 'Enquiry Generated (Pending)', value: 'PENDING' },
                         { label: 'Picked Up', value: 'PICKED_UP' },
+                        { label: 'Cargo Packed', value: 'PACKED' },
+                        { label: 'Weight & Dim Verified', value: 'WT_DIMENSION_VERIFIED' },
                         {
                           label: 'Shipment Created',
                           value: 'SHIPMENT_CREATED',

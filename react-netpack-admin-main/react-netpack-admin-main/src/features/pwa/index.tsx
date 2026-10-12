@@ -1612,8 +1612,8 @@ function TrackingScreen({
           else if (statusStr.includes('CARRIER') || statusStr.includes('OUT_FOR_DELIVERY')) stageIdx = 5
           else if (statusStr.includes('HUB') || statusStr.includes('CUSTOMS')) stageIdx = 4
           else if (statusStr.includes('TRANSIT')) stageIdx = 3
-          else if (statusStr.includes('PACK') || statusStr.includes('CREATED')) stageIdx = 2
-          else if (isActualPickedUp) stageIdx = 1
+          else if (statusStr.includes('CREATED') || statusStr.includes('VERIFIED')) stageIdx = 2
+          else if (statusStr.includes('PACK') || isActualPickedUp) stageIdx = 1
           else stageIdx = 0
 
           let proofImgs: string[] = []
@@ -1644,10 +1644,18 @@ function TrackingScreen({
             statusLabel = 'In Transit (Air Cargo)'
             heroTitle = 'Air Cargo in Flight'
             heroSubtitle = `En route to ${liveRes.destination || 'Destination'} • KTM Departure`
-          } else if (statusStr.includes('PACK') || statusStr.includes('CREATED')) {
+          } else if (statusStr.includes('CREATED')) {
             statusLabel = 'Shipment Created'
             heroTitle = 'Airway Bill Generated'
             heroSubtitle = `Export clearance prepared at Kathmandu Hub • Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`
+          } else if (statusStr.includes('VERIFIED')) {
+            statusLabel = 'Weight & Dim Verified'
+            heroTitle = 'Weight & Dimensions Verified'
+            heroSubtitle = `Actual weight & dimensions verified by NetPack operations • ${liveRes.weight || '3.5'} kg`
+          } else if (statusStr.includes('PACK')) {
+            statusLabel = 'Cargo Packed'
+            heroTitle = 'Cargo Packed & Boxed'
+            heroSubtitle = `Cargo safely packed into boxes at NetPack facility`
           } else if (isActualPickedUp) {
             statusLabel = 'Cargo Picked Up'
             heroTitle = 'Cargo Picked Up'
@@ -1697,7 +1705,7 @@ function TrackingScreen({
               ? 'arrived_at_hub'
               : statusStr.includes('TRANSIT')
               ? 'in_progress'
-              : statusStr.includes('PACK') || statusStr.includes('CREATED')
+              : statusStr.includes('PACK') || statusStr.includes('CREATED') || statusStr.includes('VERIFIED')
               ? 'shipment_created'
               : isActualPickedUp
               ? 'picked_up'
@@ -1713,7 +1721,7 @@ function TrackingScreen({
             chargeableWeight: `${liveRes.chargeableWeight || liveRes.weight || '3.5'} kg`,
             origin: liveRes.origin || 'Kathmandu (KTM)',
             destination: liveRes.destination || 'International Destination',
-            commodity: liveRes.commodity || 'Express Air Cargo',
+            commodity: liveRes.commodity || 'General Goods',
             riderName: riderName || undefined,
             riderPhone: riderPhone || undefined,
             boxes: liveRes.boxes && liveRes.boxes.length > 0

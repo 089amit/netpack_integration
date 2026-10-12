@@ -2,9 +2,11 @@
 
 export const STATUS_OPTIONS = [
   { label: 'Enquiry Generated', value: 'ENQUIRY_GENERATED' },
-  { label: 'Shipment Created', value: 'SHIPMENT_CREATED' },
   { label: 'Pending', value: 'PENDING' },
   { label: 'Picked Up', value: 'PICKED_UP' },
+  { label: 'Cargo Packed', value: 'PACKED' },
+  { label: 'Weight & Dim Verified', value: 'WT_DIMENSION_VERIFIED' },
+  { label: 'Shipment Created', value: 'SHIPMENT_CREATED' },
   { label: 'In Transit', value: 'IN_TRANSIT' },
   { label: 'Arrived At Hub', value: 'ARRIVED_AT_HUB' },
   { label: 'Carrier Scanned', value: 'CARRIER_SCANNED' },

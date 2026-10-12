@@ -6,6 +6,8 @@ export const shipmentFormSchema = z.object({
   status: z.enum([
     'PENDING',
     'PICKED_UP',
+    'PACKED',
+    'WT_DIMENSION_VERIFIED',
     'IN_TRANSIT',
     'ARRIVED_AT_HUB',
     'CARRIER_SCANNED',

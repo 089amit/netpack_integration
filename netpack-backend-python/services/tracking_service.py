@@ -334,8 +334,8 @@ class TrackingRegistry:
 
         # 1. Search Shipment by hawbno, forwardingNumber, or numeric id
         shipment = (
-            db.query(Shipment).filter(Shipment.hawbno == clean_id).first() or
-            db.query(Shipment).filter(Shipment.forwardingNumber == clean_id).first()
+            db.query(Shipment).filter(Shipment.hawbno == clean_id).order_by(Shipment.id.desc()).first() or
+            db.query(Shipment).filter(Shipment.forwardingNumber == clean_id).order_by(Shipment.id.desc()).first()
         )
         if not shipment:
             try:
@@ -360,7 +360,7 @@ class TrackingRegistry:
                 prefix_candidate = parts[0].strip()
                 suffix_candidate = parts[1].strip()
                 if suffix_candidate.isdigit():
-                    shipment_candidate = db.query(Shipment).filter(Shipment.hawbno == prefix_candidate).first()
+                    shipment_candidate = db.query(Shipment).filter(Shipment.hawbno == prefix_candidate).order_by(Shipment.id.desc()).first()
                     if shipment_candidate:
                         shipment = shipment_candidate
                         enquiry = shipment_candidate.enquiry
@@ -370,7 +370,7 @@ class TrackingRegistry:
                         if enq_candidate:
                             enquiry = enq_candidate
                             if enquiry.shipments:
-                                shipment = enquiry.shipments[0]
+                                shipment = enquiry.shipments[-1]
                             targeted_box_tracking = clean_id
 
         # 3. Search Enquiry by master trackingNumber or id (in-house master tracking)
@@ -383,7 +383,7 @@ class TrackingRegistry:
             if not enquiry:
                 enquiry = db.query(Enquiry).filter(Enquiry.trackingNumber == clean_id).first()
             if enquiry and enquiry.shipments:
-                shipment = enquiry.shipments[0]
+                shipment = enquiry.shipments[-1]
 
         # 4. Search MAWB
         mawb = None
@@ -433,31 +433,69 @@ class TrackingRegistry:
         ))
 
         # Tracking mode & conditional milestone parameters:
-        # Per flowchart: "Auto if Mawb and Forwarding no is there -> BY API"
-        # User instruction: "make sure every tracking and mawb is tracked by api if details are there"
-        has_api_details = bool(fwd_number or (linked_mawb and linked_mawb.mawbNumber))
+        # Per flowchart:
+        # "Auto if Mawb and Forwarding no is there -> BY API"
+        # "If Mawb is custom Manifest or not provided -> MANUAL"
+        is_custom_manifest = False
+        if linked_mawb and linked_mawb.mawbNumber:
+            m_clean = linked_mawb.mawbNumber.strip().lower()
+            if "custom" in m_clean or "manifest" in m_clean:
+                is_custom_manifest = True
+
         raw_mode = (getattr(shipment, "trackingMode", None) if shipment else None) or (getattr(enquiry, "trackingMode", None) if enquiry else None)
         
-        if has_api_details:
+        has_both_mawb_and_fwd = bool(
+            linked_mawb and linked_mawb.mawbNumber and not is_custom_manifest and
+            fwd_number and str(fwd_number).strip()
+        )
+
+        if raw_mode and raw_mode.upper() == "MANUAL":
+            tracking_mode = "MANUAL"
+        elif is_custom_manifest or not (linked_mawb and linked_mawb.mawbNumber):
+            tracking_mode = "MANUAL"
+        elif has_both_mawb_and_fwd or (raw_mode and raw_mode.upper() == "API"):
             tracking_mode = "API"
-        elif raw_mode:
-            tracking_mode = raw_mode.upper()
         else:
             tracking_mode = "MANUAL"
-        
+
+        dest_name = (
+            (enquiry.receiverCountry.strip() if (enquiry and enquiry.receiverCountry and enquiry.receiverCountry.strip()) else None) or
+            (enquiry.country.name.strip() if (enquiry and enquiry.country and enquiry.country.name.strip().lower() != (enquiry.senderCountry or "Nepal").strip().lower()) else None) or
+            (enquiry.destinationLocation.strip() if (enquiry and enquiry.destinationLocation and enquiry.destinationLocation.strip()) else None) or
+            (shipment.country.name.strip() if (shipment and shipment.country) else None) or
+            (linked_mawb.destination.strip() if (linked_mawb and linked_mawb.destination) else "International")
+        )
+
+        # Operator note for manual checkpoints
+        raw_op_note = (getattr(shipment, "note", None) if shipment else None) or (getattr(enquiry, "pickupNotes", None) if enquiry else None)
+        clean_op_note = raw_op_note.strip() if raw_op_note else ""
+        note_tag = f" (Note: {clean_op_note})" if clean_op_note else ""
+
         is_pickup_required = True
         if enquiry is not None:
             if getattr(enquiry, "pickupRequired", None) is False:
                 is_pickup_required = False
 
         is_from_customer = bool(getattr(enquiry, "isFromCustomer", False)) if enquiry else False
-        is_packed = bool(getattr(enquiry, "isPacked", False)) if enquiry else False
+        is_packed = bool(
+            getattr(enquiry, "isPacked", False) or
+            getattr(enquiry, "packedAt", None) or
+            (enquiry and enquiry.boxes and len(enquiry.boxes) > 0) or
+            (shipment and shipment.status in ("PACKED", "WT_DIMENSION_VERIFIED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))
+        )
+
+        proof_images = [u.strip() for u in (enquiry.weightProofImageUrl or "").split(",") if u.strip()] if enquiry else []
+        is_weight_verified = bool(
+            proof_images or
+            (enquiry and (enquiry.volumetricWeight or enquiry.chargeableWeight)) or
+            (shipment and shipment.status in ("WT_DIMENSION_VERIFIED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))
+        )
 
         # 1.5. Cargo Picked Up OR Self Drop Counter Handover
         if is_pickup_required:
             is_picked_up = bool(
-                (enquiry and (enquiry.pickedUpAt or enquiry.status == "PICKED_UP" or enquiry.weightProofImageUrl)) or
-                (shipment and shipment.status in ("PICKED_UP", "PACKED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))
+                (enquiry and (enquiry.pickedUpAt or enquiry.status in ("PICKED_UP", "PACKED", "WT_DIMENSION_VERIFIED") or enquiry.weightProofImageUrl)) or
+                (shipment and shipment.status in ("PICKED_UP", "PACKED", "WT_DIMENSION_VERIFIED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))
             )
 
             # Rider assigned milestone: Rider assigned and heading for collection
@@ -484,13 +522,13 @@ class TrackingRegistry:
                     timestamp=pickup_ts,
                     location="NetPack Central Warehouse, Kathmandu",
                     status="PICKED_UP",
-                    activity="Cargo Picked Up by NetPack Courier & Received at Warehouse",
+                    activity="Cargo Picked Up by NetPack Courier & Received at Central Warehouse",
                     country="Nepal",
                     source="WAREHOUSE_PICKUP"
                 ))
         else:
             # Self-drop / counter drop-off
-            is_picked_up = bool(enquiry and (enquiry.status == "PICKED_UP" or enquiry.weightProofImageUrl)) or bool(shipment)
+            is_picked_up = bool(enquiry and (enquiry.status in ("PICKED_UP", "PACKED", "WT_DIMENSION_VERIFIED") or enquiry.weightProofImageUrl)) or bool(shipment)
             if is_picked_up:
                 checkpoints.append(TrackingCheckpoint(
                     timestamp=created_at + timedelta(minutes=30),
@@ -501,20 +539,46 @@ class TrackingRegistry:
                     source="COUNTER_DROPOFF"
                 ))
 
-        # 2. Shipment Created (After Packing & Weight/Dims verification)
+        # 1.6. PACKED (Per Flowchart: "OPERATIONS EDITS THE ENQUIRY WITH ITEMS, UNIT, VALUE, BOX NO. / DIMENSIONS etc.")
+        if is_packed:
+            packed_ts = (getattr(enquiry, "packedAt", None) if enquiry else None) or (created_at + timedelta(hours=2, minutes=30))
+            checkpoints.append(TrackingCheckpoint(
+                timestamp=packed_ts,
+                location="NetPack Central Operations, Teku, Kathmandu",
+                status="PACKED",
+                activity="Cargo Packed - Items, Quantities, Unit Values & Box Dimensions Recorded by Operations",
+                country="Nepal",
+                source="WAREHOUSE_OPERATIONS"
+            ))
+
+        # 1.7. Wt / Dimension Verified (Per Flowchart: "Wt / Dimension Verified")
+        if is_weight_verified:
+            wt_ts = (enquiry.updatedAt if enquiry else None) or (created_at + timedelta(hours=3))
+            verified_wt = (enquiry.weight if (enquiry and enquiry.weight) else (shipment.weight if (shipment and getattr(shipment, "weight", None)) else None))
+            wt_text = f" ({verified_wt} kg)" if verified_wt else ""
+            checkpoints.append(TrackingCheckpoint(
+                timestamp=wt_ts,
+                location="NetPack Central Warehouse / Weighing Station",
+                status="WT_DIMENSION_VERIFIED",
+                activity=f"Weight & Dimensions Verified{wt_text} by NetPack Operations",
+                country="Nepal",
+                source="WAREHOUSE_VERIFICATION"
+            ))
+
+        # 2. Shipment Created (After push to shipment)
         if shipment and shipment.createdAt:
             hawb_label = f" (HAWB: {shipment.hawbno})" if shipment.hawbno else ""
             checkpoints.append(TrackingCheckpoint(
                 timestamp=shipment.createdAt,
                 location="Kathmandu Central Operations",
                 status="SHIPMENT_CREATED",
-                activity=f"Shipment Created{hawb_label} - Export Documentation & Labeling Completed",
+                activity=f"Shipment Created{hawb_label} - Export Documentation & Routing Prepared",
                 country="Nepal",
                 source="INTERNAL"
             ))
 
-        # 3. Status from Airlines / MAWB displayed as In Transit / Arrived at Hub
-        # (A) Transit Points: in transit at (transit point)
+        # 3. In Transit & Arrived at Hub checkpoints:
+        # (A) Any recorded transit points
         if shipment and shipment.transitPoints:
             for tp in shipment.transitPoints:
                 tp_loc = tp.location or (tp.country.name if tp.country else "Transit Port")
@@ -527,26 +591,23 @@ class TrackingRegistry:
                     source="MAWB_FLIGHT"
                 ))
 
-        # (B) MAWB Flight: Departed from (origin) & Arrived at hub (destination Port)
-        if linked_mawb:
-            dest_label = (linked_mawb.destination or (enquiry.receiverCountry if enquiry else "") or "Destination Port").strip()
+        # (B) If BY API mode: Track live MAWB flight / airline departures & arrivals
+        if tracking_mode == "API" and linked_mawb and linked_mawb.mawbNumber and not is_custom_manifest:
             flight_str = f"Flight {linked_mawb.flightNumber}" if linked_mawb.flightNumber else "Air Cargo Flight"
             air_str = f"({airline_name})" if airline_name else ""
 
-            # Check if live AWB API tracking is available
             mawb_api_checkpoints: List[TrackingCheckpoint] = []
-            if linked_mawb.mawbNumber:
-                try:
-                    mawb_api_checkpoints = airline_provider.track(
-                        linked_mawb.mawbNumber,
-                        context={
-                            "departureDate": linked_mawb.departureDate,
-                            "arrivalDate": linked_mawb.dateOfArrival,
-                            "destination": dest_label
-                        }
-                    )
-                except Exception as mawb_err:
-                    logger.warning(f"Error querying MAWB API for {linked_mawb.mawbNumber}: {mawb_err}")
+            try:
+                mawb_api_checkpoints = airline_provider.track(
+                    linked_mawb.mawbNumber,
+                    context={
+                        "departureDate": linked_mawb.departureDate,
+                        "arrivalDate": linked_mawb.dateOfArrival,
+                        "destination": dest_name
+                    }
+                )
+            except Exception as mawb_err:
+                logger.warning(f"Error querying MAWB API for {linked_mawb.mawbNumber}: {mawb_err}")
 
             if mawb_api_checkpoints:
                 for macp in mawb_api_checkpoints:
@@ -558,7 +619,7 @@ class TrackingRegistry:
                         timestamp=linked_mawb.departureDate,
                         location="Tribhuvan International Airport (KTM)",
                         status="IN_TRANSIT",
-                        activity=f"Air cargo departed Kathmandu (KTM) on {flight_str} {air_str}".strip(),
+                        activity=f"Air cargo departed Kathmandu (KTM) on {flight_str} {air_str} to {dest_name}".strip(),
                         country="Nepal",
                         source="MAWB_FLIGHT"
                     ))
@@ -566,27 +627,16 @@ class TrackingRegistry:
                 if linked_mawb.dateOfArrival:
                     checkpoints.append(TrackingCheckpoint(
                         timestamp=linked_mawb.dateOfArrival,
-                        location=f"{dest_label} Hub / Airport",
+                        location=f"{dest_name} Hub / Airport",
                         status="ARRIVED_AT_HUB",
-                        activity=f"Arrived at destination hub ({dest_label}) via {flight_str}".strip(),
-                        country=dest_label,
+                        activity=f"Arrived at destination hub ({dest_name}) via {flight_str}".strip(),
+                        country=dest_name,
                         source="MAWB_FLIGHT"
                     ))
 
-            if getattr(linked_mawb, "note", None):
-                checkpoints.append(TrackingCheckpoint(
-                    timestamp=linked_mawb.departureDate or linked_mawb.createdAt or created_at,
-                    location="Air Freight Route",
-                    status="IN_TRANSIT",
-                    activity=f"Flight update: {linked_mawb.note}",
-                    country="",
-                    source="AIRLINE_TRANSIT"
-                ))
-
-        # 4. Scans updated after scanned by carrier (follow milestone by TrackingMore API) or manual operator notes
+        # (C) Existing tracking events (manual operator notes or carrier scans)
         if shipment and shipment.trackingEvents:
             for te in shipment.trackingEvents:
-                # Avoid displaying internal HAWB break/split milestones to keep tracking timeline clean
                 if te.status == "HAWB_SPLIT" or "partition" in (te.activity or "").lower():
                     continue
 
@@ -601,7 +651,6 @@ class TrackingRegistry:
                 else:
                     src_label = te_source
 
-                # If event is from courier API, it represents the CARRIER_SCANNED phase
                 if te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB") and ("CARRIER" in te_source or "TRACKINGMORE" in te_source):
                     te_status = "CARRIER_SCANNED"
 
@@ -614,14 +663,13 @@ class TrackingRegistry:
                     source=src_label
                 ))
 
-        # Live Query to TrackingMore API if configured AND trackingMode is API and no authentic checkpoints exist yet
+        # (D) Live Query to TrackingMore API if in API mode
         if tracking_mode == "API" and fwd_number and trackingmore_service.is_configured and shipment:
             has_real_tm_events = any(
                 te.source and ("TRACKINGMORE" in te.source or "CARRIER" in te.source) and len(te.activity or "") > 15
                 for te in shipment.trackingEvents
             )
             if not has_real_tm_events:
-                # Auto-sync live checkpoints from TrackingMore
                 self.sync_tracking_live(db, shipment)
                 db.refresh(shipment)
                 checkpoints = [cp for cp in checkpoints if not (cp.source and ("TRACKINGMORE" in cp.source or "CARRIER" in cp.source or cp.source == "CARRIER_API"))]
@@ -650,40 +698,68 @@ class TrackingRegistry:
             for cp in checkpoints
         )
 
-        dest_name = (enquiry.receiverCountry if enquiry else None) or (linked_mawb.destination if linked_mawb else None) or "Destination"
+        # (E) In MANUAL mode: Ensure In Transit / Arrived At Hub exist with operator Note
+        shipment_stage = (shipment.status if shipment else None) or (enquiry.status if enquiry else "PENDING")
+        is_progressed_transit = bool(
+            shipment_stage in ("IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") or
+            has_carrier_events
+        )
+        is_progressed_hub = bool(
+            shipment_stage in ("ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") or
+            has_carrier_events
+        )
 
-        # Ensure Airline In Transit milestone exists if shipment has progressed beyond created
-        has_airline_in_transit = any(cp.status == "IN_TRANSIT" and ("AIRLINE" in (cp.source or "") or "MAWB" in (cp.source or "") or "INTERNAL" in (cp.source or "")) for cp in checkpoints)
-        if not has_airline_in_transit and (has_carrier_events or (shipment and shipment.status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))):
-            dep_ts = (linked_mawb.departureDate if linked_mawb else None) or (created_at + timedelta(hours=6))
-            airline_lbl = f" on {airline_name}" if airline_name else ""
+        has_in_transit_cp = any(cp.status == "IN_TRANSIT" for cp in checkpoints)
+        if not has_in_transit_cp and is_progressed_transit:
+            dep_ts = (linked_mawb.departureDate if (linked_mawb and linked_mawb.departureDate) else None) or (created_at + timedelta(hours=6))
+            if tracking_mode == "MANUAL":
+                in_transit_act = f"In Transit on scheduled cargo route to {dest_name}{note_tag}"
+            else:
+                airline_lbl = f" on {airline_name}" if airline_name else ""
+                in_transit_act = f"Air cargo departed Kathmandu (KTM){airline_lbl} on scheduled flight to {dest_name}"
             checkpoints.append(TrackingCheckpoint(
                 timestamp=dep_ts,
                 location="Tribhuvan International Airport (KTM)",
                 status="IN_TRANSIT",
-                activity=f"Air cargo departed from Kathmandu (KTM){airline_lbl} on scheduled flight to {dest_name}",
+                activity=in_transit_act,
                 country="Nepal",
-                source="MAWB_FLIGHT"
+                source="MANUAL_NOTE" if tracking_mode == "MANUAL" else "MAWB_FLIGHT"
             ))
 
-        # Ensure Arrived at Hub milestone exists if courier carrier has already scanned the parcel
-        has_hub_arrival = any(cp.status == "ARRIVED_AT_HUB" for cp in checkpoints)
-        if not has_hub_arrival and (has_carrier_events or (shipment and shipment.status in ("ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))):
+        has_hub_cp = any(cp.status == "ARRIVED_AT_HUB" for cp in checkpoints)
+        if not has_hub_cp and is_progressed_hub:
             carrier_timestamps = [cp.timestamp for cp in checkpoints if "CARRIER" in (cp.source or "") and cp.timestamp]
             first_carrier_ts = min(carrier_timestamps) if carrier_timestamps else None
-            hub_ts = (linked_mawb.dateOfArrival if linked_mawb else None) or (first_carrier_ts - timedelta(hours=3) if first_carrier_ts else created_at + timedelta(days=1))
+            hub_ts = (linked_mawb.dateOfArrival if (linked_mawb and linked_mawb.dateOfArrival) else None) or (first_carrier_ts - timedelta(hours=3) if first_carrier_ts else created_at + timedelta(days=1))
+            if tracking_mode == "MANUAL":
+                hub_act = f"Arrived at Destination Hub ({dest_name}){note_tag}"
+            else:
+                hub_act = f"Arrived at hub ({dest_name}) - Landed & cleared through destination cargo terminal"
             checkpoints.append(TrackingCheckpoint(
                 timestamp=hub_ts,
                 location=f"{dest_name} Cargo Terminal / Hub",
                 status="ARRIVED_AT_HUB",
-                activity=f"Arrived at hub ({dest_name}) - Landed & cleared through destination cargo terminal",
+                activity=hub_act,
                 country=dest_name,
-                source="MAWB_FLIGHT"
+                source="MANUAL_NOTE" if tracking_mode == "MANUAL" else "MAWB_FLIGHT"
             ))
 
-        current_status = (shipment.status if shipment else None) or (enquiry.status if enquiry else "PENDING")
-        if enquiry and enquiry.status == "PICKED_UP" and (not shipment or shipment.status in ("PICKED_UP", "PENDING", "ENQUIRY_GENERATED")):
-            current_status = "PICKED_UP"
+        # (F) Carrier Scanned milestone for Manual mode when status reaches CARRIER_SCANNED or beyond
+        if shipment_stage in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") and not has_carrier_events:
+            cs_ts = (shipment.updatedAt if shipment else None) or (created_at + timedelta(days=2))
+            cs_fwd = f" ({fwd_company_name})" if fwd_company_name else ""
+            checkpoints.append(TrackingCheckpoint(
+                timestamp=cs_ts,
+                location=f"{dest_name} Delivery Facility",
+                status="CARRIER_SCANNED",
+                activity=f"Carrier Scanned{cs_fwd} - Processed for destination delivery",
+                country=dest_name,
+                source="CARRIER_FACILITY"
+            ))
+
+        current_status = shipment_stage
+        if enquiry and enquiry.status in ("PICKED_UP", "PACKED", "WT_DIMENSION_VERIFIED") and (not shipment or shipment.status in ("PICKED_UP", "PENDING", "ENQUIRY_GENERATED")):
+            current_status = enquiry.status
 
         # In API mode, automatically resolve and persist status to CARRIER_SCANNED if courier scans exist
         if tracking_mode == "API" and has_carrier_events and current_status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "PENDING", "SHIPMENT_CREATED"):
@@ -701,24 +777,24 @@ class TrackingRegistry:
         if current_status == "DELIVERED":
             has_delivered_cp = any(cp.status == "DELIVERED" for cp in checkpoints)
             if not has_delivered_cp:
-                del_time = (shipment.updatedAt if shipment else None) or datetime.utcnow()
-                dest_addr = (enquiry.receiverCountry if enquiry else None) or (linked_mawb.destination if linked_mawb else None) or "Destination"
-                rec_name = enquiry.receiverName if enquiry else "Consignee"
+                del_time = (shipment.updatedAt if shipment else None) or (enquiry.updatedAt if enquiry else None) or datetime.utcnow()
+                rec_name = (enquiry.receiverName.strip() if (enquiry and enquiry.receiverName) else (shipment.customer.name if shipment and shipment.customer else "Consignee"))
                 checkpoints.append(TrackingCheckpoint(
                     timestamp=del_time,
-                    location=dest_addr,
+                    location=dest_name,
                     status="DELIVERED",
                     activity=f"Consignment Delivered to {rec_name}",
-                    country=dest_addr,
+                    country=dest_name,
                     source="DELIVERY_COMPLETE"
                 ))
 
-        # Stage hierarchy for the 7 primary tracking statuses:
-        # Delivered (top) -> Out for delivery -> Carrier Scanned -> Arrived at Hub -> In Transit -> Shipment Created -> Picked Up -> Enquiry Generated (bottom)
+        # Stage hierarchy for primary tracking statuses (Flowchart-aligned):
         STAGE_ORDER = {
             "ENQUIRY_GENERATED": 10,
             "ASSIGNED_FOR_PICKUP": 12,
             "PICKED_UP": 15,
+            "PACKED": 16,
+            "WT_DIMENSION_VERIFIED": 18,
             "SHIPMENT_CREATED": 20,
             "IN_TRANSIT": 30,
             "ARRIVED_AT_HUB": 40,
@@ -906,6 +982,25 @@ class TrackingRegistry:
                         }
                         for itm in (enquiry.items if (enquiry and enquiry.items) else (shipment.enquiry.items if (shipment and shipment.enquiry and shipment.enquiry.items) else []))
                     ] or [{"item": "General Goods", "pieces": 1}]
+                }
+            ],
+            "packages": formatted_tracking_boxes if formatted_tracking_boxes else [
+                {
+                    "boxNumber": 1,
+                    "pieceNumber": "Piece 1 of 1",
+                    "trackingNumber": "BOX-1",
+                    "hawbNumber": shipment.hawbno if shipment else (enquiry.trackingNumber if enquiry else ""),
+                    "forwardingNumber": fwd_number,
+                    "weight": enquiry.weight if enquiry else (shipment.weight if shipment else 10.0),
+                    "actualWeight": enquiry.weight if enquiry else (shipment.weight if shipment else 10.0),
+                    "dimensions": "30 x 20 x 20 cm",
+                    "length": 30.0,
+                    "breadth": 20.0,
+                    "width": 20.0,
+                    "height": 20.0,
+                    "volumetricWeight": round((30.0 * 20.0 * 20.0) / 5000.0, 2),
+                    "multiplier": 1.0,
+                    "quantity": 1
                 }
             ],
             # Forwarding courier details

@@ -82,8 +82,10 @@ function getProgressPercent(status: string): number {
   if (s.includes('CARRIER_SCANNED') || s.includes('CARRIER')) return 78
   if (s.includes('ARRIVED_AT_HUB') || s.includes('HUB') || s.includes('CUSTOMS')) return 60
   if (s.includes('TRANSIT')) return 45
-  if (s.includes('SHIPMENT_CREATED')) return 30
-  if (s.includes('PICKED_UP') || s.includes('PICKUP')) return 18
+  if (s.includes('SHIPMENT_CREATED')) return 32
+  if (s.includes('WT_DIMENSION_VERIFIED') || s.includes('DIMENSION_VERIFIED') || s.includes('WEIGHT_VERIFIED')) return 26
+  if (s.includes('PACKED')) return 20
+  if (s.includes('PICKED_UP') || s.includes('PICKUP')) return 14
   return 8
 }
 
@@ -148,6 +150,26 @@ function getStatusConfig(status: string) {
       iconClass: 'text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-950/80 border-violet-500',
       dotClass: 'bg-violet-500 border-violet-500',
       icon: <PackageOpen className='h-4 w-4' />,
+    }
+  }
+  if (s.includes('WT_DIMENSION_VERIFIED') || s.includes('DIMENSION_VERIFIED') || s.includes('WEIGHT_VERIFIED')) {
+    return {
+      label: 'Weight & Dim Verified',
+      heroTitle: 'Weight & Dimensions Verified',
+      badgeClass: 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border-teal-300 dark:border-teal-800',
+      iconClass: 'text-teal-600 dark:text-teal-400 bg-teal-100 dark:bg-teal-950/80 border-teal-500',
+      dotClass: 'bg-teal-500 border-teal-500',
+      icon: <Scale className='h-4 w-4' />,
+    }
+  }
+  if (s.includes('PACKED')) {
+    return {
+      label: 'Cargo Packed',
+      heroTitle: 'Cargo Packed & Boxed',
+      badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
+      iconClass: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 border-emerald-500',
+      dotClass: 'bg-emerald-500 border-emerald-500',
+      icon: <Boxes className='h-4 w-4' />,
     }
   }
   if (s.includes('PICKED_UP') || s.includes('PICKUP')) {
@@ -234,6 +256,12 @@ export function ShipmentTrackingDialog({
     return []
   }, [liveData?.weightProofImages, liveData?.weightProofImageUrl])
 
+  const displayBoxes: any[] = useMemo(() => {
+    if (Array.isArray(liveData?.boxes) && liveData.boxes.length > 0) return liveData.boxes
+    if (Array.isArray(liveData?.packages) && liveData.packages.length > 0) return liveData.packages
+    return []
+  }, [liveData?.boxes, liveData?.packages])
+
   useEffect(() => {
     if (open && queryParam) {
       fetchTracking()
@@ -300,13 +328,15 @@ export function ShipmentTrackingDialog({
     return 'Status active'
   }, [latestCheckpoint])
 
-  // Milestone Stages Definition (Clean 7 primary lifecycle stages)
+  // Milestone Stages Definition (Clean Flowchart-aligned lifecycle stages)
   const milestoneStages = useMemo(() => {
     const enquiryCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'ENQUIRY_GENERATED')
     const pickupCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'PICKED_UP')
+    const packedCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'PACKED')
+    const wtDimCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'WT_DIMENSION_VERIFIED')
     const createdCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'SHIPMENT_CREATED')
     const airlineTransitCp = checkpoints.find(
-      (cp) => (cp.status || '').toUpperCase() === 'IN_TRANSIT' && (!cp.source || cp.source.includes('AIRLINE') || cp.source.includes('INTERNAL') || cp.source.includes('MAWB'))
+      (cp) => (cp.status || '').toUpperCase() === 'IN_TRANSIT' && (!cp.source || cp.source.includes('AIRLINE') || cp.source.includes('INTERNAL') || cp.source.includes('MAWB') || cp.source.includes('MANUAL'))
     )
     const hubCp = checkpoints.find(
       (cp) => (cp.status || '').toUpperCase() === 'ARRIVED_AT_HUB'
@@ -322,6 +352,7 @@ export function ShipmentTrackingDialog({
     const dest = liveData?.destination || 'Overseas'
     const displayHawb = liveData?.hawbNumber || hawbNumber || 'Consignment'
     const isSelfDrop = liveData?.isSelfDrop || liveData?.pickupRequired === false
+    const trackingMode = liveData?.trackingMode || 'MANUAL'
 
     const stages: any[] = [
       {
@@ -344,9 +375,29 @@ export function ShipmentTrackingDialog({
         badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300',
       },
       {
+        id: 'PACKED',
+        label: 'Cargo Packed',
+        description:
+          packedCp?.activity ||
+          'Cargo securely packed, dimensioned & boxed by NetPack operations',
+        timestamp: packedCp?.timestamp,
+        icon: <Boxes className='h-3.5 w-3.5' />,
+      },
+      {
+        id: 'WT_DIMENSION_VERIFIED',
+        label: 'Weight & Dim Verified',
+        description:
+          wtDimCp?.activity ||
+          `Actual weight & dimensions verified by operations (${liveData?.weight || 'Verified'} kg)`,
+        timestamp: wtDimCp?.timestamp,
+        icon: <Scale className='h-3.5 w-3.5' />,
+      },
+      {
         id: 'SHIPMENT_CREATED',
         label: 'Shipment Created',
-        description: `HAWB allocated (${displayHawb}) & prepared for overseas routing`,
+        description:
+          createdCp?.activity ||
+          `HAWB allocated (${displayHawb}) & prepared for overseas routing`,
         timestamp: createdCp?.timestamp || enquiryCp?.timestamp,
         icon: <PackageOpen className='h-3.5 w-3.5' />,
       },
@@ -355,9 +406,11 @@ export function ShipmentTrackingDialog({
         label: 'In Transit',
         description:
           airlineTransitCp?.activity ||
-          (liveData?.airlineName
-            ? `Departed on ${liveData.airlineName} scheduled flight to ${dest}`
-            : `Air cargo accepted & departed on scheduled route to ${dest}`),
+          (trackingMode === 'MANUAL'
+            ? `In Transit on scheduled cargo route to ${dest}${additionalNote ? ` • Note: ${additionalNote}` : ''}`
+            : (liveData?.airlineName
+              ? `Departed on ${liveData.airlineName} scheduled flight to ${dest}`
+              : `Air cargo departed Kathmandu (KTM) on scheduled route to ${dest}`)),
         timestamp: airlineTransitCp?.timestamp || liveData?.departureDate,
         icon: <Plane className='h-3.5 w-3.5' />,
       },
@@ -366,7 +419,9 @@ export function ShipmentTrackingDialog({
         label: 'Arrived at Hub',
         description:
           hubCp?.activity ||
-          `Landed & cleared through ${dest} destination cargo terminal`,
+          (trackingMode === 'MANUAL'
+            ? `Arrived at Destination Hub (${dest})${additionalNote ? ` • Note: ${additionalNote}` : ''}`
+            : `Landed & cleared through ${dest} destination cargo terminal`),
         timestamp: hubCp?.timestamp || liveData?.arrivalDate,
         icon: <Warehouse className='h-3.5 w-3.5' />,
       },
@@ -392,25 +447,31 @@ export function ShipmentTrackingDialog({
     ]
 
     return stages
-  }, [checkpoints, liveData, hawbNumber, displayForwardingCompany])
+  }, [checkpoints, liveData, hawbNumber, displayForwardingCompany, additionalNote])
 
   // Determine stage progression index based on active stages
   const stageIndex = useMemo(() => {
     const s = (effectiveStatus || '').toUpperCase()
     let highestIdx = 0
     milestoneStages.forEach((stage, idx) => {
-      if (stage.id === 'CARRIER_SCANNED' && (s.includes('CARRIER') || s.includes('OUT_FOR_DELIVERY'))) {
-        highestIdx = idx
+      if (stage.id === 'DELIVERED' && s.includes('DELIVERED')) {
+        highestIdx = Math.max(highestIdx, idx)
+      } else if (stage.id === 'CARRIER_SCANNED' && (s.includes('CARRIER') || s.includes('OUT_FOR_DELIVERY'))) {
+        highestIdx = Math.max(highestIdx, idx)
       } else if (stage.id === 'ARRIVED_AT_HUB' && (s.includes('ARRIVED_AT_HUB') || s.includes('HUB'))) {
-        highestIdx = idx
+        highestIdx = Math.max(highestIdx, idx)
       } else if (stage.id === 'IN_TRANSIT' && s.includes('TRANSIT')) {
-        highestIdx = idx
+        highestIdx = Math.max(highestIdx, idx)
       } else if (stage.id === 'SHIPMENT_CREATED' && s.includes('SHIPMENT_CREATED')) {
-        highestIdx = idx
+        highestIdx = Math.max(highestIdx, idx)
+      } else if (stage.id === 'WT_DIMENSION_VERIFIED' && (s.includes('WT_DIMENSION_VERIFIED') || s.includes('DIMENSION_VERIFIED') || s.includes('WEIGHT_VERIFIED'))) {
+        highestIdx = Math.max(highestIdx, idx)
+      } else if (stage.id === 'PACKED' && s.includes('PACKED')) {
+        highestIdx = Math.max(highestIdx, idx)
       } else if (stage.id === 'PICKED_UP' && (s.includes('PICKED_UP') || s.includes('PICKUP'))) {
-        highestIdx = idx
-      } else if (stage.id === 'DELIVERED' && s.includes('DELIVERED')) {
-        highestIdx = idx
+        highestIdx = Math.max(highestIdx, idx)
+      } else if (stage.id === 'ENQUIRY_GENERATED' && (s.includes('ENQUIRY_GENERATED') || s.includes('PENDING'))) {
+        highestIdx = Math.max(highestIdx, idx)
       }
     })
     return highestIdx
@@ -924,9 +985,9 @@ export function ShipmentTrackingDialog({
                 <div>
                   <div className='text-xs font-bold text-foreground flex items-center gap-2'>
                     <span>Package Specifications & Packing List</span>
-                    {liveData?.boxes && liveData.boxes.length > 0 && (
+                    {displayBoxes.length > 0 && (
                       <Badge variant='outline' className='text-[10px] font-semibold py-0 h-4 px-1.5 bg-background'>
-                        {liveData.boxes.length} {liveData.boxes.length === 1 ? 'Box' : 'Boxes'}
+                        {displayBoxes.length} {displayBoxes.length === 1 ? 'Box' : 'Boxes'}
                       </Badge>
                     )}
                     {liveData?.weight && (
@@ -1038,12 +1099,12 @@ export function ShipmentTrackingDialog({
                       Box Weights, Dimensions & Item Packing List
                     </span>
                     <span className='text-[11px] text-muted-foreground'>
-                      {liveData?.boxes?.length || 1} {(liveData?.boxes?.length || 1) === 1 ? 'Box' : 'Boxes'} Total
+                      {displayBoxes.length || 1} {(displayBoxes.length || 1) === 1 ? 'Box' : 'Boxes'} Total
                     </span>
                   </div>
 
                   <div className='space-y-3'>
-                    {(liveData?.boxes && liveData.boxes.length > 0 ? liveData.boxes : [
+                    {(displayBoxes.length > 0 ? displayBoxes : [
                       {
                         boxNumber: 1,
                         trackingNumber: 'BOX-1',
