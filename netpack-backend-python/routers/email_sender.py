@@ -24,6 +24,7 @@ def get_smtp_status():
         "port": config.SMTP_PORT,
         "user": config.SMTP_USER or "Not configured",
         "fromEmail": config.SMTP_FROM_EMAIL or config.SMTP_USER or "Not configured",
+        "replyTo": getattr(config, "SMTP_REPLY_TO", "info@netpacklogistic.com"),
         "useTls": config.SMTP_USE_TLS,
         "useSsl": config.SMTP_USE_SSL,
         "mode": "Live SMTP" if configured else "Simulated (Logs to console)"

@@ -82,15 +82,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 # Frontend base URL for email links and CORS
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8000").rstrip("/")
 
-# SMTP Email Configuration (Gmail, Google Workspace, Brevo, SendGrid, Amazon SES, etc.)
+# SMTP Email Configuration (Zoho Mail, Google Workspace, Gmail, Brevo, SendGrid, etc.)
 SMTP_HOST = os.getenv("SMTP_HOST", "")
-SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER = os.getenv("SMTP_USER", os.getenv("EMAIL_USER", ""))
+SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
+SMTP_USER = os.getenv("SMTP_USER", os.getenv("EMAIL_USER", "noreply@netpacklogistic.com"))
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", os.getenv("EMAIL_PASSWORD", ""))
-SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USER", "info@netpacklogistic.com"))
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USER", "noreply@netpacklogistic.com"))
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "NetPack Logistic")
-SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "True").lower() in ("true", "1", "yes")
-SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "False").lower() in ("true", "1", "yes")
+SMTP_REPLY_TO = os.getenv("SMTP_REPLY_TO", "info@netpacklogistic.com")
+SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "False").lower() in ("true", "1", "yes")
+SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "True").lower() in ("true", "1", "yes")
 
 EMAIL_USER = SMTP_USER
 EMAIL_PASSWORD = SMTP_PASSWORD

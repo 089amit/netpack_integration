@@ -15,7 +15,7 @@ logger = logging.getLogger("netpack.email")
 _orig_getaddrinfo = socket.getaddrinfo
 
 def _ipv4_forced_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    if family == 0 and isinstance(host, str) and ("smtp" in host or "mail" in host or "gmail" in host or "google" in host):
+    if family == 0 and isinstance(host, str) and ("smtp" in host or "mail" in host or "gmail" in host or "google" in host or "zoho" in host):
         try:
             return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
         except Exception:
@@ -51,14 +51,17 @@ def send_email_sync(
     if not clean_recipients:
         return {"success": False, "error": "No valid recipient email addresses provided"}
 
-    sender_email = from_email or config.SMTP_FROM_EMAIL or config.SMTP_USER or "info@netpacklogistic.com"
+    sender_email = from_email or config.SMTP_FROM_EMAIL or config.SMTP_USER or "noreply@netpacklogistic.com"
     sender_name = from_name or config.SMTP_FROM_NAME or "NetPack Logistic"
+    reply_to_email = getattr(config, "SMTP_REPLY_TO", "info@netpacklogistic.com") or "info@netpacklogistic.com"
 
     if not is_smtp_configured():
         logger.info(
             f"[EmailService SIMULATED] SMTP not configured. Skipped sending email.\n"
             f"  Subject: {subject}\n"
             f"  To: {', '.join(clean_recipients)}\n"
+            f"  From: {sender_name} <{sender_email}>\n"
+            f"  Reply-To: {reply_to_email}\n"
             f"  (Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD in .env to enable real sending)"
         )
         return {
@@ -72,6 +75,8 @@ def send_email_sync(
     message["Subject"] = subject
     message["From"] = f"{sender_name} <{sender_email}>"
     message["To"] = ", ".join(clean_recipients)
+    if reply_to_email:
+        message["Reply-To"] = f"{sender_name} <{reply_to_email}>"
 
     if text_content:
         part1 = MIMEText(text_content, "plain", "utf-8")
@@ -95,6 +100,8 @@ def send_email_sync(
                 "subject": subject,
                 "htmlContent": html_content
             }
+            if reply_to_email:
+                payload["replyTo"] = {"email": reply_to_email, "name": sender_name}
             if text_content:
                 payload["textContent"] = text_content
 
@@ -130,8 +137,8 @@ def send_email_sync(
                 "subject": subject,
                 "html": html_content
             }
-            if sender_email and "@" in sender_email:
-                payload["reply_to"] = sender_email
+            if reply_to_email and "@" in reply_to_email:
+                payload["reply_to"] = reply_to_email
             if text_content:
                 payload["text"] = text_content
 
@@ -306,7 +313,7 @@ def build_booking_html(
     <p><strong>NetPack Logistic</strong></p>
     <p>Cargo & Courier Services Worldwide | Kathmandu, Nepal</p>
     <p>Hotline: +977 15339942 | Email: <a href="mailto:info@netpacklogistic.com">info@netpacklogistic.com</a></p>
-    <p style="margin-top: 10px; font-size: 11px; color: #cbd5e1;">This is an automated operational notification. If you received this by mistake, please contact support.</p>
+    <p style="margin-top: 10px; font-size: 11px; color: #94a3b8;">This is an automated dispatch from noreply@netpacklogistic.com. Inquiries are handled at info@netpacklogistic.com.</p>
   </div>
 </div>
 </body>
@@ -427,6 +434,7 @@ def build_delivery_html(item, tracking_url: str = "") -> str:
     <p><strong>NetPack Logistic</strong></p>
     <p>Cargo & Courier Services Worldwide | Kathmandu, Nepal</p>
     <p>Hotline: +977 15339942 | Email: <a href="mailto:info@netpacklogistic.com" style="color: #059669;">info@netpacklogistic.com</a></p>
+    <p style="margin-top: 10px; font-size: 11px; color: #94a3b8;">This is an automated dispatch from noreply@netpacklogistic.com. Inquiries are handled at info@netpacklogistic.com.</p>
   </div>
 </div>
 </body>
@@ -479,8 +487,10 @@ def test_smtp_connection(target_email: str) -> dict:
       <h2 style="color: #16a34a; margin-top: 0;">&#10004; NetPack SMTP Test Successful</h2>
       <p>Congratulations! Your SMTP credentials configured on NetPack Logistic backend are active and operational.</p>
       <p><strong>Host:</strong> {config.SMTP_HOST}:{config.SMTP_PORT}</p>
-      <p><strong>User:</strong> {config.SMTP_USER}</p>
-      <p><strong>Target:</strong> {target_email}</p>
+      <p><strong>Authenticated User:</strong> {config.SMTP_USER}</p>
+      <p><strong>Sender (From):</strong> {config.SMTP_FROM_EMAIL or config.SMTP_USER}</p>
+      <p><strong>Reply-To:</strong> {getattr(config, 'SMTP_REPLY_TO', 'info@netpacklogistic.com')}</p>
+      <p><strong>Recipient (Target):</strong> {target_email}</p>
     </div>
     """
     return send_email_sync(target_email, subject, html)
@@ -530,6 +540,7 @@ def build_user_welcome_html(
   <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; font-size: 12px; color: #64748b; text-align: center;">
     <p style="margin: 0;">NetPack Logistic Cargo Terminal, Kathmandu, Nepal</p>
     <p style="margin: 4px 0 0 0;">Need help? Email <a href="mailto:info@netpacklogistic.com" style="color: #0284c7;">info@netpacklogistic.com</a></p>
+    <p style="margin: 6px 0 0 0; font-size: 11px; color: #94a3b8;">Automated account notification sent from noreply@netpacklogistic.com</p>
   </div>
 </div>
 </body>
@@ -598,6 +609,7 @@ def build_forgot_password_html(full_name: str, reset_code: str, reset_url: str =
   </div>
   <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; font-size: 12px; color: #64748b; text-align: center;">
     <p style="margin: 0;">NetPack Logistic Security Team &bull; info@netpacklogistic.com</p>
+    <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">Automated security notification sent from noreply@netpacklogistic.com</p>
   </div>
 </div>
 </body>

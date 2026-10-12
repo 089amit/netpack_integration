@@ -264,6 +264,7 @@ def build_pwa_verification_code_html(email: str, code: str) -> str:
   </div>
   <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; font-size: 12px; color: #94a3b8; text-align: center;">
     <p style="margin: 0;">&copy; NetPack Logistic &bull; Kathmandu, Nepal &bull; info@netpacklogistic.com</p>
+    <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">Automated verification dispatch from noreply@netpacklogistic.com</p>
   </div>
 </div>
 </body>
