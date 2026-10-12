@@ -85,7 +85,50 @@ def send_email_sync(
     part2 = MIMEText(html_content, "html", "utf-8")
     message.attach(part2)
 
-    # 1. First priority: Check if Brevo HTTPS API Key is configured (runs over port 443 - NEVER blocked by Railway)
+    # 1. First priority: Direct SMTP (Zoho Mail Organization)
+    if config.SMTP_HOST and config.SMTP_USER and config.SMTP_PASSWORD:
+        host = config.SMTP_HOST
+        pref_port = int(config.SMTP_PORT or 465)
+        pref_ssl = bool(config.SMTP_USE_SSL) or pref_port == 465
+
+        attempts = []
+        if pref_ssl:
+            attempts.append({"port": pref_port, "ssl": True})
+            if pref_port != 587:
+                attempts.append({"port": 587, "ssl": False})
+        else:
+            attempts.append({"port": pref_port, "ssl": False})
+            if pref_port != 465:
+                attempts.append({"port": 465, "ssl": True})
+
+        last_smtp_err = None
+        for attempt in attempts:
+            curr_port = attempt["port"]
+            curr_ssl = attempt["ssl"]
+            try:
+                if curr_ssl:
+                    context = ssl.create_default_context()
+                    with smtplib.SMTP_SSL(host, curr_port, context=context, timeout=15) as server:
+                        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+                        server.sendmail(sender_email, clean_recipients, message.as_string())
+                else:
+                    with smtplib.SMTP(host, curr_port, timeout=15) as server:
+                        server.ehlo()
+                        context = ssl.create_default_context()
+                        server.starttls(context=context)
+                        server.ehlo()
+                        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+                        server.sendmail(sender_email, clean_recipients, message.as_string())
+
+                logger.info(f"[EmailService SMTP SUCCESS] Sent '{subject}' to {clean_recipients} via {host}:{curr_port} (SSL={curr_ssl})")
+                return {"success": True, "provider": f"SMTP ({host}:{curr_port})", "recipients": clean_recipients, "port": curr_port}
+            except Exception as err:
+                last_smtp_err = err
+                logger.warning(f"[EmailService SMTP Attempt Failed] {host}:{curr_port} (SSL={curr_ssl}): {err}")
+
+        logger.warning(f"[EmailService] All SMTP attempts failed ({last_smtp_err}). Checking HTTPS fallbacks...")
+
+    # 2. Secondary fallback: Brevo HTTPS API (if configured)
     if config.BREVO_API_KEY:
         try:
             brevo_url = "https://api.brevo.com/v3/smtp/email"
@@ -114,7 +157,7 @@ def send_email_sync(
         except Exception as brevo_err:
             logger.warning(f"[EmailService Brevo Error] {brevo_err}. Falling back...")
 
-    # 2. Second priority: Check if Resend HTTPS API Key is configured (runs over port 443)
+    # 3. Tertiary fallback: Resend HTTPS API (if configured)
     if config.RESEND_API_KEY:
         try:
             resend_url = "https://api.resend.com/emails"
@@ -122,7 +165,6 @@ def send_email_sync(
                 "Authorization": f"Bearer {config.RESEND_API_KEY.strip()}",
                 "Content-Type": "application/json"
             }
-            # If custom verified domain is provided in RESEND_FROM_EMAIL, use it; otherwise use onboarding@resend.dev
             custom_from = getattr(config, "RESEND_FROM_EMAIL", "") or ""
             if custom_from and "@" in custom_from and "@gmail" not in custom_from.lower():
                 from_field = f"{sender_name} <{custom_from}>"
@@ -147,55 +189,12 @@ def send_email_sync(
                 logger.info(f"[EmailService Resend HTTPS SUCCESS] Sent '{subject}' to {clean_recipients}")
                 return {"success": True, "provider": "Resend (HTTPS Port 443)", "recipients": clean_recipients}
             else:
-                logger.warning(f"[EmailService Resend Warning] Status {r.status_code}: {r.text}. Falling back to SMTP...")
+                logger.warning(f"[EmailService Resend Warning] Status {r.status_code}: {r.text}")
         except Exception as resend_err:
-            logger.warning(f"[EmailService Resend Error] {resend_err}. Falling back to SMTP...")
+            logger.warning(f"[EmailService Resend Error] {resend_err}")
 
-    # 3. Third priority: Raw SMTP with automatic dual-port and forced IPv4 resolution
-    host = config.SMTP_HOST
-    pref_port = int(config.SMTP_PORT or 587)
-
-    pref_ssl = bool(config.SMTP_USE_SSL) or pref_port == 465
-
-    attempts = []
-    if pref_ssl:
-        attempts.append({"port": pref_port, "ssl": True})
-        if pref_port != 587:
-            attempts.append({"port": 587, "ssl": False})
-    else:
-        attempts.append({"port": pref_port, "ssl": False})
-        if pref_port != 465:
-            attempts.append({"port": 465, "ssl": True})
-
-    last_err = None
-    for attempt in attempts:
-        curr_port = attempt["port"]
-        curr_ssl = attempt["ssl"]
-        try:
-            if curr_ssl:
-                context = ssl.create_default_context()
-                with smtplib.SMTP_SSL(host, curr_port, context=context, timeout=15) as server:
-                    if config.SMTP_USER and config.SMTP_PASSWORD:
-                        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
-                    server.sendmail(sender_email, clean_recipients, message.as_string())
-            else:
-                with smtplib.SMTP(host, curr_port, timeout=15) as server:
-                    server.ehlo()
-                    context = ssl.create_default_context()
-                    server.starttls(context=context)
-                    server.ehlo()
-                    if config.SMTP_USER and config.SMTP_PASSWORD:
-                        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
-                    server.sendmail(sender_email, clean_recipients, message.as_string())
-
-            logger.info(f"[EmailService SUCCESS] Sent '{subject}' to {clean_recipients} via port {curr_port} (SSL={curr_ssl})")
-            return {"success": True, "recipients": clean_recipients, "port": curr_port}
-        except Exception as err:
-            last_err = err
-            logger.warning(f"[EmailService Attempt Failed] Port {curr_port} (SSL={curr_ssl}): {err}. Trying alternate configuration...")
-
-    logger.error(f"[EmailService ERROR] Failed sending to {clean_recipients}: {last_err}")
-    return {"success": False, "error": str(last_err), "recipients": clean_recipients}
+    logger.error(f"[EmailService ERROR] Failed sending to {clean_recipients}: No operational email provider")
+    return {"success": False, "error": "All email delivery methods failed", "recipients": clean_recipients}
 
 
 def send_email(
