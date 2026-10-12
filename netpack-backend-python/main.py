@@ -41,9 +41,48 @@ def init_db_with_retry(max_retries=10, delay=2):
     return False
 
 import os
+
+def ensure_essential_schema(target_engine):
+    """
+    Sub-second idempotent check ensuring critical tables and columns exist
+    across both PostgreSQL (production) and SQLite (dev) on cold starts.
+    """
+    try:
+        from sqlalchemy import text
+        with target_engine.connect() as conn:
+            is_pg = "postgresql" in str(target_engine.url) or "postgres" in str(target_engine.url)
+            if is_pg:
+                conn.execute(text('ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "customManifestHub" VARCHAR(50);'))
+                conn.execute(text('ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "trackingMode" VARCHAR(20) DEFAULT \'MANUAL\';'))
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS custom_manifest_hubs (
+                        id SERIAL PRIMARY KEY,
+                        code VARCHAR(50) UNIQUE NOT NULL,
+                        name VARCHAR(100),
+                        "isActive" BOOLEAN DEFAULT TRUE,
+                        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('''
+                    INSERT INTO custom_manifest_hubs (code, name)
+                    VALUES 
+                        ('AUS', 'Australia Gateway'),
+                        ('LHR', 'London Heathrow Hub'),
+                        ('DXB', 'Dubai Hub')
+                    ON CONFLICT (code) DO NOTHING;
+                '''))
+                conn.commit()
+            else:
+                Base.metadata.create_all(bind=target_engine)
+                run_auto_migrations(target_engine)
+    except Exception as e:
+        print(f"[Schema Check Warning] {e}")
+
 if os.getenv("RUN_DB_INIT") == "1":
     init_db_with_retry()
 else:
+    ensure_essential_schema(engine)
     print("[Database] Schema ready. Instant cold start enabled.")
 
 

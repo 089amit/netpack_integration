@@ -78,11 +78,13 @@ def run_auto_migrations(target_engine):
         # 1b. Add trackingMode and customManifestHub to shipments table if needed
         if "shipments" in table_names:
             try:
-                existing_ship_cols = {col["name"] for col in inspector.get_columns("shipments")}
+                is_pg = "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL
                 if "trackingMode" not in existing_ship_cols:
-                    conn.execute(sa.text("ALTER TABLE shipments ADD COLUMN trackingMode VARCHAR(20) DEFAULT 'MANUAL'"))
+                    col_sql = 'ALTER TABLE shipments ADD COLUMN "trackingMode" VARCHAR(20) DEFAULT \'MANUAL\'' if is_pg else 'ALTER TABLE shipments ADD COLUMN trackingMode VARCHAR(20) DEFAULT \'MANUAL\''
+                    conn.execute(sa.text(col_sql))
                 if "customManifestHub" not in existing_ship_cols:
-                    conn.execute(sa.text("ALTER TABLE shipments ADD COLUMN customManifestHub VARCHAR(50)"))
+                    col_sql = 'ALTER TABLE shipments ADD COLUMN "customManifestHub" VARCHAR(50)' if is_pg else 'ALTER TABLE shipments ADD COLUMN customManifestHub VARCHAR(50)'
+                    conn.execute(sa.text(col_sql))
                 conn.commit()
             except Exception as e:
                 try:
