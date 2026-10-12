@@ -342,7 +342,7 @@ def send_enquiry_booking_notification(
     frontend_base = getattr(config, "FRONTEND_URL", "http://localhost:8000") or "http://localhost:8000"
     tracking_url = f"{frontend_base.rstrip('/')}/#track?q={tracking_no}"
 
-    # 1. Send confirmation to Sender (if email exists)
+    # 1. Send confirmation ONLY to Sender (if email exists)
     if sender_email and "@" in sender_email:
         subject = f"[NetPack Logistic] Booking Confirmation - AWB #{tracking_no}"
         html = build_booking_html(enquiry, is_receiver_copy=False, tracking_url=tracking_url)
@@ -353,22 +353,6 @@ def send_enquiry_booking_notification(
             background_tasks=background_tasks
         )
         logger.info(f"[EmailService] Dispatched booking confirmation to sender: {sender_email}")
-
-    # 2. Send Consignee copy to Receiver (if receiverEmail is provided!)
-    if receiver_email and "@" in receiver_email:
-        # Avoid double-sending if sender and receiver email are the exact same
-        if receiver_email.lower() != sender_email.lower():
-            subject = f"[NetPack Logistic] Incoming Consignment Notification - AWB #{tracking_no}"
-            html = build_booking_html(enquiry, is_receiver_copy=True, tracking_url=tracking_url)
-            send_email(
-                to_emails=receiver_email,
-                subject=subject,
-                html_content=html,
-                background_tasks=background_tasks
-            )
-            logger.info(f"[EmailService] Dispatched consignee copy to receiver: {receiver_email}")
-        else:
-            logger.info(f"[EmailService] Receiver email matches sender email ({receiver_email}). Single copy sent.")
 
 
 def build_delivery_html(item, tracking_url: str = "") -> str:
@@ -466,6 +450,7 @@ def send_shipment_delivery_notification(
     subject = f"[NetPack Logistic] Shipment Delivered Successfully - AWB #{tracking_no}"
     html = build_delivery_html(enquiry, tracking_url=tracking_url)
 
+    # Send delivery notification ONLY to Sender
     if sender_email and "@" in sender_email:
         send_email(
             to_emails=sender_email,
@@ -474,15 +459,6 @@ def send_shipment_delivery_notification(
             background_tasks=background_tasks
         )
         logger.info(f"[EmailService] Dispatched delivery email to sender: {sender_email}")
-
-    if receiver_email and "@" in receiver_email and receiver_email.lower() != sender_email.lower():
-        send_email(
-            to_emails=receiver_email,
-            subject=subject,
-            html_content=html,
-            background_tasks=background_tasks
-        )
-        logger.info(f"[EmailService] Dispatched delivery email to receiver: {receiver_email}")
 
 
 def test_smtp_connection(target_email: str) -> dict:
