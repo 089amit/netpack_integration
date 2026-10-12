@@ -83,7 +83,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8000").rstrip("/")
 
 # SMTP Email Configuration (Zoho Mail, Google Workspace, Gmail, Brevo, SendGrid, etc.)
-SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.zoho.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
 SMTP_USER = os.getenv("SMTP_USER", os.getenv("EMAIL_USER", "noreply@netpacklogistic.com"))
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", os.getenv("EMAIL_PASSWORD", ""))

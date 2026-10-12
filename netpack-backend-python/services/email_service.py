@@ -87,7 +87,13 @@ def send_email_sync(
 
     # 1. First priority: Direct SMTP (Zoho Mail Organization)
     if config.SMTP_HOST and config.SMTP_USER and config.SMTP_PASSWORD:
-        host = config.SMTP_HOST
+        primary_host = config.SMTP_HOST.strip()
+        hosts_to_try = [primary_host]
+        if "smtppro.zoho.com" in primary_host.lower():
+            hosts_to_try.append("smtp.zoho.com")
+        elif "smtp.zoho.com" in primary_host.lower():
+            hosts_to_try.append("smtppro.zoho.com")
+
         pref_port = int(config.SMTP_PORT or 465)
         pref_ssl = bool(config.SMTP_USE_SSL) or pref_port == 465
 
@@ -102,29 +108,30 @@ def send_email_sync(
                 attempts.append({"port": 465, "ssl": True})
 
         last_smtp_err = None
-        for attempt in attempts:
-            curr_port = attempt["port"]
-            curr_ssl = attempt["ssl"]
-            try:
-                if curr_ssl:
-                    context = ssl.create_default_context()
-                    with smtplib.SMTP_SSL(host, curr_port, context=context, timeout=15) as server:
-                        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
-                        server.sendmail(sender_email, clean_recipients, message.as_string())
-                else:
-                    with smtplib.SMTP(host, curr_port, timeout=15) as server:
-                        server.ehlo()
+        for host in hosts_to_try:
+            for attempt in attempts:
+                curr_port = attempt["port"]
+                curr_ssl = attempt["ssl"]
+                try:
+                    if curr_ssl:
                         context = ssl.create_default_context()
-                        server.starttls(context=context)
-                        server.ehlo()
-                        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
-                        server.sendmail(sender_email, clean_recipients, message.as_string())
+                        with smtplib.SMTP_SSL(host, curr_port, context=context, timeout=12) as server:
+                            server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+                            server.sendmail(sender_email, clean_recipients, message.as_string())
+                    else:
+                        with smtplib.SMTP(host, curr_port, timeout=12) as server:
+                            server.ehlo()
+                            context = ssl.create_default_context()
+                            server.starttls(context=context)
+                            server.ehlo()
+                            server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+                            server.sendmail(sender_email, clean_recipients, message.as_string())
 
-                logger.info(f"[EmailService SMTP SUCCESS] Sent '{subject}' to {clean_recipients} via {host}:{curr_port} (SSL={curr_ssl})")
-                return {"success": True, "provider": f"SMTP ({host}:{curr_port})", "recipients": clean_recipients, "port": curr_port}
-            except Exception as err:
-                last_smtp_err = err
-                logger.warning(f"[EmailService SMTP Attempt Failed] {host}:{curr_port} (SSL={curr_ssl}): {err}")
+                    logger.info(f"[EmailService SMTP SUCCESS] Sent '{subject}' to {clean_recipients} via {host}:{curr_port} (SSL={curr_ssl})")
+                    return {"success": True, "provider": f"SMTP ({host}:{curr_port})", "recipients": clean_recipients, "port": curr_port}
+                except Exception as err:
+                    last_smtp_err = err
+                    logger.warning(f"[EmailService SMTP Attempt Failed] {host}:{curr_port} (SSL={curr_ssl}): {err}")
 
         logger.warning(f"[EmailService] All SMTP attempts failed ({last_smtp_err}). Checking HTTPS fallbacks...")
 
