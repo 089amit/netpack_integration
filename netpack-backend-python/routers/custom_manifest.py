@@ -9,11 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, 
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, func
 import pandas as pd
 
 from database import get_db
 from models import MAWB, Shipment, Enquiry, EnquiryItem, Box, Country
-from models.customs_consignee import CustomsConsignee, CustomsSetting
+from models.customs_consignee import CustomsConsignee, CustomsSetting, CustomManifestHub
 from services.custom_manifest_service import (
     suggest_bag_markings,
     prepare_wtbox_data,
@@ -40,6 +41,10 @@ class ConsigneeInput(BaseModel):
     address: Optional[str] = ""
     country: Optional[str] = "UK"
     isDefault: Optional[bool] = False
+
+class HubCreateRequest(BaseModel):
+    code: str
+    name: Optional[str] = None
 
 class CustomsSettingsPayload(BaseModel):
     maxBoxPerPart: Optional[int] = 10
@@ -178,7 +183,51 @@ def reset_consignees(db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Consignees reset to default"}
 
-# ─── MAWB Data Extraction ─────────────────────────────────────────────────────
+# ─── Custom Manifest Hubs ─────────────────────────────────────────────────────
+
+@router.get("/hubs")
+def get_custom_manifest_hubs(db: Session = Depends(get_db)):
+    hubs = db.query(CustomManifestHub).filter(CustomManifestHub.isActive == True).order_by(CustomManifestHub.code.asc()).all()
+    if not hubs:
+        defaults = [("AUS", "Australia Gateway"), ("LHR", "London Heathrow Hub"), ("DXB", "Dubai Hub")]
+        for c, n in defaults:
+            db.add(CustomManifestHub(code=c, name=n, isActive=True))
+        db.commit()
+        hubs = db.query(CustomManifestHub).filter(CustomManifestHub.isActive == True).order_by(CustomManifestHub.code.asc()).all()
+    return [{"id": h.id, "code": h.code, "name": h.name or h.code} for h in hubs]
+
+@router.post("/hubs")
+def create_custom_manifest_hub(payload: HubCreateRequest, db: Session = Depends(get_db)):
+    raw_code = payload.code.strip().upper()
+    if not raw_code:
+        raise HTTPException(status_code=400, detail="Hub code cannot be empty")
+    existing = db.query(CustomManifestHub).filter(CustomManifestHub.code.ilike(raw_code)).first()
+    if existing:
+        return {"id": existing.id, "code": existing.code, "name": existing.name or existing.code, "message": "Hub already exists"}
+
+    new_hub = CustomManifestHub(
+        code=raw_code,
+        name=payload.name.strip() if payload.name else f"{raw_code} Hub",
+        isActive=True
+    )
+    db.add(new_hub)
+    db.commit()
+    db.refresh(new_hub)
+    return {"id": new_hub.id, "code": new_hub.code, "name": new_hub.name}
+
+# ─── MAWB & Hub Data Extraction ───────────────────────────────────────────────
+
+class VirtualMAWB:
+    def __init__(self, hub_name: str):
+        self.id = 0
+        self.mawbNumber = hub_name
+        self.destination = hub_name.replace("Custom Manifest ", "").replace("custom manifest ", "").strip()
+        self.airlineName = f"{self.destination} Customs Consolidation"
+        self.departureDate = datetime.utcnow()
+        self.flightNumber = "TBD"
+        self.timeOfArrival = "TBD"
+        self.dateOfArrival = None
+        self.documentPath = None
 
 def _fetch_mawb_shipments(mawb_query: str, db: Session) -> Tuple[Any, List[Dict[str, Any]]]:
     clean_q = mawb_query.strip()
@@ -188,13 +237,28 @@ def _fetch_mawb_shipments(mawb_query: str, db: Session) -> Tuple[Any, List[Dict[
     if not mawb:
         mawb = db.query(MAWB).filter(MAWB.mawbNumber.ilike(f"%{clean_q}%")).first()
 
-    if not mawb:
-        raise HTTPException(status_code=404, detail=f"MAWB '{mawb_query}' not found")
+    # Check if query matches a Custom Manifest Hub
+    hub_code = clean_q.replace("Custom Manifest ", "").replace("custom manifest ", "").replace("custom_manifest_", "").strip().upper()
+    hub_obj = db.query(CustomManifestHub).filter(
+        (CustomManifestHub.code.ilike(hub_code)) | (CustomManifestHub.name.ilike(f"%{clean_q}%"))
+    ).first()
+    matched_hub = hub_obj.code if hub_obj else hub_code
 
-    # Get all linked shipments
-    shipments = db.query(Shipment).filter(
-        (Shipment.mawbId == mawb.id) | (Shipment.enquiry.has(Enquiry.mawbId == mawb.id))
-    ).all()
+    conds = []
+    if mawb:
+        conds.append(Shipment.mawbId == mawb.id)
+        conds.append(Shipment.enquiry.has(Enquiry.mawbId == mawb.id))
+    if matched_hub:
+        conds.append(func.upper(Shipment.customManifestHub) == matched_hub)
+        conds.append(Shipment.customManifestHub.ilike(f"%{matched_hub}%"))
+
+    shipments = db.query(Shipment).filter(or_(*conds)).all() if conds else []
+
+    if not mawb and not shipments:
+        raise HTTPException(status_code=404, detail=f"No shipments or MAWB found for '{mawb_query}'")
+
+    if not mawb:
+        mawb = VirtualMAWB(f"Custom Manifest {matched_hub}")
 
     formatted_shipments = []
     for s in shipments:

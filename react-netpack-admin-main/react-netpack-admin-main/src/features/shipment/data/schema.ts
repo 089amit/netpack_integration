@@ -34,6 +34,7 @@ export const shipmentFormSchema = z.object({
   reciverName: z.string().optional(),
   senderOrganization: z.string().optional(),
   trackingMode: z.enum(['MANUAL', 'API']).default('MANUAL').optional(),
+  customManifestHub: z.string().nullable().optional(),
 })
 
 export type ShipmentForm = z.infer<typeof shipmentFormSchema>

@@ -75,12 +75,14 @@ def run_auto_migrations(target_engine):
                     pass
                 print(f"[Migration Warning] Enquiries column check: {e}")
 
-        # 1b. Add trackingMode to shipments table if needed
+        # 1b. Add trackingMode and customManifestHub to shipments table if needed
         if "shipments" in table_names:
             try:
                 existing_ship_cols = {col["name"] for col in inspector.get_columns("shipments")}
                 if "trackingMode" not in existing_ship_cols:
                     conn.execute(sa.text("ALTER TABLE shipments ADD COLUMN trackingMode VARCHAR(20) DEFAULT 'MANUAL'"))
+                if "customManifestHub" not in existing_ship_cols:
+                    conn.execute(sa.text("ALTER TABLE shipments ADD COLUMN customManifestHub VARCHAR(50)"))
                 conn.commit()
             except Exception as e:
                 try:
@@ -88,6 +90,61 @@ def run_auto_migrations(target_engine):
                 except Exception:
                     pass
                 print(f"[Migration Warning] Shipments column check: {e}")
+
+        # 1bb. Ensure custom_manifest_hubs table exists and is seeded
+        try:
+            is_sqlite = "sqlite" in DATABASE_URL
+            if "custom_manifest_hubs" not in table_names:
+                if is_sqlite:
+                    conn.execute(sa.text("""
+                        CREATE TABLE custom_manifest_hubs (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            code VARCHAR(50) UNIQUE NOT NULL,
+                            name VARCHAR(100),
+                            isActive BOOLEAN DEFAULT 1,
+                            createdAt TIMESTAMP,
+                            updatedAt TIMESTAMP
+                        )
+                    """))
+                else:
+                    conn.execute(sa.text("""
+                        CREATE TABLE IF NOT EXISTS custom_manifest_hubs (
+                            id SERIAL PRIMARY KEY,
+                            code VARCHAR(50) UNIQUE NOT NULL,
+                            name VARCHAR(100),
+                            "isActive" BOOLEAN DEFAULT TRUE,
+                            "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                conn.commit()
+
+            # Seed default hubs: AUS, LHR, DXB if missing
+            existing_hubs = set()
+            try:
+                hub_rows = conn.execute(sa.text("SELECT code FROM custom_manifest_hubs")).fetchall()
+                existing_hubs = {row[0].upper() for row in hub_rows if row[0]}
+            except Exception:
+                pass
+
+            default_hubs = [
+                ("AUS", "Australia Gateway"),
+                ("LHR", "London Heathrow Hub"),
+                ("DXB", "Dubai Hub")
+            ]
+            for hcode, hname in default_hubs:
+                if hcode not in existing_hubs:
+                    conn.execute(
+                        sa.text("INSERT INTO custom_manifest_hubs (code, name) VALUES (:c, :n)"),
+                        {"c": hcode, "n": hname}
+                    )
+            conn.commit()
+        except Exception as hub_err:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            print(f"[Migration Warning] Custom manifest hubs init: {hub_err}")
 
         # 1c. Add photoUrl to customers table if needed
         if "customers" in table_names:

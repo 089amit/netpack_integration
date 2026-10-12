@@ -20,3 +20,15 @@ class CustomsSetting(Base):
     key = Column(String(50), primary_key=True, index=True)
     value = Column(String(255), nullable=True)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CustomManifestHub(Base):
+    __tablename__ = "custom_manifest_hubs"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    code = Column(String(50), unique=True, nullable=False, index=True)  # e.g., "AUS", "LHR", "DXB"
+    name = Column(String(100), nullable=True)  # e.g., "Australia Hub", "London Heathrow", "Dubai Gateway"
+    isActive = Column(Boolean, default=True)
+    createdAt = Column(DateTime, default=datetime.utcnow)
+    updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+

@@ -74,9 +74,22 @@ export const SHIPMENT_ENDPOINT = {
   GET_AGENT_SHIPMENT_HAWBNO: (agentId: number | string, count: number = 1) =>
     `${BASE_URL}/shipments/getagentshipmentHAWBNO?agentId=${agentId}&count=${count}`,
   BULK_STATUS_CHANGE: `${BASE_URL}/shipments/bulk-status-change`,
+  BULK_ASSIGN_CUSTOM_MANIFEST: `${BASE_URL}/shipments/bulk-assign-custom-manifest`,
+  BULK_ASSIGN_MAWB: `${BASE_URL}/shipments/bulk-assign-mawb`,
   GET_BY_ID: (id: number | string) => `${BASE_URL}/shipments/getById/${id}`,
   BATCH_ADD_NOTE: `${BASE_URL}/shipments/batch-add-note`,
   BREAK_HAWB: (id: number | string) => `${BASE_URL}/shipments/${id}/break-hawb`,
+}
+
+export const CUSTOM_MANIFEST_ENDPOINTS = {
+  GET_HUBS: `${BASE_URL}/customs/hubs`,
+  CREATE_HUB: `${BASE_URL}/customs/hubs`,
+  GET_DATA: (mawbOrHub: string) =>
+    `${BASE_URL}/customs/mawb-data/${encodeURIComponent(mawbOrHub)}`,
+  PREVIEW_PARTS: `${BASE_URL}/customs/preview-parts`,
+  GENERATE: `${BASE_URL}/customs/generate`,
+  SETTINGS: `${BASE_URL}/customs/settings`,
+  CONSIGNEES: `${BASE_URL}/customs/consignees`,
 }
 
 // 👤 User Endpoints (example)

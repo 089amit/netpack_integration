@@ -37,6 +37,9 @@ interface DataTableProps<TData, TValue> {
   onSearchChange?: (query: string) => void
   statusFilter?: string[]
   onStatusChange?: (status: string[]) => void
+  customManifestFilter?: string
+  onCustomManifestChange?: (hub: string) => void
+  hubs?: { id: number; code: string; name: string }[]
 }
 
 export function DataTable<TData, TValue>({
@@ -50,6 +53,9 @@ export function DataTable<TData, TValue>({
   onSearchChange,
   statusFilter = [],
   onStatusChange,
+  customManifestFilter = '',
+  onCustomManifestChange,
+  hubs = [],
 }: DataTableProps<TData, TValue>) {
   console.log('Shipment DataTable data:', data)
   const [rowSelection, setRowSelection] = React.useState({})
@@ -122,6 +128,9 @@ export function DataTable<TData, TValue>({
         onSearchChange={onSearchChange}
         statusFilter={statusFilter}
         onStatusChange={onStatusChange}
+        customManifestFilter={customManifestFilter}
+        onCustomManifestChange={onCustomManifestChange}
+        hubs={hubs}
       />
       <div className='rounded-md border'>
         <Table>

@@ -136,6 +136,25 @@ export const columns: ColumnDef<ShipmentItem>[] = [
     },
   },
   {
+    accessorKey: 'customManifestHub',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Custom Manifest' />
+    ),
+    cell: ({ row }) => {
+      const hub = (row.original as any)?.customManifestHub
+      return hub ? (
+        <Badge
+          variant='outline'
+          className='bg-amber-50 text-amber-900 border-amber-300 font-bold dark:bg-amber-950 dark:text-amber-200'
+        >
+          {hub}
+        </Badge>
+      ) : (
+        <span className='text-muted-foreground text-xs'>—</span>
+      )
+    },
+  },
+  {
     accessorKey: 'mawbNumber',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='MAWB ' />

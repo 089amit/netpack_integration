@@ -4,16 +4,18 @@ import { useEffect, useState } from 'react'
 import { Pagination } from '@/type/pagination'
 import { ShipmentItem, Shipment } from '@/type/shipment'
 import http from '@/utils/http'
-import { SHIPMENT_ENDPOINT } from '@/constants/endpoint'
+import { SHIPMENT_ENDPOINT, CUSTOM_MANIFEST_ENDPOINTS } from '@/constants/endpoint'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { Search } from '@/components/search'
+import { Globe } from 'lucide-react'
 import { BulkNoteDialog } from './components/bulk-note-dialog'
 import { BulkStatusChangeDialog } from './components/bulk-shipment-status'
 import { columns } from './components/columns'
 import { DataTable } from './components/data-table'
 import { ShipmentMAWBModal } from './components/mawb-controller-dialog'
+import { CustomClearanceDialog, HubItem } from './components/custom-clearance-dialog'
 import { TasksDialogs } from './components/tasks-dialogs'
 import TasksProvider from './context/shipments-context'
 
@@ -24,6 +26,9 @@ export default function Shipments() {
   const [selectedShipments, setSelectedShipments] = useState<ShipmentItem[]>([])
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
+  const [customClearanceDialogOpen, setCustomClearanceDialogOpen] = useState(false)
+  const [customManifestFilter, setCustomManifestFilter] = useState('')
+  const [hubs, setHubs] = useState<HubItem[]>([])
 
   // Pagination state
   const [pagination, setPagination] = useState<Pagination>({
@@ -62,6 +67,22 @@ export default function Shipments() {
     }
   }
 
+  // Load hubs on mount
+  const fetchHubs = async () => {
+    try {
+      const res = await http.get<HubItem[]>(CUSTOM_MANIFEST_ENDPOINTS.GET_HUBS)
+      if (Array.isArray(res)) {
+        setHubs(res)
+      }
+    } catch (err) {
+      console.error('Failed to load custom manifest hubs:', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchHubs()
+  }, [])
+
   // Debounced search effect
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -75,7 +96,8 @@ export default function Shipments() {
     currentPage = pagination.page,
     currentLimit = pagination.limit,
     search = debouncedSearchQuery,
-    status = statusFilter
+    status = statusFilter,
+    customManifest = customManifestFilter
   ) => {
     setLoading(true)
     try {
@@ -93,6 +115,11 @@ export default function Shipments() {
       // Add status parameter if provided
       if (status.length > 0) {
         params.append('status', status.join(','))
+      }
+
+      // Add custom manifest hub parameter if provided
+      if (customManifest && customManifest.trim()) {
+        params.append('customManifestHub', customManifest.trim())
       }
 
       const result = await http.get<{
@@ -190,6 +217,7 @@ export default function Shipments() {
           totalParts: shipment.totalParts || 1,
           customerName: shipment.customerName || '',
           customer: shipment.customer || null,
+          customManifestHub: shipment.customManifestHub || '',
           weight:
             shipment.weight ||
             (Array.isArray(shipment.boxes)
@@ -220,7 +248,7 @@ export default function Shipments() {
     if (searchQuery !== debouncedSearchQuery) return
 
     fetchShipments()
-  }, [pagination.page, pagination.limit, debouncedSearchQuery, statusFilter]) // fetch when these change
+  }, [pagination.page, pagination.limit, debouncedSearchQuery, statusFilter, customManifestFilter]) // fetch when these change
 
   const handleRowSelectionChange = (selectedRows: ShipmentItem[]) => {
     setSelectedShipments(selectedRows)
@@ -228,6 +256,17 @@ export default function Shipments() {
 
   const handleMAWBSelect = (selectedMawb: any) => {
     console.log('Selected MAWB:', selectedMawb)
+    fetchShipments(pagination.page, pagination.limit)
+    setSelectedShipments([])
+  }
+
+  const handleCustomManifestChange = (hub: string) => {
+    setCustomManifestFilter(hub)
+    setPagination((prev) => ({
+      ...prev,
+      page: 1,
+    }))
+    setSelectedShipments([])
   }
 
   // Handle search change
@@ -284,7 +323,15 @@ export default function Shipments() {
         </div>
 
         {selectedShipments.length > 0 && (
-          <div className='mb-4 flex gap-2'>
+          <div className='mb-4 flex flex-wrap gap-2'>
+            <Button
+              variant='default'
+              className='bg-amber-600 hover:bg-amber-700 text-white gap-1.5'
+              onClick={() => setCustomClearanceDialogOpen(true)}
+            >
+              <Globe className='h-4 w-4' />
+              Custom Clearance ({selectedShipments.length})
+            </Button>
             <ShipmentMAWBModal
               selectedShipments={selectedShipments}
               onCreate={handleMAWBSelect}
@@ -308,9 +355,23 @@ export default function Shipments() {
             onSearchChange={handleSearchChange}
             statusFilter={statusFilter}
             onStatusChange={handleStatusChange}
+            customManifestFilter={customManifestFilter}
+            onCustomManifestChange={handleCustomManifestChange}
+            hubs={hubs}
           />
         </div>
       </Main>
+
+      <CustomClearanceDialog
+        open={customClearanceDialogOpen}
+        onClose={() => setCustomClearanceDialogOpen(false)}
+        selectedShipments={selectedShipments}
+        onSuccess={() => {
+          fetchShipments(pagination.page, pagination.limit)
+          setSelectedShipments([])
+          fetchHubs()
+        }}
+      />
 
       <BulkStatusChangeDialog
         open={bulkDialogOpen}

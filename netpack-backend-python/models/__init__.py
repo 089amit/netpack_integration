@@ -7,7 +7,7 @@ from models.enquiry import Enquiry, EnquiryItem, Box, BoxItem, PickupLocationEnq
 from models.shipment import Shipment, ShipmentPickUpLocation, TransitPoint, TrackingEvent
 from models.rate import Rate, TIACharge, CustomCharge, PackingCharge
 from models.policy import TermsAndPolicy
-from models.customs_consignee import CustomsConsignee, CustomsSetting
+from models.customs_consignee import CustomsConsignee, CustomsSetting, CustomManifestHub
 from models.website_content import WebsiteContent
 
 __all__ = [
@@ -41,5 +41,6 @@ __all__ = [
     "TermsAndPolicy",
     "CustomsConsignee",
     "CustomsSetting",
+    "CustomManifestHub",
     "WebsiteContent",
 ]

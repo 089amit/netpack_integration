@@ -62,6 +62,26 @@ class ShipmentUpdateRequest(BaseModel):
     serviceName: Optional[str] = None
     reciverName: Optional[str] = None
     trackingMode: Optional[str] = None
+    customManifestHub: Optional[str] = None
+
+    class Config:
+        extra = "allow"
+
+class BulkAssignCustomManifestRequest(BaseModel):
+    shipmentIds: Optional[List[Any]] = None
+    id: Optional[List[Any]] = None
+    ids: Optional[List[Any]] = None
+    customManifestHub: str
+
+    class Config:
+        extra = "allow"
+
+class BulkAssignMawbRequest(BaseModel):
+    shipmentIds: Optional[List[Any]] = None
+    id: Optional[List[Any]] = None
+    ids: Optional[List[Any]] = None
+    mawbId: Optional[Any] = None
+    mawbNumber: Optional[str] = None
 
     class Config:
         extra = "allow"

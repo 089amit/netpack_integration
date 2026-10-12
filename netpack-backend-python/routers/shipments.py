@@ -16,7 +16,9 @@ from schemas.shipment import (
     BatchAddNoteRequest,
     ShipmentStatusUpdateRequest,
     AssignAgentRequest,
-    ShipmentUpdateRequest
+    ShipmentUpdateRequest,
+    BulkAssignCustomManifestRequest,
+    BulkAssignMawbRequest
 )
 from services.hawb_service import compute_next_hawb_for_agent
 from services.email_service import send_shipment_delivery_notification
@@ -266,6 +268,7 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
         "hawbNumber": s.hawbno or "",
         "note": s.note or "",
         "trackingMode": getattr(s, "trackingMode", "MANUAL") or "MANUAL",
+        "customManifestHub": getattr(s, "customManifestHub", None) or "",
         "createdAt": s.createdAt.isoformat() if s.createdAt else None,
         "updatedAt": s.updatedAt.isoformat() if s.updatedAt else None,
 
@@ -339,6 +342,7 @@ def get_all_shipments(
     limit: int = Query(10, ge=1),
     status: Optional[str] = None,
     search: Optional[str] = None,
+    customManifestHub: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(Shipment)
@@ -350,6 +354,13 @@ def get_all_shipments(
         elif len(status_list) > 1:
             query = query.filter(func.upper(Shipment.status).in_(status_list))
 
+    if customManifestHub and customManifestHub.strip():
+        chub = customManifestHub.strip().upper()
+        if chub == "UNASSIGNED":
+            query = query.filter((Shipment.customManifestHub == None) | (Shipment.customManifestHub == ""))
+        else:
+            query = query.filter(func.upper(Shipment.customManifestHub) == chub)
+
     if search:
         term = search.strip()
         s = f"%{term}%"
@@ -358,6 +369,7 @@ def get_all_shipments(
             Shipment.forwardingNumber.ilike(s),
             Shipment.agent.ilike(s),
             Shipment.note.ilike(s),
+            Shipment.customManifestHub.ilike(s),
             Enquiry.trackingNumber.ilike(s),
             Enquiry.senderName.ilike(s),
             Enquiry.receiverName.ilike(s),
@@ -780,6 +792,10 @@ def update_shipment(id: int, payload: ShipmentUpdateRequest, db: Session = Depen
     if payload.reciverName and s.enquiry:
         s.enquiry.receiverName = payload.reciverName
 
+    if payload.customManifestHub is not None:
+        raw_hub = payload.customManifestHub.strip().upper()
+        s.customManifestHub = raw_hub if (raw_hub and raw_hub != "NONE") else None
+
     # Auto tracking mode: API if valid MAWB or forwarding number is provided, else MANUAL
     has_valid_mawb = bool(
         s.mawb and s.mawb.mawbNumber and
@@ -914,6 +930,72 @@ def bulk_update_status(
             updated_count += 1
     db.commit()
     return {"message": f"{updated_count} shipments status updated successfully"}
+
+@router.post("/bulk-assign-custom-manifest")
+def bulk_assign_custom_manifest(
+    payload: BulkAssignCustomManifestRequest,
+    db: Session = Depends(get_db)
+):
+    raw_ids = payload.shipmentIds or payload.id or payload.ids or []
+    hub_code = payload.customManifestHub.strip().upper() if payload.customManifestHub else ""
+    updated_count = 0
+    for raw_id in raw_ids:
+        try:
+            sid = int(raw_id)
+        except (ValueError, TypeError):
+            continue
+        s = db.query(Shipment).filter(Shipment.id == sid).first()
+        if s:
+            s.customManifestHub = hub_code if (hub_code and hub_code != "NONE") else None
+            updated_count += 1
+    db.commit()
+    target_str = hub_code if (hub_code and hub_code != "NONE") else "Unassigned"
+    return {"message": f"{updated_count} shipments assigned to Custom Manifest Hub '{target_str}' successfully", "updatedCount": updated_count}
+
+@router.post("/bulk-assign-mawb")
+def bulk_assign_mawb(
+    payload: BulkAssignMawbRequest,
+    db: Session = Depends(get_db)
+):
+    raw_ids = payload.shipmentIds or payload.id or payload.ids or []
+    mawb = None
+    if payload.mawbId:
+        try:
+            mid = int(payload.mawbId)
+            mawb = db.query(MAWB).filter(MAWB.id == mid).first()
+        except (ValueError, TypeError):
+            pass
+    if not mawb and payload.mawbNumber and payload.mawbNumber.strip():
+        clean_no = payload.mawbNumber.strip()
+        mawb = db.query(MAWB).filter(MAWB.mawbNumber.ilike(clean_no)).first()
+        if not mawb:
+            mawb = MAWB(mawbNumber=clean_no, destination="International", departureDate=datetime.utcnow())
+            db.add(mawb)
+            db.flush()
+
+    if not mawb and (payload.mawbId or payload.mawbNumber):
+        raise HTTPException(status_code=404, detail="Specified MAWB not found")
+
+    target_mawb_id = mawb.id if mawb else None
+    updated_count = 0
+    for raw_id in raw_ids:
+        try:
+            sid = int(raw_id)
+        except (ValueError, TypeError):
+            continue
+        s = db.query(Shipment).filter(Shipment.id == sid).first()
+        if s:
+            s.mawbId = target_mawb_id
+            if s.enquiry:
+                s.enquiry.mawbId = target_mawb_id
+            if mawb and "custom" not in (mawb.mawbNumber or "").lower() and "manifest" not in (mawb.mawbNumber or "").lower():
+                s.trackingMode = "API"
+                if s.enquiry:
+                    s.enquiry.trackingMode = "API"
+            updated_count += 1
+    db.commit()
+    target_str = mawb.mawbNumber if mawb else "None"
+    return {"message": f"{updated_count} shipments linked to Airline MAWB '{target_str}' successfully", "updatedCount": updated_count}
 
 @router.post("/batch-add-note")
 def batch_add_note(payload: BatchAddNoteRequest, db: Session = Depends(get_db)):

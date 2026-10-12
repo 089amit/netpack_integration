@@ -35,6 +35,7 @@ export type Shipment = {
   forwardingNumber?: string
   note?: string
   trackingNumber?: string | null
+  customManifestHub?: string | null
 }
 
 export type ShipmentTableRow = {
@@ -98,6 +99,7 @@ export interface ShipmentItem {
   customerName?: string
   customer?: any
   weight?: number
+  customManifestHub?: string | null
 }
 
 export type ShipmentStatus =

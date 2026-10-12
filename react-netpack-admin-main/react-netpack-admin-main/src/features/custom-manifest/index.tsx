@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import http from '@/utils/http'
-import { BASE_URL, MAWB_ENDPOINTS } from '@/constants/endpoint'
+import { BASE_URL, MAWB_ENDPOINTS, CUSTOM_MANIFEST_ENDPOINTS } from '@/constants/endpoint'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -146,6 +146,15 @@ export default function CustomManifestPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
+  // Clearance Hub vs MAWB mode
+  const [selectionMode, setSelectionMode] = useState<'hub' | 'mawb'>('hub')
+  const [hubs, setHubs] = useState<{ id: number; code: string; name: string }[]>([])
+  const [selectedHub, setSelectedHub] = useState<string>('')
+  const [isAddHubOpen, setIsAddHubOpen] = useState(false)
+  const [newHubCode, setNewHubCode] = useState('')
+  const [newHubName, setNewHubName] = useState('')
+  const [isSubmittingHub, setIsSubmittingHub] = useState(false)
+
   // MAWB Data
   const [mawbDetails, setMawbDetails] = useState<any>(null)
   const [shipments, setShipments] = useState<ShipmentData[]>([])
@@ -189,14 +198,37 @@ export default function CustomManifestPage() {
   // Search & Filter in WT-Box table
   const [tableSearch, setTableSearch] = useState<string>('')
 
-  // Load Initial Settings & Consignees & MAWBs
+  // Fetch clearance hubs
+  const fetchHubs = async () => {
+    try {
+      const res: any = await http.get(CUSTOM_MANIFEST_ENDPOINTS.GET_HUBS)
+      const list = Array.isArray(res) ? res : []
+      setHubs(list)
+      return list
+    } catch (e) {
+      console.error('Failed to load custom manifest hubs', e)
+      const fallback = [
+        { id: 1, code: 'AUS', name: 'Australia Gateway' },
+        { id: 2, code: 'LHR', name: 'London Heathrow Hub' },
+        { id: 3, code: 'DXB', name: 'Dubai Hub' },
+      ]
+      setHubs(fallback)
+      return fallback
+    }
+  }
+
+  // Load Initial Settings & Consignees & Hubs & MAWBs
   useEffect(() => {
-    fetchMawbs()
-    fetchSettings()
-    fetchConsignees()
+    const initData = async () => {
+      fetchSettings()
+      fetchConsignees()
+      const loadedHubs = await fetchHubs()
+      await fetchMawbs(loadedHubs)
+    }
+    initData()
   }, [])
 
-  const fetchMawbs = async () => {
+  const fetchMawbs = async (availableHubs?: { id: number; code: string; name: string }[]) => {
     try {
       const res: any = await http.get(`${MAWB_ENDPOINTS.GET_ALL_MAWBS}?limit=200`)
       const list = res?.data || (Array.isArray(res) ? res : [])
@@ -209,31 +241,104 @@ export default function CustomManifestPage() {
         flightNumber: m.flightNumber,
       }))
       setMawbs(mapped)
-      if (mapped.length > 0) {
-        // Check URL search parameter ?mawb=... or localStorage fallback
-        const urlParams = new URLSearchParams(window.location.search)
-        const targetParam = urlParams.get('mawb') || localStorage.getItem('netpack_selected_custom_mawb')
-        if (localStorage.getItem('netpack_selected_custom_mawb')) {
-          localStorage.removeItem('netpack_selected_custom_mawb')
-        }
-        const matchedFromUrl = targetParam
-          ? mapped.find((m: any) => String(m.mawbNumber) === String(targetParam) || String(m.id) === String(targetParam))
-          : null
 
-        setSelectedMawb((prev) => {
-          if (matchedFromUrl) {
-            loadMawbData(matchedFromUrl.mawbNumber)
-            return matchedFromUrl.mawbNumber
-          }
-          const currentValid = mapped.some((m: any) => m.mawbNumber === prev)
-          const target = currentValid && prev ? prev : mapped[0].mawbNumber
-          loadMawbData(target)
-          return target
-        })
+      const urlParams = new URLSearchParams(window.location.search)
+      const hubParam = urlParams.get('hub') || urlParams.get('customManifestHub')
+      const targetParam = urlParams.get('mawb') || localStorage.getItem('netpack_selected_custom_mawb')
+      if (localStorage.getItem('netpack_selected_custom_mawb')) {
+        localStorage.removeItem('netpack_selected_custom_mawb')
       }
 
+      if (hubParam) {
+        setSelectionMode('hub')
+        setSelectedHub(hubParam.toUpperCase())
+        setSelectedMawb(hubParam.toUpperCase())
+        loadMawbData(hubParam.toUpperCase())
+        return
+      }
+
+      const activeHubs = availableHubs || hubs
+      if (targetParam) {
+        const cleanTarget = targetParam.replace(/custom manifest /i, '').trim().toUpperCase()
+        const matchedHub = activeHubs.find((h) => h.code.toUpperCase() === cleanTarget)
+        if (matchedHub) {
+          setSelectionMode('hub')
+          setSelectedHub(matchedHub.code)
+          setSelectedMawb(matchedHub.code)
+          loadMawbData(matchedHub.code)
+          return
+        }
+
+        const matchedMawb = mapped.find(
+          (m: any) => String(m.mawbNumber) === String(targetParam) || String(m.id) === String(targetParam)
+        )
+        if (matchedMawb) {
+          setSelectionMode('mawb')
+          setSelectedMawb(matchedMawb.mawbNumber)
+          loadMawbData(matchedMawb.mawbNumber)
+          return
+        }
+      }
+
+      // Default: Hub mode with first hub if available
+      if (activeHubs.length > 0) {
+        setSelectionMode('hub')
+        const firstHub = activeHubs[0].code
+        setSelectedHub(firstHub)
+        setSelectedMawb(firstHub)
+        loadMawbData(firstHub)
+      } else if (mapped.length > 0) {
+        setSelectionMode('mawb')
+        setSelectedMawb(mapped[0].mawbNumber)
+        loadMawbData(mapped[0].mawbNumber)
+      }
     } catch (e) {
       console.error('Failed to load MAWBs', e)
+    }
+  }
+
+  const handleModeChange = (mode: 'hub' | 'mawb') => {
+    setSelectionMode(mode)
+    if (mode === 'hub') {
+      const target = selectedHub || (hubs[0]?.code ?? 'AUS')
+      setSelectedHub(target)
+      setSelectedMawb(target)
+      if (target) loadMawbData(target)
+    } else {
+      const target =
+        (mawbs.some((m) => m.mawbNumber === selectedMawb) ? selectedMawb : '') ||
+        (mawbs[0]?.mawbNumber ?? '')
+      setSelectedMawb(target)
+      if (target) loadMawbData(target)
+    }
+  }
+
+  const handleAddHub = async () => {
+    const code = newHubCode.trim().toUpperCase()
+    if (!code) {
+      setError('Please enter a hub code (e.g. AUS, FRA, USA)')
+      return
+    }
+    setIsSubmittingHub(true)
+    setError(null)
+    try {
+      const res: any = await http.post(CUSTOM_MANIFEST_ENDPOINTS.CREATE_HUB, {
+        code,
+        name: newHubName.trim() || `${code} Hub`,
+      })
+      if (res) {
+        setSuccessMsg(`Custom Manifest Hub ${code} created successfully!`)
+        setIsAddHubOpen(false)
+        setNewHubCode('')
+        await fetchHubs()
+        setSelectedHub(code)
+        setSelectedMawb(code)
+        loadMawbData(code)
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Failed to add custom manifest hub')
+    } finally {
+      setIsSubmittingHub(false)
     }
   }
 
@@ -626,42 +731,105 @@ export default function CustomManifestPage() {
           </div>
         )}
 
-        {/* ── Top Bar: MAWB Selector & Reload ───────────────────────────── */}
+        {/* ── Top Bar: Custom Manifest Hub vs Airline MAWB Selector ───────────── */}
         <Card className='border-primary/20 bg-muted/20 shadow-sm'>
           <CardContent className='flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4'>
             <div className='flex flex-wrap items-center gap-3'>
-              <div className='flex items-center gap-2 shrink-0'>
-                <Plane className='h-5 w-5 text-primary' />
-                <span className='text-sm font-bold'>Select MAWB:</span>
+              {/* Mode Toggle Buttons: [ 🏛️ Custom Manifest Hub ] [ ✈️ Airline MAWB ] */}
+              <div className='flex items-center rounded-lg border bg-background p-0.5 shadow-xs'>
+                <Button
+                  type='button'
+                  size='sm'
+                  variant={selectionMode === 'hub' ? 'default' : 'ghost'}
+                  className='h-8 text-xs font-semibold gap-1.5'
+                  onClick={() => handleModeChange('hub')}
+                >
+                  <Building2 className='h-3.5 w-3.5' />
+                  Custom Manifest Hub
+                </Button>
+                <Button
+                  type='button'
+                  size='sm'
+                  variant={selectionMode === 'mawb' ? 'default' : 'ghost'}
+                  className='h-8 text-xs font-semibold gap-1.5'
+                  onClick={() => handleModeChange('mawb')}
+                >
+                  <Plane className='h-3.5 w-3.5' />
+                  Airline MAWB
+                </Button>
               </div>
-              <select
-                value={selectedMawb}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setSelectedMawb(val)
-                  if (val) loadMawbData(val)
-                }}
-                className='h-9 min-w-[280px] sm:min-w-[340px] rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer'
-              >
-                {mawbs.length === 0 ? (
-                  <option value=''>No MAWBs found</option>
-                ) : (
-                  <>
-                    {!selectedMawb && <option value=''>-- Select a MAWB --</option>}
-                    {mawbs.map((m) => (
-                      <option key={m.id} value={m.mawbNumber}>
-                        {m.mawbNumber} {m.destination ? `(${m.destination})` : ''} {m.airlineName ? `• ${m.airlineName}` : ''}
-                      </option>
-                    ))}
-                  </>
-                )}
-              </select>
+
+              {selectionMode === 'hub' ? (
+                /* Hub dropdown + '+' Button */
+                <div className='flex items-center gap-1.5'>
+                  <select
+                    value={selectedHub}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setSelectedHub(val)
+                      setSelectedMawb(val)
+                      if (val) loadMawbData(val)
+                    }}
+                    className='h-9 min-w-[220px] sm:min-w-[260px] rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer'
+                  >
+                    {hubs.length === 0 ? (
+                      <option value=''>No clearance hubs found</option>
+                    ) : (
+                      <>
+                        {!selectedHub && <option value=''>-- Select Custom Manifest Hub --</option>}
+                        {hubs.map((h) => (
+                          <option key={h.id} value={h.code}>
+                            Custom Manifest {h.code} {h.name && h.name !== h.code ? `(${h.name})` : ''}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='h-9 px-2.5 gap-1 border-dashed text-primary font-medium hover:bg-primary/10 shadow-sm'
+                    onClick={() => setIsAddHubOpen(true)}
+                    title='Add new clearance hub'
+                  >
+                    <Plus className='h-4 w-4' />
+                    <span>Hub</span>
+                  </Button>
+                </div>
+              ) : (
+                /* Airline MAWB dropdown */
+                <select
+                  value={selectedMawb}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setSelectedMawb(val)
+                    if (val) loadMawbData(val)
+                  }}
+                  className='h-9 min-w-[260px] sm:min-w-[320px] rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer'
+                >
+                  {mawbs.length === 0 ? (
+                    <option value=''>No MAWBs found</option>
+                  ) : (
+                    <>
+                      {!selectedMawb && <option value=''>-- Select a MAWB --</option>}
+                      {mawbs.map((m) => (
+                        <option key={m.id} value={m.mawbNumber}>
+                          {m.mawbNumber} {m.destination ? `(${m.destination})` : ''} {m.airlineName ? `• ${m.airlineName}` : ''}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+              )}
+
               <Button
                 variant='outline'
                 size='sm'
                 onClick={() => {
+                  fetchHubs()
                   fetchMawbs()
-                  if (selectedMawb) loadMawbData(selectedMawb)
+                  const activeTarget = selectionMode === 'hub' ? selectedHub : selectedMawb
+                  if (activeTarget) loadMawbData(activeTarget)
                 }}
                 disabled={loading}
                 className='gap-1.5 shadow-sm'
@@ -674,14 +842,19 @@ export default function CustomManifestPage() {
             {mawbDetails && (
               <div className='flex flex-wrap items-center gap-2 text-xs'>
                 <Badge variant='outline' className='bg-background font-medium px-2.5 py-1'>
-                  Airline: <span className='ml-1 font-bold text-foreground'>{mawbDetails.airlineName || 'N/A'}</span>
+                  {selectionMode === 'hub' ? 'Clearance Hub:' : 'Airline:'}{' '}
+                  <span className='ml-1 font-bold text-foreground'>{mawbDetails.airlineName || mawbDetails.destination || 'N/A'}</span>
                 </Badge>
-                <Badge variant='outline' className='bg-background font-medium px-2.5 py-1'>
-                  Flight: <span className='ml-1 font-bold text-foreground'>{mawbDetails.flightNumber || 'N/A'}</span>
-                </Badge>
-                <Badge variant='outline' className='bg-background font-medium px-2.5 py-1'>
-                  Departure: <span className='ml-1 font-bold text-foreground'>{mawbDetails.flightDate ? new Date(mawbDetails.flightDate).toLocaleDateString() : 'N/A'}</span>
-                </Badge>
+                {selectionMode === 'mawb' && mawbDetails.flightNumber && (
+                  <Badge variant='outline' className='bg-background font-medium px-2.5 py-1'>
+                    Flight: <span className='ml-1 font-bold text-foreground'>{mawbDetails.flightNumber}</span>
+                  </Badge>
+                )}
+                {selectionMode === 'hub' && (
+                  <Badge variant='outline' className='bg-background font-medium px-2.5 py-1 text-amber-700 border-amber-300 dark:text-amber-400'>
+                    Type: <span className='ml-1 font-bold'>Custom Manifest Hub</span>
+                  </Badge>
+                )}
                 <Badge variant='outline' className='bg-background font-medium px-2.5 py-1'>
                   Destination: <span className='ml-1 font-bold text-foreground'>{mawbDetails.destination || 'N/A'}</span>
                 </Badge>
@@ -689,6 +862,47 @@ export default function CustomManifestPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Add Hub Dialog */}
+        <Dialog open={isAddHubOpen} onOpenChange={setIsAddHubOpen}>
+          <DialogContent className='sm:max-w-[425px]'>
+            <DialogHeader>
+              <DialogTitle className='flex items-center gap-2'>
+                <Plus className='h-5 w-5 text-primary' /> Add Custom Manifest Hub
+              </DialogTitle>
+              <DialogDescription>
+                Create a new customs clearance destination hub (e.g. AUS, LHR, DXB, FRA, USA).
+              </DialogDescription>
+            </DialogHeader>
+            <div className='grid gap-4 py-3'>
+              <div className='grid gap-2'>
+                <label className='text-sm font-medium'>Hub Code *</label>
+                <Input
+                  placeholder='e.g. FRA, JFK, CDG'
+                  value={newHubCode}
+                  onChange={(e) => setNewHubCode(e.target.value.toUpperCase())}
+                  className='uppercase font-semibold tracking-wider'
+                />
+              </div>
+              <div className='grid gap-2'>
+                <label className='text-sm font-medium'>Hub Name / Description</label>
+                <Input
+                  placeholder='e.g. Frankfurt Gateway Hub'
+                  value={newHubName}
+                  onChange={(e) => setNewHubName(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant='outline' onClick={() => setIsAddHubOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddHub} disabled={!newHubCode.trim() || isSubmittingHub}>
+                {isSubmittingHub ? 'Adding...' : 'Create Hub'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* ── KPI Summary Cards ────────────────────────────────────────── */}
         <div className='grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5'>

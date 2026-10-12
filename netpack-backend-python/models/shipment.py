@@ -21,6 +21,7 @@ class Shipment(Base):
     hawbno = Column(String(100), nullable=True, index=True)
     note = Column(String(1000), nullable=True)
     trackingMode = Column(String(20), default="MANUAL")  # MANUAL or API
+    customManifestHub = Column(String(50), nullable=True, index=True)  # e.g. "AUS", "LHR", "DXB"
 
     createdAt = Column(DateTime, default=datetime.utcnow)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
