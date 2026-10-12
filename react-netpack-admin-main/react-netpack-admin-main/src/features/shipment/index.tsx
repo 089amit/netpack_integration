@@ -45,6 +45,7 @@ export default function Shipments() {
       const ids = selectedShipments.map((s) => Number(s.id))
       await http.post(SHIPMENT_ENDPOINT.BULK_STATUS_CHANGE, { id: ids, status }) // adjust endpoint
       fetchShipments(pagination.page, pagination.limit) // refresh table
+      setSelectedShipments([])
     } catch (err) {
       console.error('Bulk status change failed:', err)
     }

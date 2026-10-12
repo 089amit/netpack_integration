@@ -11,6 +11,8 @@ class BulkShipmentsFromEnquiriesRequest(BaseModel):
 class BulkStatusChangeRequest(BaseModel):
     shipmentIds: Optional[List[Any]] = None
     id: Optional[List[Any]] = None
+    ids: Optional[List[Any]] = None
+    shipment_ids: Optional[List[Any]] = None
     status: str
 
     class Config:
@@ -19,6 +21,8 @@ class BulkStatusChangeRequest(BaseModel):
 class BatchAddNoteRequest(BaseModel):
     shipmentIds: Optional[List[Any]] = None
     id: Optional[List[Any]] = None
+    ids: Optional[List[Any]] = None
+    shipment_ids: Optional[List[Any]] = None
     note: str
 
     class Config:

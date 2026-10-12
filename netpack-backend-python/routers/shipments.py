@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel
 from datetime import datetime
@@ -344,22 +344,36 @@ def get_all_shipments(
     query = db.query(Shipment)
 
     if status:
-        status_list = [st.strip() for st in status.split(",") if st.strip()]
+        status_list = [st.strip().upper() for st in status.split(",") if st.strip()]
         if len(status_list) == 1:
-            query = query.filter(Shipment.status == status_list[0])
+            query = query.filter(func.upper(Shipment.status) == status_list[0])
         elif len(status_list) > 1:
-            query = query.filter(Shipment.status.in_(status_list))
+            query = query.filter(func.upper(Shipment.status).in_(status_list))
 
     if search:
-        s = f"%{search}%"
-        query = query.join(Shipment.enquiry, isouter=True).filter(
-            (Shipment.hawbno.ilike(s)) |
-            (Shipment.forwardingNumber.ilike(s)) |
-            (Shipment.agent.ilike(s)) |
-            (Enquiry.senderName.ilike(s)) |
-            (Enquiry.receiverName.ilike(s)) |
-            (Enquiry.receiverCountry.ilike(s))
-        )
+        term = search.strip()
+        s = f"%{term}%"
+        search_filters = [
+            Shipment.hawbno.ilike(s),
+            Shipment.forwardingNumber.ilike(s),
+            Shipment.agent.ilike(s),
+            Shipment.note.ilike(s),
+            Enquiry.trackingNumber.ilike(s),
+            Enquiry.senderName.ilike(s),
+            Enquiry.receiverName.ilike(s),
+            Enquiry.receiverCountry.ilike(s),
+            Enquiry.senderPhone.ilike(s),
+            Enquiry.receiverTelephone.ilike(s),
+            Customer.name.ilike(s),
+            Customer.organizationName.ilike(s),
+            Customer.phone.ilike(s),
+            Customer.email.ilike(s),
+            MAWB.mawbNumber.ilike(s)
+        ]
+        if term.isdigit():
+            search_filters.append(Shipment.id == int(term))
+            search_filters.append(Shipment.agentShipmentNumber == int(term))
+        query = query.outerjoin(Shipment.enquiry).outerjoin(Shipment.customer).outerjoin(Shipment.mawb).filter(or_(*search_filters))
 
     total_records = query.count()
     total_pages = (total_records + limit - 1) // limit if limit > 0 else 1
@@ -809,7 +823,10 @@ def update_shipment_status(
                         isRead=False
                     ))
                 if payload.status == "DELIVERED":
-                    send_shipment_delivery_notification(e, background_tasks)
+                    try:
+                        send_shipment_delivery_notification(e, background_tasks)
+                    except Exception as mail_err:
+                        print(f"[Delivery Email Error] {mail_err}")
                 db.commit()
                 return {"message": "Enquiry status updated successfully", "status": e.status, "note": getattr(e, "note", None)}
     if not s:
@@ -822,16 +839,22 @@ def update_shipment_status(
     tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or s.forwardingNumber or f"NET-{s.id}"
 
     if cust_id:
-        db.add(Notification(
-            title=f"Shipment Status: {payload.status}",
-            body=f"Your consignment {tr_no} is now {payload.status}.",
-            customerId=cust_id,
-            scope="SPECIFIC_CUSTOMER",
-            isRead=False
-        ))
+        try:
+            db.add(Notification(
+                title=f"Shipment Status: {payload.status}",
+                body=f"Your consignment {tr_no} is now {payload.status}.",
+                customerId=cust_id,
+                scope="SPECIFIC_CUSTOMER",
+                isRead=False
+            ))
+        except Exception as notif_err:
+            print(f"[Notification Error] {notif_err}")
 
     if payload.status == "DELIVERED":
-        send_shipment_delivery_notification(s, background_tasks)
+        try:
+            send_shipment_delivery_notification(s, background_tasks)
+        except Exception as mail_err:
+            print(f"[Delivery Email Error] {mail_err}")
 
     if payload.note and payload.note.strip():
         clean_note = payload.note.strip()
@@ -858,7 +881,7 @@ def bulk_update_status(
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
-    raw_ids = payload.shipmentIds or payload.id or []
+    raw_ids = payload.shipmentIds or payload.id or payload.ids or getattr(payload, "shipment_ids", None) or []
     updated_count = 0
     for raw_id in raw_ids:
         try:
@@ -871,24 +894,30 @@ def bulk_update_status(
             if s.enquiry:
                 s.enquiry.status = payload.status
             cust_id = s.customerId or (s.enquiry.customerId if s.enquiry else None)
-            tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or f"NET-{s.id}"
+            tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or s.forwardingNumber or f"NET-{s.id}"
             if cust_id:
-                db.add(Notification(
-                    title=f"Shipment Status: {payload.status}",
-                    body=f"Your consignment {tr_no} is now {payload.status}.",
-                    customerId=cust_id,
-                    scope="SPECIFIC_CUSTOMER",
-                    isRead=False
-                ))
+                try:
+                    db.add(Notification(
+                        title=f"Shipment Status: {payload.status}",
+                        body=f"Your consignment {tr_no} is now {payload.status}.",
+                        customerId=cust_id,
+                        scope="SPECIFIC_CUSTOMER",
+                        isRead=False
+                    ))
+                except Exception as notif_err:
+                    print(f"[Bulk Notification Error] {notif_err}")
             if payload.status == "DELIVERED":
-                send_shipment_delivery_notification(s, background_tasks)
+                try:
+                    send_shipment_delivery_notification(s, background_tasks)
+                except Exception as mail_err:
+                    print(f"[Bulk Delivery Email Error] {mail_err}")
             updated_count += 1
     db.commit()
     return {"message": f"{updated_count} shipments status updated successfully"}
 
 @router.post("/batch-add-note")
 def batch_add_note(payload: BatchAddNoteRequest, db: Session = Depends(get_db)):
-    raw_ids = payload.shipmentIds or payload.id or []
+    raw_ids = payload.shipmentIds or payload.id or payload.ids or getattr(payload, "shipment_ids", None) or []
     updated_count = 0
     for raw_id in raw_ids:
         try:
