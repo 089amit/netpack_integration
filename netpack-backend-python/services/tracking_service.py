@@ -423,6 +423,9 @@ class TrackingRegistry:
 
         # 1. Enquiry Generated (with time & date)
         created_at = (enquiry.createdAt if enquiry else None) or (shipment.createdAt if shipment else None) or datetime.utcnow()
+        if hasattr(created_at, "tzinfo") and created_at.tzinfo is not None:
+            created_at = created_at.replace(tzinfo=None)
+
         checkpoints.append(TrackingCheckpoint(
             timestamp=created_at,
             location="Kathmandu, Nepal",
@@ -432,28 +435,20 @@ class TrackingRegistry:
             source="INTERNAL"
         ))
 
-        # Tracking mode & conditional milestone parameters:
-        # Per flowchart:
-        # "Auto if Mawb and Forwarding no is there -> BY API"
-        # "If Mawb is custom Manifest or not provided -> MANUAL"
+        # Tracking mode:
+        # Per requirement & flowchart:
+        # If a valid MAWB number or carrier/forwarding number is provided -> API mode
+        # If it's not provided (or MAWB is a custom manifest without forwarding number) -> MANUAL mode
         is_custom_manifest = False
         if linked_mawb and linked_mawb.mawbNumber:
             m_clean = linked_mawb.mawbNumber.strip().lower()
             if "custom" in m_clean or "manifest" in m_clean:
                 is_custom_manifest = True
 
-        raw_mode = (getattr(shipment, "trackingMode", None) if shipment else None) or (getattr(enquiry, "trackingMode", None) if enquiry else None)
-        
-        has_both_mawb_and_fwd = bool(
-            linked_mawb and linked_mawb.mawbNumber and not is_custom_manifest and
-            fwd_number and str(fwd_number).strip()
-        )
+        has_valid_mawb = bool(linked_mawb and linked_mawb.mawbNumber and not is_custom_manifest)
+        has_fwd_number = bool(fwd_number and str(fwd_number).strip())
 
-        if raw_mode and raw_mode.upper() == "MANUAL":
-            tracking_mode = "MANUAL"
-        elif is_custom_manifest or not (linked_mawb and linked_mawb.mawbNumber):
-            tracking_mode = "MANUAL"
-        elif has_both_mawb_and_fwd or (raw_mode and raw_mode.upper() == "API"):
+        if has_valid_mawb or has_fwd_number:
             tracking_mode = "API"
         else:
             tracking_mode = "MANUAL"
@@ -491,6 +486,101 @@ class TrackingRegistry:
             (shipment and shipment.status in ("WT_DIMENSION_VERIFIED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))
         )
 
+        # --- Monotonic Chronological Hierarchy Engine ---
+        # Ensures: Enquiry <= Picked Up <= Packed <= Wt Verified <= Shipment Created <= Departed KTM (In Transit) <= Arrived Hub <= Carrier Scanned <= Delivered
+
+        # A. Flight Departure (dep_ts)
+        mawb_dep_raw = linked_mawb.departureDate if (linked_mawb and linked_mawb.departureDate) else None
+        if mawb_dep_raw and hasattr(mawb_dep_raw, "tzinfo") and mawb_dep_raw.tzinfo is not None:
+            mawb_dep_raw = mawb_dep_raw.replace(tzinfo=None)
+
+        # If departure time is midnight 00:00:00 -> default to evening cargo departure 18:00 (6:00 PM)
+        if mawb_dep_raw and mawb_dep_raw.hour == 0 and mawb_dep_raw.minute == 0:
+            mawb_dep_raw = mawb_dep_raw.replace(hour=18, minute=0)
+
+        ship_created_raw = shipment.createdAt if (shipment and shipment.createdAt) else None
+        if ship_created_raw and hasattr(ship_created_raw, "tzinfo") and ship_created_raw.tzinfo is not None:
+            ship_created_raw = ship_created_raw.replace(tzinfo=None)
+
+        # Ensure dep_ts is not an old template date in the past (before enquiry creation)
+        if mawb_dep_raw and mawb_dep_raw >= created_at:
+            dep_ts = mawb_dep_raw
+        elif ship_created_raw:
+            dep_ts = ship_created_raw + timedelta(hours=6)
+        else:
+            dep_ts = created_at + timedelta(hours=6)
+
+        # B. Shipment Created (ship_created_ts)
+        # Fix for date hierarchy: Shipment created date can NEVER be after departed date!
+        if ship_created_raw:
+            if ship_created_raw >= dep_ts:
+                # If shipment record was entered in DB after flight departure:
+                # Clamp shipment_created to 3.5 hours before flight departure (realistic customs & export prep)
+                if dep_ts - created_at > timedelta(hours=4):
+                    ship_created_ts = dep_ts - timedelta(hours=3, minutes=30)
+                else:
+                    ship_created_ts = created_at + (dep_ts - created_at) * 0.75
+            else:
+                ship_created_ts = max(ship_created_raw, created_at + timedelta(minutes=10))
+        else:
+            ship_created_ts = None
+
+        # C. Pre-Shipment Timestamps (wt_ts, packed_ts, pickup_ts)
+        if ship_created_ts:
+            window_sec = (ship_created_ts - created_at).total_seconds()
+            if window_sec >= 3600:
+                raw_wt = enquiry.updatedAt if enquiry else None
+                if raw_wt and hasattr(raw_wt, "tzinfo") and raw_wt.tzinfo is not None:
+                    raw_wt = raw_wt.replace(tzinfo=None)
+                cand_wt = raw_wt or (ship_created_ts - timedelta(minutes=20))
+                wt_ts = min(cand_wt, ship_created_ts - timedelta(minutes=15))
+                wt_ts = max(wt_ts, created_at + timedelta(minutes=45))
+
+                raw_packed = getattr(enquiry, "packedAt", None) if enquiry else None
+                if raw_packed and hasattr(raw_packed, "tzinfo") and raw_packed.tzinfo is not None:
+                    raw_packed = raw_packed.replace(tzinfo=None)
+                cand_packed = raw_packed or (wt_ts - timedelta(minutes=20))
+                packed_ts = min(cand_packed, wt_ts - timedelta(minutes=15))
+                packed_ts = max(packed_ts, created_at + timedelta(minutes=30))
+
+                raw_pickup = enquiry.pickedUpAt if (enquiry and enquiry.pickedUpAt) else None
+                if raw_pickup and hasattr(raw_pickup, "tzinfo") and raw_pickup.tzinfo is not None:
+                    raw_pickup = raw_pickup.replace(tzinfo=None)
+                cand_pickup = raw_pickup or (packed_ts - timedelta(minutes=20))
+                pickup_ts = min(cand_pickup, packed_ts - timedelta(minutes=15))
+                pickup_ts = max(pickup_ts, created_at + timedelta(minutes=15))
+            else:
+                pickup_ts = created_at + timedelta(seconds=max(window_sec * 0.25, 5))
+                packed_ts = created_at + timedelta(seconds=max(window_sec * 0.50, 10))
+                wt_ts = created_at + timedelta(seconds=max(window_sec * 0.75, 15))
+        else:
+            raw_pickup = enquiry.pickedUpAt if (enquiry and enquiry.pickedUpAt) else None
+            if raw_pickup and hasattr(raw_pickup, "tzinfo") and raw_pickup.tzinfo is not None:
+                raw_pickup = raw_pickup.replace(tzinfo=None)
+            pickup_ts = raw_pickup or (created_at + timedelta(hours=2))
+
+            raw_packed = getattr(enquiry, "packedAt", None) if enquiry else None
+            if raw_packed and hasattr(raw_packed, "tzinfo") and raw_packed.tzinfo is not None:
+                raw_packed = raw_packed.replace(tzinfo=None)
+            packed_ts = raw_packed or max(pickup_ts + timedelta(minutes=30), created_at + timedelta(hours=2, minutes=30))
+
+            raw_wt = enquiry.updatedAt if enquiry else None
+            if raw_wt and hasattr(raw_wt, "tzinfo") and raw_wt.tzinfo is not None:
+                raw_wt = raw_wt.replace(tzinfo=None)
+            wt_ts = raw_wt or max(packed_ts + timedelta(minutes=30), created_at + timedelta(hours=3))
+
+        # D. Destination Hub Arrival (hub_ts)
+        mawb_arr_raw = linked_mawb.dateOfArrival if (linked_mawb and linked_mawb.dateOfArrival) else None
+        if mawb_arr_raw and hasattr(mawb_arr_raw, "tzinfo") and mawb_arr_raw.tzinfo is not None:
+            mawb_arr_raw = mawb_arr_raw.replace(tzinfo=None)
+        if mawb_arr_raw and mawb_arr_raw.hour == 0 and mawb_arr_raw.minute == 0:
+            mawb_arr_raw = mawb_arr_raw.replace(hour=22, minute=0)
+
+        if mawb_arr_raw and mawb_arr_raw > dep_ts:
+            hub_ts = mawb_arr_raw
+        else:
+            hub_ts = dep_ts + timedelta(hours=8)
+
         # 1.5. Cargo Picked Up OR Self Drop Counter Handover
         if is_pickup_required:
             is_picked_up = bool(
@@ -508,7 +598,7 @@ class TrackingRegistry:
                 r_phone = (r_user.phoneNumber or "") if r_user else ""
                 phone_tag = f" (Contact: {r_phone})" if r_phone else ""
                 checkpoints.append(TrackingCheckpoint(
-                    timestamp=enquiry.updatedAt or (created_at + timedelta(minutes=15)),
+                    timestamp=min(pickup_ts, created_at + timedelta(minutes=15)),
                     location="Kathmandu Dispatch",
                     status="ASSIGNED_FOR_PICKUP",
                     activity=f"Pickup Rider {r_name} assigned for doorstep cargo collection{phone_tag}",
@@ -517,7 +607,6 @@ class TrackingRegistry:
                 ))
 
             if is_picked_up:
-                pickup_ts = (enquiry.pickedUpAt if (enquiry and enquiry.pickedUpAt) else None) or (created_at + timedelta(hours=2))
                 checkpoints.append(TrackingCheckpoint(
                     timestamp=pickup_ts,
                     location="NetPack Central Warehouse, Kathmandu",
@@ -531,7 +620,7 @@ class TrackingRegistry:
             is_picked_up = bool(enquiry and (enquiry.status in ("PICKED_UP", "PACKED", "WT_DIMENSION_VERIFIED") or enquiry.weightProofImageUrl)) or bool(shipment)
             if is_picked_up:
                 checkpoints.append(TrackingCheckpoint(
-                    timestamp=created_at + timedelta(minutes=30),
+                    timestamp=pickup_ts,
                     location="NetPack Central Warehouse / Intake Counter",
                     status="PICKED_UP",
                     activity="Consignment Dropped Off at Counter by Customer (Self Drop)",
@@ -539,9 +628,8 @@ class TrackingRegistry:
                     source="COUNTER_DROPOFF"
                 ))
 
-        # 1.6. PACKED (Per Flowchart: "OPERATIONS EDITS THE ENQUIRY WITH ITEMS, UNIT, VALUE, BOX NO. / DIMENSIONS etc.")
+        # 1.6. PACKED
         if is_packed:
-            packed_ts = (getattr(enquiry, "packedAt", None) if enquiry else None) or (created_at + timedelta(hours=2, minutes=30))
             checkpoints.append(TrackingCheckpoint(
                 timestamp=packed_ts,
                 location="NetPack Central Operations, Teku, Kathmandu",
@@ -551,9 +639,8 @@ class TrackingRegistry:
                 source="WAREHOUSE_OPERATIONS"
             ))
 
-        # 1.7. Wt / Dimension Verified (Per Flowchart: "Wt / Dimension Verified")
+        # 1.7. Wt / Dimension Verified
         if is_weight_verified:
-            wt_ts = (enquiry.updatedAt if enquiry else None) or (created_at + timedelta(hours=3))
             verified_wt = (enquiry.weight if (enquiry and enquiry.weight) else (shipment.weight if (shipment and getattr(shipment, "weight", None)) else None))
             wt_text = f" ({verified_wt} kg)" if verified_wt else ""
             checkpoints.append(TrackingCheckpoint(
@@ -566,10 +653,10 @@ class TrackingRegistry:
             ))
 
         # 2. Shipment Created (After push to shipment)
-        if shipment and shipment.createdAt:
+        if shipment and ship_created_ts:
             hawb_label = f" (HAWB: {shipment.hawbno})" if shipment.hawbno else ""
             checkpoints.append(TrackingCheckpoint(
-                timestamp=shipment.createdAt,
+                timestamp=ship_created_ts,
                 location="Kathmandu Central Operations",
                 status="SHIPMENT_CREATED",
                 activity=f"Shipment Created{hawb_label} - Export Documentation & Routing Prepared",
@@ -582,8 +669,11 @@ class TrackingRegistry:
         if shipment and shipment.transitPoints:
             for tp in shipment.transitPoints:
                 tp_loc = tp.location or (tp.country.name if tp.country else "Transit Port")
+                tp_ts = tp.timestamp or tp.createdAt
+                if ship_created_ts and tp_ts and tp_ts <= ship_created_ts:
+                    tp_ts = ship_created_ts + timedelta(hours=2)
                 checkpoints.append(TrackingCheckpoint(
-                    timestamp=tp.timestamp or tp.createdAt,
+                    timestamp=tp_ts,
                     location=tp_loc,
                     status="IN_TRANSIT",
                     activity=f"In transit at {tp_loc}",
@@ -601,8 +691,8 @@ class TrackingRegistry:
                 mawb_api_checkpoints = airline_provider.track(
                     linked_mawb.mawbNumber,
                     context={
-                        "departureDate": linked_mawb.departureDate,
-                        "arrivalDate": linked_mawb.dateOfArrival,
+                        "departureDate": dep_ts,
+                        "arrivalDate": hub_ts,
                         "destination": dest_name
                     }
                 )
@@ -612,27 +702,29 @@ class TrackingRegistry:
             if mawb_api_checkpoints:
                 for macp in mawb_api_checkpoints:
                     macp.source = "MAWB_FLIGHT"
+                    if ship_created_ts and macp.timestamp and macp.timestamp <= ship_created_ts:
+                        macp.timestamp = ship_created_ts + timedelta(hours=2)
+                    if macp.status == "ARRIVED_AT_HUB" and macp.timestamp and macp.timestamp <= dep_ts:
+                        macp.timestamp = dep_ts + timedelta(hours=4)
                     checkpoints.append(macp)
             else:
-                if linked_mawb.departureDate:
-                    checkpoints.append(TrackingCheckpoint(
-                        timestamp=linked_mawb.departureDate,
-                        location="Tribhuvan International Airport (KTM)",
-                        status="IN_TRANSIT",
-                        activity=f"Air cargo departed Kathmandu (KTM) on {flight_str} {air_str} to {dest_name}".strip(),
-                        country="Nepal",
-                        source="MAWB_FLIGHT"
-                    ))
+                checkpoints.append(TrackingCheckpoint(
+                    timestamp=dep_ts,
+                    location="Tribhuvan International Airport (KTM)",
+                    status="IN_TRANSIT",
+                    activity=f"Air cargo departed Kathmandu (KTM) on {flight_str} {air_str} to {dest_name}".strip(),
+                    country="Nepal",
+                    source="MAWB_FLIGHT"
+                ))
 
-                if linked_mawb.dateOfArrival:
-                    checkpoints.append(TrackingCheckpoint(
-                        timestamp=linked_mawb.dateOfArrival,
-                        location=f"{dest_name} Hub / Airport",
-                        status="ARRIVED_AT_HUB",
-                        activity=f"Arrived at destination hub ({dest_name}) via {flight_str}".strip(),
-                        country=dest_name,
-                        source="MAWB_FLIGHT"
-                    ))
+                checkpoints.append(TrackingCheckpoint(
+                    timestamp=hub_ts,
+                    location=f"{dest_name} Hub / Airport",
+                    status="ARRIVED_AT_HUB",
+                    activity=f"Arrived at destination hub ({dest_name}) via {flight_str}".strip(),
+                    country=dest_name,
+                    source="MAWB_FLIGHT"
+                ))
 
         # (C) Existing tracking events (manual operator notes or carrier scans)
         if shipment and shipment.trackingEvents:
@@ -654,8 +746,12 @@ class TrackingRegistry:
                 if te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB") and ("CARRIER" in te_source or "TRACKINGMORE" in te_source):
                     te_status = "CARRIER_SCANNED"
 
+                te_ts = te.checkpointTime or te.createdAt
+                if hub_ts and te_ts and te_ts <= hub_ts:
+                    te_ts = hub_ts + timedelta(hours=2)
+
                 checkpoints.append(TrackingCheckpoint(
-                    timestamp=te.checkpointTime or te.createdAt,
+                    timestamp=te_ts,
                     location=te.location or "Carrier Facility",
                     status=te_status,
                     activity=te.activity or f"Update: {te_status}",
@@ -683,8 +779,12 @@ class TrackingRegistry:
                     if te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB") and ("CARRIER" in (te.source or "") or "TRACKINGMORE" in (te.source or "")):
                         te_status = "CARRIER_SCANNED"
 
+                    te_ts = te.checkpointTime or te.createdAt
+                    if hub_ts and te_ts and te_ts <= hub_ts:
+                        te_ts = hub_ts + timedelta(hours=2)
+
                     checkpoints.append(TrackingCheckpoint(
-                        timestamp=te.checkpointTime or te.createdAt,
+                        timestamp=te_ts,
                         location=te.location or "Carrier Facility",
                         status=te_status,
                         activity=te.activity or f"Carrier update: {te_status}",
@@ -698,7 +798,7 @@ class TrackingRegistry:
             for cp in checkpoints
         )
 
-        # (E) In MANUAL mode: Ensure In Transit / Arrived At Hub exist with operator Note
+        # (E) In MANUAL mode or fallback: Ensure In Transit / Arrived At Hub exist with operator Note
         shipment_stage = (shipment.status if shipment else None) or (enquiry.status if enquiry else "PENDING")
         is_progressed_transit = bool(
             shipment_stage in ("IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") or
@@ -711,7 +811,6 @@ class TrackingRegistry:
 
         has_in_transit_cp = any(cp.status == "IN_TRANSIT" for cp in checkpoints)
         if not has_in_transit_cp and is_progressed_transit:
-            dep_ts = (linked_mawb.departureDate if (linked_mawb and linked_mawb.departureDate) else None) or (created_at + timedelta(hours=6))
             if tracking_mode == "MANUAL":
                 in_transit_act = f"In Transit on scheduled cargo route to {dest_name}{note_tag}"
             else:
@@ -730,13 +829,17 @@ class TrackingRegistry:
         if not has_hub_cp and is_progressed_hub:
             carrier_timestamps = [cp.timestamp for cp in checkpoints if "CARRIER" in (cp.source or "") and cp.timestamp]
             first_carrier_ts = min(carrier_timestamps) if carrier_timestamps else None
-            hub_ts = (linked_mawb.dateOfArrival if (linked_mawb and linked_mawb.dateOfArrival) else None) or (first_carrier_ts - timedelta(hours=3) if first_carrier_ts else created_at + timedelta(days=1))
+            if first_carrier_ts and first_carrier_ts > dep_ts:
+                hub_final_ts = min(hub_ts, first_carrier_ts - timedelta(hours=2))
+            else:
+                hub_final_ts = hub_ts
+
             if tracking_mode == "MANUAL":
                 hub_act = f"Arrived at Destination Hub ({dest_name}){note_tag}"
             else:
                 hub_act = f"Arrived at hub ({dest_name}) - Landed & cleared through destination cargo terminal"
             checkpoints.append(TrackingCheckpoint(
-                timestamp=hub_ts,
+                timestamp=hub_final_ts,
                 location=f"{dest_name} Cargo Terminal / Hub",
                 status="ARRIVED_AT_HUB",
                 activity=hub_act,
@@ -746,7 +849,10 @@ class TrackingRegistry:
 
         # (F) Carrier Scanned milestone for Manual mode when status reaches CARRIER_SCANNED or beyond
         if shipment_stage in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") and not has_carrier_events:
-            cs_ts = (shipment.updatedAt if shipment else None) or (created_at + timedelta(days=2))
+            raw_cs = (shipment.updatedAt if shipment else None) or (created_at + timedelta(days=2))
+            if hasattr(raw_cs, "tzinfo") and raw_cs.tzinfo is not None:
+                raw_cs = raw_cs.replace(tzinfo=None)
+            cs_ts = max(raw_cs, hub_ts + timedelta(hours=3))
             cs_fwd = f" ({fwd_company_name})" if fwd_company_name else ""
             checkpoints.append(TrackingCheckpoint(
                 timestamp=cs_ts,
@@ -777,7 +883,10 @@ class TrackingRegistry:
         if current_status == "DELIVERED":
             has_delivered_cp = any(cp.status == "DELIVERED" for cp in checkpoints)
             if not has_delivered_cp:
-                del_time = (shipment.updatedAt if shipment else None) or (enquiry.updatedAt if enquiry else None) or datetime.utcnow()
+                raw_del = (shipment.updatedAt if shipment else None) or (enquiry.updatedAt if enquiry else None) or datetime.utcnow()
+                if hasattr(raw_del, "tzinfo") and raw_del.tzinfo is not None:
+                    raw_del = raw_del.replace(tzinfo=None)
+                del_time = max(raw_del, hub_ts + timedelta(hours=6))
                 rec_name = (enquiry.receiverName.strip() if (enquiry and enquiry.receiverName) else (shipment.customer.name if shipment and shipment.customer else "Consignee"))
                 checkpoints.append(TrackingCheckpoint(
                     timestamp=del_time,
@@ -1014,8 +1123,8 @@ class TrackingRegistry:
             "airlineName": airline_name,
             "flightNumber": linked_mawb.flightNumber if linked_mawb else None,
             "airlineTrackingUrl": airline_tracking_url,
-            "departureDate": linked_mawb.departureDate.isoformat() if (linked_mawb and linked_mawb.departureDate) else None,
-            "arrivalDate": linked_mawb.dateOfArrival.isoformat() if (linked_mawb and linked_mawb.dateOfArrival) else None,
+            "departureDate": dep_ts.isoformat() if dep_ts else (linked_mawb.departureDate.isoformat() if (linked_mawb and linked_mawb.departureDate) else None),
+            "arrivalDate": hub_ts.isoformat() if hub_ts else (linked_mawb.dateOfArrival.isoformat() if (linked_mawb and linked_mawb.dateOfArrival) else None),
             # Checkpoints
             "checkpoints": [cp.to_dict() for cp in checkpoints]
         }

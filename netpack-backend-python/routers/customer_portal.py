@@ -1041,12 +1041,23 @@ def request_customer_pickup(
     if not is_owner:
         raise HTTPException(status_code=403, detail="You are not authorized to schedule pickup for this consignment.")
 
-    # Status check: allow booking doorstep pickup unless consignment has departed internationally
+    # Status check: Customers cannot book or request a new pickup once the shipment is created / HAWB generated
+    has_hawb = False
+    if enq.shipments:
+        for s in enq.shipments:
+            if s.hawbNumber or s.hawbno:
+                has_hawb = True
+                break
+    if getattr(enq, "hawbNumber", None) or getattr(enq, "hawbno", None):
+        has_hawb = True
+
     status_upper = (enq.status or "").upper()
     linked_shipment = enq.shipments[0] if (enq.shipments and len(enq.shipments) > 0) else None
     shipment_status_upper = (linked_shipment.status or "").upper() if linked_shipment else ""
 
     locked_statuses = [
+        "SHIPMENT_CREATED",
+        "WT_DIMENSION_VERIFIED",
         "IN_TRANSIT",
         "ARRIVED_AT_HUB",
         "CARRIER_SCANNED",
@@ -1054,10 +1065,10 @@ def request_customer_pickup(
         "DELIVERED"
     ]
 
-    if status_upper in locked_statuses or shipment_status_upper in locked_statuses:
+    if has_hawb or status_upper in locked_statuses or shipment_status_upper in locked_statuses:
         raise HTTPException(
             status_code=400,
-            detail="Doorstep pickup cannot be booked: Consignment has already departed or is in overseas transit."
+            detail="Doorstep pickup cannot be requested: Shipment has already been created and HAWB generated."
         )
 
     # Update enquiry pickup status

@@ -691,23 +691,6 @@ export function TasksMutateDrawer({
                 )}
               />
 
-              <FormField
-                name='trackingMode'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tracking Mode</FormLabel>
-                    <SelectDropdown
-                      defaultValue={field.value || 'MANUAL'}
-                      onValueChange={(val) => field.onChange(val)}
-                      items={[
-                        { label: 'Manual (System Defined)', value: 'MANUAL' },
-                        { label: 'By API (External Carrier Scans)', value: 'API' },
-                      ]}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 name='forwardingCompanyId'

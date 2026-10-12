@@ -84,6 +84,8 @@ type BookStep = 1 | 2 | 3
 interface Shipment {
   id: string
   tracking: string
+  hawbno?: string
+  hawbNumber?: string
   destination: string
   country: string
   commodity: string
@@ -128,6 +130,8 @@ interface CheckpointItem {
 
 interface TrackingDetails {
   tracking: string
+  hawbno?: string
+  hawbNumber?: string
   receiverName: string
   carrier: string
   carrierTracking: string
@@ -761,15 +765,23 @@ function ShipmentCard({
   onClick: () => void
   onRequestPickup?: (trackingNumber: string) => void
 }) {
+  const hasHawb = Boolean(s.hawbno || (s as any).hawbNumber)
+  const isCreatedOrBeyond = [
+    'shipment_created',
+    'wt_dimension_verified',
+    'in_transit',
+    'in_progress',
+    'arrived_at_hub',
+    'carrier_scanned',
+    'out_for_delivery',
+    'delivered',
+  ].includes((s.status || '').toLowerCase())
+
   const canRequestPickup =
-    onRequestPickup &&
-    (
-      s.status === 'pending' ||
-      s.status === 'assigned_for_pickup' ||
-      s.status === 'picked_up' ||
-      s.status === 'packed' ||
-      s.status === 'shipment_created'
-    )
+    Boolean(onRequestPickup) &&
+    !hasHawb &&
+    !isCreatedOrBeyond &&
+    (s.status === 'pending' || s.status === 'assigned_for_pickup')
 
   return (
     <button
@@ -838,7 +850,7 @@ function ShipmentCard({
             <span
               onClick={(e) => {
                 e.stopPropagation()
-                onRequestPickup(s.tracking)
+                onRequestPickup?.(s.tracking)
               }}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold border border-blue-200 transition-colors cursor-pointer"
             >
@@ -1783,13 +1795,24 @@ function TrackingScreen({
   }
 
   const isAssignedRider = Boolean(data.riderName || data.statusLabel === 'Rider Assigned')
+  const hasHawb = Boolean(data.hawbno || (data as any).hawbNumber || (data.tracking && !data.tracking.toUpperCase().startsWith('NP-')))
+  const isCreatedOrBeyond = [
+    'shipment_created',
+    'wt_dimension_verified',
+    'in_transit',
+    'in_progress',
+    'arrived_at_hub',
+    'carrier_scanned',
+    'out_for_delivery',
+    'delivered',
+  ].includes((data.status || '').toLowerCase())
+
   const canRequestConsignmentPickup =
     Boolean(onRequestPickup) &&
-    (
-      data.stageIndex <= 2 ||
-      ['pending', 'assigned_for_pickup', 'picked_up', 'packed', 'shipment_created'].includes((data.status || '').toLowerCase())
-    ) &&
-    !['in_transit', 'arrived_at_hub', 'carrier_scanned', 'out_for_delivery', 'delivered'].includes((data.status || '').toLowerCase())
+    !hasHawb &&
+    !isCreatedOrBeyond &&
+    data.stageIndex === 0 &&
+    ['pending', 'assigned_for_pickup'].includes((data.status || '').toLowerCase())
   const milestones = [
     {
       label: 'Enquiry',
@@ -2649,22 +2672,30 @@ function CustomerPickupRequestModal({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-4">
           <div className="rounded-xl bg-blue-50/60 border border-blue-100 p-3 text-[11px] text-blue-900 leading-snug">
-            💡 Doorstep pickup can be requested or updated anytime <strong>before official shipment dispatch</strong>. Our courier rider will arrive with calibrated digital weighing scales.
+            💡 Doorstep pickup can be requested or updated anytime <strong>before shipment creation and HAWB generation</strong>. Our courier rider will arrive with calibrated digital weighing scales.
           </div>
 
           {(!trackingNumber || trackingNumber === 'SELECT') && (
             <div>
               <FieldLabel required>Consignment / Booking Number</FieldLabel>
-              {shipments && shipments.filter(s => !['in_transit', 'arrived_at_hub', 'carrier_scanned', 'out_for_delivery', 'delivered'].includes(s.status)).length > 0 ? (
+              {shipments && shipments.filter(s => {
+                const hasH = Boolean(s.hawbno || (s as any).hawbNumber)
+                const isCreated = ['shipment_created', 'wt_dimension_verified', 'in_transit', 'in_progress', 'arrived_at_hub', 'carrier_scanned', 'out_for_delivery', 'delivered'].includes((s.status || '').toLowerCase())
+                return !hasH && !isCreated
+              }).length > 0 ? (
                 <div className="space-y-1.5">
                   <select
                     value={selectedTracking}
                     onChange={e => setSelectedTracking(e.target.value)}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                   >
-                    <option value="">-- Choose from your pending / packed bookings --</option>
+                    <option value="">-- Choose from your pending bookings --</option>
                     {shipments
-                      .filter(s => !['in_transit', 'arrived_at_hub', 'carrier_scanned', 'out_for_delivery', 'delivered'].includes(s.status))
+                      .filter(s => {
+                        const hasH = Boolean(s.hawbno || (s as any).hawbNumber)
+                        const isCreated = ['shipment_created', 'wt_dimension_verified', 'in_transit', 'in_progress', 'arrived_at_hub', 'carrier_scanned', 'out_for_delivery', 'delivered'].includes((s.status || '').toLowerCase())
+                        return !hasH && !isCreated
+                      })
                       .map(s => (
                         <option key={s.id} value={s.tracking}>
                           {s.tracking} — {s.destination} ({s.commodity})

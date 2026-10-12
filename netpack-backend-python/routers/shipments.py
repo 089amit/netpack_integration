@@ -766,12 +766,17 @@ def update_shipment(id: int, payload: ShipmentUpdateRequest, db: Session = Depen
     if payload.reciverName and s.enquiry:
         s.enquiry.receiverName = payload.reciverName
 
-    if payload.trackingMode is not None:
-        mode_val = payload.trackingMode.strip().upper()
-        if mode_val in ("MANUAL", "API"):
-            s.trackingMode = mode_val
-            if s.enquiry:
-                s.enquiry.trackingMode = mode_val
+    # Auto tracking mode: API if valid MAWB or forwarding number is provided, else MANUAL
+    has_valid_mawb = bool(
+        s.mawb and s.mawb.mawbNumber and
+        "custom" not in (s.mawb.mawbNumber or "").lower() and
+        "manifest" not in (s.mawb.mawbNumber or "").lower()
+    )
+    has_fwd = bool(s.forwardingNumber and str(s.forwardingNumber).strip())
+    auto_mode = "API" if (has_valid_mawb or has_fwd) else "MANUAL"
+    s.trackingMode = auto_mode
+    if s.enquiry:
+        s.enquiry.trackingMode = auto_mode
 
     db.commit()
     db.refresh(s)
