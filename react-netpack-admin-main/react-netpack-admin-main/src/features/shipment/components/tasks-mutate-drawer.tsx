@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/sheet'
 import { SelectDropdown } from '@/components/select-dropdown'
 import { shipmentFormSchema, ShipmentForm } from '../data/schema'
-import { Check, ChevronsUpDown, Scissors, Boxes, Globe, Plus } from 'lucide-react'
+import { Check, ChevronsUpDown, Scissors, Boxes, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { BreakHawbDialog } from './break-hawb-dialog'
 import { CustomClearanceDialog } from './custom-clearance-dialog'
@@ -613,74 +613,6 @@ export function TasksMutateDrawer({
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ── Custom Clearance Hub Card ── */}
-          {isUpdate && currentRow && (
-            <div className='rounded-xl border border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/60 p-4 space-y-3 mb-5 shadow-2xs'>
-              <div className='flex items-center justify-between flex-wrap gap-2'>
-                <div className='flex items-center gap-2'>
-                  <Globe className='h-4 w-4 text-amber-600' />
-                  <span className='text-xs font-bold uppercase tracking-wider text-amber-950 dark:text-amber-200'>
-                    Custom Clearance Hub
-                  </span>
-                </div>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  onClick={() => setIsCustomClearanceOpen(true)}
-                  className='h-7 text-xs font-semibold gap-1.5 border-amber-500/50 bg-background text-amber-800 dark:text-amber-300 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 shadow-xs'
-                >
-                  <Globe className='h-3.5 w-3.5 text-amber-600' />
-                  <span>Assign Custom Clearance Hub</span>
-                </Button>
-              </div>
-
-              <div className='flex items-center justify-between rounded-md bg-background border p-3 text-xs'>
-                <div>
-                  <span className='text-[10px] text-muted-foreground uppercase font-semibold block'>
-                    Assigned Clearance Hub
-                  </span>
-                  <div className='mt-1 flex items-center gap-2'>
-                    {form.watch('customManifestHub') || (currentRow as any)?.customManifestHub ? (
-                      <Badge className='bg-amber-600 hover:bg-amber-700 text-white font-bold tracking-wide px-2.5 py-0.5 text-xs'>
-                        🏛️ Custom Manifest {form.watch('customManifestHub') || (currentRow as any)?.customManifestHub}
-                      </Badge>
-                    ) : (
-                      <span className='text-muted-foreground italic font-medium'>
-                        Not assigned to any customs hub yet
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {(form.watch('customManifestHub') || (currentRow as any)?.customManifestHub) && (
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='sm'
-                    onClick={async () => {
-                      form.setValue('customManifestHub', '', { shouldDirty: true })
-                      if (currentRow?.id) {
-                        try {
-                          await http.put(`${SHIPMENT_ENDPOINT.ALL_SHIPMENTS}/${currentRow.id}`, {
-                            customManifestHub: null,
-                          })
-                          toast.success('Unassigned from Custom Clearance Hub')
-                          onSuccess?.()
-                        } catch (e) {
-                          console.error(e)
-                        }
-                      }
-                    }}
-                    className='h-7 text-[11px] text-muted-foreground hover:text-red-600'
-                  >
-                    Clear Hub
-                  </Button>
-                )}
-              </div>
             </div>
           )}
 
