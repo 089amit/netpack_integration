@@ -54,6 +54,7 @@ class CustomsSettingsPayload(BaseModel):
 
 class PreviewPartsRequest(BaseModel):
     mawbNumber: str
+    type: Optional[str] = None
     maxBoxPerPart: Optional[int] = 10
     maxUsdPerPart: Optional[float] = 950.0
     maxWeightPerPart: Optional[float] = 1500.0
@@ -64,6 +65,7 @@ class PreviewPartsRequest(BaseModel):
 
 class GenerateCustomsRequest(BaseModel):
     mawbNumber: str
+    type: Optional[str] = None
     consignee: Optional[ConsigneeInput] = None
     invoiceNumbers: Optional[List[str]] = None
     invoiceDate: Optional[str] = None
@@ -229,36 +231,42 @@ class VirtualMAWB:
         self.dateOfArrival = None
         self.documentPath = None
 
-def _fetch_mawb_shipments(mawb_query: str, db: Session) -> Tuple[Any, List[Dict[str, Any]]]:
+def _fetch_mawb_shipments(mawb_query: str, db: Session, query_type: Optional[str] = None) -> Tuple[Any, List[Dict[str, Any]]]:
     clean_q = mawb_query.strip()
-    mawb = db.query(MAWB).filter((MAWB.mawbNumber == clean_q) | (MAWB.destination == clean_q)).first()
-    if not mawb and clean_q.isdigit():
-        mawb = db.query(MAWB).filter(MAWB.id == int(clean_q)).first()
-    if not mawb:
-        mawb = db.query(MAWB).filter(MAWB.mawbNumber.ilike(f"%{clean_q}%")).first()
 
-    # Check if query matches a Custom Manifest Hub
-    hub_code = clean_q.replace("Custom Manifest ", "").replace("custom manifest ", "").replace("custom_manifest_", "").strip().upper()
+    # 1. Check if explicitly or implicitly querying a Custom Manifest Hub
+    clean_hub_code = clean_q.replace("Custom Manifest ", "").replace("custom manifest ", "").replace("custom_manifest_", "").strip().upper()
     hub_obj = db.query(CustomManifestHub).filter(
-        (CustomManifestHub.code.ilike(hub_code)) | (CustomManifestHub.name.ilike(f"%{clean_q}%"))
+        (CustomManifestHub.code.ilike(clean_hub_code)) | (CustomManifestHub.name.ilike(clean_q))
     ).first()
-    matched_hub = hub_obj.code if hub_obj else hub_code
 
-    conds = []
-    if mawb:
-        conds.append(Shipment.mawbId == mawb.id)
-        conds.append(Shipment.enquiry.has(Enquiry.mawbId == mawb.id))
-    if matched_hub:
-        conds.append(func.upper(Shipment.customManifestHub) == matched_hub)
-        conds.append(Shipment.customManifestHub.ilike(f"%{matched_hub}%"))
+    is_hub = (query_type == "hub") or bool(hub_obj) or clean_q.lower().startswith("custom manifest") or clean_q.lower().startswith("custom_manifest")
 
-    shipments = db.query(Shipment).filter(or_(*conds)).all() if conds else []
-
-    if not mawb and not shipments:
-        raise HTTPException(status_code=404, detail=f"No shipments or MAWB found for '{mawb_query}'")
-
-    if not mawb:
+    if is_hub:
+        matched_hub = (hub_obj.code if hub_obj else clean_hub_code).upper()
         mawb = VirtualMAWB(f"Custom Manifest {matched_hub}")
+
+        # Strictly query shipments assigned to this custom clearance hub
+        shipments = db.query(Shipment).filter(
+            func.upper(Shipment.customManifestHub) == matched_hub
+        ).all()
+    else:
+        # 2. Querying a real airline MAWB (match strictly by mawbNumber or id, NEVER by flight destination airport code)
+        mawb = db.query(MAWB).filter(MAWB.mawbNumber == clean_q).first()
+        if not mawb and clean_q.isdigit():
+            mawb = db.query(MAWB).filter(MAWB.id == int(clean_q)).first()
+        if not mawb:
+            mawb = db.query(MAWB).filter(MAWB.mawbNumber.ilike(f"%{clean_q}%")).first()
+
+        if not mawb:
+            raise HTTPException(status_code=404, detail=f"No airline MAWB found for '{mawb_query}'")
+
+        shipments = db.query(Shipment).filter(
+            or_(
+                Shipment.mawbId == mawb.id,
+                Shipment.enquiry.has(Enquiry.mawbId == mawb.id)
+            )
+        ).all()
 
     formatted_shipments = []
     for s in shipments:
@@ -336,14 +344,19 @@ def _fetch_mawb_shipments(mawb_query: str, db: Session) -> Tuple[Any, List[Dict[
     return mawb, formatted_shipments
 
 @router.get("/mawb-data/{mawbNumber}")
-def get_mawb_customs_data(mawbNumber: str, maxBagWeight: float = Query(DEFAULT_MAX_BAG_WEIGHT), db: Session = Depends(get_db)):
-    mawb, shipments = _fetch_mawb_shipments(mawbNumber, db)
-    auto_bags = suggest_bag_markings(shipments, max_bag_weight=maxBagWeight)
-    wt_rows = prepare_wtbox_data(shipments, auto_bags, max_bag_weight=maxBagWeight)
+def get_mawb_customs_data(
+    mawbNumber: str,
+    maxBagWeight: float = Query(DEFAULT_MAX_BAG_WEIGHT),
+    type: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    mawb, shipments = _fetch_mawb_shipments(mawbNumber, db, query_type=type)
+    auto_bags = suggest_bag_markings(shipments, max_bag_weight=maxBagWeight) if shipments else {}
+    wt_rows = prepare_wtbox_data(shipments, auto_bags, max_bag_weight=maxBagWeight) if shipments else []
 
-    total_boxes = sum([r["Box"] for r in wt_rows])
-    total_weight = sum([r["Weight"] for r in wt_rows])
-    total_usd = sum([s["value"] for s in shipments])
+    total_boxes = sum([r["Box"] for r in wt_rows]) if wt_rows else 0
+    total_weight = sum([r["Weight"] for r in wt_rows]) if wt_rows else 0.0
+    total_usd = sum([s["value"] for s in shipments]) if shipments else 0.0
 
     return {
         "mawb": {
@@ -368,7 +381,10 @@ def get_mawb_customs_data(mawbNumber: str, maxBagWeight: float = Query(DEFAULT_M
 
 @router.post("/preview-parts")
 def preview_parts(payload: PreviewPartsRequest, db: Session = Depends(get_db)):
-    mawb, shipments = _fetch_mawb_shipments(payload.mawbNumber, db)
+    mawb, shipments = _fetch_mawb_shipments(payload.mawbNumber, db, query_type=payload.type)
+    if not shipments:
+        return {"partsCount": 0, "parts": []}
+
     max_box = payload.maxBoxPerPart or 10
     max_usd = payload.maxUsdPerPart or 950.0
     max_wt = payload.maxWeightPerPart or 1500.0
@@ -411,9 +427,9 @@ def preview_parts(payload: PreviewPartsRequest, db: Session = Depends(get_db)):
 
 @router.post("/generate")
 def generate_customs_package(payload: GenerateCustomsRequest, db: Session = Depends(get_db)):
-    mawb, shipments = _fetch_mawb_shipments(payload.mawbNumber, db)
+    mawb, shipments = _fetch_mawb_shipments(payload.mawbNumber, db, query_type=payload.type)
     if not shipments:
-        raise HTTPException(status_code=400, detail="No shipments linked to this MAWB")
+        raise HTTPException(status_code=400, detail="No shipments assigned to this MAWB or Customs Hub")
 
     consignee_dict = payload.consignee.dict() if payload.consignee else {"name": "ESHIPPER EXPRESS COURIER", "address": "", "country": "UK"}
     max_box = payload.maxBoxPerPart or 10

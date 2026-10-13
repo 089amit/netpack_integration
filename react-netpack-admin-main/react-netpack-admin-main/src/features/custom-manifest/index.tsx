@@ -303,13 +303,13 @@ export default function CustomManifestPage() {
       const target = selectedHub || (hubs[0]?.code ?? 'AUS')
       setSelectedHub(target)
       setSelectedMawb(target)
-      if (target) loadMawbData(target)
+      if (target) loadMawbData(target, undefined, 'hub')
     } else {
       const target =
         (mawbs.some((m) => m.mawbNumber === selectedMawb) ? selectedMawb : '') ||
         (mawbs[0]?.mawbNumber ?? '')
       setSelectedMawb(target)
-      if (target) loadMawbData(target)
+      if (target) loadMawbData(target, undefined, 'mawb')
     }
   }
 
@@ -369,7 +369,11 @@ export default function CustomManifestPage() {
   }
 
   // Load MAWB Customs Data
-  const loadMawbData = async (mawbNo?: string, customMaxBagWeight?: number) => {
+  const loadMawbData = async (
+    mawbNo?: string,
+    customMaxBagWeight?: number,
+    customMode?: 'hub' | 'mawb'
+  ) => {
     const target = mawbNo || selectedMawb
     if (!target) return
     setLoading(true)
@@ -379,8 +383,11 @@ export default function CustomManifestPage() {
     setDownloadUrls({})
 
     const bagWt = customMaxBagWeight !== undefined ? customMaxBagWeight : maxBagWeight
+    const mode = customMode || selectionMode
     try {
-      const res: any = await http.get(`/api/customs/mawb-data/${encodeURIComponent(target)}?maxBagWeight=${bagWt}`)
+      const res: any = await http.get(
+        `/api/customs/mawb-data/${encodeURIComponent(target)}?maxBagWeight=${bagWt}&type=${mode}`
+      )
       if (res) {
         setMawbDetails(res.mawb)
         setShipments(res.shipments || [])
@@ -557,7 +564,7 @@ export default function CustomManifestPage() {
     try {
       setLoading(true)
       const res: any = await http.get(
-        `/api/customs/mawb-data/${encodeURIComponent(selectedMawb)}?maxBagWeight=${maxBagWeight}`
+        `/api/customs/mawb-data/${encodeURIComponent(selectedMawb)}?maxBagWeight=${maxBagWeight}&type=${selectionMode}`
       )
       if (res?.suggestedBags) {
         setBagMarkings(res.suggestedBags)
@@ -588,7 +595,11 @@ export default function CustomManifestPage() {
   // Generate Customs Package
   const handleGenerate = async () => {
     if (!selectedMawb) {
-      setError('Please select a MAWB first')
+      setError('Please select a Custom Manifest Hub or MAWB first')
+      return
+    }
+    if (shipments.length === 0) {
+      setError('Cannot generate documents: There are no shipments assigned to this hub or MAWB.')
       return
     }
     setGenerating(true)
@@ -605,6 +616,7 @@ export default function CustomManifestPage() {
 
     const payload = {
       mawbNumber: selectedMawb,
+      type: selectionMode,
       consignee: {
         name: chosenConsignee.name,
         address: chosenConsignee.address,
@@ -1117,20 +1129,39 @@ export default function CustomManifestPage() {
                         </tr>
                       </thead>
                       <tbody className='divide-y'>
-                        {filteredRows.map((r) => {
-                          const s = shipments.find((item) => item.hawbno === r.HAWB)
-                          const isSep = separateHawbs[r.HAWB] || false
-                          const marking = bagMarkings[r.HAWB] ?? r.BagMarking ?? ''
-                          const isHighlighted =
-                            selectedBagForSummary && marking === selectedBagForSummary
+                        {filteredRows.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className='px-3 py-10 text-center text-muted-foreground'>
+                              <div className='flex flex-col items-center justify-center gap-1.5'>
+                                <Boxes className='h-8 w-8 text-muted-foreground/40' />
+                                <span className='font-semibold text-foreground/80 text-sm'>
+                                  {selectionMode === 'hub'
+                                    ? `No shipments assigned to Custom Manifest ${selectedHub || 'Hub'} yet`
+                                    : 'No shipments linked to this MAWB yet'}
+                                </span>
+                                <span className='text-xs text-muted-foreground max-w-md'>
+                                  {selectionMode === 'hub'
+                                    ? 'To assign shipments to this clearance hub, select them in the Shipment list or open the Shipment Edit Drawer and click "Assign Custom Clearance Hub".'
+                                    : 'Assign this airline MAWB to shipments in the Shipment list to see cargo consolidation.'}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredRows.map((r) => {
+                            const s = shipments.find((item) => item.hawbno === r.HAWB)
+                            const isSep = separateHawbs[r.HAWB] || false
+                            const marking = bagMarkings[r.HAWB] ?? r.BagMarking ?? ''
+                            const isHighlighted =
+                              selectedBagForSummary && marking === selectedBagForSummary
 
-                          return (
-                            <tr
-                              key={r.HAWB}
-                              onClick={() => {
-                                if (marking.trim()) setSelectedBagForSummary(marking.trim())
-                              }}
-                              className={`cursor-pointer transition-colors ${
+                            return (
+                              <tr
+                                key={r.HAWB}
+                                onClick={() => {
+                                  if (marking.trim()) setSelectedBagForSummary(marking.trim())
+                                }}
+                                className={`cursor-pointer transition-colors ${
                                 isHighlighted
                                   ? 'bg-primary/10 font-medium'
                                   : isSep
@@ -1180,7 +1211,7 @@ export default function CustomManifestPage() {
                               </td>
                             </tr>
                           )
-                        })}
+                        }))}
                       </tbody>
                     </table>
                   </div>
@@ -1579,7 +1610,7 @@ export default function CustomManifestPage() {
               <div className='flex flex-wrap items-center gap-3 shrink-0'>
                 <Button
                   onClick={handleGenerate}
-                  disabled={generating || !selectedMawb}
+                  disabled={generating || !selectedMawb || shipments.length === 0}
                   className='gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md'
                 >
                   <Sparkles className={`h-4 w-4 ${generating ? 'animate-spin' : ''}`} />
