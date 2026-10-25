@@ -145,7 +145,9 @@ def format_enquiry_response(e: Enquiry) -> Dict[str, Any]:
                 "id": pl.id,
                 "location": pl.location,
                 "phoneNumber": pl.phoneNumber,
-                "note": pl.note
+                "note": pl.note,
+                "isPickedUp": bool(getattr(pl, "isPickedUp", False)),
+                "pickedUpAt": pl.pickedUpAt.isoformat() if getattr(pl, "pickedUpAt", None) else None
             } for pl in e.pickupLocations
         ]
     }

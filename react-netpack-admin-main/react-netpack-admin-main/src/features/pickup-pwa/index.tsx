@@ -644,6 +644,52 @@ export default function PickupRiderPWA() {
     }
   }
 
+  const handleOpenMaps = (address: string) => {
+    if (!address) return
+    if ((window as any).NetPackNative?.openMaps) {
+      (window as any).NetPackNative.openMaps(address)
+      return
+    }
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank')
+  }
+
+  const handleToggleStopStatus = async (pickupId: number, stopId: number, currentStatus: boolean) => {
+    try {
+      const newStatus = !currentStatus
+      const token = riderToken || localStorage.getItem('netpack_rider_token') || ''
+      const res = await fetch(`${API_BASE}/api/pickups/${pickupId}/stops/${stopId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ isPickedUp: newStatus })
+      })
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        throw new Error(errJson.detail || 'Failed to update stop status')
+      }
+      toast.success(newStatus ? 'Stop marked as collected' : 'Stop marked as pending')
+      setPickups(prev => prev.map(p => {
+        if (p.id !== pickupId) return p
+        const updatedLocations = (p.pickupLocations || []).map((loc: any) => {
+          if (loc.id === stopId) {
+            return { ...loc, isPickedUp: newStatus, pickedUpAt: newStatus ? new Date().toISOString() : null }
+          }
+          return loc
+        })
+        const allDone = updatedLocations.length > 0 && updatedLocations.every((l: any) => l.isPickedUp)
+        return {
+          ...p,
+          status: allDone ? 'PICKED_UP' : p.status,
+          pickupLocations: updatedLocations
+        }
+      }))
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update stop status')
+    }
+  }
+
   // ─── Filtered Pickups ───────────────────────────────────────────────────────
   const filteredPickups = useMemo(() => {
     return pickups.filter((p) => {
@@ -1263,29 +1309,59 @@ export default function PickupRiderPWA() {
                           {p.pickupLocations.map((loc: any, idx: number) => {
                             const stopAddress = (loc.location || addressToNavigate || '').trim()
                             const stopPhone = (loc.phoneNumber || phoneToCall || '').trim()
+                            const isStopCollected = !!loc.isPickedUp
                             return (
-                              <div key={idx} className='p-2 rounded-lg bg-background border border-border/80 space-y-1.5 shadow-2xs'>
-                                <div className='flex items-start justify-between gap-1.5'>
+                              <div
+                                key={idx}
+                                className={`p-2.5 rounded-xl border space-y-2 shadow-2xs transition-all ${
+                                  isStopCollected
+                                    ? 'bg-emerald-500/10 border-emerald-500/40 text-foreground'
+                                    : 'bg-background border-border/80'
+                                }`}
+                              >
+                                <div className='flex items-start justify-between gap-2'>
                                   <div className='flex items-start gap-1.5 min-w-0 flex-1'>
-                                    <span className='shrink-0 rounded bg-primary/15 text-primary text-[10px] font-black px-1.5 py-0.5 mt-0.5'>
+                                    <span
+                                      className={`shrink-0 rounded text-[10px] font-black px-1.5 py-0.5 mt-0.5 ${
+                                        isStopCollected
+                                          ? 'bg-emerald-600 text-white'
+                                          : 'bg-primary/15 text-primary'
+                                      }`}
+                                    >
                                       Stop #{idx + 1}
                                     </span>
                                     <div className='text-foreground font-semibold text-xs leading-snug break-words'>
                                       {stopAddress}
                                     </div>
                                   </div>
-                                  {stopAddress && (
-                                    <a
-                                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stopAddress)}`}
-                                      target='_blank'
-                                      rel='noreferrer'
-                                      className='shrink-0'
+
+                                  <div className='flex items-center gap-1.5 shrink-0'>
+                                    <Button
+                                      size='sm'
+                                      type='button'
+                                      variant={isStopCollected ? 'default' : 'outline'}
+                                      onClick={() => handleToggleStopStatus(p.id, loc.id, isStopCollected)}
+                                      className={`h-6 px-2 text-[10px] font-bold ${
+                                        isStopCollected
+                                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                          : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 border-emerald-500/40'
+                                      }`}
                                     >
-                                      <Button size='sm' variant='secondary' className='h-6 px-2 text-[10px] font-bold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30'>
+                                      {isStopCollected ? '✓ Collected' : 'Mark Collected'}
+                                    </Button>
+
+                                    {stopAddress && (
+                                      <Button
+                                        size='sm'
+                                        type='button'
+                                        variant='secondary'
+                                        onClick={() => handleOpenMaps(stopAddress)}
+                                        className='h-6 px-2 text-[10px] font-bold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30'
+                                      >
                                         <Navigation className='h-3 w-3 mr-1 text-primary' /> Maps
                                       </Button>
-                                    </a>
-                                  )}
+                                    )}
+                                  </div>
                                 </div>
 
                                 {stopPhone && (
@@ -1325,21 +1401,16 @@ export default function PickupRiderPWA() {
                             </div>
                           </div>
 
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressToNavigate)}`}
-                            target='_blank'
-                            rel='noreferrer'
-                            className='shrink-0'
+                          <Button
+                            size='sm'
+                            type='button'
+                            variant='secondary'
+                            onClick={() => handleOpenMaps(addressToNavigate)}
+                            className='h-7 px-2.5 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 text-[11px] font-bold shrink-0'
                           >
-                            <Button
-                              size='sm'
-                              variant='secondary'
-                              className='h-7 px-2.5 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 text-[11px] font-bold'
-                            >
-                              <Navigation className='h-3 w-3 mr-1 text-primary' />
-                              Maps
-                            </Button>
-                          </a>
+                            <Navigation className='h-3 w-3 mr-1 text-primary' />
+                            Maps
+                          </Button>
                         </div>
                       )}
                     </div>

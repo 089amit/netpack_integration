@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Scale,
   Boxes,
+  MapPin,
   X,
 } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
@@ -1102,6 +1103,55 @@ export function ShipmentTrackingDialog({
                   </div>
                 )}
 
+                {/* Station-Wise Pickup Itinerary (If multi-stop or recorded stops) */}
+                {liveData?.pickupLocations && liveData.pickupLocations.length > 0 && (
+                  <div className='rounded-lg border p-3.5 space-y-2.5 bg-muted/20'>
+                    <div className='flex items-center justify-between text-xs'>
+                      <span className='font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5'>
+                        <MapPin className='h-3.5 w-3.5 text-emerald-600' />
+                        Station-Wise Pickup Progress
+                      </span>
+                      <Badge variant='outline' className='text-[10px] font-bold'>
+                        {liveData.pickupLocations.filter((s: any) => s.isPickedUp).length} of {liveData.pickupLocations.length} Collected
+                      </Badge>
+                    </div>
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+                      {liveData.pickupLocations.map((stop: any, sIdx: number) => (
+                        <div
+                          key={sIdx}
+                          className={`p-2 rounded-md border text-xs flex items-start justify-between gap-2 ${
+                            stop.isPickedUp ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800' : 'bg-background border-border'
+                          }`}
+                        >
+                          <div className='min-w-0'>
+                            <div className='flex items-center gap-1'>
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${
+                                stop.isPickedUp ? 'bg-emerald-600 text-white' : 'bg-muted text-muted-foreground'
+                              }`}>
+                                Stop #{sIdx + 1}
+                              </span>
+                              <span className='font-medium text-foreground truncate'>{stop.location}</span>
+                            </div>
+                            {stop.note && (
+                              <div className='text-[10px] text-muted-foreground mt-0.5 truncate'>
+                                {stop.note}
+                              </div>
+                            )}
+                          </div>
+                          <Badge
+                            variant={stop.isPickedUp ? 'default' : 'secondary'}
+                            className={`text-[9px] font-bold shrink-0 ${
+                              stop.isPickedUp ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''
+                            }`}
+                          >
+                            {stop.isPickedUp ? '✓ Collected' : 'Pending'}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* 2. Box Specifications & Items in Boxes (Packing List without values) */}
                 <div className='space-y-3'>
                   <div className='flex items-center justify-between'>
@@ -1169,7 +1219,15 @@ export function ShipmentTrackingDialog({
                           </div>
                           <div className='flex items-center gap-3 text-[11px]'>
                             <span>
-                              <strong className='text-foreground'>Weight:</strong> {box.weight || '-'} kg
+                              <strong className='text-foreground'>Weight:</strong>{' '}
+                              {box.chargeableWeight && box.actualWeight && Number(box.chargeableWeight) !== Number(box.actualWeight) ? (
+                                <span>
+                                  <span className='font-bold text-foreground'>{box.chargeableWeight} kg</span>
+                                  <span className='text-muted-foreground ml-1'>(Act: {box.actualWeight} kg)</span>
+                                </span>
+                              ) : (
+                                <span>{box.chargeableWeight || box.weight || '-'} kg</span>
+                              )}
                             </span>
                             <span>
                               <strong className='text-foreground'>Dims:</strong> {box.dimensions || (box.length && box.breadth && box.height ? `${box.length} x ${box.breadth} x ${box.height} cm` : 'Standard Box')}

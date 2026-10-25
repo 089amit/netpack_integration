@@ -138,6 +138,8 @@ class PickupLocationEnquiry(Base):
     location = Column(String(255), nullable=False)
     phoneNumber = Column(String(50), nullable=True)
     note = Column(String(255), nullable=True)
+    isPickedUp = Column(Boolean, default=False, nullable=True)
+    pickedUpAt = Column(DateTime, nullable=True)
     createdAt = Column(DateTime, default=datetime.utcnow)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

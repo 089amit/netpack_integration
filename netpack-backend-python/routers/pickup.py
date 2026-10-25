@@ -155,11 +155,18 @@ def format_pickup_item(e: Enquiry) -> Dict[str, Any]:
                 "id": pl.id,
                 "location": pl.location,
                 "phoneNumber": pl.phoneNumber,
-                "note": pl.note
+                "note": pl.note,
+                "isPickedUp": bool(getattr(pl, "isPickedUp", False)),
+                "pickedUpAt": pl.pickedUpAt.isoformat() if getattr(pl, "pickedUpAt", None) else None
             }
             for pl in e.pickupLocations
         ]
     }
+
+
+class StopStatusUpdate(BaseModel):
+    isPickedUp: bool = True
+    note: Optional[str] = None
 
 
 class PickupStatusUpdate(BaseModel):
@@ -407,6 +414,62 @@ def update_pickup_status(
 
     return {
         "message": f"Pickup status updated to {payload.status}",
+        "pickup": format_pickup_item(e)
+    }
+
+
+@router.patch("/{id}/stops/{stop_id}/status")
+def update_stop_status(
+    id: int,
+    stop_id: int,
+    payload: StopStatusUpdate,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Rider / Operator marks a specific pickup stop / location as collected or pending.
+    If all stops are collected, marks the overall pickup enquiry as PICKED_UP automatically.
+    """
+    requester = get_requester_identity(authorization, db)
+    e = db.query(Enquiry).filter(Enquiry.id == id).first()
+    if not e:
+        raise HTTPException(status_code=404, detail="Pickup not found")
+
+    from models.enquiry import PickupLocationEnquiry
+    stop = db.query(PickupLocationEnquiry).filter(
+        PickupLocationEnquiry.id == stop_id,
+        PickupLocationEnquiry.enquiryId == id
+    ).first()
+    if not stop:
+        raise HTTPException(status_code=404, detail="Pickup stop not found")
+
+    stop.isPickedUp = payload.isPickedUp
+    stop.pickedUpAt = datetime.utcnow() if payload.isPickedUp else None
+    if payload.note:
+        stop.note = payload.note
+
+    # Check if all stops are now picked up
+    all_stops = db.query(PickupLocationEnquiry).filter(PickupLocationEnquiry.enquiryId == id).all()
+    if all_stops and all(s.isPickedUp for s in all_stops):
+        if e.status not in ("PICKED_UP", "PACKED", "WT_DIMENSION_VERIFIED"):
+            e.status = "PICKED_UP"
+            e.pickedUpAt = datetime.utcnow()
+            e.pickedUpBy = requester.user_id if requester else None
+
+    db.commit()
+    db.refresh(stop)
+    db.refresh(e)
+
+    return {
+        "message": f"Stop #{stop_id} status updated to {'Collected' if stop.isPickedUp else 'Pending'}",
+        "stop": {
+            "id": stop.id,
+            "location": stop.location,
+            "phoneNumber": stop.phoneNumber,
+            "note": stop.note,
+            "isPickedUp": bool(stop.isPickedUp),
+            "pickedUpAt": stop.pickedUpAt.isoformat() if stop.pickedUpAt else None
+        },
         "pickup": format_pickup_item(e)
     }
 

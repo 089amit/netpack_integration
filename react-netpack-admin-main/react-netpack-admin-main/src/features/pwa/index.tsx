@@ -166,6 +166,7 @@ interface TrackingDetails {
   riderPhone?: string
   weightProofImageUrl?: string
   weightProofImages?: string[]
+  pickupLocations?: Array<{ id?: number; location: string; phoneNumber?: string; note?: string; isPickedUp?: boolean; pickedUpAt?: string }>
 }
 
 // ─── Initial Mock Data & Fallbacks ─────────────────────────────────────────────
@@ -1664,7 +1665,9 @@ function TrackingScreen({
           } else if (statusStr.includes('VERIFIED')) {
             statusLabel = 'Weight & Dim Verified'
             heroTitle = 'Weight & Dimensions Verified'
-            heroSubtitle = `Actual weight & dimensions verified by NetPack operations • Chargeable: ${displayCw} kg`
+            heroSubtitle = liveRes.weight && liveRes.chargeableWeight && Number(liveRes.weight) !== Number(liveRes.chargeableWeight)
+              ? `Verified Chargeable: ${liveRes.chargeableWeight} kg • Actual: ${liveRes.weight} kg`
+              : `Verified: ${displayCw} kg by NetPack Operations`
           } else if (statusStr.includes('PACK')) {
             statusLabel = 'Cargo Packed'
             heroTitle = 'Cargo Packed & Boxed'
@@ -1738,12 +1741,19 @@ function TrackingScreen({
             riderName: riderName || undefined,
             riderPhone: riderPhone || undefined,
             boxes: liveRes.boxes && liveRes.boxes.length > 0
-              ? liveRes.boxes.map((b: any, i: number) => ({
-                  boxNumber: b.boxNumber || i + 1,
-                  dimensions: b.dimensions || (b.length && b.breadth && b.height ? `${b.length} × ${b.breadth} × ${b.height} cm` : 'Standard Box'),
-                  weight: `${b.weight || liveRes.weight || '3.5'} kg`,
-                  items: b.items && b.items.length > 0 ? b.items : [{ item: liveRes.commodity || 'Cargo Consignment', pieces: 1 }],
-                }))
+              ? liveRes.boxes.map((b: any, i: number) => {
+                  const bCw = b.chargeableWeight
+                  const bAct = b.actualWeight || b.weight
+                  const weightDisplay = bCw && bAct && Number(bCw) !== Number(bAct)
+                    ? `${bCw} kg (Act: ${bAct} kg)`
+                    : `${bCw || bAct || '3.5'} kg`
+                  return {
+                    boxNumber: b.boxNumber || i + 1,
+                    dimensions: b.dimensions || (b.length && b.breadth && b.height ? `${b.length} × ${b.breadth} × ${b.height} cm` : 'Standard Box'),
+                    weight: weightDisplay,
+                    items: b.items && b.items.length > 0 ? b.items : [{ item: liveRes.commodity || 'Cargo Consignment', pieces: 1 }],
+                  }
+                })
               : [
                   {
                     boxNumber: 1,
@@ -1769,6 +1779,7 @@ function TrackingScreen({
                 ],
             weightProofImageUrl: proofImg,
             weightProofImages: proofImgs,
+            pickupLocations: liveRes.pickupLocations || [],
           })
         } else if (mockTrackingMap[trackingId]) {
           setData(mockTrackingMap[trackingId])
@@ -2392,7 +2403,10 @@ function TrackingScreen({
                       <div key={box.boxNumber} className="bg-gray-50/70 rounded-xl p-3 border border-gray-100 space-y-1.5">
                         <div className="flex justify-between items-center text-xs">
                           <span className="font-bold text-[#0D1B2A]">Box #{box.boxNumber}</span>
-                          <span className="text-[11px] text-gray-500 font-mono">{box.dimensions}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-semibold text-emerald-700">{box.weight}</span>
+                            <span className="text-[11px] text-gray-500 font-mono">{box.dimensions}</span>
+                          </div>
                         </div>
                         <div className="pt-1 border-t border-gray-100 space-y-1">
                           {box.items.map((item, i) => (
@@ -2407,6 +2421,43 @@ function TrackingScreen({
                   </div>
                 )}
               </div>
+
+              {/* Station-wise Pickup Progress */}
+              {data.pickupLocations && data.pickupLocations.length > 0 && (
+                <div className="rounded-2xl border border-gray-100 p-3 bg-white text-xs space-y-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                    <span className="font-bold text-[#0D1B2A] flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Station-Wise Pickup Progress
+                    </span>
+                    <span className="text-[11px] font-semibold text-gray-500">
+                      {data.pickupLocations.filter((s: any) => s.isPickedUp).length} of {data.pickupLocations.length} Collected
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {data.pickupLocations.map((stop: any, sIdx: number) => (
+                      <div key={sIdx} className="flex items-start justify-between gap-2 p-2 rounded-xl bg-gray-50 border border-gray-100">
+                        <div className="flex items-start gap-1.5 min-w-0">
+                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 ${
+                            stop.isPickedUp ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            Stop #{sIdx + 1}
+                          </span>
+                          <div>
+                            <p className="font-semibold text-[#0D1B2A] text-xs leading-snug">{stop.location}</p>
+                            {stop.note && <p className="text-[10px] text-gray-500 mt-0.5">{stop.note}</p>}
+                          </div>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                          stop.isPickedUp ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {stop.isPickedUp ? '✓ Collected' : 'Pending'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Consignment Metadata Card */}
               <div className="rounded-xl border border-gray-100 p-3 bg-gray-50/60 text-xs space-y-1.5">

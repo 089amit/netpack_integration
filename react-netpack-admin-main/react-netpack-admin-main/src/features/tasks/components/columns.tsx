@@ -19,6 +19,8 @@ export type EnquiryTableRow = {
   destinationLocation: string
   destinationCountryName: string
   weight: number
+  chargeableWeight?: number | null
+  volumetricWeight?: number | null
   noOfBox: number
   createdByName?: string
   hawbNumber?: string | null
@@ -40,6 +42,8 @@ export const mapEnquiryToTableRow = (enquiry: Enquiry): EnquiryTableRow => ({
   destinationLocation: enquiry.destinationLocation || 'N/A',
   destinationCountryName: enquiry.receiverCountry || 'N/A',
   weight: enquiry.weight || 0,
+  chargeableWeight: enquiry.chargeableWeight ?? (enquiry as any).chargeable_weight ?? null,
+  volumetricWeight: enquiry.volumetricWeight ?? null,
   noOfBox: enquiry.noOfBox || 0,
   createdByName: enquiry.createdByName ?? '—',
   hawbNumber: enquiry.hawbNumber || enquiry.hawbno || enquiry.hawb || null,

@@ -1,4 +1,5 @@
 import os
+import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
@@ -606,6 +607,23 @@ class TrackingRegistry:
                     source="DISPATCH_ROUTING"
                 ))
 
+            # Stop-wise collected checkpoints
+            if enquiry and enquiry.pickupLocations:
+                for idx, pl in enumerate(enquiry.pickupLocations, 1):
+                    if getattr(pl, "isPickedUp", False):
+                        stop_ts = pl.pickedUpAt or pickup_ts
+                        if hasattr(stop_ts, "tzinfo") and stop_ts.tzinfo is not None:
+                            stop_ts = stop_ts.replace(tzinfo=None)
+                        phone_txt = f" (Contact: {pl.phoneNumber})" if pl.phoneNumber else ""
+                        checkpoints.append(TrackingCheckpoint(
+                            timestamp=stop_ts,
+                            location=pl.location,
+                            status="STOP_COLLECTED",
+                            activity=f"Pickup Stop #{idx} Collected: {pl.location}{phone_txt}",
+                            country="Nepal",
+                            source="FIELD_RIDER"
+                        ))
+
             if is_picked_up:
                 checkpoints.append(TrackingCheckpoint(
                     timestamp=pickup_ts,
@@ -641,8 +659,14 @@ class TrackingRegistry:
 
         # 1.7. Wt / Dimension Verified
         if is_weight_verified:
-            verified_wt = (enquiry.weight if (enquiry and enquiry.weight) else (shipment.weight if (shipment and getattr(shipment, "weight", None)) else None))
-            wt_text = f" ({verified_wt} kg)" if verified_wt else ""
+            cw = enquiry.chargeableWeight if (enquiry and enquiry.chargeableWeight) else (shipment.chargeableWeight if (shipment and getattr(shipment, "chargeableWeight", None)) else None)
+            act = enquiry.weight if (enquiry and enquiry.weight) else (shipment.weight if (shipment and getattr(shipment, "weight", None)) else None)
+            if cw and act and abs(float(cw) - float(act)) > 0.01:
+                wt_text = f" (Chargeable: {cw} kg | Actual: {act} kg)"
+            elif cw or act:
+                wt_text = f" ({cw or act} kg)"
+            else:
+                wt_text = ""
             checkpoints.append(TrackingCheckpoint(
                 timestamp=wt_ts,
                 location="NetPack Central Warehouse / Weighing Station",
@@ -1017,6 +1041,17 @@ class TrackingRegistry:
                         "pieces": itm.quantity or 1
                     })
 
+            b_act = float(b.weight or 0.0) if b.weight else round((enquiry.weight if enquiry else 10.0) / max(total_box_count, 1), 2)
+            b_vol = round((float(b.length or 0) * float(b.breadth or 0) * float(b.height or 0)) / 5000.0, 2) if (b.length and b.breadth and b.height) else 0.0
+            b_max = max(b_act, b_vol)
+            if b_max > 0:
+                if b_max < 10.0:
+                    b_cw = math.ceil(b_max * 2.0) / 2.0
+                else:
+                    b_cw = float(math.ceil(b_max))
+            else:
+                b_cw = 0.0
+
             formatted_tracking_boxes.append({
                 "id": b.id,
                 "boxNumber": idx,
@@ -1026,12 +1061,14 @@ class TrackingRegistry:
                 "forwardingNumber": b_fwd,
                 "status": b_status,
                 "isTargeted": is_targeted,
-                "weight": b.weight or round((enquiry.weight if enquiry else 10.0) / max(total_box_count, 1), 2),
+                "weight": b_cw if b_cw > 0 else b_act,
+                "actualWeight": b_act,
+                "chargeableWeight": b_cw if b_cw > 0 else None,
                 "dimensions": b.dimensions or (f"{b.length} x {b.breadth} x {b.height} cm" if (b.length and b.breadth and b.height) else "Standard Cargo Carton"),
                 "length": b.length,
                 "breadth": b.breadth,
                 "height": b.height,
-                "volumetricWeight": round((b.length * b.breadth * b.height) / 5000.0, 2) if (b.length and b.breadth and b.height) else None,
+                "volumetricWeight": b_vol if b_vol > 0 else None,
                 "multiplier": b.multiplier or 1.0,
                 "quantity": b.quantity or 1,
                 "items": box_items_list
@@ -1081,6 +1118,17 @@ class TrackingRegistry:
             "riderPhone": rider_phone,
             "pickupStaffName": rider_name,
             "pickupStaffPhone": rider_phone,
+            "pickupLocations": [
+                {
+                    "id": pl.id,
+                    "location": pl.location,
+                    "phoneNumber": pl.phoneNumber,
+                    "note": pl.note,
+                    "isPickedUp": bool(getattr(pl, "isPickedUp", False)),
+                    "pickedUpAt": pl.pickedUpAt.isoformat() if getattr(pl, "pickedUpAt", None) else None
+                }
+                for pl in (enquiry.pickupLocations if (enquiry and enquiry.pickupLocations) else [])
+            ],
             "boxes": formatted_tracking_boxes if formatted_tracking_boxes else [
                 {
                     "boxNumber": 1,

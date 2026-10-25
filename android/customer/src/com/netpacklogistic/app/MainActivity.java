@@ -97,6 +97,27 @@ public class MainActivity extends Activity {
             );
             return prefs.getBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, false);
         }
+
+        @JavascriptInterface
+        public void openMaps(String address) {
+            try {
+                if (address == null || address.trim().isEmpty()) return;
+                String query = Uri.encode(address.trim());
+                Uri gmmIntentUri = Uri.parse("geo:0,0?q=" + query);
+                Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+                mapIntent.setPackage("com.google.android.apps.maps");
+                mapIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (mapIntent.resolveActivity(getPackageManager()) != null) {
+                    startActivity(mapIntent);
+                } else {
+                    Intent webMap = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=" + query));
+                    webMap.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(webMap);
+                }
+            } catch (Throwable t) {
+                android.util.Log.e("NetPack", "openMaps failed", t);
+            }
+        }
     }
 
     @Override
@@ -250,6 +271,16 @@ public class MainActivity extends Activity {
                     cameraPhotoUri = null;
                 }
 
+                // If user requested camera directly (capture="environment"), launch camera immediately
+                if (fileChooserParams != null && fileChooserParams.isCaptureEnabled()) {
+                    try {
+                        startActivityForResult(takePictureIntent, FILE_CHOOSER_REQUEST_CODE);
+                        return true;
+                    } catch (Throwable t) {
+                        android.util.Log.e("NetPack", "Direct camera launch failed, falling back to chooser", t);
+                    }
+                }
+
                 Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
                 contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
                 contentSelectionIntent.setType("image/*");
@@ -257,9 +288,7 @@ public class MainActivity extends Activity {
                     contentSelectionIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                 }
 
-                Intent[] intentArray = takePictureIntent.resolveActivity(getPackageManager()) != null
-                    ? new Intent[]{takePictureIntent}
-                    : new Intent[0];
+                Intent[] intentArray = new Intent[]{takePictureIntent};
 
                 Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
                 chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
@@ -274,9 +303,27 @@ public class MainActivity extends Activity {
         wv.setWebViewClient(new WebViewClient() {
             private boolean handleExternalUrl(String url) {
                 if (url == null) return false;
+                if (url.startsWith("intent:")) {
+                    try {
+                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        if (intent.resolveActivity(getPackageManager()) != null) {
+                            startActivity(intent);
+                            return true;
+                        }
+                        String fallback = intent.getStringExtra("browser_fallback_url");
+                        if (fallback != null) {
+                            webView.loadUrl(fallback);
+                            return true;
+                        }
+                        return true;
+                    } catch (Throwable t) {
+                        return true;
+                    }
+                }
                 if (url.startsWith("tel:") || url.startsWith("mailto:") ||
                     url.startsWith("whatsapp:") || url.startsWith("sms:") ||
-                    url.startsWith("geo:") ||
+                    url.startsWith("geo:") || url.startsWith("market:") ||
                     url.contains("maps.google.") || url.contains("google.com/maps") ||
                     url.contains("maps.app.goo.gl") || url.contains("waze.com") ||
                     url.contains("openstreetmap.org")) {
@@ -285,7 +332,7 @@ public class MainActivity extends Activity {
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(intent);
                         return true;
-                    } catch (Exception ignored) {
+                    } catch (Throwable ignored) {
                         return true;
                     }
                 }
@@ -320,7 +367,7 @@ public class MainActivity extends Activity {
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request != null && request.isForMainFrame()) {
                     String reqUrl = request.getUrl() != null ? request.getUrl().toString().toLowerCase() : "";
-                    if (reqUrl.contains("maps") || reqUrl.contains("google") || reqUrl.contains("geo:")) {
+                    if (reqUrl.contains("maps") || reqUrl.contains("google") || reqUrl.contains("geo:") || reqUrl.startsWith("intent:") || reqUrl.startsWith("market:")) {
                         return;
                     }
                     showErrorScreen("Unable to connect to NetPack server.");
@@ -329,7 +376,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                if (failingUrl != null && (failingUrl.contains("maps") || failingUrl.contains("google"))) {
+                if (failingUrl != null && (failingUrl.contains("maps") || failingUrl.contains("google") || failingUrl.startsWith("intent:") || failingUrl.startsWith("market:"))) {
                     return;
                 }
                 showErrorScreen("Network connection failed (" + description + ").");

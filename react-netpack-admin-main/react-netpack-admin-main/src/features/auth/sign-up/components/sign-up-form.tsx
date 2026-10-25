@@ -32,7 +32,7 @@ const formSchema = z
       .min(1, { message: 'Please enter your email' })
       .email({ message: 'Invalid email address' }),
     address1: z.string().min(1, { message: 'Please enter address 1' }),
-    address2: z.string().min(1, { message: 'Please enter address 2' }),
+    address2: z.string().optional(),
     city: z.string().min(1, { message: 'Please enter city' }),
     state: z.string().min(1, { message: 'Please enter state' }),
     postcode: z.string().min(1, { message: 'Please enter postcode' }),
@@ -163,7 +163,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
           name='fullName'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full Name</FormLabel>
+              <FormLabel>Full Name <span className='text-red-500'>*</span></FormLabel>
               <FormControl>
                 <Input
                   placeholder='John Doe'
@@ -200,7 +200,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
             name='organizationName'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Organization Name</FormLabel>
+                <FormLabel>Organization Name <span className='text-red-500'>*</span></FormLabel>
                 <FormControl>
                   <Input
                     placeholder='Acme Inc.'
@@ -219,7 +219,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
           name='phoneNumber'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Phone Number</FormLabel>
+              <FormLabel>Phone Number <span className='text-red-500'>*</span></FormLabel>
               <FormControl>
                 <Input
                   placeholder='+1 234 567 8900'
@@ -236,7 +236,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
           name='email'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>Email <span className='text-red-500'>*</span></FormLabel>
               <FormControl>
                 <Input
                   placeholder='name@example.com'
@@ -253,7 +253,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
           name='address1'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Address 1</FormLabel>
+              <FormLabel>Address 1 <span className='text-red-500'>*</span></FormLabel>
               <FormControl>
                 <Input
                   placeholder='Street address, P.O. box, etc.'
@@ -270,7 +270,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
           name='address2'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Address 2</FormLabel>
+              <FormLabel>Address 2 <span className='text-xs text-muted-foreground font-normal'>(Optional)</span></FormLabel>
               <FormControl>
                 <Input
                   placeholder='Apartment, suite, unit, building, floor, etc.'
@@ -288,7 +288,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
             name='city'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>City</FormLabel>
+                <FormLabel>City <span className='text-red-500'>*</span></FormLabel>
                 <FormControl>
                   <Input
                     placeholder='City'
@@ -305,7 +305,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
             name='state'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>State</FormLabel>
+                <FormLabel>State <span className='text-red-500'>*</span></FormLabel>
                 <FormControl>
                   <Input
                     placeholder='State'
@@ -322,7 +322,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
             name='postcode'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Postcode</FormLabel>
+                <FormLabel>Postcode <span className='text-red-500'>*</span></FormLabel>
                 <FormControl>
                   <Input
                     placeholder='Postcode'
@@ -340,7 +340,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
           name='countryId'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Country</FormLabel>
+              <FormLabel>Country <span className='text-red-500'>*</span></FormLabel>
               <SelectDropdown
                 defaultValue={field.value?.toString()}
                 onValueChange={(val) => field.onChange(Number(val))}
@@ -360,7 +360,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
           name='password'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>Password <span className='text-red-500'>*</span></FormLabel>
               <FormControl>
                 <PasswordInput
                   placeholder='********'
@@ -377,7 +377,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
           name='confirmPassword'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Confirm Password</FormLabel>
+              <FormLabel>Confirm Password <span className='text-red-500'>*</span></FormLabel>
               <FormControl>
                 <PasswordInput
                   placeholder='********'
