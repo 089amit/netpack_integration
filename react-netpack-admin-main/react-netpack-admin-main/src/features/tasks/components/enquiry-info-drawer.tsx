@@ -4,7 +4,7 @@ import { Scale, Camera, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import http from '@/utils/http'
 import { useCheckRole } from '@/utils/role-utils'
-import { ENQUIRY_ENDPOINTS } from '@/constants/endpoint'
+import { ENQUIRY_ENDPOINTS, SERVER_URL } from '@/constants/endpoint'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -297,26 +297,46 @@ export function GetEnquiryInfoDrawer({
                     )}
                   </div>
 
-                  {enquiryData.weightProofImageUrl && (
-                    <div className='mt-3 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/60'>
-                      <div className='text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1.5 flex items-center gap-1'>
-                        <Camera className='h-3.5 w-3.5' />
-                        <span>Weighing Scale Proof Photo</span>
+                  {enquiryData.weightProofImageUrl && (() => {
+                    const proofUrls = String(enquiryData.weightProofImageUrl)
+                      .split(',')
+                      .map((u: string) => u.trim())
+                      .filter(Boolean)
+                      .map((u: string) => (u.startsWith('http') ? u : `${SERVER_URL}${u.startsWith('/') ? '' : '/'}${u}`))
+                    if (proofUrls.length === 0) return null
+
+                    return (
+                      <div className='mt-3 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/60'>
+                        <div className='text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1.5 flex items-center justify-between'>
+                          <div className='flex items-center gap-1'>
+                            <Camera className='h-3.5 w-3.5' />
+                            <span>Weighing Scale Proof Photo ({proofUrls.length})</span>
+                          </div>
+                          <span className='text-[10px] font-normal text-muted-foreground'>Click photo to enlarge</span>
+                        </div>
+                        <div className='flex flex-wrap gap-2.5 pt-1'>
+                          {proofUrls.map((imgSrc, pIdx) => (
+                            <a
+                              key={pIdx}
+                              href={imgSrc}
+                              target='_blank'
+                              rel='noreferrer'
+                              className='relative group block overflow-hidden rounded-md border border-emerald-300 hover:opacity-90 transition-opacity bg-black/5'
+                            >
+                              <img
+                                src={imgSrc}
+                                alt={`Scale Proof ${pIdx + 1}`}
+                                className='h-28 w-28 object-cover rounded'
+                              />
+                              <div className='absolute bottom-0 right-0 bg-black/70 text-white text-[9px] font-mono px-1 py-0.5 rounded-tl'>
+                                #{pIdx + 1}
+                              </div>
+                            </a>
+                          ))}
+                        </div>
                       </div>
-                      <a
-                        href={enquiryData.weightProofImageUrl}
-                        target='_blank'
-                        rel='noreferrer'
-                        className='block overflow-hidden rounded-md border border-emerald-300 max-w-xs hover:opacity-90 transition-opacity'
-                      >
-                        <img
-                          src={enquiryData.weightProofImageUrl}
-                          alt='Scale Proof'
-                          className='h-36 w-auto object-cover rounded'
-                        />
-                      </a>
-                    </div>
-                  )}
+                    )
+                  })()}
                 </div>
               )}
 

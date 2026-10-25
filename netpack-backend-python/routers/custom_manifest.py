@@ -290,38 +290,98 @@ def _fetch_mawb_shipments(mawb_query: str, db: Session, query_type: Optional[str
                 dest_country = s.country.name.strip()
 
         country_name = dest_country or "International"
-        boxes = s.boxes or (enq.boxes if enq else []) or []
-        items = enq.items if enq else []
+        
+        # ─── BOXES & HAWB BREAK ALLOCATION ────────────────────────────────────
+        # Fetch boxes assigned to this specific shipment (HAWB)
+        s_boxes = db.query(Box).filter(Box.shipmentId == s.id).order_by(Box.id).all()
+        if not s_boxes:
+            all_enq_shipments = db.query(Shipment).filter(Shipment.enquiryId == s.enquiryId).all() if s.enquiryId else []
+            if len(all_enq_shipments) <= 1:
+                s_boxes = db.query(Box).filter(Box.enquiryId == s.enquiryId).order_by(Box.id).all() if s.enquiryId else []
+            else:
+                s_boxes = []
 
-        pcs = len(boxes) if boxes else (enq.noOfBox if enq and enq.noOfBox else 1)
-        w = sum([float(b.weight or 0.0) for b in boxes]) if boxes else (float(enq.weight) if enq and enq.weight else 0.0)
-        # Extract items
+        all_enq_boxes = db.query(Box).filter(Box.enquiryId == s.enquiryId).all() if s.enquiryId else []
+        total_enq_boxes = len(all_enq_boxes) if all_enq_boxes else (enq.noOfBox if (enq and enq.noOfBox) else max(len(s_boxes), 1))
+        
+        # PCS: number of boxes for this specific HAWB
+        pcs = len(s_boxes) if s_boxes else (enq.noOfBox if (enq and enq.noOfBox) else 1)
+        
+        # Actual weight: exact scale weight sum of this HAWB's boxes (not rounded up)
+        if s_boxes:
+            w = sum([float(b.weight or 0.0) for b in s_boxes])
+        elif enq and enq.weight:
+            ratio = pcs / max(total_enq_boxes, 1)
+            w = float(enq.weight) * ratio
+        else:
+            w = 0.0
+
+        # ─── ITEMS & PACKING LIST PER BOX ALLOCATION ──────────────────────────
         enquiry_items = []
-        for it in items:
-            it_qty = float(it.quantity or 1)
-            it_unit_price = float(it.unitPrice or 0.0)
-            it_tot_val = float(it.totalValue) if it.totalValue is not None else (it_qty * it_unit_price)
-            if it_tot_val == 0.0 and it.value:
-                it_tot_val = float(it.value)
-            enquiry_items.append({
-                "id": it.id,
-                "description": it.description or "General Goods",
-                "quantity": int(it_qty),
-                "unitPrice": it_unit_price,
-                "value": float(it.value or 0.0),
-                "totalValue": round(it_tot_val, 2),
-                "weight": float(it.weight or 0.0),
-                "hsCode": it.hsCode or ""
-            })
+        shipment_box_items = {}
+        for b in s_boxes:
+            for bi in b.items:
+                if bi.enquiryItem:
+                    it_id = bi.enquiryItemId
+                    if it_id not in shipment_box_items:
+                        shipment_box_items[it_id] = {
+                            "item": bi.enquiryItem,
+                            "quantity": 0
+                        }
+                    shipment_box_items[it_id]["quantity"] += int(bi.quantity or 1)
 
-        # Calculate true declared customs value from the sum of enquiry items
+        if shipment_box_items:
+            # 1. Exact box items recorded in database for these specific boxes
+            for it_id, data in shipment_box_items.items():
+                ei = data["item"]
+                it_qty = data["quantity"]
+                it_unit_price = float(ei.unitPrice or 0.0)
+                it_tot_val = round(it_qty * it_unit_price, 2) if it_unit_price > 0 else (
+                    round(float(ei.totalValue or ei.value or 0.0) * (it_qty / max(float(ei.quantity or 1), 1.0)), 2)
+                )
+                enquiry_items.append({
+                    "id": ei.id,
+                    "description": ei.description or "General Goods",
+                    "quantity": it_qty,
+                    "unitPrice": it_unit_price,
+                    "value": it_tot_val,
+                    "totalValue": it_tot_val,
+                    "weight": float(ei.weight or 0.0),
+                    "hsCode": ei.hsCode or ""
+                })
+        elif enq and enq.items:
+            # 2. Distribute parent enquiry items proportionally across the broken HAWBs
+            ratio = pcs / max(total_enq_boxes, 1)
+            for it in enq.items:
+                parent_qty = int(it.quantity or 1)
+                allocated_qty = max(1, round(parent_qty * ratio)) if parent_qty > 1 else 1
+                it_unit_price = float(it.unitPrice or 0.0)
+                it_tot_val = round(allocated_qty * it_unit_price, 2) if it_unit_price > 0 else (
+                    round(float(it.totalValue or it.value or 0.0) * ratio, 2)
+                )
+                enquiry_items.append({
+                    "id": it.id,
+                    "description": it.description or "General Goods",
+                    "quantity": allocated_qty,
+                    "unitPrice": it_unit_price,
+                    "value": it_tot_val,
+                    "totalValue": it_tot_val,
+                    "weight": round(float(it.weight or 0.0) * ratio, 2),
+                    "hsCode": it.hsCode or ""
+                })
+
+        # Calculate true declared customs value for this specific broken HAWB
         items_total_val = sum([it["totalValue"] for it in enquiry_items]) if enquiry_items else 0.0
         if items_total_val > 0:
             val = items_total_val
         elif enq and enq.items:
-            val = sum([float(it.totalValue or ((it.quantity or 1) * (it.unitPrice or 0.0))) for it in enq.items])
+            ratio = pcs / max(total_enq_boxes, 1)
+            parent_val = sum([float(it.totalValue or ((it.quantity or 1) * (it.unitPrice or 0.0))) for it in enq.items])
+            val = round(parent_val * ratio, 2)
         else:
-            val = float(enq.estimatedRate or 100.0) if (enq and enq.currency == 'USD') else 100.0
+            ratio = pcs / max(total_enq_boxes, 1)
+            parent_est = float(enq.estimatedRate or 100.0) if (enq and enq.currency == 'USD') else 100.0
+            val = round(parent_est * ratio, 2)
 
         goods_desc = ", ".join([it["description"] for it in enquiry_items if it.get("description")]) if enquiry_items else "General Goods"
 

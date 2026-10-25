@@ -1184,6 +1184,10 @@ def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depend
     if original_group.forwardingNumber is not None:
         shipment.forwardingNumber = original_group.forwardingNumber.strip() if original_group.forwardingNumber.strip() else None
 
+    # After HAWB break/assignment, shipment status must be SHIPMENT_CREATED (or maintained if already in transit/delivered)
+    if shipment.status in ("PENDING", "PICKED_UP", None):
+        shipment.status = "SHIPMENT_CREATED"
+
     # Assign boxes to original shipment and update box tracking numbers
     for idx, bid in enumerate(original_group.boxIds, 1):
         b = box_dict[bid]
@@ -1206,6 +1210,8 @@ def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depend
         else:
             target_hawb = f"{shipment.hawbno or 'NP'}-P{n_idx + 1}"
 
+        target_status = "SHIPMENT_CREATED" if shipment.status in ("PENDING", "PICKED_UP", "SHIPMENT_CREATED", None) else shipment.status
+
         new_shipment = Shipment(
             enquiryId=shipment.enquiryId,
             customerId=shipment.customerId,
@@ -1214,7 +1220,7 @@ def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depend
             serviceId=shipment.serviceId,
             mawbId=shipment.mawbId,
             agent=target_agent,
-            status=shipment.status,
+            status=target_status,
             trackingMode=shipment.trackingMode or "MANUAL",
             hawbno=target_hawb,
             forwardingNumber=grp.forwardingNumber.strip() if (grp.forwardingNumber and grp.forwardingNumber.strip()) else None,

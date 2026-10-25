@@ -1,6 +1,8 @@
 import os
 import json
 import uuid
+import math
+import mimetypes
 from datetime import datetime, date
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -14,6 +16,7 @@ import config
 from database import get_db
 from models.enquiry import Enquiry, Box, BoxItem, PickupLocationEnquiry
 from models.shipment import Shipment, TrackingEvent
+from models.uploaded_file import UploadedFile
 from models.user import User, Role
 from models.customer import Notification
 from schemas.auth import RiderLoginRequest, TokenValidationRequest
@@ -648,12 +651,26 @@ async def pickup_and_weigh(
             ext = ".jpg"
         unique_name = f"scale_proof_{id}_{uuid.uuid4().hex[:8]}_{idx}{ext}"
         target_path = PICKUP_PROOFS_DIR / unique_name
+        rel_url = f"/uploads/pickup_proofs/{unique_name}"
 
         try:
             content = await img_file.read()
-            with open(target_path, "wb") as f:
-                f.write(content)
-            saved_urls.append(f"/uploads/pickup_proofs/{unique_name}")
+            # Try saving to local disk cache
+            try:
+                with open(target_path, "wb") as f:
+                    f.write(content)
+            except Exception as disk_err:
+                print(f"[Warning] Local disk save: {disk_err}")
+
+            # Persist permanently in Neon PostgreSQL database
+            mime = mimetypes.guess_type(img_file.filename)[0] or "image/jpeg"
+            db_upload = UploadedFile(
+                file_path=rel_url,
+                content=content,
+                mime_type=mime
+            )
+            db.merge(db_upload)
+            saved_urls.append(rel_url)
         except Exception as err:
             raise HTTPException(status_code=500, detail=f"Failed saving weighing scale image: {err}")
 
@@ -665,7 +682,7 @@ async def pickup_and_weigh(
 
     scale_image_urls_str = ",".join(deduped_urls) if deduped_urls else None
 
-    # 2. Parse & Update Boxes in-place and compute Volumetric Weight
+    # 2. Parse & Update Boxes in-place and compute Volumetric Weight & Chargeable Weight
     total_volumetric_weight = 0.0
     parsed_boxes = []
     if boxesJson:
@@ -734,21 +751,48 @@ async def pickup_and_weigh(
         else:
             total_volumetric_weight = (30.0 * 20.0 * 20.0 / 5000.0)
 
+    # Calculate Total Chargeable Weight as the SUM of each box's rounded-up chargeable weight
+    total_chargeable_weight = 0.0
+    boxes_to_weigh = parsed_boxes if parsed_boxes else existing_boxes
+    if boxes_to_weigh:
+        for b_item in boxes_to_weigh:
+            l = float(b_item.get("length") or 0.0) if isinstance(b_item, dict) else float(b_item.length or 0.0)
+            br = float(b_item.get("breadth") or b_item.get("width") or 0.0) if isinstance(b_item, dict) else float(b_item.breadth or 0.0)
+            h = float(b_item.get("height") or 0.0) if isinstance(b_item, dict) else float(b_item.height or 0.0)
+            act = float(b_item.get("weight") or 0.0) if isinstance(b_item, dict) else float(b_item.weight or 0.0)
+            if act <= 0.0 and actualWeight > 0 and len(boxes_to_weigh) > 0:
+                act = actualWeight / len(boxes_to_weigh)
+            qty = int(b_item.get("quantity") or 1) if isinstance(b_item, dict) else int(b_item.quantity or 1)
+            mult = float(b_item.get("multiplier") or 1.0) if isinstance(b_item, dict) else float(b_item.multiplier or 1.0)
+            v_wt = ((l * br * h) / 5000.0) * qty * mult
+            raw_cw = max(act, v_wt)
+            if raw_cw <= 0:
+                b_cw = 0.0
+            elif raw_cw < 10:
+                b_cw = math.ceil(raw_cw * 2) / 2
+            else:
+                b_cw = math.ceil(raw_cw)
+            total_chargeable_weight += b_cw
+    else:
+        raw_cw = max(actualWeight, total_volumetric_weight)
+        total_chargeable_weight = math.ceil(raw_cw * 2) / 2 if raw_cw < 10 else math.ceil(raw_cw)
+
     # 3. Update Enquiry details
     e.status = "PICKED_UP"
     e.weight = round(actualWeight, 2)
     e.volumetricWeight = round(total_volumetric_weight, 2)
-    e.chargeableWeight = round(max(actualWeight, total_volumetric_weight), 2)
+    e.chargeableWeight = round(total_chargeable_weight, 2)
     if scale_image_urls_str:
         e.weightProofImageUrl = scale_image_urls_str
     if pickupNotes is not None:
         e.pickupNotes = pickupNotes
     e.pickedUpAt = datetime.utcnow()
 
-    # 4. Also update linked Shipment status if already created
+    # 4. Only update linked Shipment status if not already created / progressed
     if e.shipments:
         for s in e.shipments:
-            s.status = "PICKED_UP"
+            if s.status in ("PENDING", None):
+                s.status = "PICKED_UP"
 
     # 5. Add a TrackingEvent milestone
     tracking_num = e.trackingNumber or f"ENQ-{e.id}"

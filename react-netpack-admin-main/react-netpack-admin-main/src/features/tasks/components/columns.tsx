@@ -186,9 +186,25 @@ const baseColumns: ColumnDef<EnquiryTableRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Weight (kg)' />
     ),
-    cell: ({ row }) => (
-      <div className='w-[100px]'>{row.getValue('weight')} kg</div>
-    ),
+    cell: ({ row }) => {
+      const enq: any = row.original
+      const cw = enq.chargeableWeight || enq.weight || 0
+      const actual = enq.weight
+      const showActual = actual && cw && Number(cw) !== Number(actual)
+
+      return (
+        <div className='w-[110px]'>
+          <div className='font-semibold text-foreground'>
+            {cw} kg
+          </div>
+          {showActual && (
+            <div className='text-[10px] text-muted-foreground'>
+              Act: {actual} kg
+            </div>
+          )}
+        </div>
+      )
+    },
   },
   {
     accessorKey: 'noOfBox',

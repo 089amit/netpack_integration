@@ -461,9 +461,9 @@ class TrackingRegistry:
             (linked_mawb.destination.strip() if (linked_mawb and linked_mawb.destination) else "International")
         )
 
-        # Operator note for manual checkpoints
+        # Operator note for manual checkpoints (ignore internal split/partition notes)
         raw_op_note = (getattr(shipment, "note", None) if shipment else None) or (getattr(enquiry, "pickupNotes", None) if enquiry else None)
-        clean_op_note = raw_op_note.strip() if raw_op_note else ""
+        clean_op_note = raw_op_note.strip() if (raw_op_note and not raw_op_note.lower().startswith("split from")) else ""
         note_tag = f" (Note: {clean_op_note})" if clean_op_note else ""
 
         is_pickup_required = True
@@ -864,7 +864,11 @@ class TrackingRegistry:
             ))
 
         current_status = shipment_stage
-        if enquiry and enquiry.status in ("PICKED_UP", "PACKED", "WT_DIMENSION_VERIFIED") and (not shipment or shipment.status in ("PICKED_UP", "PENDING", "ENQUIRY_GENERATED")):
+        if shipment and (shipment.hawbno or shipment.status == "SHIPMENT_CREATED"):
+            # When HAWB is created / assigned / split, tracking status must be SHIPMENT_CREATED (or beyond)
+            if shipment_stage in ("PICKED_UP", "PENDING", "ENQUIRY_GENERATED"):
+                current_status = "SHIPMENT_CREATED"
+        elif enquiry and enquiry.status in ("PICKED_UP", "PACKED", "WT_DIMENSION_VERIFIED") and (not shipment or shipment.status in ("PICKED_UP", "PENDING", "ENQUIRY_GENERATED")):
             current_status = enquiry.status
 
         # In API mode, automatically resolve and persist status to CARRIER_SCANNED if courier scans exist
@@ -917,6 +921,14 @@ class TrackingRegistry:
             stage_w = STAGE_ORDER.get(cp.status, 35)
             ts_val = cp.timestamp.timestamp() if cp.timestamp else 0.0
             return (stage_w, ts_val)
+
+        # Remove any internal split / partition milestones from customer timeline
+        checkpoints = [
+            cp for cp in checkpoints
+            if cp.status != "HAWB_SPLIT"
+            and "split from" not in (cp.activity or "").lower()
+            and "partition" not in (cp.activity or "").lower()
+        ]
 
         # Sort checkpoints in DESCENDING order (freshest/newest status at top, older at bottom)
         checkpoints.sort(key=get_checkpoint_sort_key, reverse=True)

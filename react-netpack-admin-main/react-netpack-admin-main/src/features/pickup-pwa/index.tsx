@@ -28,6 +28,7 @@ import {
   LogOut,
   ChevronDown,
   ChevronUp,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -200,6 +201,7 @@ export default function PickupRiderPWA() {
   const [riderNotes, setRiderNotes] = useState<string>('')
   const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [existingImages, setExistingImages] = useState<string[]>([])
   const [submittingWeigh, setSubmittingWeigh] = useState<boolean>(false)
   const [expandedPickupIds, setExpandedPickupIds] = useState<number[]>([])
 
@@ -479,6 +481,13 @@ export default function PickupRiderPWA() {
     setSelectedPhotos([])
     setPhotoPreviews([])
 
+    const existingList: string[] = Array.isArray(pickup.weightProofImages) && pickup.weightProofImages.length > 0
+      ? pickup.weightProofImages.filter(Boolean)
+      : pickup.weightProofImageUrl
+      ? String(pickup.weightProofImageUrl).split(',').map((u: string) => u.trim()).filter(Boolean)
+      : []
+    setExistingImages(existingList)
+
     if (pickup.boxes && pickup.boxes.length > 0) {
       setBoxes(
         pickup.boxes.map((b: any) => ({
@@ -511,6 +520,7 @@ export default function PickupRiderPWA() {
       }
       reader.readAsDataURL(file)
     })
+    e.target.value = ''
   }
 
   const handleRemovePhoto = (index: number) => {
@@ -598,6 +608,9 @@ export default function PickupRiderPWA() {
       }
       if (riderUser?.id) {
         formData.append('pickedUpById', String(riderUser.id))
+      }
+      if (existingImages.length > 0) {
+        formData.append('existingImagesJson', JSON.stringify(existingImages))
       }
       selectedPhotos.forEach((file) => {
         formData.append('scaleImages', file)
@@ -1451,19 +1464,33 @@ export default function PickupRiderPWA() {
                     )}
 
                     {/* Verified proof thumbnail if picked up */}
-                    {p.weightProofImageUrl && (
-                      <div className='flex items-center gap-2 p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30'>
-                        <img
-                          src={`${API_BASE}${p.weightProofImageUrl}`}
-                          alt='Scale Proof'
-                          className='h-10 w-10 object-cover rounded-md border border-emerald-500/40'
-                        />
-                        <div className='text-[10px] text-emerald-700 dark:text-emerald-300'>
-                          <div className='font-bold'>Verified Weight Proof Photo</div>
-                          <div>Actual Scale Weight: {p.weight} kg</div>
+                    {(p.weightProofImages?.length > 0 || p.weightProofImageUrl) && (() => {
+                      const proofList: string[] = Array.isArray(p.weightProofImages) && p.weightProofImages.length > 0
+                        ? p.weightProofImages
+                        : (p.weightProofImageUrl ? String(p.weightProofImageUrl).split(',').map((u: string) => u.trim()).filter(Boolean) : [])
+                      if (proofList.length === 0) return null
+                      const firstUrl = proofList[0].startsWith('http') ? proofList[0] : `${API_BASE}${proofList[0].startsWith('/') ? '' : '/'}${proofList[0]}`
+                      return (
+                        <div className='flex items-center gap-2 p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30'>
+                          <img
+                            src={firstUrl}
+                            alt='Scale Proof'
+                            className='h-10 w-10 object-cover rounded-md border border-emerald-500/40 bg-black/5'
+                          />
+                          <div className='text-[10px] text-emerald-700 dark:text-emerald-300'>
+                            <div className='font-bold flex items-center gap-1.5'>
+                              <span>Verified Scale Proof</span>
+                              {proofList.length > 1 && (
+                                <Badge variant='outline' className='text-[9px] px-1 py-0 h-4 border-emerald-500/40'>
+                                  {proofList.length} photos
+                                </Badge>
+                              )}
+                            </div>
+                            <div>Actual Scale Weight: {p.weight} kg</div>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )
+                    })()}
                   </CardContent>
 
                   {/* Card Actions Footer */}
@@ -1616,36 +1643,77 @@ export default function PickupRiderPWA() {
               </Badge>
             </div>
 
-            {/* 1. Camera Photo Capture */}
+            {/* 1. Camera Photo Capture & Gallery Picker */}
             <div className='space-y-2'>
               <label className='font-bold text-foreground flex items-center justify-between'>
                 <span>Scale Proof & Box Photos</span>
-                <span className='text-[11px] text-emerald-600 dark:text-emerald-400 font-normal'>Camera / Gallery</span>
+                <span className='text-[11px] text-emerald-600 dark:text-emerald-400 font-normal'>
+                  {existingImages.length + photoPreviews.length > 0
+                    ? `${existingImages.length + photoPreviews.length} photos ready`
+                    : 'Camera or Gallery'}
+                </span>
               </label>
 
-              <div className='flex items-center gap-2 overflow-x-auto pb-1'>
-                {/* Camera Input Button */}
-                <label className='flex flex-col items-center justify-center h-20 w-24 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary cursor-pointer shrink-0 transition-all'>
-                  <Camera className='h-6 w-6 text-primary mb-1' />
-                  <span className='text-[10px] font-bold'>Take Photo</span>
+              <div className='flex items-center gap-2 overflow-x-auto pb-1.5'>
+                {/* 1. Direct Camera Snap Button */}
+                <label className='flex flex-col items-center justify-center h-20 w-22 rounded-xl border-2 border-dashed border-emerald-500/50 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 cursor-pointer shrink-0 transition-all'>
+                  <Camera className='h-5 w-5 mb-1 text-emerald-600 dark:text-emerald-400' />
+                  <span className='text-[10px] font-bold'>Camera</span>
                   <input
                     type='file'
                     accept='image/*'
                     capture='environment'
+                    onChange={handlePhotoCapture}
+                    className='hidden'
+                  />
+                </label>
+
+                {/* 2. Gallery / Multi-Image Upload Button */}
+                <label className='flex flex-col items-center justify-center h-20 w-22 rounded-xl border-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/15 text-primary cursor-pointer shrink-0 transition-all'>
+                  <ImageIcon className='h-5 w-5 mb-1 text-primary' />
+                  <span className='text-[10px] font-bold'>Gallery</span>
+                  <input
+                    type='file'
+                    accept='image/*'
                     multiple
                     onChange={handlePhotoCapture}
                     className='hidden'
                   />
                 </label>
 
-                {/* Previews */}
+                {/* Existing Saved Photos */}
+                {existingImages.map((url, idx) => {
+                  const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`
+                  return (
+                    <div key={`existing-${idx}`} className='relative h-20 w-20 rounded-xl overflow-hidden border border-emerald-500/50 shrink-0 bg-black/10'>
+                      <img src={fullUrl} alt='Saved Proof' className='h-full w-full object-cover' />
+                      <span className='absolute bottom-1 left-1 bg-black/70 text-white text-[9px] font-mono px-1 rounded'>
+                        Saved
+                      </span>
+                      <button
+                        type='button'
+                        onClick={() => setExistingImages((prev) => prev.filter((_, i) => i !== idx))}
+                        className='absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700'
+                        title='Delete photo'
+                      >
+                        <X className='h-2.5 w-2.5' />
+                      </button>
+                    </div>
+                  )
+                })}
+
+                {/* Newly Picked/Snapped Photos */}
                 {photoPreviews.map((src, idx) => (
-                  <div key={idx} className='relative h-20 w-20 rounded-xl overflow-hidden border border-border shrink-0'>
-                    <img src={src} alt='Proof' className='h-full w-full object-cover' />
+                  <div key={`new-${idx}`} className='relative h-20 w-20 rounded-xl overflow-hidden border border-primary shrink-0 bg-black/10'>
+                    <img src={src} alt='New Proof' className='h-full w-full object-cover' />
+                    <span className='absolute bottom-1 left-1 bg-primary/90 text-white text-[9px] font-mono px-1 rounded'>
+                      New #{idx + 1}
+                    </span>
                     <button
                       type='button'
                       onClick={() => handleRemovePhoto(idx)}
-                      className='absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full'
+                      className='absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700'
+                      title='Remove photo'
                     >
                       <X className='h-2.5 w-2.5' />
                     </button>

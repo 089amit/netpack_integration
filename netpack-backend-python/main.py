@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import config
@@ -122,13 +122,45 @@ def health_check():
         "serverless": bool(os.getenv("VERCEL"))
     }
 
-# Mount uploaded files safely
-try:
-    if not config.UPLOADS_DIR.exists():
-        config.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=str(config.UPLOADS_DIR)), name="uploads")
-except Exception as _mount_err:
-    print(f"[Warning] Could not mount /uploads directory: {_mount_err}")
+# Serve uploaded files persistently: first from local disk cache, then fallback to PostgreSQL database
+@app.get("/uploads/{file_path:path}", tags=["Uploads"])
+def get_uploaded_file(file_path: str):
+    import mimetypes
+    from sqlalchemy import or_
+    from database import SessionLocal
+    from models.uploaded_file import UploadedFile
+
+    clean_path = file_path.strip().lstrip("/")
+    # 1. Check local disk
+    local_file = config.UPLOADS_DIR / clean_path
+    if local_file.exists() and local_file.is_file():
+        m_type, _ = mimetypes.guess_type(str(local_file))
+        return FileResponse(str(local_file), media_type=m_type or "image/jpeg")
+
+    # 2. Check persistent DB
+    db_paths = [
+        clean_path,
+        f"/uploads/{clean_path}",
+        clean_path.split("/")[-1]
+    ]
+    try:
+        with SessionLocal() as db:
+            record = db.query(UploadedFile).filter(
+                or_(*[UploadedFile.file_path.ilike(f"%{p}%") for p in db_paths])
+            ).first()
+            if record and record.content:
+                return Response(
+                    content=bytes(record.content),
+                    media_type=record.mime_type or "image/jpeg",
+                    headers={
+                        "Cache-Control": "public, max-age=31536000, immutable",
+                        "Content-Disposition": f"inline; filename=\"{clean_path.split('/')[-1]}\""
+                    }
+                )
+    except Exception as db_err:
+        print(f"[Warning] Failed retrieving upload from DB: {db_err}")
+
+    raise HTTPException(status_code=404, detail="Uploaded file not found")
 
 # Import and register routers
 from routers import (

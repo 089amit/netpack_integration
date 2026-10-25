@@ -645,6 +645,7 @@ def update_enquiry(
 
         total_actual_wt = 0.0
         total_vol_wt = 0.0
+        total_cw = 0.0
 
         for idx, b in enumerate(payload.boxes, 1):
             b_weight = _to_float(getattr(b, "weight", None) if not isinstance(b, dict) else b.get("weight"), 0.0)
@@ -658,8 +659,19 @@ def update_enquiry(
             if not b_dim and b_len and b_brd and b_hgt:
                 b_dim = f"{b_len}x{b_brd}x{b_hgt}"
 
-            total_actual_wt += (b_weight * b_qty)
-            total_vol_wt += ((b_len * b_brd * b_hgt) / 5000.0) * b_qty
+            box_act = b_weight * b_qty
+            box_vol = ((b_len * b_brd * b_hgt) / 5000.0) * b_qty * b_mult
+            total_actual_wt += box_act
+            total_vol_wt += box_vol
+
+            raw_cw = max(box_act, box_vol)
+            if raw_cw <= 0:
+                box_cw = 0.0
+            elif raw_cw < 10:
+                box_cw = math.ceil(raw_cw * 2) / 2
+            else:
+                box_cw = math.ceil(raw_cw)
+            total_cw += box_cw
 
             box = Box(
                 enquiryId=e.id,
@@ -714,11 +726,7 @@ def update_enquiry(
         e.noOfBox = len(payload.boxes)
         e.weight = round(total_actual_wt, 2) if total_actual_wt > 0 else (e.weight or 1.0)
         e.volumetricWeight = round(total_vol_wt, 2)
-        calc_cw = max(total_actual_wt, total_vol_wt)
-        if calc_cw < 10:
-            e.chargeableWeight = round(math.ceil(calc_cw * 2) / 2, 2)
-        else:
-            e.chargeableWeight = round(math.ceil(calc_cw), 2)
+        e.chargeableWeight = round(total_cw, 2)
         e.isPacked = True
         e.packedAt = datetime.utcnow()
     else:
@@ -828,6 +836,7 @@ def add_box_item(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
 
         total_weight = 0.0
         total_vol = 0.0
+        total_cw = 0.0
         for idx, b_info in enumerate(boxes_data, 1):
             w = _to_float(b_info.get("weight"), 0.0)
             total_weight += w
@@ -837,7 +846,17 @@ def add_box_item(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
             b_brd = _to_float(b_info.get("breadth"), 20.0)
             b_hgt = _to_float(b_info.get("height"), 20.0)
             dims = b_info.get("dimensions") or f"{b_len}x{b_brd}x{b_hgt}"
-            total_vol += ((b_len * b_brd * b_hgt) / 5000.0) * qty
+            b_vol = ((b_len * b_brd * b_hgt) / 5000.0) * qty
+            total_vol += b_vol
+
+            raw_cw = max(w, b_vol)
+            if raw_cw <= 0:
+                box_cw = 0.0
+            elif raw_cw < 10:
+                box_cw = math.ceil(raw_cw * 2) / 2
+            else:
+                box_cw = math.ceil(raw_cw)
+            total_cw += box_cw
 
             new_box = Box(
                 enquiryId=e.id,
@@ -870,11 +889,7 @@ def add_box_item(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
             e.weight = round(total_weight, 2)
         e.noOfBox = len(boxes_data)
         e.volumetricWeight = round(total_vol, 2)
-        calc_cw = max(total_weight, total_vol)
-        if calc_cw < 10:
-            e.chargeableWeight = round(math.ceil(calc_cw * 2) / 2, 2)
-        else:
-            e.chargeableWeight = round(math.ceil(calc_cw), 2)
+        e.chargeableWeight = round(total_cw, 2)
         e.isPacked = True
         e.packedAt = datetime.utcnow()
 

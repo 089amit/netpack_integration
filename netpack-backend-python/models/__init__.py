@@ -9,6 +9,7 @@ from models.rate import Rate, TIACharge, CustomCharge, PackingCharge
 from models.policy import TermsAndPolicy
 from models.customs_consignee import CustomsConsignee, CustomsSetting, CustomManifestHub
 from models.website_content import WebsiteContent
+from models.uploaded_file import UploadedFile
 
 __all__ = [
     "Base",
@@ -43,4 +44,5 @@ __all__ = [
     "CustomsSetting",
     "CustomManifestHub",
     "WebsiteContent",
+    "UploadedFile",
 ]

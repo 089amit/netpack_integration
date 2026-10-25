@@ -14,6 +14,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.StrictMode;
 import android.os.SystemClock;
 import android.provider.MediaStore;
@@ -48,6 +49,7 @@ public class MainActivity extends Activity {
     private LinearLayout errorLayout;
     private TextView errorText;
     private ValueCallback<Uri[]> fileUploadCallback;
+    private Uri cameraPhotoUri;
     private static final int FILE_CHOOSER_REQUEST_CODE = 3001;
     private static final int PERMISSION_REQUEST_CODE = 3002;
 
@@ -230,9 +232,30 @@ public class MainActivity extends Activity {
                 fileUploadCallback = filePathCallback;
 
                 Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                File photoFile = null;
+                try {
+                    File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+                    if (storageDir == null) {
+                        storageDir = getCacheDir();
+                    }
+                    photoFile = File.createTempFile("scale_proof_" + System.currentTimeMillis(), ".jpg", storageDir);
+                } catch (Exception ex) {
+                    android.util.Log.e("NetPackRider", "Unable to create image file for camera", ex);
+                }
+
+                if (photoFile != null) {
+                    cameraPhotoUri = Uri.fromFile(photoFile);
+                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraPhotoUri);
+                } else {
+                    cameraPhotoUri = null;
+                }
+
                 Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
                 contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
                 contentSelectionIntent.setType("image/*");
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                    contentSelectionIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                }
 
                 Intent[] intentArray = takePictureIntent.resolveActivity(getPackageManager()) != null
                     ? new Intent[]{takePictureIntent}
@@ -449,14 +472,31 @@ public class MainActivity extends Activity {
             Uri[] results = null;
             if (resultCode == RESULT_OK) {
                 if (data != null) {
-                    String dataString = data.getDataString();
-                    if (dataString != null) {
-                        results = new Uri[]{Uri.parse(dataString)};
+                    if (data.getClipData() != null) {
+                        int count = data.getClipData().getItemCount();
+                        results = new Uri[count];
+                        for (int i = 0; i < count; i++) {
+                            results[i] = data.getClipData().getItemAt(i).getUri();
+                        }
+                    } else if (data.getData() != null) {
+                        results = new Uri[]{data.getData()};
+                    } else if (data.getDataString() != null) {
+                        results = new Uri[]{Uri.parse(data.getDataString())};
                     }
+                }
+                // If results is still null, camera capture saved directly to cameraPhotoUri
+                if (results == null && cameraPhotoUri != null) {
+                    try {
+                        File f = new File(cameraPhotoUri.getPath());
+                        if (f.exists() && f.length() > 0) {
+                            results = new Uri[]{cameraPhotoUri};
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
             fileUploadCallback.onReceiveValue(results);
             fileUploadCallback = null;
+            cameraPhotoUri = null;
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }

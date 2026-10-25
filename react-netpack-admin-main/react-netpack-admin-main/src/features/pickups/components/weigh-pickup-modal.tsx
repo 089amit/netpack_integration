@@ -23,7 +23,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PICKUP_ENDPOINTS } from '@/constants/endpoint'
+import { PICKUP_ENDPOINTS, SERVER_URL } from '@/constants/endpoint'
 
 interface BoxItem {
   id?: number
@@ -116,7 +116,22 @@ export function WeighPickupModal({
     return acc + boxVol
   }, 0.0)
 
-  const chargeableWeight = Math.max(grossWeightNum, totalVolumetricWeight)
+  // Chargeable weight is the SUM of each box's rounded-up chargeable weight
+  const chargeableWeight = boxes.reduce((acc, b) => {
+    const l = parseFloat(String(b.length)) || 0.0
+    const w = parseFloat(String(b.breadth)) || 0.0
+    const h = parseFloat(String(b.height)) || 0.0
+    const qty = parseInt(String(b.quantity)) || 1
+    const mult = parseFloat(String(b.multiplier)) || 1.0
+    const boxVol = ((l * w * h) / 5000.0) * qty * mult
+    const boxAct = (parseFloat(String(b.weight)) || (grossWeightNum / (boxes.length || 1))) * qty
+    const rawCW = Math.max(boxAct, boxVol)
+    let boxCW = 0
+    if (rawCW > 0) {
+      boxCW = rawCW < 10 ? Math.ceil(rawCW * 2) / 2 : Math.ceil(rawCW)
+    }
+    return acc + boxCW
+  }, 0.0)
 
   const handleAddBox = () => {
     setBoxes([
@@ -423,28 +438,40 @@ export function WeighPickupModal({
             {(existingImages.length > 0 || imagePreviews.length > 0) ? (
               <div className='grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1'>
                 {/* Existing uploaded photos */}
-                {existingImages.map((url, idx) => (
-                  <div key={`existing-${idx}`} className='relative group h-24 rounded-lg border overflow-hidden bg-muted/30'>
-                    <img
-                      src={url}
-                      alt={`Box Proof ${idx + 1}`}
-                      className='h-full w-full object-cover'
-                    />
-                    <div className='absolute top-1 left-1 bg-black/60 text-[10px] text-white px-1.5 py-0.5 rounded font-medium'>
-                      Saved #{idx + 1}
+                {existingImages.map((url, idx) => {
+                  const fullUrl = url.startsWith('http') ? url : `${SERVER_URL}${url.startsWith('/') ? '' : '/'}${url}`
+                  return (
+                    <div key={`existing-${idx}`} className='relative group h-24 rounded-lg border overflow-hidden bg-muted/30'>
+                      <img
+                        src={fullUrl}
+                        alt={`Box Proof ${idx + 1}`}
+                        className='h-full w-full object-cover'
+                      />
+                      <div className='absolute top-1 left-1 bg-black/60 text-[10px] text-white px-1.5 py-0.5 rounded font-medium'>
+                        Saved #{idx + 1}
+                      </div>
+                      <div className='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2'>
+                        <a
+                          href={fullUrl}
+                          target='_blank'
+                          rel='noreferrer'
+                          className='p-1.5 bg-white/90 text-foreground rounded-full hover:bg-white'
+                          title='View full image'
+                        >
+                          <ExternalLink className='h-3.5 w-3.5' />
+                        </a>
+                        <button
+                          type='button'
+                          onClick={() => setExistingImages(existingImages.filter((_, i) => i !== idx))}
+                          className='p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-700'
+                          title='Delete photo'
+                        >
+                          <Trash2 className='h-3.5 w-3.5' />
+                        </button>
+                      </div>
                     </div>
-                    <div className='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2'>
-                      <a
-                        href={url}
-                        target='_blank'
-                        rel='noreferrer'
-                        className='p-1.5 bg-white/90 text-foreground rounded-full hover:bg-white'
-                      >
-                        <ExternalLink className='h-3.5 w-3.5' />
-                      </a>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
 
                 {/* Newly selected photos */}
                 {imagePreviews.map((previewUrl, idx) => (

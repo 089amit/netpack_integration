@@ -54,7 +54,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
-import { PICKUP_ENDPOINTS } from '@/constants/endpoint'
+import { PICKUP_ENDPOINTS, SERVER_URL } from '@/constants/endpoint'
 import { WeighPickupModal } from './components/weigh-pickup-modal'
 import { ShipmentTrackingDialog } from '@/features/tasks/components/shipment-tracking-dialog'
 
@@ -93,16 +93,16 @@ export default function PickupsDashboard() {
 
   // Helper to extract clean array of all photo URLs
   const getPickupPhotos = (pickup: any): string[] => {
+    let rawList: string[] = []
     if (Array.isArray(pickup?.weightProofImages) && pickup.weightProofImages.length > 0) {
-      return pickup.weightProofImages.filter(Boolean)
-    }
-    if (typeof pickup?.weightProofImageUrl === 'string' && pickup.weightProofImageUrl.trim()) {
-      return pickup.weightProofImageUrl
+      rawList = pickup.weightProofImages.filter(Boolean)
+    } else if (typeof pickup?.weightProofImageUrl === 'string' && pickup.weightProofImageUrl.trim()) {
+      rawList = pickup.weightProofImageUrl
         .split(',')
         .map((u: string) => u.trim())
         .filter(Boolean)
     }
-    return []
+    return rawList.map((u: string) => (u.startsWith('http') ? u : `${SERVER_URL}${u.startsWith('/') ? '' : '/'}${u}`))
   }
 
   const handleOpenPhotoGallery = (pickup: any) => {

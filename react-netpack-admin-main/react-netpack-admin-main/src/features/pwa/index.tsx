@@ -1637,8 +1637,9 @@ function TrackingScreen({
           const proofImg = proofImgs[0] || liveRes.weightProofImageUrl || undefined
 
           let statusLabel = 'In Transit (Air Cargo)'
+          const displayCw = liveRes.chargeableWeight || liveRes.weight || liveRes.approximateWeight || '3.5'
           let heroTitle = 'Air Cargo in Flight'
-          let heroSubtitle = `En route to ${liveRes.destination || 'Destination'} • Verified Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`
+          let heroSubtitle = `En route to ${liveRes.destination || 'Destination'} • Weight: ${displayCw} kg`
 
           if (statusStr.includes('DELIVERED')) {
             statusLabel = 'Delivered'
@@ -1659,11 +1660,11 @@ function TrackingScreen({
           } else if (statusStr.includes('CREATED')) {
             statusLabel = 'Shipment Created'
             heroTitle = 'Airway Bill Generated'
-            heroSubtitle = `Export clearance prepared at Kathmandu Hub • Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`
+            heroSubtitle = `Export clearance prepared at Kathmandu Hub • Weight: ${displayCw} kg`
           } else if (statusStr.includes('VERIFIED')) {
             statusLabel = 'Weight & Dim Verified'
             heroTitle = 'Weight & Dimensions Verified'
-            heroSubtitle = `Actual weight & dimensions verified by NetPack operations • ${liveRes.weight || '3.5'} kg`
+            heroSubtitle = `Actual weight & dimensions verified by NetPack operations • Chargeable: ${displayCw} kg`
           } else if (statusStr.includes('PACK')) {
             statusLabel = 'Cargo Packed'
             heroTitle = 'Cargo Packed & Boxed'
@@ -1671,7 +1672,7 @@ function TrackingScreen({
           } else if (isActualPickedUp) {
             statusLabel = 'Cargo Picked Up'
             heroTitle = 'Cargo Picked Up'
-            heroSubtitle = `Picked up by NetPack courier • Verified Weight: ${liveRes.weight || liveRes.approximateWeight || '3.5'} kg`
+            heroSubtitle = `Picked up by NetPack courier • Weight: ${displayCw} kg`
           } else if (isRiderAssigned) {
             statusLabel = 'Rider Assigned'
             heroTitle = 'Pickup Rider Assigned'
@@ -4903,7 +4904,7 @@ export default function CustomerPWA() {
             destination: b.receiverCity ? `${b.receiverCity}, ${b.receiverCountry || ''}` : b.receiverCountry || 'International',
             country: b.receiverCountry || '',
             commodity: b.commodity || 'General Cargo',
-            weight: `${b.weight || b.approximateWeight || '1.0'} kg`,
+            weight: `${b.chargeableWeight || b.weight || b.approximateWeight || '1.0'} kg`,
             status: (() => {
               const rawSt = (b.status || '').toUpperCase()
               if (rawSt === 'DELIVERED') return 'delivered'
