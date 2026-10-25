@@ -1727,7 +1727,10 @@ export default function PickupRiderPWA() {
 
               <div className='flex items-center gap-2 overflow-x-auto pb-1.5'>
                 {/* 1. Direct Camera Snap Button */}
-                <label className='flex flex-col items-center justify-center h-20 w-22 rounded-xl border-2 border-dashed border-emerald-500/50 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 cursor-pointer shrink-0 transition-all'>
+                <label
+                  onClick={() => (window as any).NetPackNative?.setPreferCamera?.(true)}
+                  className='flex flex-col items-center justify-center h-20 w-22 rounded-xl border-2 border-dashed border-emerald-500/50 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 cursor-pointer shrink-0 transition-all'
+                >
                   <Camera className='h-5 w-5 mb-1 text-emerald-600 dark:text-emerald-400' />
                   <span className='text-[10px] font-bold'>Camera</span>
                   <input
@@ -1740,7 +1743,10 @@ export default function PickupRiderPWA() {
                 </label>
 
                 {/* 2. Gallery / Multi-Image Upload Button */}
-                <label className='flex flex-col items-center justify-center h-20 w-22 rounded-xl border-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/15 text-primary cursor-pointer shrink-0 transition-all'>
+                <label
+                  onClick={() => (window as any).NetPackNative?.setPreferCamera?.(false)}
+                  className='flex flex-col items-center justify-center h-20 w-22 rounded-xl border-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/15 text-primary cursor-pointer shrink-0 transition-all'
+                >
                   <ImageIcon className='h-5 w-5 mb-1 text-primary' />
                   <span className='text-[10px] font-bold'>Gallery</span>
                   <input

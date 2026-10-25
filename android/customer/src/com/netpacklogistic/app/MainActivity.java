@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -50,6 +51,7 @@ public class MainActivity extends Activity {
     private TextView errorText;
     private ValueCallback<Uri[]> fileUploadCallback;
     private Uri cameraPhotoUri;
+    private boolean preferCameraNext = false;
     private static final int FILE_CHOOSER_REQUEST_CODE = 2001;
     private static final int PERMISSION_REQUEST_CODE = 2002;
 
@@ -99,21 +101,35 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void setPreferCamera(boolean prefer) {
+            preferCameraNext = prefer;
+        }
+
+        @JavascriptInterface
         public void openMaps(String address) {
             try {
                 if (address == null || address.trim().isEmpty()) return;
-                String query = Uri.encode(address.trim());
-                Uri gmmIntentUri = Uri.parse("geo:0,0?q=" + query);
-                Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
-                mapIntent.setPackage("com.google.android.apps.maps");
-                mapIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                if (mapIntent.resolveActivity(getPackageManager()) != null) {
-                    startActivity(mapIntent);
-                } else {
-                    Intent webMap = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=" + query));
-                    webMap.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(webMap);
-                }
+                runOnUiThread(() -> {
+                    try {
+                        String query = Uri.encode(address.trim());
+                        Intent mapIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + query));
+                        mapIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        if (mapIntent.resolveActivity(getPackageManager()) != null) {
+                            startActivity(mapIntent);
+                            return;
+                        }
+                        Intent webMap = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=" + query));
+                        webMap.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(webMap);
+                    } catch (Throwable t) {
+                        try {
+                            String query = Uri.encode(address.trim());
+                            Intent webMap = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=" + query));
+                            webMap.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(webMap);
+                        } catch (Throwable ignored) {}
+                    }
+                });
             } catch (Throwable t) {
                 android.util.Log.e("NetPack", "openMaps failed", t);
             }
@@ -201,6 +217,34 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void openExternalUri(Uri uri) {
+        if (uri == null) return;
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Throwable t) {
+            android.util.Log.e("NetPack", "Failed to launch external URI: " + uri, t);
+        }
+    }
+
+    private boolean isInternalHost(String url) {
+        if (url == null || url.trim().isEmpty()) return false;
+        try {
+            Uri uri = Uri.parse(url);
+            String host = uri.getHost();
+            if (host == null) return false;
+            host = host.toLowerCase();
+            return host.contains("netpackintegration.vercel.app") ||
+                   host.contains("vercel.app") ||
+                   host.contains("localhost") ||
+                   host.contains("10.0.2.2") ||
+                   host.startsWith("192.168.");
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private void configureWebView(WebView wv) {
         WebSettings settings = wv.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -213,6 +257,8 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setSupportMultipleWindows(true);
+        settings.setJavaScriptCanOpenWindowsAutomatically(true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
@@ -245,6 +291,31 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
+                WebView newWebView = new WebView(MainActivity.this);
+                newWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest req) {
+                        if (req != null && req.getUrl() != null) {
+                            openExternalUri(req.getUrl());
+                        }
+                        return true;
+                    }
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                        if (url != null) {
+                            openExternalUri(Uri.parse(url));
+                        }
+                        return true;
+                    }
+                });
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(newWebView);
+                resultMsg.sendToTarget();
+                return true;
+            }
+
+            @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback,
                                              FileChooserParams fileChooserParams) {
                 if (fileUploadCallback != null) {
@@ -253,26 +324,36 @@ public class MainActivity extends Activity {
                 fileUploadCallback = filePathCallback;
 
                 Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                File photoFile = null;
+                cameraPhotoUri = null;
+
                 try {
-                    File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-                    if (storageDir == null) {
-                        storageDir = getCacheDir();
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Images.Media.TITLE, "customer_upload_" + System.currentTimeMillis());
+                    values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+                    cameraPhotoUri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+                    if (cameraPhotoUri != null) {
+                        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraPhotoUri);
                     }
-                    photoFile = File.createTempFile("customer_upload_" + System.currentTimeMillis(), ".jpg", storageDir);
-                } catch (Exception ex) {
-                    android.util.Log.e("NetPack", "Unable to create image file for camera", ex);
+                } catch (Throwable ex) {
+                    android.util.Log.w("NetPack", "MediaStore insert failed, falling back to file uri", ex);
                 }
 
-                if (photoFile != null) {
-                    cameraPhotoUri = Uri.fromFile(photoFile);
-                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraPhotoUri);
-                } else {
-                    cameraPhotoUri = null;
+                if (cameraPhotoUri == null) {
+                    try {
+                        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+                        if (storageDir == null) storageDir = getCacheDir();
+                        File photoFile = File.createTempFile("customer_upload_" + System.currentTimeMillis(), ".jpg", storageDir);
+                        cameraPhotoUri = Uri.fromFile(photoFile);
+                        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraPhotoUri);
+                    } catch (Throwable ex) {
+                        android.util.Log.e("NetPack", "Unable to create image file for camera", ex);
+                    }
                 }
 
-                // If user requested camera directly (capture="environment"), launch camera immediately
-                if (fileChooserParams != null && fileChooserParams.isCaptureEnabled()) {
+                boolean launchCameraDirectly = preferCameraNext || (fileChooserParams != null && fileChooserParams.isCaptureEnabled());
+                preferCameraNext = false;
+
+                if (launchCameraDirectly) {
                     try {
                         startActivityForResult(takePictureIntent, FILE_CHOOSER_REQUEST_CODE);
                         return true;
@@ -303,40 +384,33 @@ public class MainActivity extends Activity {
         wv.setWebViewClient(new WebViewClient() {
             private boolean handleExternalUrl(String url) {
                 if (url == null) return false;
-                if (url.startsWith("intent:")) {
-                    try {
-                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        if (intent.resolveActivity(getPackageManager()) != null) {
-                            startActivity(intent);
+                if (isInternalHost(url)) return false;
+
+                try {
+                    if (url.startsWith("intent:")) {
+                        try {
+                            Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            if (intent.resolveActivity(getPackageManager()) != null) {
+                                startActivity(intent);
+                                return true;
+                            }
+                            String fallback = intent.getStringExtra("browser_fallback_url");
+                            if (fallback != null) {
+                                openExternalUri(Uri.parse(fallback));
+                                return true;
+                            }
+                            return true;
+                        } catch (Throwable t) {
                             return true;
                         }
-                        String fallback = intent.getStringExtra("browser_fallback_url");
-                        if (fallback != null) {
-                            webView.loadUrl(fallback);
-                            return true;
-                        }
-                        return true;
-                    } catch (Throwable t) {
-                        return true;
                     }
+
+                    openExternalUri(Uri.parse(url));
+                    return true;
+                } catch (Throwable t) {
+                    return true;
                 }
-                if (url.startsWith("tel:") || url.startsWith("mailto:") ||
-                    url.startsWith("whatsapp:") || url.startsWith("sms:") ||
-                    url.startsWith("geo:") || url.startsWith("market:") ||
-                    url.contains("maps.google.") || url.contains("google.com/maps") ||
-                    url.contains("maps.app.goo.gl") || url.contains("waze.com") ||
-                    url.contains("openstreetmap.org")) {
-                    try {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(intent);
-                        return true;
-                    } catch (Throwable ignored) {
-                        return true;
-                    }
-                }
-                return false;
             }
 
             @Override
@@ -366,8 +440,15 @@ public class MainActivity extends Activity {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request != null && request.isForMainFrame()) {
-                    String reqUrl = request.getUrl() != null ? request.getUrl().toString().toLowerCase() : "";
-                    if (reqUrl.contains("maps") || reqUrl.contains("google") || reqUrl.contains("geo:") || reqUrl.startsWith("intent:") || reqUrl.startsWith("market:")) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        int code = error.getErrorCode();
+                        CharSequence desc = error.getDescription();
+                        if (code == -3 || (desc != null && desc.toString().toLowerCase().contains("abort"))) {
+                            return;
+                        }
+                    }
+                    String reqUrl = request.getUrl() != null ? request.getUrl().toString() : "";
+                    if (!isInternalHost(reqUrl)) {
                         return;
                     }
                     showErrorScreen("Unable to connect to NetPack server.");
@@ -376,7 +457,10 @@ public class MainActivity extends Activity {
 
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                if (failingUrl != null && (failingUrl.contains("maps") || failingUrl.contains("google") || failingUrl.startsWith("intent:") || failingUrl.startsWith("market:"))) {
+                if (errorCode == -3 || (description != null && description.toLowerCase().contains("abort"))) {
+                    return;
+                }
+                if (!isInternalHost(failingUrl)) {
                     return;
                 }
                 showErrorScreen("Network connection failed (" + description + ").");
