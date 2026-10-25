@@ -475,7 +475,7 @@ class TrackingRegistry:
         is_packed = bool(
             getattr(enquiry, "isPacked", False) or
             getattr(enquiry, "packedAt", None) or
-            (enquiry and enquiry.boxes and len(enquiry.boxes) > 0) or
+            (enquiry and enquiry.status in ("PACKED", "WT_DIMENSION_VERIFIED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED")) or
             (shipment and shipment.status in ("PACKED", "WT_DIMENSION_VERIFIED", "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"))
         )
 

@@ -1021,7 +1021,7 @@ def request_customer_pickup(
             or_(
                 Enquiry.trackingNumber.ilike(clean_num),
                 Enquiry.shipments.any(Shipment.hawbno.ilike(clean_num)),
-                Enquiry.shipments.any(Shipment.trackingNumber.ilike(clean_num))
+                Enquiry.shipments.any(Shipment.forwardingNumber.ilike(clean_num))
             )
         ).first()
 

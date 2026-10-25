@@ -85,7 +85,8 @@ function getProgressPercent(status: string): number {
   if (s.includes('SHIPMENT_CREATED')) return 32
   if (s.includes('WT_DIMENSION_VERIFIED') || s.includes('DIMENSION_VERIFIED') || s.includes('WEIGHT_VERIFIED')) return 26
   if (s.includes('PACKED')) return 20
-  if (s.includes('PICKED_UP') || s.includes('PICKUP')) return 14
+  if (s === 'PICKED_UP' || s.includes('PICKED_UP')) return 14
+  if (s.includes('ASSIGNED_FOR_PICKUP') || s.includes('ASSIGNED_PICKUP')) return 10
   return 8
 }
 
@@ -172,7 +173,17 @@ function getStatusConfig(status: string) {
       icon: <Boxes className='h-4 w-4' />,
     }
   }
-  if (s.includes('PICKED_UP') || s.includes('PICKUP')) {
+  if (s.includes('ASSIGNED_FOR_PICKUP') || s.includes('ASSIGNED_PICKUP')) {
+    return {
+      label: 'Assigned for Pickup',
+      heroTitle: 'Rider Assigned for Doorstep Collection',
+      badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+      iconClass: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/80 border-amber-500',
+      dotClass: 'bg-amber-500 border-amber-500',
+      icon: <Truck className='h-4 w-4' />,
+    }
+  }
+  if (s === 'PICKED_UP' || s.includes('PICKED_UP')) {
     return {
       label: 'Picked Up',
       heroTitle: 'Picked Up by NetPack Courier',

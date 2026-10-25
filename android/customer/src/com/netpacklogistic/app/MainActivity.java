@@ -272,17 +272,40 @@ public class MainActivity extends Activity {
         });
 
         wv.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+            private boolean handleExternalUrl(String url) {
+                if (url == null) return false;
                 if (url.startsWith("tel:") || url.startsWith("mailto:") ||
-                    url.startsWith("whatsapp:") || url.startsWith("geo:")) {
+                    url.startsWith("whatsapp:") || url.startsWith("sms:") ||
+                    url.startsWith("geo:") ||
+                    url.contains("maps.google.") || url.contains("google.com/maps") ||
+                    url.contains("maps.app.goo.gl") || url.contains("waze.com") ||
+                    url.contains("openstreetmap.org")) {
                     try {
                         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(intent);
                         return true;
                     } catch (Exception ignored) {
                         return true;
                     }
+                }
+                return false;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (request != null && request.getUrl() != null) {
+                    if (handleExternalUrl(request.getUrl().toString())) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (handleExternalUrl(url)) {
+                    return true;
                 }
                 return false;
             }
@@ -295,13 +318,20 @@ public class MainActivity extends Activity {
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) {
+                if (request != null && request.isForMainFrame()) {
+                    String reqUrl = request.getUrl() != null ? request.getUrl().toString().toLowerCase() : "";
+                    if (reqUrl.contains("maps") || reqUrl.contains("google") || reqUrl.contains("geo:")) {
+                        return;
+                    }
                     showErrorScreen("Unable to connect to NetPack server.");
                 }
             }
 
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                if (failingUrl != null && (failingUrl.contains("maps") || failingUrl.contains("google"))) {
+                    return;
+                }
                 showErrorScreen("Network connection failed (" + description + ").");
             }
         });
