@@ -24,12 +24,13 @@ def init_db_with_retry(max_retries=10, delay=2):
             except Exception as _seed_err:
                 print(f"[Startup Warning] Automatic database seed check: {_seed_err}")
 
-            # Auto-restore data from persistent snapshot if running on fresh container
-            try:
-                from backup_restore_service import restore_database_backup_if_empty
-                restore_database_backup_if_empty()
-            except Exception as _restore_err:
-                print(f"[Startup Warning] Automatic database restore check: {_restore_err}")
+            # Auto-restore data from persistent snapshot only if explicitly requested
+            if os.getenv("AUTO_RESTORE_ON_EMPTY", "false").lower() == "true":
+                try:
+                    from backup_restore_service import restore_database_backup_if_empty
+                    restore_database_backup_if_empty()
+                except Exception as _restore_err:
+                    print(f"[Startup Warning] Automatic database restore check: {_restore_err}")
                 
             return True
         except Exception as e:

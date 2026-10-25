@@ -56,8 +56,10 @@ uploads/
 *.sqlite3
 *.pre_migration_backup
 *.sql
+*backup*.json
 backups/
 netpack-backend-python/backups/
+netpack-backend-python/full_production_backup_latest.json
 
 # ─── IDE & OS ────────────────────────────────────────────────────────────────
 .vscode/
