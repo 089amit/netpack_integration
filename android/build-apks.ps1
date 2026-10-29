@@ -114,6 +114,21 @@ Build-App -AppName "NetPack Rider" `
           -PackageName "com.netpacklogistic.rider" `
           -OutputApk "Netpack-Rider.apk"
 
+# Sync APKs to Web public and dist download directories for web users
+$DOWNLOAD_PUBLIC = "$ROOT_DIR\react-netpack-admin-main\react-netpack-admin-main\public\download"
+$DOWNLOAD_DIST   = "$ROOT_DIR\react-netpack-admin-main\react-netpack-admin-main\dist\download"
+
+foreach ($dir in @($DOWNLOAD_PUBLIC, $DOWNLOAD_DIST)) {
+    if (-not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    Copy-Item "$ROOT_DIR\build-apk\Netpack-Customer.apk" "$dir\customer.apk" -Force
+    Copy-Item "$ROOT_DIR\build-apk\Netpack-Customer.apk" "$dir\Netpack-Customer.apk" -Force
+    Copy-Item "$ROOT_DIR\build-apk\Netpack-Rider.apk" "$dir\rider.apk" -Force
+    Copy-Item "$ROOT_DIR\build-apk\Netpack-Rider.apk" "$dir\Netpack-Rider.apk" -Force
+}
+Write-Host "[SYNC] Mirrored APKs into web download folders (public/download and dist/download)." -ForegroundColor Green
+
 Write-Host "`n========================================================" -ForegroundColor Cyan
 Write-Host "🎉 Both APKs compiled, aligned, and signed successfully!" -ForegroundColor Cyan
 Write-Host "Deliverables:" -ForegroundColor Cyan
