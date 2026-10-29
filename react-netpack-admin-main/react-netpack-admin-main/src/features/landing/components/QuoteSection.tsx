@@ -304,22 +304,23 @@ export const QuoteSection: React.FC<{
       <div className='border-t border-white/10 bg-[#09131E] py-12'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex flex-col md:flex-row items-center justify-between gap-8 pb-8 border-b border-white/10'>
-            {/* Netpack SVG Wordmark Logo */}
-            <div className='flex items-center gap-3'>
-              <div className='w-9 h-9 rounded-xl bg-gradient-to-tr from-[#2F6BFF] to-[#FF7A1A] p-0.5 flex items-center justify-center'>
-                <div className='w-full h-full rounded-[10px] bg-[#0D1B2A] flex items-center justify-center font-display font-bold text-white text-sm'>
-                  NP
-                </div>
-              </div>
-              <div className='flex flex-col'>
-                <span className='font-display font-extrabold text-xl tracking-tight text-white leading-none'>
-                  NETPACK
-                </span>
-                <span className='font-mono text-[9px] tracking-[0.25em] text-[#FF7A1A] uppercase leading-tight'>
-                  LOGISTIC
-                </span>
-              </div>
-            </div>
+            {/* Official NetPack Brand Logo Wordmark */}
+            <a
+              href='#'
+              onClick={(e) => {
+                e.preventDefault()
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+              className='flex items-center group active:scale-95 transition-transform'
+              title='NetPack Logistic'
+            >
+              <img
+                src='/alzlogo.png'
+                alt='NetPack Logistic'
+                style={{ filter: 'brightness(0) invert(1)' }}
+                className='h-8 sm:h-9 w-auto object-contain drop-shadow-[0_2px_10px_rgba(255,255,255,0.15)] group-hover:opacity-90 transition-opacity'
+              />
+            </a>
 
             {/* Quick Links Navigation */}
             <div className='flex flex-wrap items-center justify-center gap-6 text-xs font-mono text-slate-300'>

@@ -58,30 +58,22 @@ export default function LandingPage() {
           ────────────────────────────────────────────────────────── */}
       <header className='fixed top-0 left-0 right-0 z-50 bg-[#0D1B2A]/85 backdrop-blur-xl border-b border-white/10 transition-all'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between'>
-          {/* Brand Logo Wordmark */}
+          {/* Official NetPack Brand Logo Wordmark */}
           <a
             href='#'
             onClick={(e) => {
               e.preventDefault()
               window.scrollTo({ top: 0, behavior: 'smooth' })
             }}
-            className='flex items-center gap-3 group'
+            className='flex items-center group active:scale-95 transition-transform'
+            title='NetPack Logistic'
           >
-            {/* Minimalist Vector Box Node Icon */}
-            <div className='w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#2F6BFF] to-[#FF7A1A] p-0.5 shadow-lg shadow-[#2F6BFF]/20 group-hover:scale-105 transition-transform'>
-              <div className='w-full h-full rounded-[14px] bg-[#0D1B2A] flex items-center justify-center font-display font-extrabold text-white text-base tracking-tighter'>
-                NP
-              </div>
-            </div>
-
-            <div className='flex flex-col'>
-              <span className='font-display font-extrabold text-xl tracking-tight text-white leading-none'>
-                {LANDING_CONFIG.brandName.split(' ')[0]}
-              </span>
-              <span className='font-mono text-[9px] tracking-[0.25em] text-[#FF7A1A] uppercase leading-tight'>
-                {LANDING_CONFIG.brandName.split(' ')[1] || 'LOGISTIC'}
-              </span>
-            </div>
+            <img
+              src='/alzlogo.png'
+              alt='NetPack Logistic'
+              style={{ filter: 'brightness(0) invert(1)' }}
+              className='h-8 sm:h-9 md:h-10 w-auto object-contain drop-shadow-[0_2px_10px_rgba(255,255,255,0.15)] group-hover:opacity-90 transition-opacity'
+            />
           </a>
 
           {/* Desktop Nav Links */}
