@@ -497,24 +497,11 @@ export const ShipmentJourney: React.FC = () => {
     >
       {/* Pinned Sticky Viewport Container - uses dvh and adaptive padding to fit all screen heights */}
       <div className='sticky top-16 sm:top-20 h-[calc(100dvh-4rem)] sm:h-[calc(100dvh-5rem)] flex flex-col justify-between py-2 sm:py-4 lg:py-6 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden'>
-        {/* Top Header - compact & shrink-0 */}
+        {/* Top Header - clean & minimal */}
         <div className='text-center max-w-3xl mx-auto z-10 shrink-0'>
-          <div className='inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-mono font-semibold tracking-wider uppercase mb-1 sm:mb-2 border border-current opacity-70'>
-            <span>STAGE 0{currentStage.id} OF 06</span>
-            <span>•</span>
-            <span>SCROLL-DRIVEN 3D LIFECYCLE</span>
-          </div>
-
-          <h2 className='text-xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold uppercase tracking-tight font-display leading-tight'>
+          <h2 className='text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold uppercase tracking-tight font-display leading-tight'>
             THE SHIPMENT JOURNEY
           </h2>
-          <p
-            className={`hidden sm:block mt-1 sm:mt-2 text-xs sm:text-sm max-w-xl mx-auto font-sans ${
-              isDarkScene ? 'text-slate-300' : 'text-slate-600'
-            }`}
-          >
-            Scroll naturally to scrub the live 3D parcel through all six certified chain-of-custody checkpoints.
-          </p>
         </div>
 
         {/* Center: Split between 3D WebGL Canvas & Stage Card with min-h-0 so it fits screen exactly */}
@@ -554,12 +541,8 @@ export const ShipmentJourney: React.FC = () => {
                 {currentStage.description}
               </p>
 
-              {/* Progress Bar within active stage */}
+              {/* Minimal Progress Bar within active stage */}
               <div className='mt-2.5 sm:mt-5 pt-2 sm:pt-3 border-t border-current/10'>
-                <div className='flex justify-between text-[10px] sm:text-[11px] font-mono opacity-70 mb-1'>
-                  <span>SCROLL TELEMETRY</span>
-                  <span>{Math.round(scrollProgress * 100)}% DISPATCHED</span>
-                </div>
                 <div className='w-full h-1 sm:h-1.5 rounded-full bg-slate-300/30 overflow-hidden'>
                   <div
                     className='h-full bg-gradient-to-r from-[#2F6BFF] to-[#FF7A1A] transition-all duration-200 rounded-full'
@@ -570,7 +553,7 @@ export const ShipmentJourney: React.FC = () => {
             </div>
           </div>
 
-          {/* RIGHT: Real Three.js WebGL 3D Canvas Scene - constrained with max-h-[44vh] so it never overflows */}
+          {/* RIGHT: Real Three.js WebGL 3D Canvas Scene */}
           <div className='lg:col-span-7 order-1 lg:order-2 flex items-center justify-center min-h-0'>
             <div
               ref={canvasContainerRef}
@@ -579,9 +562,6 @@ export const ShipmentJourney: React.FC = () => {
               }`}
             >
               {/* 3D WebGL Canvas mounts here */}
-              <div className='absolute top-2.5 right-2.5 sm:top-4 sm:right-4 z-20 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-mono font-bold tracking-widest bg-black/50 backdrop-blur-md text-white border border-white/10'>
-                REAL-TIME 3D WEBGL
-              </div>
             </div>
           </div>
         </div>

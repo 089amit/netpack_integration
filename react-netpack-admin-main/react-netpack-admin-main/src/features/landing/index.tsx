@@ -1,6 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import Lenis from 'lenis'
+import 'lenis/dist/lenis.css'
+
 import { LANDING_CONFIG } from './config'
 import { HeroGlobe } from './components/Globe'
 import { ShipmentJourney } from './components/ShipmentJourney'
@@ -17,7 +20,6 @@ import {
   Search,
   ArrowRight,
   MessageCircle,
-  Smartphone,
 } from 'lucide-react'
 
 export default function LandingPage() {
@@ -29,18 +31,44 @@ export default function LandingPage() {
   const [heroTrackInput, setHeroTrackInput] = useState('')
   const [showHeroTrackBar, setShowHeroTrackBar] = useState(false)
 
-  // Set document title & metadata on mount
+  const lenisRef = useRef<Lenis | null>(null)
+
+  // Initialize Butter-Smooth Scrolling via Lenis
   useEffect(() => {
     document.title = `${LANDING_CONFIG.brandName} | Courier & International Shipping`
     setIsAuth(isAuthenticated())
+
+    const lenis = new Lenis({
+      duration: 1.15,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      touchMultiplier: 1.5,
+    })
+    lenisRef.current = lenis
+
+    let animationFrameId: number
+    function raf(time: number) {
+      lenis.raf(time)
+      animationFrameId = requestAnimationFrame(raf)
+    }
+    animationFrameId = requestAnimationFrame(raf)
+
+    return () => {
+      cancelAnimationFrame(animationFrameId)
+      lenis.destroy()
+    }
   }, [])
 
-  // Smooth scroll handler
+  // Smooth scroll handler using Lenis
   const scrollTo = (id: string) => {
     setMobileMenuOpen(false)
     const el = document.getElementById(id)
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth' })
+      if (lenisRef.current) {
+        lenisRef.current.scrollTo(el, { offset: -80, duration: 1.2 })
+      } else {
+        el.scrollIntoView({ behavior: 'smooth' })
+      }
     }
   }
 
@@ -54,25 +82,29 @@ export default function LandingPage() {
   return (
     <div className='min-h-screen bg-[#0D1B2A] text-slate-100 font-sans antialiased selection:bg-[#2F6BFF] selection:text-white'>
       {/* ──────────────────────────────────────────────────────────
-          NAVIGATION BAR (Minimal Sticky Top Nav)
+          NAVIGATION BAR (Minimal & Clean Sticky Top Nav)
           ────────────────────────────────────────────────────────── */}
-      <header className='fixed top-0 left-0 right-0 z-50 bg-[#0D1B2A]/85 backdrop-blur-xl border-b border-white/10 transition-all'>
+      <header className='fixed top-0 left-0 right-0 z-50 bg-[#0D1B2A]/90 backdrop-blur-xl border-b border-white/10 transition-all'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between'>
-          {/* Official NetPack Brand Logo Wordmark */}
+          {/* Official NetPack Brand Logo */}
           <a
             href='#'
             onClick={(e) => {
               e.preventDefault()
-              window.scrollTo({ top: 0, behavior: 'smooth' })
+              if (lenisRef.current) {
+                lenisRef.current.scrollTo(0, { duration: 1.2 })
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }
             }}
-            className='flex items-center group active:scale-95 transition-transform'
+            className='flex items-center active:scale-95 transition-transform'
             title='NetPack Logistic'
           >
             <img
               src='/alzlogo.png'
               alt='NetPack Logistic'
               style={{ filter: 'brightness(0) invert(1)' }}
-              className='h-8 sm:h-9 md:h-10 w-auto object-contain drop-shadow-[0_2px_10px_rgba(255,255,255,0.15)] group-hover:opacity-90 transition-opacity'
+              className='h-8 sm:h-9 md:h-10 w-auto object-contain drop-shadow-[0_2px_10px_rgba(255,255,255,0.15)] hover:opacity-90 transition-opacity'
             />
           </a>
 
@@ -94,15 +126,6 @@ export default function LandingPage() {
 
           {/* Right Action Buttons */}
           <div className='hidden md:flex items-center gap-4'>
-            {/* Mobile App Download Button */}
-            <button
-              onClick={() => setShowAppModal(true)}
-              className='p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 transition'
-              title='Download Android Mobile APKs'
-            >
-              <Smartphone className='w-4 h-4' />
-            </button>
-
             {/* Discreet Staff / Admin Login */}
             <a
               href={isAuth ? '/enquiries' : '/sign-in'}
@@ -161,17 +184,6 @@ export default function LandingPage() {
             </nav>
 
             <div className='pt-2 flex flex-col gap-3'>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false)
-                  setShowAppModal(true)
-                }}
-                className='w-full py-3 rounded-xl bg-white/10 text-white font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2'
-              >
-                <Smartphone className='w-4 h-4 text-[#FF7A1A]' />
-                <span>Download Android APKs</span>
-              </button>
-
               <button
                 onClick={() => scrollTo('quote')}
                 className='w-full py-3.5 rounded-xl bg-[#FF7A1A] text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#FF7A1A]/20'
@@ -269,76 +281,52 @@ export default function LandingPage() {
       </section>
 
       {/* ──────────────────────────────────────────────────────────
-          SECTION 2: PROOF (Light Off-White Scene)
+          SECTION 2: PROOF (Clean Minimalist Metrics Scene)
           ────────────────────────────────────────────────────────── */}
       <section className='relative w-full py-20 md:py-28 bg-[#F5F7FA] text-slate-900 border-t border-b border-slate-200'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='grid grid-cols-1 lg:grid-cols-12 gap-12 items-center'>
-            {/* Left: Looping Branded Parcel Graphic */}
-            <div className='lg:col-span-4 flex items-center justify-center'>
-              <div className='relative w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center'>
-                {/* Floating ambient shadow */}
-                <div className='absolute bottom-2 w-32 h-6 bg-slate-300 rounded-full blur-md opacity-70' />
-
-                {/* Inline SVG Cardboard Parcel Box */}
-                <svg
-                  viewBox='0 0 200 200'
-                  className='w-full h-full drop-shadow-xl animate-bounce duration-1000'
-                  style={{ animationDuration: '3s' }}
-                >
-                  <polygon points='100,20 170,55 170,130 100,165 30,130 30,55' fill='#D89D65' stroke='#B27C4B' strokeWidth='2' />
-                  <polygon points='100,20 170,55 100,90 30,55' fill='#E6B17E' />
-                  <line x1='100' y1='90' x2='100' y2='165' stroke='#B27C4B' strokeWidth='2' />
-                  {/* Yellow Tape */}
-                  <line x1='100' y1='20' x2='100' y2='90' stroke='#F6D860' strokeWidth='8' />
-                  {/* Label */}
-                  <rect x='60' y='65' width='40' height='22' rx='2' fill='#FFF' transform='rotate(10 80 75)' />
-                  <text x='65' y='76' fontSize='6' fontWeight='bold' fill='#0D1B2A' transform='rotate(10 80 75)'>
-                    NETPACK
-                  </text>
-                  <line x1='65' y1='80' x2='95' y2='80' stroke='#000' strokeWidth='1' transform='rotate(10 80 75)' />
-                </svg>
-              </div>
-            </div>
-
-            {/* Right: Big Headline & Animated Proof Metrics */}
-            <div className='lg:col-span-8 space-y-8'>
+          <div className='grid grid-cols-1 lg:grid-cols-12 gap-10 items-center'>
+            {/* Left: Statement */}
+            <div className='lg:col-span-5 space-y-4'>
               <div className='inline-flex items-center gap-2 text-xs font-mono font-semibold tracking-wider text-[#2F6BFF] uppercase'>
+                <span className='w-2 h-2 rounded-full bg-[#2F6BFF]' />
                 <span>VERIFIABLE PERFORMANCE</span>
-                <span>•</span>
-                <span>NO SHORTCUTS</span>
               </div>
 
               <h2 className='text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase font-display tracking-tight leading-none text-slate-900'>
                 WE MOVE PARCELS. WE OWN THE OUTCOME.
               </h2>
 
-              {/* 3 Count-Up Stats */}
-              <div className='grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4'>
-                {LANDING_CONFIG.stats.map((stat, idx) => (
-                  <div
-                    key={idx}
-                    className='p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow'
-                  >
-                    <div className='text-3xl sm:text-4xl md:text-5xl font-black font-display text-slate-900 tracking-tight'>
-                      {stat.value}
-                    </div>
-                    <div className='text-xs font-mono font-bold uppercase tracking-wider text-[#2F6BFF] mt-1'>
-                      {stat.label}
-                    </div>
-                    <div className='text-xs text-slate-500 mt-1 font-sans'>
-                      {stat.detail}
-                    </div>
+              <p className='text-slate-600 text-sm sm:text-base leading-relaxed font-sans pt-1'>
+                Door-to-door courier dispatch and international air freight with zero blind spots. Every handover logged with verified timestamps.
+              </p>
+            </div>
+
+            {/* Right: 3 Clean Minimal Count-Up Stats */}
+            <div className='lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-5'>
+              {LANDING_CONFIG.stats.map((stat, idx) => (
+                <div
+                  key={idx}
+                  className='p-6 sm:p-7 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300'
+                >
+                  <div className='text-3xl sm:text-4xl md:text-5xl font-black font-display text-slate-900 tracking-tight'>
+                    {stat.value}
                   </div>
-                ))}
-              </div>
+                  <div className='text-xs font-mono font-bold uppercase tracking-wider text-[#2F6BFF] mt-2'>
+                    {stat.label}
+                  </div>
+                  <div className='text-xs text-slate-500 mt-1 font-sans'>
+                    {stat.detail}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
       {/* ──────────────────────────────────────────────────────────
-          SECTION 3: THE SHIPMENT JOURNEY (Pinned 6-Stage Lifecycle)
+          SECTION 3: THE SHIPMENT JOURNEY (Pinned 6-Stage 3D Lifecycle)
           ────────────────────────────────────────────────────────── */}
       <ShipmentJourney />
 
@@ -357,7 +345,7 @@ export default function LandingPage() {
       />
 
       {/* ──────────────────────────────────────────────────────────
-          SECTION 6: TRACKING WIDGET (Real API + Mock Fallback)
+          SECTION 6: TRACKING WIDGET (Live Real Backend API)
           ────────────────────────────────────────────────────────── */}
       <TrackingWidget initialTrackingId={activeTrackingPrefill} />
 
