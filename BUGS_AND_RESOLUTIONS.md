@@ -121,3 +121,48 @@ This document tracks all identified operational, frontend, and backend bugs alon
 
 ### Technical Implementation:
 - In `react-netpack-admin-main`, inspect the Customs Clearance Hub component and remove the redundant button element.
+
+---
+
+## 8. Multi-Stop Route: Failure Adding Stops
+
+### Problem:
+- Adding route stops / pickup stations in the stops creation modal fails to save/add stops.
+
+### Expected Behavior:
+- Multiple route stops can be added sequentially with address, contact person, phone, and remarks.
+- Real-time validation should provide feedback if any required coordinate or address field is missing.
+
+### Technical Implementation:
+- Inspect backend stops router / endpoint schema validation and frontend stops modal state in `react-netpack-admin-main`.
+- Ensure stops array payload matches database foreign keys and JSON schemas.
+
+---
+
+## 9. Account Registration Missing Mandatory Field Indicators (*)
+
+### Problem:
+- Sign-up / Account creation form does not clearly denote required vs optional fields with asterisks `*` or badges.
+
+### Expected Behavior:
+- All required inputs (Name, Email, Phone, Password, Company/Address where applicable) must display red asterisks (`*`) or clear visual mandatory tags.
+
+### Technical Implementation:
+- Update register/signup form fields in `react-netpack-admin-main` and customer portals to include `<span className="text-red-500">*</span>` on labels with explicit form validation tooltips.
+
+---
+
+## 10. Station-Wise Pickup Milestones (Rider & Consignee Tracking)
+
+### Problem:
+- When an enquiry has multiple pickup stations, the rider cannot mark each station individually as picked up, and consignees cannot see station-by-station progress.
+
+### Expected Behavior:
+- **Rider App**: Rider has an interactive checklist of pickup stations, allowing them to mark Station 1, Station 2, etc., as "Picked Up" sequentially with timestamps.
+- **Consignee/Customer Tracking**: Tracking view reflects station-wise completion status so consignees know exactly which pickup stations have been cleared and which are pending.
+
+### Technical Implementation:
+- Add `pickup_stops` status tracking (`PENDING`, `PICKED_UP`, `SKIPPED`) in backend schema.
+- Expose station status update API endpoint for riders (`PATCH /api/enquiry/{id}/stops/{stop_id}/status`).
+- Render station milestones in public tracking and customer app timelines.
+
