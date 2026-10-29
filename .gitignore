@@ -45,6 +45,10 @@ android/*/obj/
 android/*/bin/
 android/*/*.zip
 android/*/*.apk
+android/*/*.aab
+android/*/aab_temp/
+android/tools/*.jar
+build-aab/
 
 # ─── Uploads / User Files ────────────────────────────────────────────────────
 netpack-backend-python/uploads/
