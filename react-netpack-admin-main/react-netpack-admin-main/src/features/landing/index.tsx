@@ -7,7 +7,6 @@ import { ShipmentJourney } from './components/ShipmentJourney'
 import { SplitReveal } from './components/SplitReveal'
 import { ServicesSection } from './components/ServicesSection'
 import { TrackingWidget } from './components/TrackingWidget'
-import { TestimonialSection } from './components/TestimonialSection'
 import { QuoteSection } from './components/QuoteSection'
 import { MobileAppModal } from './components/MobileAppModal'
 import { isAuthenticated } from '@/lib/auth'
@@ -96,9 +95,6 @@ export default function LandingPage() {
             <button onClick={() => scrollTo('journey')} className='hover:text-white transition'>
               Journey
             </button>
-            <button onClick={() => scrollTo('about')} className='hover:text-white transition'>
-              About
-            </button>
             <button onClick={() => scrollTo('quote')} className='hover:text-white transition'>
               Contact
             </button>
@@ -163,12 +159,6 @@ export default function LandingPage() {
                 className='text-left py-2 border-b border-white/5 hover:text-white'
               >
                 The 6-Stage Journey
-              </button>
-              <button
-                onClick={() => scrollTo('about')}
-                className='text-left py-2 border-b border-white/5 hover:text-white'
-              >
-                About & Conviction
               </button>
               <button
                 onClick={() => scrollTo('quote')}
@@ -380,12 +370,7 @@ export default function LandingPage() {
       <TrackingWidget initialTrackingId={activeTrackingPrefill} />
 
       {/* ──────────────────────────────────────────────────────────
-          SECTION 7: ABOUT & FOUNDER TESTIMONIAL (Light Editorial)
-          ────────────────────────────────────────────────────────── */}
-      <TestimonialSection />
-
-      {/* ──────────────────────────────────────────────────────────
-          SECTION 8: CTA & FOOTER (Dark Navy)
+          SECTION 7: CTA & FOOTER (Dark Navy)
           ────────────────────────────────────────────────────────── */}
       <QuoteSection
         prefilledService={prefilledService}

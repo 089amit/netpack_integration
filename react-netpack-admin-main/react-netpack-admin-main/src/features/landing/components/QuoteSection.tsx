@@ -326,7 +326,7 @@ export const QuoteSection: React.FC<{
               <a href='#services' className='hover:text-white transition'>SERVICES</a>
               <a href='#tracking' className='hover:text-white transition'>TRACKING</a>
               <a href='#journey' className='hover:text-white transition'>JOURNEY</a>
-              <a href='#about' className='hover:text-white transition'>ABOUT</a>
+              <a href='#quote' className='hover:text-white transition'>CONTACT</a>
               <a href='/sign-in' className='hover:text-[#FF7A1A] transition font-bold'>STAFF LOGIN</a>
             </div>
 
