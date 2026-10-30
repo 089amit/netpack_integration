@@ -1,14 +1,12 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { LANDING_CONFIG } from '../config'
-import { Clock, CheckCircle2, Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react'
+import { Clock, CheckCircle2 } from 'lucide-react'
 
 export const ShipmentJourney: React.FC = () => {
   const sectionRef = useRef<HTMLDivElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [activeStageIndex, setActiveStageIndex] = useState(0)
   const [scrollProgress, setScrollProgress] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
   const [videoDuration, setVideoDuration] = useState(10.01)
 
   const stages = LANDING_CONFIG.stages
@@ -16,21 +14,15 @@ export const ShipmentJourney: React.FC = () => {
   const isDarkScene = currentStage.theme === 'dark'
 
   const progressRef = useRef(0)
-  const isPlayingRef = useRef(false)
 
-  // Synchronize playing ref
-  useEffect(() => {
-    isPlayingRef.current = isPlaying
-  }, [isPlaying])
-
-  // Video metadata loader
+  // Load video metadata for precise scroll mapping
   const handleLoadedMetadata = () => {
     if (videoRef.current && !isNaN(videoRef.current.duration) && videoRef.current.duration > 0) {
       setVideoDuration(videoRef.current.duration)
     }
   }
 
-  // Smooth scroll scrubbing engine (Apple-style requestAnimationFrame seek)
+  // Smooth scroll scrubbing engine (Apple-style continuous seek)
   useEffect(() => {
     let animId: number
 
@@ -38,14 +30,13 @@ export const ShipmentJourney: React.FC = () => {
       animId = requestAnimationFrame(updateVideoScrub)
 
       const video = videoRef.current
-      if (!video || isPlayingRef.current || video.readyState < 1) return
+      if (!video || video.readyState < 1) return
 
       const duration = video.duration || videoDuration || 10
       const targetTime = Math.max(0, Math.min(duration - 0.05, progressRef.current * duration))
 
-      // Only seek if difference is noticeable (> 0.03s) to prevent browser seek thrashing
-      if (Math.abs(video.currentTime - targetTime) > 0.03) {
-        // Direct assignment on HTML5 video provides instantaneous hardware scrub
+      // Instantaneous scroll-scrub response
+      if (Math.abs(video.currentTime - targetTime) > 0.02) {
         video.currentTime = targetTime
       }
     }
@@ -102,40 +93,6 @@ export const ShipmentJourney: React.FC = () => {
     window.scrollTo({ top: targetScrollY, behavior: 'smooth' })
   }
 
-  // Toggle Video Play / Pause
-  const togglePlay = useCallback(() => {
-    const video = videoRef.current
-    if (!video) return
-
-    if (video.paused) {
-      video.play().then(() => {
-        setIsPlaying(true)
-      }).catch((err) => {
-        console.warn('Autoplay prevented:', err)
-      })
-    } else {
-      video.pause()
-      setIsPlaying(false)
-    }
-  }, [])
-
-  // Toggle Mute / Unmute
-  const toggleMute = useCallback(() => {
-    const video = videoRef.current
-    if (!video) return
-    video.muted = !video.muted
-    setIsMuted(video.muted)
-  }, [])
-
-  // Fullscreen video player
-  const handleFullscreen = () => {
-    const video = videoRef.current
-    if (!video) return
-    if (video.requestFullscreen) {
-      video.requestFullscreen()
-    }
-  }
-
   return (
     <section
       id='journey'
@@ -154,14 +111,14 @@ export const ShipmentJourney: React.FC = () => {
         </div>
 
         {/* Center: Split between Cinematic Video & Stage Narrative Card */}
-        <div className='grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6 items-center my-auto w-full z-10 min-h-0'>
+        <div className='grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8 items-center my-auto w-full z-10 min-h-0'>
           {/* LEFT: Active Stage Narrative */}
           <div className='lg:col-span-5 order-2 lg:order-1'>
             <div
-              className={`p-3.5 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl border backdrop-blur-xl transition-all duration-500 shadow-xl ${
+              className={`p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl border backdrop-blur-xl transition-all duration-500 shadow-xl ${
                 isDarkScene
-                  ? 'bg-[#132238]/95 border-white/10 text-white'
-                  : 'bg-white/95 border-slate-200/90 text-slate-900 shadow-slate-200/60'
+                  ? 'bg-white/[0.04] border-white/10 text-white'
+                  : 'bg-white/80 border-slate-200/90 text-slate-900 shadow-slate-200/60'
               }`}
             >
               <div className='flex items-center justify-between gap-3 mb-2 sm:mb-3'>
@@ -191,8 +148,8 @@ export const ShipmentJourney: React.FC = () => {
               </p>
 
               {/* Minimal Progress Bar within active stage */}
-              <div className='mt-2.5 sm:mt-5 pt-2 sm:pt-3 border-t border-current/10'>
-                <div className='w-full h-1 sm:h-1.5 rounded-full bg-slate-300/30 overflow-hidden'>
+              <div className='mt-3 sm:mt-5 pt-2 sm:pt-3 border-t border-current/10'>
+                <div className='w-full h-1 sm:h-1.5 rounded-full bg-slate-400/20 overflow-hidden'>
                   <div
                     className='h-full bg-gradient-to-r from-[#2F6BFF] to-[#FF7A1A] transition-all duration-200 rounded-full'
                     style={{ width: `${scrollProgress * 100}%` }}
@@ -202,88 +159,19 @@ export const ShipmentJourney: React.FC = () => {
             </div>
           </div>
 
-          {/* RIGHT: Real High-Def Cinematic Video Player (Scroll Scrubbed) */}
+          {/* RIGHT: Transparent & Seamless Cinematic Video Scrub (Zero Player UI) */}
           <div className='lg:col-span-7 order-1 lg:order-2 flex items-center justify-center min-h-0'>
-            <div
-              className={`relative h-[210px] xs:h-[250px] sm:h-[300px] md:h-[340px] lg:h-[400px] xl:h-[430px] max-h-[48vh] w-full max-w-2xl rounded-2xl sm:rounded-3xl border overflow-hidden shadow-2xl transition-all duration-500 flex items-center justify-center group ${
-                isDarkScene ? 'bg-[#060D17] border-white/15' : 'bg-[#060D17] border-slate-300'
-              }`}
-            >
-              {/* HTML5 Video Element */}
+            <div className='relative h-[210px] xs:h-[250px] sm:h-[300px] md:h-[340px] lg:h-[400px] xl:h-[440px] max-h-[48vh] w-full max-w-2xl flex items-center justify-center overflow-hidden rounded-2xl sm:rounded-3xl bg-transparent'>
+              {/* HTML5 Video Element - 100% Scroll Scrub Only */}
               <video
                 ref={videoRef}
                 src='/journey_cinematic.mp4'
                 playsInline
-                muted={isMuted}
+                muted
                 preload='auto'
                 onLoadedMetadata={handleLoadedMetadata}
-                onEnded={() => setIsPlaying(false)}
-                className='w-full h-full object-cover rounded-2xl sm:rounded-3xl'
+                className='w-full h-full object-contain sm:object-cover rounded-2xl sm:rounded-3xl pointer-events-none select-none drop-shadow-2xl'
               />
-
-              {/* Ambient Top Vignette & Subtle Stage Stamp */}
-              <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none' />
-
-              {/* Live Telemetry Stamp Overlay (Top-Left) */}
-              <div className='absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex items-center gap-2 pointer-events-none'>
-                <span className='w-2 h-2 rounded-full bg-[#10B981] animate-pulse' />
-                <span className='px-2.5 py-1 rounded-full text-[9px] sm:text-[11px] font-mono font-bold tracking-widest bg-black/60 backdrop-blur-md text-white border border-white/10 uppercase'>
-                  STAGE 0{currentStage.id} • {currentStage.shortLabel}
-                </span>
-              </div>
-
-              {/* Interactive Video Controls Overlay (Bottom Bar) */}
-              <div className='absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-20 flex items-center justify-between gap-3'>
-                {/* Play/Pause Button */}
-                <button
-                  type='button'
-                  onClick={togglePlay}
-                  className='p-2 sm:p-2.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white backdrop-blur-md transition shadow-lg active:scale-95'
-                  title={isPlaying ? 'Pause auto-play' : 'Play video preview'}
-                >
-                  {isPlaying ? (
-                    <Pause className='w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FF7A1A]' />
-                  ) : (
-                    <Play className='w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white' />
-                  )}
-                </button>
-
-                {/* Video Scrubber Timeline Indicator */}
-                <div className='flex-1 mx-2'>
-                  <div className='w-full h-1 sm:h-1.5 rounded-full bg-white/20 overflow-hidden backdrop-blur-sm'>
-                    <div
-                      className='h-full bg-gradient-to-r from-[#2F6BFF] to-[#FF7A1A] transition-all duration-75 rounded-full'
-                      style={{ width: `${scrollProgress * 100}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className='flex items-center gap-1.5 sm:gap-2'>
-                  {/* Mute/Unmute Button */}
-                  <button
-                    type='button'
-                    onClick={toggleMute}
-                    className='p-2 sm:p-2.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white backdrop-blur-md transition shadow-lg active:scale-95'
-                    title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-                  >
-                    {isMuted ? (
-                      <VolumeX className='w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300' />
-                    ) : (
-                      <Volume2 className='w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#10B981]' />
-                    )}
-                  </button>
-
-                  {/* Fullscreen Button */}
-                  <button
-                    type='button'
-                    onClick={handleFullscreen}
-                    className='hidden sm:flex p-2 sm:p-2.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white backdrop-blur-md transition shadow-lg active:scale-95'
-                    title='Fullscreen'
-                  >
-                    <Maximize2 className='w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300' />
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
