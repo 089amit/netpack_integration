@@ -1,4 +1,4 @@
-package com.netpacklogistic.rider;
+package com.netpackpickup.pickup;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -28,7 +28,7 @@ public class BootReceiver extends BroadcastReceiver {
             if (am == null) return;
 
             Intent alarmIntent = new Intent(context, NotificationAlarmReceiver.class);
-            alarmIntent.setAction("com.netpacklogistic.rider.CHECK_ALERTS");
+            alarmIntent.setAction("com.netpackpickup.pickup.CHECK_ALERTS");
 
             int flags = PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

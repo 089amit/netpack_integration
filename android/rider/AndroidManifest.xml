@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.netpacklogistic.rider"
+    package="com.netpackpickup.pickup"
     android:versionCode="4"
     android:versionName="1.0.3">
 
@@ -87,7 +87,7 @@
             android:name=".NotificationAlarmReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.netpacklogistic.rider.CHECK_ALERTS" />
+                <action android:name="com.netpackpickup.pickup.CHECK_ALERTS" />
             </intent-filter>
         </receiver>
 

@@ -1,4 +1,4 @@
-package com.netpacklogistic.rider;
+package com.netpackpickup.pickup;
 
 import android.Manifest;
 import android.app.Activity;

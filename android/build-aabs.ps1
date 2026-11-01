@@ -108,7 +108,7 @@ Build-Aab -AppName "NetPack Customer" `
 # Build Rider App Bundle
 Build-Aab -AppName "NetPack Rider" `
           -AppDir "$ROOT_DIR\android\rider" `
-          -PackageName "com.netpacklogistic.rider" `
+          -PackageName "com.netpackpickup.pickup" `
           -OutputAab "Netpack-Rider.aab"
 
 Write-Host "`n========================================================" -ForegroundColor Cyan

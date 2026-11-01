@@ -111,7 +111,7 @@ Build-App -AppName "NetPack Customer" `
 # Build Rider App
 Build-App -AppName "NetPack Rider" `
           -AppDir "$ROOT_DIR\android\rider" `
-          -PackageName "com.netpacklogistic.rider" `
+          -PackageName "com.netpackpickup.pickup" `
           -OutputApk "Netpack-Rider.apk"
 
 # Sync APKs to Web public and dist download directories for web users
