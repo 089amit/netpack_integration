@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from database import get_db
-from models.customer import Notification
+from models.customer import Notification, FcmToken
+from services.auth_service import get_requester_identity
 
 router = APIRouter(prefix="/api/notification", tags=["Notifications"])
 
@@ -22,6 +23,10 @@ class BulkNotificationRequest(BaseModel):
     customerIds: Optional[List[int]] = None
     userIds: Optional[List[int]] = None
     scope: Optional[str] = "ALL_CUSTOMERS"
+
+class FcmTokenRegisterRequest(BaseModel):
+    token: str
+    customerId: Optional[int] = None
 
 @router.post("/sendNotification")
 def send_notification(payload: NotificationSendRequest, db: Session = Depends(get_db)):
@@ -65,17 +70,97 @@ def send_bulk_notification(payload: BulkNotificationRequest, db: Session = Depen
     db.commit()
     return {"message": "Bulk notifications dispatched successfully"}
 
+@router.post("/register-token")
+def register_device_token(
+    payload: FcmTokenRegisterRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Registers or updates a device push / FCM token for customer notification delivery."""
+    requester = get_requester_identity(authorization, db)
+    cust_id = payload.customerId or requester.customer_id
+    if not cust_id:
+        return {"success": False, "message": "Customer identification required to bind push token"}
+
+    existing = db.query(FcmToken).filter(FcmToken.token == payload.token.strip()).first()
+    if existing:
+        existing.customerId = cust_id
+    else:
+        new_tok = FcmToken(token=payload.token.strip(), customerId=cust_id)
+        db.add(new_tok)
+    db.commit()
+    return {"success": True, "message": "Push token registered successfully"}
+
 @router.get("/getNotifications")
-def get_notifications(db: Session = Depends(get_db)):
-    return db.query(Notification).order_by(Notification.createdAt.desc()).limit(50).all()
+def get_notifications(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns real-time notifications for the customer app and dashboard.
+    If authenticated as a customer, delivers customer-specific alerts plus global notifications.
+    """
+    requester = get_requester_identity(authorization, db)
+    query = db.query(Notification)
+
+    if requester.customer_id:
+        query = query.filter(
+            (Notification.customerId == requester.customer_id) |
+            (Notification.scope == "ALL_CUSTOMERS") |
+            (Notification.scope == "ALL_USERS")
+        )
+    elif requester.user_id:
+        query = query.filter(
+            (Notification.userId == requester.user_id) |
+            (Notification.scope == "ALL_USERS") |
+            (Notification.scope == "ALL_CUSTOMERS")
+        )
+
+    return query.order_by(Notification.createdAt.desc()).limit(50).all()
 
 @router.get("/unreadCount")
-def get_unread_count(db: Session = Depends(get_db)):
-    cnt = db.query(Notification).filter(Notification.isRead == False).count()
+def get_unread_count(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    requester = get_requester_identity(authorization, db)
+    query = db.query(Notification).filter(Notification.isRead == False)
+
+    if requester.customer_id:
+        query = query.filter(
+            (Notification.customerId == requester.customer_id) |
+            (Notification.scope == "ALL_CUSTOMERS") |
+            (Notification.scope == "ALL_USERS")
+        )
+    elif requester.user_id:
+        query = query.filter(
+            (Notification.userId == requester.user_id) |
+            (Notification.scope == "ALL_USERS") |
+            (Notification.scope == "ALL_CUSTOMERS")
+        )
+
+    cnt = query.count()
     return {"count": cnt}
 
 @router.get("/markAllAsRead")
-def mark_all_as_read(db: Session = Depends(get_db)):
-    db.query(Notification).filter(Notification.isRead == False).update({"isRead": True})
+def mark_all_as_read(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    requester = get_requester_identity(authorization, db)
+    query = db.query(Notification).filter(Notification.isRead == False)
+
+    if requester.customer_id:
+        query = query.filter(
+            (Notification.customerId == requester.customer_id) |
+            (Notification.scope == "ALL_CUSTOMERS")
+        )
+    elif requester.user_id:
+        query = query.filter(
+            (Notification.userId == requester.user_id) |
+            (Notification.scope == "ALL_USERS")
+        )
+
+    query.update({"isRead": True}, synchronize_session=False)
     db.commit()
     return {"message": "All notifications marked as read"}

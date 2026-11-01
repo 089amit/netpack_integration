@@ -21,7 +21,10 @@ from schemas.shipment import (
     BulkAssignMawbRequest
 )
 from services.hawb_service import compute_next_hawb_for_agent
-from services.email_service import send_shipment_delivery_notification
+from services.email_service import (
+    send_shipment_delivery_notification,
+    send_shipment_out_for_delivery_notification
+)
 
 router = APIRouter(prefix="/api/shipments", tags=["Shipments"])
 
@@ -831,14 +834,29 @@ def update_shipment_status(
                 if payload.note and payload.note.strip():
                     e.note = payload.note.strip()
                 if e.customerId:
+                    if payload.status == "OUT_FOR_DELIVERY":
+                        notif_title = "Out for Delivery 🚚"
+                        notif_body = f"Your parcel ({e.trackingNumber}) is out for delivery with our courier driver and will arrive today."
+                    elif payload.status == "DELIVERED":
+                        notif_title = "Shipment Delivered 🎉"
+                        notif_body = f"Your parcel ({e.trackingNumber}) has been successfully delivered."
+                    else:
+                        notif_title = f"Shipment Status: {payload.status.replace('_', ' ').title()}"
+                        notif_body = f"Your package {e.trackingNumber} is now {payload.status.replace('_', ' ').title()}."
+
                     db.add(Notification(
-                        title=f"Shipment Status: {payload.status}",
-                        body=f"Your package {e.trackingNumber} is now {payload.status}.",
+                        title=notif_title,
+                        body=notif_body,
                         customerId=e.customerId,
                         scope="SPECIFIC_CUSTOMER",
                         isRead=False
                     ))
-                if payload.status == "DELIVERED":
+                if payload.status == "OUT_FOR_DELIVERY":
+                    try:
+                        send_shipment_out_for_delivery_notification(e, background_tasks)
+                    except Exception as mail_err:
+                        print(f"[Out For Delivery Email Error] {mail_err}")
+                elif payload.status == "DELIVERED":
                     try:
                         send_shipment_delivery_notification(e, background_tasks)
                     except Exception as mail_err:
@@ -855,10 +873,20 @@ def update_shipment_status(
     tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or s.forwardingNumber or f"NET-{s.id}"
 
     if cust_id:
+        if payload.status == "OUT_FOR_DELIVERY":
+            notif_title = "Out for Delivery 🚚"
+            notif_body = f"Your parcel ({tr_no}) is out for delivery with our courier driver and will arrive today."
+        elif payload.status == "DELIVERED":
+            notif_title = "Shipment Delivered 🎉"
+            notif_body = f"Your parcel ({tr_no}) has been successfully delivered."
+        else:
+            notif_title = f"Shipment Status: {payload.status.replace('_', ' ').title()}"
+            notif_body = f"Your consignment {tr_no} is now {payload.status.replace('_', ' ').title()}."
+
         try:
             db.add(Notification(
-                title=f"Shipment Status: {payload.status}",
-                body=f"Your consignment {tr_no} is now {payload.status}.",
+                title=notif_title,
+                body=notif_body,
                 customerId=cust_id,
                 scope="SPECIFIC_CUSTOMER",
                 isRead=False
@@ -866,7 +894,12 @@ def update_shipment_status(
         except Exception as notif_err:
             print(f"[Notification Error] {notif_err}")
 
-    if payload.status == "DELIVERED":
+    if payload.status == "OUT_FOR_DELIVERY":
+        try:
+            send_shipment_out_for_delivery_notification(s, background_tasks)
+        except Exception as mail_err:
+            print(f"[Out For Delivery Email Error] {mail_err}")
+    elif payload.status == "DELIVERED":
         try:
             send_shipment_delivery_notification(s, background_tasks)
         except Exception as mail_err:
@@ -912,17 +945,33 @@ def bulk_update_status(
             cust_id = s.customerId or (s.enquiry.customerId if s.enquiry else None)
             tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or s.forwardingNumber or f"NET-{s.id}"
             if cust_id:
+                if payload.status == "OUT_FOR_DELIVERY":
+                    b_title = "Out for Delivery 🚚"
+                    b_body = f"Your parcel ({tr_no}) is out for delivery with our courier driver and will arrive today."
+                elif payload.status == "DELIVERED":
+                    b_title = "Shipment Delivered 🎉"
+                    b_body = f"Your parcel ({tr_no}) has been successfully delivered."
+                else:
+                    b_title = f"Shipment Status: {payload.status.replace('_', ' ').title()}"
+                    b_body = f"Your consignment {tr_no} is now {payload.status.replace('_', ' ').title()}."
+
                 try:
                     db.add(Notification(
-                        title=f"Shipment Status: {payload.status}",
-                        body=f"Your consignment {tr_no} is now {payload.status}.",
+                        title=b_title,
+                        body=b_body,
                         customerId=cust_id,
                         scope="SPECIFIC_CUSTOMER",
                         isRead=False
                     ))
                 except Exception as notif_err:
                     print(f"[Bulk Notification Error] {notif_err}")
-            if payload.status == "DELIVERED":
+
+            if payload.status == "OUT_FOR_DELIVERY":
+                try:
+                    send_shipment_out_for_delivery_notification(s, background_tasks)
+                except Exception as mail_err:
+                    print(f"[Bulk Out For Delivery Email Error] {mail_err}")
+            elif payload.status == "DELIVERED":
                 try:
                     send_shipment_delivery_notification(s, background_tasks)
                 except Exception as mail_err:

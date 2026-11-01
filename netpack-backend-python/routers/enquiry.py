@@ -18,7 +18,11 @@ from services.auth_service import (
     get_requester_identity,
     get_user_enquiry_filter
 )
-from services.email_service import send_enquiry_booking_notification
+from services.email_service import (
+    send_enquiry_booking_notification,
+    send_shipment_delivery_notification,
+    send_shipment_out_for_delivery_notification
+)
 
 router = APIRouter(prefix="/api/enquiry", tags=["Enquiry"])
 
@@ -783,13 +787,53 @@ def update_pickup_locations(id: int, payload: Dict[str, Any], db: Session = Depe
     return {"message": "Pickup locations updated successfully"}
 
 @router.patch("/update-status/{id}")
-def update_enquiry_status(id: int, payload: EnquiryStatusUpdateRequest, db: Session = Depends(get_db)):
+def update_enquiry_status(
+    id: int,
+    payload: EnquiryStatusUpdateRequest,
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db)
+):
     e = db.query(Enquiry).filter(Enquiry.id == id).first()
     if not e:
         raise HTTPException(status_code=404, detail="Enquiry not found")
     e.status = payload.status
     for s in e.shipments:
         s.status = payload.status
+
+    tr_no = e.trackingNumber or f"ENQ-{e.id}"
+    if e.customerId:
+        if payload.status == "OUT_FOR_DELIVERY":
+            title = "Out for Delivery 🚚"
+            body = f"Your parcel ({tr_no}) is out for delivery with our courier driver and will arrive today."
+        elif payload.status == "DELIVERED":
+            title = "Shipment Delivered 🎉"
+            body = f"Your parcel ({tr_no}) has been successfully delivered."
+        else:
+            title = f"Shipment Status: {payload.status.replace('_', ' ').title()}"
+            body = f"Your consignment {tr_no} is now {payload.status.replace('_', ' ').title()}."
+
+        try:
+            db.add(Notification(
+                title=title,
+                body=body,
+                customerId=e.customerId,
+                scope="SPECIFIC_CUSTOMER",
+                isRead=False
+            ))
+        except Exception as notif_err:
+            print(f"[Enquiry Status Notification Warning] {notif_err}")
+
+    if payload.status == "OUT_FOR_DELIVERY":
+        try:
+            send_shipment_out_for_delivery_notification(e, background_tasks)
+        except Exception as mail_err:
+            print(f"[Out for Delivery Email Error] {mail_err}")
+    elif payload.status == "DELIVERED":
+        try:
+            send_shipment_delivery_notification(e, background_tasks)
+        except Exception as mail_err:
+            print(f"[Delivery Email Error] {mail_err}")
+
     db.commit()
     return {"message": "Enquiry status updated successfully", "status": e.status}
 
