@@ -158,12 +158,37 @@ class AramexTrackingProvider(BaseTrackingProvider):
         return []
 
 
+class StarTrackTrackingProvider(BaseTrackingProvider):
+    name = "StarTrack"
+    code = "STARTRACK"
+
+    def get_tracking_url(self, tracking_number: str) -> str:
+        clean_num = (tracking_number or "").strip().replace(" ", "")
+        return f"https://startrack.com.au/track/details/{clean_num}"
+
+    def track(self, tracking_number: str, context: Optional[Dict[str, Any]] = None) -> List[TrackingCheckpoint]:
+        return []
+
+
+class AustraliaPostTrackingProvider(BaseTrackingProvider):
+    name = "Australia Post"
+    code = "AUSPOST"
+
+    def get_tracking_url(self, tracking_number: str) -> str:
+        clean_num = (tracking_number or "").strip().replace(" ", "")
+        return f"https://auspost.com.au/mypost/track/#/details/{clean_num}"
+
+    def track(self, tracking_number: str, context: Optional[Dict[str, Any]] = None) -> List[TrackingCheckpoint]:
+        return []
+
+
 class AirlineCargoTrackingProvider(BaseTrackingProvider):
     """
-    Air Freight / Master Air Waybill (MAWB) Cargo Tracking Provider.
-    Supports IATA 3-digit prefixes for major international airlines.
+    Air Freight / Master Air Waybill (MAWB) & International Courier Provider.
+    Supports IATA 3-digit prefixes for major international airlines,
+    as well as international courier master waybills (DHL, FedEx, UPS, StarTrack, etc.).
     """
-    name = "Airline Cargo AWB"
+    name = "Master Air Waybill / Courier"
     code = "AIRLINE_MAWB"
 
     AIRLINE_MAP = {
@@ -185,8 +210,26 @@ class AirlineCargoTrackingProvider(BaseTrackingProvider):
         "057": {"name": "Air France Cargo", "url": "https://www.afklcargo.com/mycargo/shipment/tracking?awb={awb}"}
     }
 
-    def get_tracking_url(self, tracking_number: str) -> str:
+    def get_tracking_url(self, tracking_number: str, carrier_hint: Optional[str] = None) -> str:
         clean = (tracking_number or "").strip().replace("-", "").replace(" ", "").replace("\t", "")
+        hint = (carrier_hint or "").lower()
+
+        # Check if MAWB is an international courier number
+        if "startrack" in hint or clean.startswith("3WL"):
+            return f"https://startrack.com.au/track/details/{clean}"
+        if "dhl" in hint:
+            return f"https://www.dhl.com/en/express/tracking.html?AWB={clean}"
+        if "fedex" in hint:
+            return f"https://www.fedex.com/fedextrack/?trknbr={clean}"
+        if "ups" in hint or clean.startswith("1Z"):
+            return f"https://www.ups.com/track?tracknum={clean}"
+        if "aramex" in hint:
+            return f"https://www.aramex.com/track/results?mode=0&ShipmentNumber={clean}"
+        if "dpd" in hint:
+            return f"https://tracking.dpd.de/status/en_US/parcel/{clean}"
+        if "australia post" in hint or "auspost" in hint:
+            return f"https://auspost.com.au/mypost/track/#/details/{clean}"
+
         prefix = clean[:3]
         if prefix in self.AIRLINE_MAP:
             template = self.AIRLINE_MAP[prefix]["url"]
@@ -195,6 +238,10 @@ class AirlineCargoTrackingProvider(BaseTrackingProvider):
 
     def get_airline_name(self, mawb_number: str) -> str:
         clean = (mawb_number or "").strip().replace("-", "").replace(" ", "").replace("\t", "")
+        if clean.startswith("3WL"):
+            return "StarTrack"
+        if clean.startswith("1Z"):
+            return "UPS"
         prefix = clean[:3]
         if prefix in self.AIRLINE_MAP:
             return self.AIRLINE_MAP[prefix]["name"]
@@ -351,6 +398,10 @@ class TrackingRegistry:
             "dhl": DHLTrackingProvider(),
             "ups": UPSTrackingProvider(),
             "aramex": AramexTrackingProvider(),
+            "startrack": StarTrackTrackingProvider(),
+            "star-track": StarTrackTrackingProvider(),
+            "australia post": AustraliaPostTrackingProvider(),
+            "auspost": AustraliaPostTrackingProvider(),
             "airline": AirlineCargoTrackingProvider(),
             "generic": GenericTrackingProvider()
         }
@@ -453,10 +504,10 @@ class TrackingRegistry:
         # Determine MAWB details
         linked_mawb = (shipment.mawb if shipment else None) or (enquiry.mawb if enquiry else None) or mawb
         airline_provider: AirlineCargoTrackingProvider = self.providers["airline"]  # type: ignore
-        airline_tracking_url = airline_provider.get_tracking_url(linked_mawb.mawbNumber) if (linked_mawb and linked_mawb.mawbNumber) else None
         airline_name = linked_mawb.airlineName if linked_mawb else None
         if linked_mawb and not airline_name and linked_mawb.mawbNumber:
             airline_name = airline_provider.get_airline_name(linked_mawb.mawbNumber)
+        airline_tracking_url = airline_provider.get_tracking_url(linked_mawb.mawbNumber, carrier_hint=airline_name) if (linked_mawb and linked_mawb.mawbNumber) else None
 
         # Aggregate Checkpoints
         checkpoints: List[TrackingCheckpoint] = []

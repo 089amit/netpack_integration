@@ -785,18 +785,18 @@ export function ShipmentTrackingDialog({
             </div>
           )}
 
-          {/* ── MASTER AIR WAYBILL (MAWB) & AIR FREIGHT / CONSOLIDATION LEG ── */}
+          {/* ── MASTER AIR WAYBILL (MAWB) / PRIMARY CARRIER & COURIER LEG ── */}
           {liveData?.mawbNumber && (
             <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>
               <div className='flex items-center justify-between border-b pb-2.5'>
                 <div className='flex items-center gap-2'>
                   <Plane className='h-4 w-4 text-sky-500' />
                   <span className='text-xs font-bold uppercase tracking-wider text-foreground'>
-                    Master Air Waybill (MAWB) & Air Freight
+                    Master Air Waybill (MAWB) / Primary Carrier
                   </span>
                 </div>
                 <Badge variant='outline' className='bg-sky-50 dark:bg-sky-950 font-bold text-xs text-sky-700 dark:text-sky-300'>
-                  {liveData.airlineName || 'Air Cargo Consolidation'}
+                  {liveData.airlineName || 'Primary Carrier / Air Freight'}
                 </Badge>
               </div>
 

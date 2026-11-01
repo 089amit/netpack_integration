@@ -2444,10 +2444,10 @@ function TrackingScreen({
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-sky-700 font-semibold flex items-center gap-1.5">
                       <IconPlane size={14} className="text-sky-600" />
-                      Master Air Waybill (MAWB)
+                      Master Air Waybill (MAWB) / Primary Carrier
                     </span>
                     <span className="font-bold text-sky-900 bg-sky-100/80 px-2 py-0.5 rounded text-[11px]">
-                      {data.airlineName || 'Air Freight Consolidation'}
+                      {data.airlineName || 'Primary Carrier / Linehaul'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-sky-100">

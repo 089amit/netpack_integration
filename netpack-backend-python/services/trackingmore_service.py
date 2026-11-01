@@ -325,7 +325,7 @@ class TrackingMoreService:
                     latest_substatus = raw_info.get("substatus") or raw_info.get("latest_substatus") or ""
                     milestone_date = raw_info.get("milestone_date") or {}
                     latest_event = raw_info.get("latest_event") or ""
-                    c_code = raw_info.get("courier_code") or courier_name
+                    c_code = raw_info.get("courier_code") or courier_code
                     mapped_overall = self.map_status(
                         tm_status=del_status,
                         substatus=latest_substatus,
