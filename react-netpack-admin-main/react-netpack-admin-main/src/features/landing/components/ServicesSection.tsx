@@ -169,12 +169,10 @@ export const ServicesSection: React.FC<{ onSelectServiceForQuote?: (title: strin
                 onClick={() => {
                   setSelectedService(null)
                   if (onSelectServiceForQuote) onSelectServiceForQuote(selectedService.title)
-                  const quoteEl = document.getElementById('quote')
-                  if (quoteEl) quoteEl.scrollIntoView({ behavior: 'smooth' })
                 }}
                 className='flex-1 py-3 px-4 rounded-xl bg-[#FF7A1A] hover:bg-[#e66c14] text-white font-bold text-sm tracking-wide transition shadow-lg shadow-[#FF7A1A]/20'
               >
-                Book This Service
+                Get Rate Estimate & Book
               </button>
               <button
                 onClick={() => setSelectedService(null)}

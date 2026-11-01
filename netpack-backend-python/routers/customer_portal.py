@@ -1086,6 +1086,9 @@ def request_customer_pickup(
     if payload.pickupPhone:
         enq.senderPhone = payload.pickupPhone
 
+    # Clear existing pickup locations for this consignment before applying updated itinerary
+    db.query(PickupLocationEnquiry).filter(PickupLocationEnquiry.enquiryId == enq.id).delete()
+
     # Add new pickup locations / stops
     if payload.pickupLocations and len(payload.pickupLocations) > 0:
         for p_loc in payload.pickupLocations:

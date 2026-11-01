@@ -18,12 +18,30 @@ const API_BASE = (() => {
   return 'http://localhost:8000'
 })()
 
+function parseIsoDate(val?: string | number | null): Date | null {
+  if (!val) return null
+  if (typeof val === 'number') return new Date(val)
+  let str = String(val).trim()
+  if (!str) return null
+  str = str.replace(' ', 'T')
+  if (!str.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) {
+    str += 'Z'
+  }
+  const d = new Date(str)
+  if (isNaN(d.getTime())) {
+    const fallback = new Date(val)
+    return isNaN(fallback.getTime()) ? null : fallback
+  }
+  return d
+}
+
 function formatDateTime(isoStr?: string | null): string {
   if (!isoStr) return ''
   try {
-    const d = new Date(isoStr)
-    if (isNaN(d.getTime())) return isoStr
+    const d = parseIsoDate(isoStr)
+    if (!d) return String(isoStr)
     return d.toLocaleString('en-US', {
+      timeZone: 'Asia/Kathmandu',
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
@@ -31,22 +49,23 @@ function formatDateTime(isoStr?: string | null): string {
       hour12: true,
     })
   } catch {
-    return isoStr
+    return String(isoStr)
   }
 }
 
 function formatRelativeTime(val?: string | number | null): string {
   if (!val) return 'Recent'
   try {
-    const timeMs = typeof val === 'number' ? val : new Date(val).getTime()
-    if (isNaN(timeMs) || timeMs <= 0) return 'Recent'
+    const d = parseIsoDate(val)
+    if (!d) return 'Recent'
+    const timeMs = d.getTime()
     const now = Date.now()
     const diffSec = Math.floor((now - timeMs) / 1000)
     if (diffSec < 45) return 'Just now'
-    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`
+    if (diffSec < 3600) return `${Math.max(1, Math.floor(diffSec / 60))}m ago`
     if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`
     if (diffSec < 172800) return 'Yesterday'
-    return new Date(timeMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return d.toLocaleDateString('en-US', { timeZone: 'Asia/Kathmandu', month: 'short', day: 'numeric' })
   } catch {
     return 'Recent'
   }
@@ -495,6 +514,20 @@ const IconScale = ({ size = 16, className = '' }: { size?: number; className?: s
     <path d="M7 21h10"/>
     <path d="M12 3v18"/>
     <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+  </svg>
+)
+
+const IconHelpCircle = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+    <line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+)
+
+const IconBarcode = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M3 5v14M8 5v14M12 5v14M17 5v14M21 5v14M6 5v7M15 5v7M19 12v7"/>
   </svg>
 )
 
@@ -1591,6 +1624,12 @@ function TrackingScreen({
   const stepperScrollRef = useRef<HTMLDivElement>(null)
   const activeStepRef = useRef<HTMLDivElement>(null)
   const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null)
+  const [selectedBox, setSelectedBox] = useState<any | null>(null)
+  const [showHawbGuide, setShowHawbGuide] = useState(false)
+  const [pullY, setPullY] = useState(0)
+  const [isPulling, setIsPulling] = useState(false)
+  const startYRef = useRef(0)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Tracking details from live API or mock fallback
   const [data, setData] = useState<TrackingDetails>(() => {
@@ -1620,21 +1659,14 @@ function TrackingScreen({
   })
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (initialTrackingId) {
-      setTrackingId(initialTrackingId)
-      setSearchInput(initialTrackingId)
-    }
-  }, [initialTrackingId])
-
-  useEffect(() => {
-    if (!trackingId) return
+  const fetchTracking = async (idToFetch: string, showToast = false) => {
+    if (!idToFetch) return
     setLoading(true)
 
-    // Try fetching live backend tracking
-    fetch(`${API_BASE}/api/tracking/${encodeURIComponent(trackingId)}`)
-      .then(res => (res.ok ? res.json() : null))
-      .then(liveRes => {
+    try {
+      const res = await fetch(`${API_BASE}/api/tracking/${encodeURIComponent(idToFetch)}`)
+      if (res.ok) {
+        const liveRes = await res.json()
         if (liveRes && liveRes.trackingNumber) {
           // Map backend tracking response
           const statusStr = (liveRes.currentStatus || liveRes.status || '').toUpperCase()
@@ -1804,17 +1836,67 @@ function TrackingScreen({
             weightProofImages: proofImgs,
             pickupLocations: liveRes.pickupLocations || [],
           })
-        } else if (mockTrackingMap[trackingId]) {
-          setData(mockTrackingMap[trackingId])
+          if (showToast) toast.success('Tracking status refreshed!')
+          return
         }
-      })
-      .catch(() => {
-        if (mockTrackingMap[trackingId]) {
-          setData(mockTrackingMap[trackingId])
-        }
-      })
-      .finally(() => setLoading(false))
+      }
+      if (mockTrackingMap[idToFetch]) {
+        setData(mockTrackingMap[idToFetch])
+        if (showToast) toast.success('Tracking status refreshed!')
+      }
+    } catch {
+      if (mockTrackingMap[idToFetch]) {
+        setData(mockTrackingMap[idToFetch])
+        if (showToast) toast.success('Tracking status refreshed!')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (initialTrackingId) {
+      setTrackingId(initialTrackingId)
+      setSearchInput(initialTrackingId)
+    }
+  }, [initialTrackingId])
+
+  useEffect(() => {
+    if (trackingId) {
+      fetchTracking(trackingId, false)
+    }
   }, [trackingId])
+
+  const handleRefresh = () => {
+    if (trackingId) {
+      fetchTracking(trackingId, true)
+    }
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (containerRef.current && containerRef.current.scrollTop === 0) {
+      startYRef.current = e.touches[0].clientY
+      setIsPulling(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling) return
+    const diff = e.touches[0].clientY - startYRef.current
+    if (diff > 0 && containerRef.current && containerRef.current.scrollTop === 0) {
+      setPullY(Math.min(diff * 0.4, 70))
+    } else {
+      setPullY(0)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (pullY > 45) {
+      handleRefresh()
+    }
+    setPullY(0)
+    setIsPulling(false)
+  }
 
   const handleCopy = (txt: string) => {
     navigator.clipboard.writeText(txt)
@@ -1876,7 +1958,26 @@ function TrackingScreen({
   const progressPercent = Math.min(100, Math.round(((data.stageIndex + 1) / milestones.length) * 100))
 
   return (
-    <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
+    <div
+      ref={containerRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="flex-1 overflow-y-auto no-scrollbar pb-28 relative"
+    >
+      {/* Pull down to refresh indicator */}
+      {pullY > 0 && (
+        <div
+          style={{ height: `${pullY}px` }}
+          className="w-full flex items-center justify-center overflow-hidden bg-blue-50 border-b border-blue-200 text-blue-700 transition-all text-xs font-semibold"
+        >
+          <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+            <IconRefresh size={14} className={pullY > 45 ? 'animate-spin text-blue-600' : ''} />
+            <span>{pullY > 45 ? 'Release to refresh status' : 'Pull down to refresh'}</span>
+          </div>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="px-4 pt-5 pb-3">
         <div className="flex items-center justify-between">
@@ -1896,10 +1997,20 @@ function TrackingScreen({
               <p className="text-gray-500 text-xs mt-0.5">Live airway checkpoints and status.</p>
             </div>
           </div>
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            Live Sync
-          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              title="Refresh consignment checkpoints"
+              className="p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-600 active:scale-95 transition-all cursor-pointer"
+            >
+              <IconRefresh size={14} className={loading ? 'animate-spin text-blue-600' : ''} />
+            </button>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              Live Sync
+            </span>
+          </div>
         </div>
       </div>
 
@@ -2429,12 +2540,23 @@ function TrackingScreen({
                     </div>
 
                     {data.boxes.map(box => (
-                      <div key={box.boxNumber} className="bg-gray-50/70 rounded-xl p-3 border border-gray-100 space-y-1.5">
+                      <div
+                        key={box.boxNumber}
+                        onClick={() => setSelectedBox(box)}
+                        className="bg-gray-50/70 hover:bg-blue-50/50 rounded-xl p-3 border border-gray-100 hover:border-blue-300 transition-all cursor-pointer active:scale-98 space-y-1.5 group"
+                      >
                         <div className="flex justify-between items-center text-xs">
-                          <span className="font-bold text-[#0D1B2A]">Box #{box.boxNumber}</span>
+                          <span className="font-bold text-[#0D1B2A] flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                            Box #{box.boxNumber}
+                            <span className="text-[10px] text-blue-600 font-mono font-medium">
+                              ({data.tracking}-B{box.boxNumber})
+                            </span>
+                          </span>
                           <div className="flex items-center gap-2">
                             <span className="text-[11px] font-semibold text-emerald-700">{box.weight}</span>
                             <span className="text-[11px] text-gray-500 font-mono">{box.dimensions}</span>
+                            <span className="text-[10px] text-blue-600 font-semibold group-hover:underline">Piece Details →</span>
                           </div>
                         </div>
                         <div className="pt-1 border-t border-gray-100 space-y-1">
@@ -2447,6 +2569,18 @@ function TrackingScreen({
                         </div>
                       </div>
                     ))}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowHawbGuide(true)}
+                      className="w-full mt-2 py-2 px-3 rounded-lg bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200 text-xs font-semibold text-blue-800 flex items-center justify-between transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <IconHelpCircle size={13} className="text-blue-600" />
+                        Understanding HAWB, MAWB & Piece Splitting
+                      </span>
+                      <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Guide →</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -2534,6 +2668,155 @@ function TrackingScreen({
 
       {/* Rider Contact & WhatsApp Modal */}
       <ContactOptionsModal target={contactTarget} onClose={() => setContactTarget(null)} />
+
+      {/* Individual Piece / Box Tracking Modal */}
+      {selectedBox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-gray-100">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                  #{selectedBox.boxNumber}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#0D1B2A]">Piece / Box #{selectedBox.boxNumber}</h3>
+                  <p className="text-[11px] text-gray-400">Individual Piece Barcode</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedBox(null)}
+                className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:text-gray-900 flex items-center justify-center text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Piece Barcode Card */}
+            <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-3 text-center space-y-2">
+              <div className="flex items-center justify-center gap-1.5 text-blue-800 text-xs font-bold font-mono">
+                <IconBarcode size={18} className="text-blue-600" />
+                <span>{data.tracking}-B{selectedBox.boxNumber}</span>
+              </div>
+              <p className="text-[10px] text-blue-600/90 font-medium">
+                Piece Identifier for multi-box consignment scanning
+              </p>
+              <button
+                type="button"
+                onClick={() => handleCopy(`${data.tracking}-B${selectedBox.boxNumber}`)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-white hover:bg-blue-100/60 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors cursor-pointer"
+              >
+                <IconCopy size={12} /> Copy Piece ID
+              </button>
+            </div>
+
+            {/* Specs Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                <span className="text-[10px] text-gray-400 block font-medium">Box Weight</span>
+                <span className="font-bold text-[#0D1B2A] mt-0.5 block">{selectedBox.weight}</span>
+              </div>
+              <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                <span className="text-[10px] text-gray-400 block font-medium">Dimensions (L×W×H)</span>
+                <span className="font-bold text-[#0D1B2A] mt-0.5 block font-mono">{selectedBox.dimensions}</span>
+              </div>
+            </div>
+
+            {/* Items inside this box */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
+                Goods Packed in This Carton
+              </span>
+              <div className="bg-gray-50/80 rounded-xl p-3 border border-gray-100 space-y-1.5 max-h-36 overflow-y-auto no-scrollbar">
+                {selectedBox.items && selectedBox.items.length > 0 ? (
+                  selectedBox.items.map((it: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center text-xs">
+                      <span className="text-gray-700 font-medium">• {it.item}</span>
+                      <span className="font-bold text-[#0D1B2A] bg-white px-2 py-0.5 rounded border border-gray-200 text-[11px]">
+                        {it.pieces} pcs
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-500">General Cargo items verified by warehouse</p>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedBox(null)}
+              className="w-full py-2.5 bg-[#0D1B2A] text-white rounded-xl font-bold text-xs hover:bg-[#1a2f47] transition-colors cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* HAWB vs MAWB & Split Piece Guidance Modal */}
+      {showHawbGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-gray-100 max-h-[85vh] overflow-y-auto no-scrollbar">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                  <IconHelpCircle size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#0D1B2A]">Air Cargo Tracking Guide</h3>
+                  <p className="text-[11px] text-gray-400">HAWB, MAWB & Piece Splitting</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHawbGuide(false)}
+                className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:text-gray-900 flex items-center justify-center text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-gray-600 leading-relaxed">
+              <div className="bg-blue-50/60 p-3 rounded-2xl border border-blue-200/70 space-y-1">
+                <span className="font-bold text-blue-900 block text-xs">1. HAWB (House Air Waybill)</span>
+                <p className="text-[11px] text-blue-800">
+                  Issued by NetPack (e.g., <code className="font-mono bg-white px-1 py-0.5 rounded border border-blue-200 font-bold">{data.tracking}</code>) specifically for your consignment. It itemizes your boxes, weight, and delivery destination.
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200/70 space-y-1">
+                <span className="font-bold text-gray-900 block text-xs">2. MAWB (Master Air Waybill)</span>
+                <p className="text-[11px] text-gray-600">
+                  Issued by the international airline (e.g. Qatar Airways, Emirates, Air India) for the entire cargo flight pallet. Multiple HAWBs are consolidated under one MAWB for cross-border flight dispatch.
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200/70 space-y-1">
+                <span className="font-bold text-gray-900 block text-xs">3. What is a "Split Shipment" or "Partial Uplift"?</span>
+                <p className="text-[11px] text-gray-600">
+                  If you ship multiple boxes (e.g. 4 cartons) and the scheduled passenger aircraft reaches max cargo payload, the airline may fly 2 boxes on flight #1 and the remaining 2 boxes on the next flight. Individual piece barcodes (<code className="font-mono text-gray-800 font-bold">-B1</code>, <code className="font-mono text-gray-800 font-bold">-B2</code>) allow every carton to be tracked separately without confusion until merged at the destination hub.
+                </p>
+              </div>
+
+              <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200/80 space-y-1">
+                <span className="font-bold text-emerald-900 block text-xs">4. Final Carrier Tracking</span>
+                <p className="text-[11px] text-emerald-800">
+                  Once your shipment clears destination customs, it is handed over to regional carriers (DHL, FedEx, UPS, or DPD) for last-mile delivery to your consignee's doorstep.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowHawbGuide(false)}
+              className="w-full py-2.5 bg-[#0D1B2A] text-white rounded-xl font-bold text-xs hover:bg-[#1a2f47] transition-colors cursor-pointer"
+            >
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2610,6 +2893,14 @@ function CustomerPickupRequestModal({
     Array<{ id: string; address: string; phone: string; timeSlot: string; notes: string }>
   >([])
   const [loading, setLoading] = useState(false)
+  const [savedPickupLocations, setSavedPickupLocations] = useState<Array<{ id: string; label: string; address: string; phone: string }>>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('netpack_saved_pickup_locations') : null
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
 
   // Initialize from user profile
   useEffect(() => {
@@ -2635,6 +2926,26 @@ function CustomerPickupRequestModal({
   }, [isOpen, trackingNumber, customerUser])
 
   if (!isOpen) return null
+
+  const handleUseMyAddress = () => {
+    const user = customerUser || (() => {
+      try {
+        const raw = localStorage.getItem('netpack_customer_user')
+        return raw ? JSON.parse(raw) : null
+      } catch {
+        return null
+      }
+    })()
+
+    if (user?.address1) {
+      const fullAddr = [user.address1, user.address2, user.city].filter(Boolean).join(', ')
+      setAddress(fullAddr)
+      if (user.phone) setPhone(user.phone)
+      toast.success('Address and phone filled from your profile!')
+    } else {
+      toast.error('No address saved in profile.')
+    }
+  }
 
   const handleAddStop = () => {
     setExtraStops(prev => [
@@ -2712,6 +3023,26 @@ function CustomerPickupRequestModal({
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         throw new Error(data.detail || 'Failed to schedule pickup request')
+      }
+
+      if (address.trim()) {
+        try {
+          const raw = localStorage.getItem('netpack_saved_pickup_locations')
+          const list: any[] = raw ? JSON.parse(raw) : []
+          const clean = address.trim()
+          const filtered = list.filter(item => item.address.toLowerCase() !== clean.toLowerCase())
+          const updated = [
+            {
+              id: `loc-${Date.now()}`,
+              label: clean.split(',')[0].trim() || 'Pickup Location',
+              address: clean,
+              phone: phone.trim()
+            },
+            ...filtered
+          ].slice(0, 8)
+          localStorage.setItem('netpack_saved_pickup_locations', JSON.stringify(updated))
+          setSavedPickupLocations(updated)
+        } catch {}
       }
 
       toast.success(data.message || 'Doorstep pickup scheduled successfully!')
@@ -2802,8 +3133,43 @@ function CustomerPickupRequestModal({
             </div>
           )}
 
+          {/* Saved Pickup Spots Quick Selector */}
+          {savedPickupLocations.length > 0 && (
+            <div className="space-y-1.5 pb-1">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                <IconClock size={11} /> Saved / Recent Pickup Spots
+              </span>
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                {savedPickupLocations.map(sLoc => (
+                  <button
+                    key={sLoc.id}
+                    type="button"
+                    onClick={() => {
+                      setAddress(sLoc.address)
+                      if (sLoc.phone) setPhone(sLoc.phone)
+                      toast.success(`Loaded "${sLoc.label}"`)
+                    }}
+                    className="shrink-0 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-xs font-semibold text-blue-900 flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                  >
+                    <IconMapPin size={11} className="text-blue-600" />
+                    <span>{sLoc.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
-            <FieldLabel required>Primary Pickup Address (Kathmandu)</FieldLabel>
+            <div className="flex items-center justify-between mb-1">
+              <FieldLabel required>Primary Pickup Address (Kathmandu)</FieldLabel>
+              <button
+                type="button"
+                onClick={handleUseMyAddress}
+                className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-0.5 rounded-lg border border-blue-200 transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
+              >
+                <IconMapPin size={11} /> Use my address
+              </button>
+            </div>
             <TextInput
               placeholder="e.g. House #14, Thamel Marg, Kathmandu"
               value={address}
@@ -2933,11 +3299,20 @@ function BookScreen({
   const [weight, setWeight] = useState('')
   const [recipientName, setRecipientName] = useState('')
   const [recipientPhone, setRecipientPhone] = useState('')
-  const [destCountry, setDestCountry] = useState('')
+  const [destCountry, setDestCountry] = useState('United States')
+  const [destDialCode, setDestDialCode] = useState('+1')
   const [destCity, setDestCity] = useState('')
   const [streetAddress, setStreetAddress] = useState('')
   const [postalCode, setPostalCode] = useState('')
   const [doorstepPickup, setDoorstepPickup] = useState(true)
+  const [savedPickupLocations, setSavedPickupLocations] = useState<Array<{ id: string; label: string; address: string; phone: string }>>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('netpack_saved_pickup_locations') : null
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
 
   const userSavedAddress = customerUser?.address1
     ? `${customerUser.address1}${
@@ -2984,22 +3359,49 @@ function BookScreen({
   }
 
   const handleUseMyAddressForPickup = () => {
-    if (userSavedAddress) {
-      setPickupAddress(userSavedAddress)
-      if (userSavedPhone) setPickupPhone(userSavedPhone)
-      toast.success('Pickup address filled from your profile!')
+    const user = customerUser || (() => {
+      try {
+        const raw = localStorage.getItem('netpack_customer_user')
+        return raw ? JSON.parse(raw) : null
+      } catch {
+        return null
+      }
+    })()
+
+    if (user?.address1 || userSavedAddress) {
+      const fullAddr = [user?.address1, user?.address2, user?.city].filter(Boolean).join(', ')
+      setPickupAddress(fullAddr || userSavedAddress)
+      if (user?.phone || userSavedPhone) setPickupPhone(user?.phone || userSavedPhone)
+      toast.success('Pickup address and phone filled from your profile!')
     } else {
       toast.error('No saved address in your profile. Please enter your address.')
     }
   }
 
   const handleUseMyAddressForDelivery = () => {
-    if (customerUser?.address1) {
-      setStreetAddress(customerUser.address1)
-      if (customerUser?.city) setDestCity(customerUser.city)
-      if (customerUser?.name) setRecipientName(customerUser.name)
-      if (userSavedPhone) setRecipientPhone(userSavedPhone)
-      toast.success('Address filled from your profile!')
+    const user = customerUser || (() => {
+      try {
+        const raw = localStorage.getItem('netpack_customer_user')
+        return raw ? JSON.parse(raw) : null
+      } catch {
+        return null
+      }
+    })()
+
+    if (user?.address1 || user?.name) {
+      const fullStreet = [user?.address1, user?.address2].filter(Boolean).join(', ')
+      if (fullStreet) setStreetAddress(fullStreet)
+      if (user?.city) setDestCity(user.city)
+      if (user?.name) setRecipientName(user.name)
+      if (user?.phone) setRecipientPhone(user.phone)
+      if (user?.postcode) setPostalCode(user.postcode)
+      if (user?.country) {
+        const cName = typeof user.country === 'string' ? user.country : user.country?.name || 'Nepal'
+        setDestCountry(cName)
+        const opt = COUNTRY_OPTIONS.find(c => c.name.toLowerCase() === cName.toLowerCase())
+        if (opt) setDestDialCode(opt.dialCode)
+      }
+      toast.success('All recipient and delivery details filled from your profile!')
     } else {
       toast.error('No saved address in your profile.')
     }
@@ -3070,6 +3472,26 @@ function BookScreen({
         const data = await res.json()
         if (data.trackingNumber) finalTracking = data.trackingNumber
         if (data.enquiryId) finalEnquiryId = String(data.enquiryId)
+      }
+
+      if (doorstepPickup && pickupAddress.trim()) {
+        try {
+          const raw = localStorage.getItem('netpack_saved_pickup_locations')
+          const list: any[] = raw ? JSON.parse(raw) : []
+          const clean = pickupAddress.trim()
+          const filtered = list.filter(item => item.address.toLowerCase() !== clean.toLowerCase())
+          const updated = [
+            {
+              id: `loc-${Date.now()}`,
+              label: clean.split(',')[0].trim() || 'My Pickup Spot',
+              address: clean,
+              phone: pickupPhone.trim()
+            },
+            ...filtered
+          ].slice(0, 8)
+          localStorage.setItem('netpack_saved_pickup_locations', JSON.stringify(updated))
+          setSavedPickupLocations(updated)
+        } catch {}
       }
     } catch (err) {
       console.warn('Booking network issue:', err)
@@ -3240,21 +3662,55 @@ function BookScreen({
 
             <div className="space-y-4">
               <div>
+                <FieldLabel required>Destination Country</FieldLabel>
+                <div className="relative">
+                  <select
+                    value={destCountry}
+                    onChange={e => {
+                      const cName = e.target.value
+                      setDestCountry(cName)
+                      const opt = COUNTRY_OPTIONS.find(c => c.name === cName)
+                      if (opt) setDestDialCode(opt.dialCode)
+                    }}
+                    className="w-full border border-gray-200 rounded-xl pl-4 pr-10 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none font-medium"
+                  >
+                    <option value="">Select destination country</option>
+                    {COUNTRY_OPTIONS.map(c => (
+                      <option key={c.name} value={c.name}>
+                        {c.name} ({c.dialCode})
+                      </option>
+                    ))}
+                  </select>
+                  <IconChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <FieldLabel required>Destination City</FieldLabel>
+                <TextInput placeholder="e.g., London, New York, Tokyo, Sydney" value={destCity} onChange={setDestCity} />
+              </div>
+
+              <div>
                 <FieldLabel required>Recipient Full Name</FieldLabel>
                 <TextInput placeholder="Full name of receiver" value={recipientName} onChange={setRecipientName} />
               </div>
+
               <div>
-                <FieldLabel required>Recipient Phone</FieldLabel>
-                <TextInput placeholder="+1 234 567 8900" value={recipientPhone} onChange={setRecipientPhone} type="tel" />
+                <FieldLabel required>Recipient Phone Number</FieldLabel>
+                <div className="flex gap-2">
+                  <span className="bg-gray-100 border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-3 py-3 flex items-center shrink-0">
+                    {destDialCode}
+                  </span>
+                  <input
+                    type="tel"
+                    placeholder="Recipient phone digits"
+                    value={recipientPhone}
+                    onChange={e => setRecipientPhone(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-medium"
+                  />
+                </div>
               </div>
-              <div>
-                <FieldLabel required>Destination Country</FieldLabel>
-                <TextInput placeholder="Select or type destination country" value={destCountry} onChange={setDestCountry} />
-              </div>
-              <div>
-                <FieldLabel required>Destination City</FieldLabel>
-                <TextInput placeholder="e.g., London, New York, Tokyo" value={destCity} onChange={setDestCity} />
-              </div>
+
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <FieldLabel required>Delivery Street Address</FieldLabel>
@@ -3321,6 +3777,32 @@ function BookScreen({
 
           {doorstepPickup && (
             <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4 shadow-xs">
+              {/* Saved Pickup Spots Quick Selector */}
+              {savedPickupLocations.length > 0 && (
+                <div className="space-y-1.5 pb-1">
+                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                    <IconClock size={11} /> Saved / Recent Pickup Spots
+                  </span>
+                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                    {savedPickupLocations.map(sLoc => (
+                      <button
+                        key={sLoc.id}
+                        type="button"
+                        onClick={() => {
+                          setPickupAddress(sLoc.address)
+                          if (sLoc.phone) setPickupPhone(sLoc.phone)
+                          toast.success(`Loaded "${sLoc.label}"`)
+                        }}
+                        className="shrink-0 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-xs font-semibold text-blue-900 flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                      >
+                        <IconMapPin size={11} className="text-blue-600" />
+                        <span>{sLoc.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <FieldLabel required>Pickup Address in Kathmandu</FieldLabel>
@@ -4508,13 +4990,8 @@ function OnboardingModal({
       toast.error('Please enter State / Province')
       return
     }
-    if (!postcode.trim()) {
-      toast.error('Please enter Postcode')
-      return
-    }
-    if (!customerToken) return
-
     setSaving(true)
+    const activeToken = customerToken || (typeof window !== 'undefined' ? localStorage.getItem('netpack_customer_token') : null)
     const cleanDigits = phone.trim().replace(/^0+/, '')
     const fullPhone = phone.trim().startsWith('+') ? phone.trim() : `${dialCode}-${cleanDigits}`
     const matchedOpt = COUNTRY_OPTIONS.find(c => c.name === selectedCountry) || COUNTRY_OPTIONS[0]
@@ -4525,38 +5002,44 @@ function OnboardingModal({
       address1: address1.trim(),
       address2: address2 ? address2.trim() : null,
       city: city.trim() || 'Kathmandu',
-      state: stateProvince.trim(),
-      postcode: postcode ? postcode.trim() : null,
+      state: stateProvince.trim() || 'Bagmati',
+      postcode: postcode ? postcode.trim() : '44600',
       countryId: matchedOpt?.id || 1,
       country: selectedCountry,
       photoUrl: photoUrl || undefined,
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/customer/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${customerToken}`,
-        },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}))
-        throw new Error(errJson.detail || 'Failed updating profile')
+      if (activeToken) {
+        const res = await fetch(`${API_BASE}/api/customer/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${activeToken}`,
+          },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}))
+          console.warn('Profile update warning:', errJson)
+        }
       }
-      const data = await res.json()
-      const updated = data.customer || { ...customerUser, ...payload }
-      onProfileUpdated(updated)
 
-      if (mode === 'edit_only') {
-        toast.success('Profile updated successfully!')
-        onClose()
-      } else {
-        setStep('tutorial')
-      }
+      const updated = { ...customerUser, ...payload }
+      onProfileUpdated(updated)
+      localStorage.setItem('netpack_customer_user', JSON.stringify(updated))
+
+      const userKey = customerUser?.id || customerUser?.email || 'customer'
+      localStorage.setItem(`netpack_onboarded_${userKey}`, 'completed')
+      localStorage.setItem('netpack_tutorial_completed', 'true')
+
+      toast.success(mode === 'edit_only' ? 'Profile updated successfully!' : 'Welcome to NetPack Logistic!')
+      onClose()
     } catch (err: any) {
-      toast.error('Save failed: ' + err.message)
+      console.error('Save details error:', err)
+      const updated = { ...customerUser, ...payload }
+      onProfileUpdated(updated)
+      onClose()
     } finally {
       setSaving(false)
     }
@@ -4761,7 +5244,7 @@ function OnboardingModal({
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={saving || !name.trim() || !phone.trim() || !address1.trim() || !stateProvince.trim() || !postcode.trim()}
+                  disabled={saving || !name.trim() || !phone.trim() || !address1.trim()}
                   style={{ fontFamily: 'Jost, sans-serif' }}
                   className="w-full bg-[#2563EB] disabled:bg-gray-300 text-white font-600 text-sm py-3.5 rounded-xl active:opacity-90 shadow-md shadow-blue-200 transition-all cursor-pointer"
                 >
@@ -5280,7 +5763,6 @@ export default function CustomerPWA() {
                 !user.phone ||
                 user.phone === '+977-9800000000' ||
                 !user.address1 ||
-                Boolean(user.isNewAccount) ||
                 Boolean(user.isIncomplete)
 
               if (!hasCompletedOnboard && isPlaceholder) {

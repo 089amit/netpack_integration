@@ -490,13 +490,76 @@ export default function PickupRiderPWA() {
     setIsWeighModalOpen(true)
   }
 
-  // Handle camera photo selection
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return
-    const files = Array.from(e.target.files)
-    setSelectedPhotos((prev) => [...prev, ...files])
+  // Client-side image compression to prevent payload limits and mobile timeouts
+  const compressImage = async (file: File, maxDim = 1280, quality = 0.82): Promise<File> => {
+    if (file.size <= 250 * 1024) return file // already lightweight
+    return new Promise((resolve) => {
+      const img = new Image()
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        img.onload = () => {
+          let width = img.width
+          let height = img.height
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width)
+              width = maxDim
+            } else {
+              width = Math.round((width * maxDim) / height)
+              height = maxDim
+            }
+          }
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            resolve(file)
+            return
+          }
+          ctx.drawImage(img, 0, 0, width, height)
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                resolve(file)
+                return
+              }
+              const cleanName = file.name.replace(/\.[^/.]+$/, '') + '.jpg'
+              resolve(new File([blob], cleanName, { type: 'image/jpeg' }))
+            },
+            'image/jpeg',
+            quality
+          )
+        }
+        img.onerror = () => resolve(file)
+        img.src = e.target?.result as string
+      }
+      reader.onerror = () => resolve(file)
+      reader.readAsDataURL(file)
+    })
+  }
 
-    files.forEach((file) => {
+  // Handle camera photo selection with automatic multi-image compression
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return
+    const rawFiles = Array.from(e.target.files)
+    if (rawFiles.length === 0) return
+
+    toast.info(`Optimizing ${rawFiles.length} photo${rawFiles.length > 1 ? 's' : ''}...`)
+    const compressedFiles: File[] = []
+
+    for (const f of rawFiles) {
+      try {
+        const compressed = await compressImage(f)
+        compressedFiles.push(compressed)
+      } catch {
+        compressedFiles.push(f)
+      }
+    }
+
+    setSelectedPhotos((prev) => [...prev, ...compressedFiles])
+
+    compressedFiles.forEach((file) => {
       const reader = new FileReader()
       reader.onload = (ev) => {
         if (ev.target?.result) {
