@@ -1321,14 +1321,22 @@ class TrackingRegistry:
 
             # 1. Register with TrackingMore if configured
             if trackingmore_service.is_configured:
-                reg_res = trackingmore_service.create_tracking(
-                    tracking_number=track_num,
-                    courier_code=c_name,
-                    customer_name=shipment.customer.name if shipment.customer else None,
-                    title=f"Netpack {'MAWB ' if is_m else ''}{shipment.hawbno or track_num}"
-                )
-                if reg_res.get("success"):
-                    registered_count += 1
+                clean_tn = track_num.strip().replace(" ", "").replace("-", "").replace("\t", "")
+                is_airline_format = len(clean_tn) in (10, 11) and clean_tn.isdigit() and clean_tn[:3] in AirlineCargoTrackingProvider.AIRLINE_MAP
+                
+                if is_m and is_airline_format:
+                    awb_res = trackingmore_service.create_awb(track_num)
+                    if awb_res.get("success"):
+                        registered_count += 1
+                else:
+                    reg_res = trackingmore_service.create_tracking(
+                        tracking_number=track_num,
+                        courier_code=c_name,
+                        customer_name=shipment.customer.name if shipment.customer else None,
+                        title=f"Netpack {'MAWB ' if is_m else ''}{shipment.hawbno or track_num}"
+                    )
+                    if reg_res.get("success"):
+                        registered_count += 1
 
             # 2. Query live tracking data
             tm_res = trackingmore_service.get_tracking(track_num, c_name)
