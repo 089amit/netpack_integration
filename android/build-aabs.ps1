@@ -6,10 +6,10 @@ $env:JAVA_HOME = $JAVA_HOME
 $env:PATH = "$JAVA_HOME\bin;$env:PATH"
 
 $SDK_DIR = "C:\Users\Postronix\.bubblewrap\android_sdk"
-$BUILD_TOOLS = "$SDK_DIR\build-tools\34.0.0"
+$BUILD_TOOLS = "$SDK_DIR\build-tools\36.0.0"
 $AAPT2 = "$BUILD_TOOLS\aapt2.exe"
 $D8 = "$BUILD_TOOLS\d8.bat"
-$ANDROID_JAR = "$SDK_DIR\platforms\android-34\android.jar"
+$ANDROID_JAR = "$SDK_DIR\platforms\android-36\android.jar"
 $JAVAC = "$JAVA_HOME\bin\javac.exe"
 $JAVA = "$JAVA_HOME\bin\java.exe"
 $JAR = "$JAVA_HOME\bin\jar.exe"
@@ -54,7 +54,7 @@ function Build-Aab {
 
     # 2. Link resources and generate R.java
     Write-Host "2. Generating R.java..." -ForegroundColor Yellow
-    & $AAPT2 link $COMPILED_RES -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 24 --target-sdk-version 34 --java $GEN -o $UNALIGNED_RES --auto-add-overlay
+    & $AAPT2 link $COMPILED_RES -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 24 --target-sdk-version 36 --java $GEN -o $UNALIGNED_RES --auto-add-overlay
     if ($LASTEXITCODE -ne 0) { throw "aapt2 link failed for $AppName" }
 
     # 3. Compile Java sources
