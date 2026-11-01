@@ -14,11 +14,13 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SERVER_URL } from '@/constants/endpoint'
+import { COUNTRY_OPTIONS } from '@/features/pwa/countries'
 
 export const QuoteSection: React.FC<{
   onOpenAppModal?: () => void
   prefilledService?: string
 }> = ({ onOpenAppModal, prefilledService = '' }) => {
+  const [senderDialCode, setSenderDialCode] = useState('+977')
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -40,13 +42,15 @@ export const QuoteSection: React.FC<{
     try {
       // Optional async submission to backend enquiry or simulated dispatch
       try {
+        const cleanDigits = form.phone.trim().replace(/^0+/, '')
+        const fullPhone = form.phone.trim() ? (form.phone.trim().startsWith('+') ? form.phone.trim() : `${senderDialCode}-${cleanDigits}`) : ''
         await fetch(`${SERVER_URL}/api/enquiry/webenquirycreate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             senderName: form.fullName,
             senderEmail: form.email,
-            senderPhone: form.phone,
+            senderPhone: fullPhone,
             commodity: form.serviceInterest || 'General Inquiry',
             packageDetails: form.message,
             destinationLocation: 'International Dispatch',
@@ -204,13 +208,31 @@ export const QuoteSection: React.FC<{
                       <label className='block text-sm font-semibold text-slate-800 mb-1.5'>
                         Phone Number
                       </label>
-                      <input
-                        type='tel'
-                        value={form.phone}
-                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                        placeholder='+977-9841234567'
-                        className='w-full px-4 py-3 rounded-xl bg-[#F8FAFC] border border-slate-200 text-slate-900 placeholder:text-slate-400 text-sm focus:bg-white focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10 focus:outline-none transition'
-                      />
+                      <div className='flex gap-2'>
+                        <div className='relative shrink-0 w-28'>
+                          <select
+                            onChange={(e) => {
+                              const opt = COUNTRY_OPTIONS.find((c) => c.name === e.target.value)
+                              if (opt) setSenderDialCode(opt.dialCode)
+                            }}
+                            defaultValue='Nepal'
+                            className='w-full px-2 py-3 rounded-xl bg-[#F8FAFC] border border-slate-200 text-slate-800 text-xs font-mono font-bold focus:bg-white focus:border-[#0066CC] focus:outline-none transition appearance-none'
+                          >
+                            {COUNTRY_OPTIONS.map((c) => (
+                              <option key={c.name} value={c.name}>
+                                {c.dialCode} ({c.name})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <input
+                          type='tel'
+                          value={form.phone}
+                          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                          placeholder='9841234567'
+                          className='flex-1 min-w-0 px-4 py-3 rounded-xl bg-[#F8FAFC] border border-slate-200 text-slate-900 placeholder:text-slate-400 text-sm focus:bg-white focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10 focus:outline-none transition'
+                        />
+                      </div>
                     </div>
 
                     <div>

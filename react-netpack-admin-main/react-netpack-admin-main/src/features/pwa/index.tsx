@@ -3179,12 +3179,18 @@ function CustomerPickupRequestModal({
 
           <div>
             <FieldLabel required>Contact Phone Number</FieldLabel>
-            <TextInput
-              placeholder="e.g. 9841234567"
-              value={phone}
-              onChange={setPhone}
-              type="tel"
-            />
+            <div className="flex gap-2">
+              <span className="bg-gray-100 border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-3 py-3 flex items-center shrink-0">
+                +977
+              </span>
+              <input
+                type="tel"
+                placeholder="Mobile / Phone number"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-medium"
+              />
+            </div>
           </div>
 
           <div>
@@ -3821,7 +3827,18 @@ function BookScreen({
               </div>
               <div>
                 <FieldLabel required>Contact Phone for Driver</FieldLabel>
-                <TextInput placeholder="e.g., 9841XXXXXX" value={pickupPhone} onChange={setPickupPhone} type="tel" />
+                <div className="flex gap-2">
+                  <span className="bg-gray-100 border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-3 py-3 flex items-center shrink-0">
+                    +977
+                  </span>
+                  <input
+                    type="tel"
+                    placeholder="e.g., 9841XXXXXX"
+                    value={pickupPhone}
+                    onChange={e => setPickupPhone(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-medium"
+                  />
+                </div>
               </div>
               <div>
                 <FieldLabel>Preferred Time Slot</FieldLabel>

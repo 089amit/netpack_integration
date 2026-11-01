@@ -7,9 +7,11 @@ import {
   Scale,
   MapPin,
   Sparkles,
+  ChevronDown,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SERVER_URL } from '@/constants/endpoint'
+import { COUNTRY_OPTIONS } from '@/features/pwa/countries'
 
 interface RateEnquiryModalProps {
   open: boolean
@@ -43,6 +45,8 @@ export const RateEnquiryModal: React.FC<RateEnquiryModalProps> = ({
     customCharge?: number
   } | null>(null)
 
+  const [phoneCountry, setPhoneCountry] = useState('Nepal')
+  const [phoneDialCode, setPhoneDialCode] = useState('+977')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [generatedRef, setGeneratedRef] = useState('')
@@ -116,6 +120,8 @@ export const RateEnquiryModal: React.FC<RateEnquiryModalProps> = ({
 
     setSubmitting(true)
     const refCode = `NP-Q-${Math.floor(100000 + Math.random() * 900000)}`
+    const cleanDigits = form.phone.trim().replace(/^0+/, '')
+    const fullPhone = form.phone.trim().startsWith('+') ? form.phone.trim() : `${phoneDialCode}-${cleanDigits}`
 
     try {
       try {
@@ -124,7 +130,7 @@ export const RateEnquiryModal: React.FC<RateEnquiryModalProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             senderName: form.name,
-            senderPhone: form.phone,
+            senderPhone: fullPhone,
             senderEmail: form.email,
             senderAddressLine1: form.origin,
             senderCity: 'Kathmandu',
@@ -264,14 +270,35 @@ export const RateEnquiryModal: React.FC<RateEnquiryModalProps> = ({
                   <label className='block text-xs font-mono font-bold uppercase text-slate-700 mb-1.5'>
                     PHONE / WHATSAPP <span className='text-red-500'>*</span>
                   </label>
-                  <input
-                    type='tel'
-                    required
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder='+977 9801000000'
-                    className='w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 text-sm focus:bg-white focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/15 focus:outline-none transition'
-                  />
+                  <div className='flex gap-2'>
+                    <div className='relative shrink-0 w-28'>
+                      <select
+                        value={phoneCountry}
+                        onChange={(e) => {
+                          const cName = e.target.value
+                          setPhoneCountry(cName)
+                          const opt = COUNTRY_OPTIONS.find((c) => c.name === cName)
+                          if (opt) setPhoneDialCode(opt.dialCode)
+                        }}
+                        className='w-full px-2.5 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066CC]/15 appearance-none'
+                      >
+                        {COUNTRY_OPTIONS.map((c) => (
+                          <option key={c.name} value={c.name}>
+                            {c.dialCode} ({c.name})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className='w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none' />
+                    </div>
+                    <input
+                      type='tel'
+                      required
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      placeholder='9801000000'
+                      className='flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 text-sm focus:bg-white focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/15 focus:outline-none transition'
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -328,16 +355,24 @@ export const RateEnquiryModal: React.FC<RateEnquiryModalProps> = ({
 
                 <div>
                   <label className='block text-xs font-mono font-bold uppercase text-slate-700 mb-1.5'>
-                    DESTINATION <span className='text-red-500'>*</span>
+                    DESTINATION COUNTRY <span className='text-red-500'>*</span>
                   </label>
-                  <input
-                    type='text'
-                    required
-                    value={form.destination}
-                    onChange={(e) => setForm({ ...form, destination: e.target.value })}
-                    placeholder='e.g. USA, UK, Japan, Australia'
-                    className='w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 text-sm focus:bg-white focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/15 focus:outline-none transition'
-                  />
+                  <div className='relative'>
+                    <select
+                      required
+                      value={form.destination}
+                      onChange={(e) => setForm({ ...form, destination: e.target.value })}
+                      className='w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-sm focus:bg-white focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/15 focus:outline-none transition appearance-none font-medium'
+                    >
+                      <option value=''>-- Select Destination Country --</option>
+                      {COUNTRY_OPTIONS.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.name} ({c.dialCode})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className='w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none' />
+                  </div>
                 </div>
               </div>
 
