@@ -11,6 +11,7 @@ import { SplitReveal } from './components/SplitReveal'
 import { ServicesSection } from './components/ServicesSection'
 import { TrackingWidget } from './components/TrackingWidget'
 import { QuoteSection } from './components/QuoteSection'
+import { RateEnquiryModal } from './components/RateEnquiryModal'
 import { MobileAppModal } from './components/MobileAppModal'
 import { isAuthenticated } from '@/lib/auth'
 
@@ -26,6 +27,7 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAuth, setIsAuth] = useState(false)
   const [showAppModal, setShowAppModal] = useState(false)
+  const [showRateModal, setShowRateModal] = useState(false)
   const [activeTrackingPrefill, setActiveTrackingPrefill] = useState('')
   const [prefilledService, setPrefilledService] = useState('')
   const [heroTrackInput, setHeroTrackInput] = useState('')
@@ -135,7 +137,7 @@ export default function LandingPage() {
 
             {/* Primary Quote CTA */}
             <button
-              onClick={() => scrollTo('quote')}
+              onClick={() => setShowRateModal(true)}
               className='px-5 py-2.5 rounded-xl bg-[#0066CC] hover:bg-[#0052a3] text-white font-extrabold text-xs uppercase tracking-wider transition shadow-md shadow-[#0066CC]/20'
             >
               Get Quote
@@ -184,10 +186,13 @@ export default function LandingPage() {
 
             <div className='pt-2 flex flex-col gap-3'>
               <button
-                onClick={() => scrollTo('quote')}
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  setShowRateModal(true)
+                }}
                 className='w-full py-3.5 rounded-xl bg-[#0066CC] text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-[#0066CC]/20'
               >
-                Send Us a Message
+                Get a Fast Quote
               </button>
 
               <a
@@ -236,10 +241,10 @@ export default function LandingPage() {
                 </button>
 
                 <button
-                  onClick={() => scrollTo('quote')}
+                  onClick={() => setShowRateModal(true)}
                   className='w-full sm:w-auto px-8 py-4 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-bold text-sm uppercase tracking-wider transition duration-200 flex items-center justify-center gap-2 shadow-sm'
                 >
-                  <span>Send a Message</span>
+                  <span>Get a Fast Quote</span>
                   <ArrowRight className='w-4 h-4' />
                 </button>
               </div>
@@ -337,6 +342,7 @@ export default function LandingPage() {
       <ServicesSection
         onSelectServiceForQuote={(serviceTitle) => {
           setPrefilledService(serviceTitle)
+          setShowRateModal(true)
         }}
       />
 
@@ -371,6 +377,15 @@ export default function LandingPage() {
           WhatsApp Desk
         </span>
       </a>
+
+      {/* ──────────────────────────────────────────────────────────
+          RATE ENQUIRY & ESTIMATE MODAL (Cargo / Courier Quote)
+          ────────────────────────────────────────────────────────── */}
+      <RateEnquiryModal
+        open={showRateModal}
+        onClose={() => setShowRateModal(false)}
+        initialService={prefilledService}
+      />
 
       {/* ──────────────────────────────────────────────────────────
           MOBILE APPLICATION INSTALL MODAL

@@ -110,10 +110,8 @@ export const ServicesSection: React.FC<{ onSelectServiceForQuote?: (title: strin
                 <button
                   onClick={() => {
                     if (onSelectServiceForQuote) onSelectServiceForQuote(service.title)
-                    const quoteEl = document.getElementById('quote')
-                    if (quoteEl) quoteEl.scrollIntoView({ behavior: 'smooth' })
                   }}
-                  className='text-[11px] font-mono px-3 py-1 rounded-full border border-slate-200 hover:border-slate-400 text-slate-600 transition'
+                  className='text-[11px] font-mono px-3 py-1 rounded-full border border-slate-200 hover:border-[#0066CC] hover:text-[#0066CC] text-slate-600 transition'
                 >
                   Quote
                 </button>
