@@ -233,7 +233,7 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
   }
 
   return (
-    <section id='tracking' className='relative w-full py-24 md:py-32 bg-[#0D1B2A] text-white border-t border-white/10'>
+    <section id='tracking' className='relative w-full py-24 md:py-32 bg-white text-slate-900 border-t border-slate-200'>
       <div className='max-w-5xl mx-auto px-4 sm:px-6 lg:px-8'>
         {/* Clean Minimal Section Header */}
         <div className='text-center max-w-2xl mx-auto mb-10'>
@@ -241,36 +241,36 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
             <span className='w-2 h-2 rounded-full bg-[#FF7A1A]' />
             <span>REAL-TIME TRACKING</span>
           </div>
-          <h2 className='text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase font-display tracking-tight leading-none'>
+          <h2 className='text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase font-display tracking-tight leading-none text-slate-900'>
             TRACK YOUR SHIPMENT.
           </h2>
-          <p className='mt-3 text-slate-400 text-sm sm:text-base'>
+          <p className='mt-3 text-slate-600 text-sm sm:text-base'>
             Enter your AWB or consignment number to view real-time chain-of-custody checkpoints.
           </p>
         </div>
 
         {/* Input Bar Form */}
         <form onSubmit={handleSubmit} className='relative max-w-2xl mx-auto mb-8'>
-          <div className='relative flex items-center rounded-2xl bg-[#132238] border border-white/15 p-2 shadow-2xl focus-within:border-[#2F6BFF] transition-all'>
+          <div className='relative flex items-center rounded-2xl bg-slate-50 border border-slate-300 p-2 shadow-sm focus-within:border-[#0066CC] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0066CC]/20 transition-all'>
             <Search className='w-6 h-6 text-slate-400 ml-3 shrink-0' />
             <input
               type='text'
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               placeholder='e.g. NP-TEST-1001'
-              className='w-full bg-transparent px-4 py-3 text-base sm:text-lg text-white placeholder-slate-500 focus:outline-none font-mono'
+              className='w-full bg-transparent px-4 py-3 text-base sm:text-lg text-slate-900 placeholder-slate-400 focus:outline-none font-mono'
             />
             <button
               type='submit'
               disabled={loading}
-              className='px-6 py-3 rounded-xl bg-[#FF7A1A] hover:bg-[#e66c14] text-white font-bold text-sm tracking-wider uppercase transition shadow-lg shadow-[#FF7A1A]/30 shrink-0 disabled:opacity-50'
+              className='px-6 py-3 rounded-xl bg-[#0066CC] hover:bg-[#0052a3] text-white font-bold text-sm tracking-wider uppercase transition shadow-md shadow-[#0066CC]/20 shrink-0 disabled:opacity-50'
             >
               {loading ? 'Searching...' : 'Track'}
             </button>
           </div>
 
           {/* Single Clean Example Hint */}
-          <div className='mt-3 flex items-center justify-center gap-2 text-xs font-mono text-slate-400'>
+          <div className='mt-3 flex items-center justify-center gap-2 text-xs font-mono text-slate-500'>
             <span>Example:</span>
             <button
               type='button'
@@ -278,7 +278,7 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
                 setInputVal('NP-TEST-1001')
                 doSearch('NP-TEST-1001')
               }}
-              className='px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/15 border border-white/10 transition text-[#38BDF8] hover:text-white font-bold'
+              className='px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 border border-slate-300 transition text-[#0066CC] font-bold'
             >
               NP-TEST-1001
             </button>
@@ -287,12 +287,12 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
 
         {/* Not Found State */}
         {result && !result.found && (
-          <div className='p-8 rounded-3xl bg-[#132238]/80 border border-red-500/30 text-center max-w-2xl mx-auto backdrop-blur-xl shadow-2xl animate-in fade-in duration-300'>
-            <AlertCircle className='w-10 h-10 text-red-400 mx-auto mb-3' />
-            <h3 className='text-lg sm:text-xl font-bold font-display uppercase text-white mb-2'>
+          <div className='p-8 rounded-3xl bg-red-50 border border-red-200 text-center max-w-2xl mx-auto shadow-md animate-in fade-in duration-300'>
+            <AlertCircle className='w-10 h-10 text-red-500 mx-auto mb-3' />
+            <h3 className='text-lg sm:text-xl font-bold font-display uppercase text-red-900 mb-2'>
               Shipment Not Found
             </h3>
-            <p className='text-sm text-slate-300 mb-4 font-sans'>
+            <p className='text-sm text-red-700 mb-4 font-sans'>
               {result.message || `No consignment matches '${result.trackingNumber}'. Please double-check your tracking code.`}
             </p>
             <button
@@ -300,9 +300,9 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
                 setInputVal('NP-TEST-1001')
                 doSearch('NP-TEST-1001')
               }}
-              className='inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-mono font-bold uppercase text-white transition'
+              className='inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-xs font-mono font-bold uppercase text-slate-800 transition shadow-sm'
             >
-              <PackageCheck className='w-4 h-4 text-[#FF7A1A]' />
+              <PackageCheck className='w-4 h-4 text-[#0066CC]' />
               <span>Try Verified Consignment NP-TEST-1001</span>
             </button>
           </div>
@@ -310,81 +310,81 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
 
         {/* Real Tracking Result Card */}
         {result && result.found && (
-          <div className='p-6 sm:p-10 rounded-3xl bg-[#132238]/90 border border-white/10 backdrop-blur-xl shadow-2xl animate-in fade-in duration-300'>
+          <div className='p-6 sm:p-10 rounded-3xl bg-white border border-slate-200 shadow-xl animate-in fade-in duration-300'>
             {/* Header / Summary Bar */}
-            <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10'>
+            <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200'>
               <div>
                 <div className='flex items-center gap-3'>
-                  <span className='text-xs font-mono text-[#2F6BFF] uppercase tracking-wider'>CONSIGNMENT AWB</span>
+                  <span className='text-xs font-mono text-[#0066CC] uppercase tracking-wider font-semibold'>CONSIGNMENT AWB</span>
                   <button
                     onClick={() => handleCopy(result.trackingNumber)}
-                    className='text-slate-400 hover:text-white transition'
+                    className='text-slate-400 hover:text-slate-700 transition'
                     title='Copy Tracking Number'
                   >
-                    {copied ? <Check className='w-4 h-4 text-green-400' /> : <Copy className='w-4 h-4' />}
+                    {copied ? <Check className='w-4 h-4 text-green-600' /> : <Copy className='w-4 h-4' />}
                   </button>
                 </div>
-                <h3 className='text-2xl sm:text-3xl font-extrabold font-mono text-white mt-1'>
+                <h3 className='text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 mt-1'>
                   {result.trackingNumber}
                 </h3>
               </div>
 
               <div className='flex items-center gap-3'>
-                <span className='px-3.5 py-1.5 rounded-full text-xs font-mono font-bold tracking-wider uppercase bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40'>
+                <span className='px-3.5 py-1.5 rounded-full text-xs font-mono font-bold tracking-wider uppercase bg-emerald-50 text-emerald-700 border border-emerald-300'>
                   {result.status?.replace(/_/g, ' ') || 'ACTIVE'}
                 </span>
               </div>
             </div>
 
             {/* Quick Metrics Bar */}
-            <div className='grid grid-cols-2 sm:grid-cols-4 gap-4 py-6 border-b border-white/10 text-xs font-mono'>
+            <div className='grid grid-cols-2 sm:grid-cols-4 gap-4 py-6 border-b border-slate-200 text-xs font-mono'>
               <div>
-                <span className='text-slate-400 block uppercase'>Origin</span>
-                <span className='text-white font-bold text-sm truncate block mt-0.5'>{result.origin}</span>
+                <span className='text-slate-500 block uppercase'>Origin</span>
+                <span className='text-slate-900 font-bold text-sm truncate block mt-0.5'>{result.origin}</span>
                 {result.senderName && (
-                  <span className='text-slate-400 text-[11px] truncate block mt-0.5'>{result.senderName}</span>
+                  <span className='text-slate-500 text-[11px] truncate block mt-0.5'>{result.senderName}</span>
                 )}
               </div>
               <div>
-                <span className='text-slate-400 block uppercase'>Destination</span>
-                <span className='text-white font-bold text-sm truncate block mt-0.5'>{result.destination}</span>
+                <span className='text-slate-500 block uppercase'>Destination</span>
+                <span className='text-slate-900 font-bold text-sm truncate block mt-0.5'>{result.destination}</span>
                 {result.receiverName && (
-                  <span className='text-slate-400 text-[11px] truncate block mt-0.5'>{result.receiverName}</span>
+                  <span className='text-slate-500 text-[11px] truncate block mt-0.5'>{result.receiverName}</span>
                 )}
               </div>
               <div>
-                <span className='text-slate-400 block uppercase'>Weight / Pieces</span>
-                <span className='text-white font-bold text-sm block mt-0.5'>
+                <span className='text-slate-500 block uppercase'>Weight / Pieces</span>
+                <span className='text-slate-900 font-bold text-sm block mt-0.5'>
                   {result.chargeableWeight || result.actualWeight} kg • {result.pieces} {result.pieces === 1 ? 'Box' : 'Boxes'}
                 </span>
               </div>
               <div>
-                <span className='text-slate-400 block uppercase'>Estimated Arrival</span>
-                <span className='text-[#38BDF8] font-bold text-sm block mt-0.5'>{result.estimatedDelivery}</span>
+                <span className='text-slate-500 block uppercase'>Estimated Arrival</span>
+                <span className='text-[#0066CC] font-bold text-sm block mt-0.5'>{result.estimatedDelivery}</span>
               </div>
             </div>
 
             {/* Chronological Real Checkpoints Timeline */}
             <div className='mt-8'>
               <div className='flex items-center justify-between mb-6'>
-                <h4 className='text-xs font-mono uppercase tracking-widest text-slate-400'>
+                <h4 className='text-xs font-mono uppercase tracking-widest text-slate-500 font-semibold'>
                   VERIFIED CHAIN-OF-CUSTODY CHECKPOINTS
                 </h4>
-                <span className='text-[11px] font-mono text-emerald-400 font-bold'>
+                <span className='text-[11px] font-mono text-emerald-600 font-bold'>
                   ● {result.timeline?.length || 0} Checkpoints Logged
                 </span>
               </div>
 
               {result.timeline && result.timeline.length > 0 ? (
-                <div className='relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-white/15'>
+                <div className='relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200'>
                   {result.timeline.map((step) => (
                     <div key={step.id} className='relative group'>
                       {/* Checkpoint Dot */}
                       <div
                         className={`absolute -left-6 sm:-left-8 top-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono transition-all ${
                           step.current
-                            ? 'bg-[#FF7A1A] text-white ring-4 ring-[#FF7A1A]/30 shadow-lg shadow-[#FF7A1A]/40'
-                            : 'bg-[#10B981] text-white'
+                            ? 'bg-[#FF7A1A] text-white ring-4 ring-[#FF7A1A]/30 shadow-md shadow-[#FF7A1A]/30'
+                            : 'bg-emerald-600 text-white'
                         }`}
                       >
                         {step.current ? (
@@ -398,24 +398,24 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
                         <div>
                           <h5
                             className={`text-sm sm:text-base font-bold font-display uppercase tracking-tight ${
-                              step.current ? 'text-[#FF7A1A]' : 'text-white'
+                              step.current ? 'text-[#FF7A1A]' : 'text-slate-900'
                             }`}
                           >
                             {step.title}
                           </h5>
-                          <p className='text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-1.5'>
-                            <MapPin className='w-3 h-3 text-[#2F6BFF] shrink-0' />
+                          <p className='text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-1.5'>
+                            <MapPin className='w-3 h-3 text-[#0066CC] shrink-0' />
                             <span>{step.location}</span>
                           </p>
                         </div>
 
-                        <span className='text-xs font-mono text-slate-400 shrink-0'>
+                        <span className='text-xs font-mono text-slate-500 shrink-0'>
                           {step.timestamp}
                         </span>
                       </div>
 
                       {step.notes && (
-                        <div className='mt-2 p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 font-sans'>
+                        <div className='mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 font-sans'>
                           {step.notes}
                         </div>
                       )}
@@ -423,7 +423,7 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
                   ))}
                 </div>
               ) : (
-                <p className='text-sm text-slate-400 font-sans'>No checkpoints recorded yet.</p>
+                <p className='text-sm text-slate-500 font-sans'>No checkpoints recorded yet.</p>
               )}
             </div>
           </div>

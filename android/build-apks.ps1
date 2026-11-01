@@ -60,7 +60,7 @@ function Build-App {
 
     # Step 2: Link resources and generate R.java
     Write-Host "2. Linking resources and generating R.java..." -ForegroundColor Yellow
-    & $AAPT2 link $COMPILED_RES -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 21 --target-sdk-version 34 --java $GEN -o $UNALIGNED_RES --auto-add-overlay
+    & $AAPT2 link $COMPILED_RES -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 24 --target-sdk-version 34 --java $GEN -o $UNALIGNED_RES --auto-add-overlay
     if ($LASTEXITCODE -ne 0) { throw "aapt2 link failed for $AppName" }
 
     # Step 3: Compile Java source files
@@ -72,7 +72,7 @@ function Build-App {
     # Step 4: Dex classes into classes.dex
     Write-Host "4. Dexing bytecode with d8..." -ForegroundColor Yellow
     $classFiles = Get-ChildItem -Path $OBJ -Recurse -Filter *.class | ForEach-Object { $_.FullName }
-    & $D8 --min-api 21 --lib $ANDROID_JAR --output $BIN $classFiles
+    & $D8 --min-api 24 --lib $ANDROID_JAR --output $BIN $classFiles
     if ($LASTEXITCODE -ne 0) { throw "d8 failed for $AppName" }
 
     # Step 5: Add classes.dex into APK archive

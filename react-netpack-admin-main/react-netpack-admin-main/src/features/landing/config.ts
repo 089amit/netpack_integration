@@ -84,7 +84,7 @@ export const LANDING_CONFIG = {
       badge: 'Transit Corridor',
       description: 'Wheels up. Your shipment is on its way. Live status, every mile.',
       eta: 'Day 2 • 01:15 AM',
-      theme: 'dark',
+      theme: 'light',
     },
     {
       id: 4,
@@ -94,7 +94,7 @@ export const LANDING_CONFIG = {
       badge: 'Global Gateway',
       description: 'Smooth arrival. Import clearance completed with local partners.',
       eta: 'Day 3 • 11:00 AM',
-      theme: 'dark',
+      theme: 'light',
     },
     {
       id: 5,

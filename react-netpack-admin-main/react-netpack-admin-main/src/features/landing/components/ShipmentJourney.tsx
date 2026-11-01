@@ -11,7 +11,6 @@ export const ShipmentJourney: React.FC = () => {
 
   const stages = LANDING_CONFIG.stages
   const currentStage = stages[activeStageIndex]
-  const isDarkScene = currentStage.theme === 'dark'
 
   const progressRef = useRef(0)
 
@@ -97,15 +96,13 @@ export const ShipmentJourney: React.FC = () => {
     <section
       id='journey'
       ref={sectionRef}
-      className={`relative w-full min-h-[300vh] sm:min-h-[350vh] transition-colors duration-700 ease-in-out ${
-        isDarkScene ? 'bg-[#0D1B2A] text-white' : 'bg-[#F5F7FA] text-slate-900'
-      }`}
+      className='relative w-full min-h-[300vh] sm:min-h-[350vh] bg-white text-slate-900 transition-colors duration-500'
     >
       {/* Pinned Sticky Viewport Container */}
       <div className='sticky top-16 sm:top-20 h-[calc(100dvh-4rem)] sm:h-[calc(100dvh-5rem)] flex flex-col justify-between py-2 sm:py-4 lg:py-6 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden'>
         {/* Top Header - clean & minimal */}
         <div className='text-center max-w-3xl mx-auto z-10 shrink-0'>
-          <h2 className='text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold uppercase tracking-tight font-display leading-tight'>
+          <h2 className='text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold uppercase tracking-tight font-display leading-tight text-slate-900'>
             THE SHIPMENT JOURNEY
           </h2>
         </div>
@@ -114,42 +111,28 @@ export const ShipmentJourney: React.FC = () => {
         <div className='grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8 items-center my-auto w-full z-10 min-h-0'>
           {/* LEFT: Active Stage Narrative */}
           <div className='lg:col-span-5 order-2 lg:order-1'>
-            <div
-              className={`p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl border backdrop-blur-xl transition-all duration-500 shadow-xl ${
-                isDarkScene
-                  ? 'bg-white/[0.04] border-white/10 text-white'
-                  : 'bg-white/80 border-slate-200/90 text-slate-900 shadow-slate-200/60'
-              }`}
-            >
+            <div className='p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white/95 text-slate-900 backdrop-blur-xl transition-all duration-500 shadow-xl shadow-slate-200/50'>
               <div className='flex items-center justify-between gap-3 mb-2 sm:mb-3'>
-                <span className='px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold tracking-wider uppercase bg-[#2F6BFF]/15 text-[#2F6BFF] border border-[#2F6BFF]/30'>
+                <span className='px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold tracking-wider uppercase bg-[#2F6BFF]/10 text-[#2F6BFF] border border-[#2F6BFF]/25'>
                   {currentStage.badge}
                 </span>
-                <div
-                  className={`flex items-center gap-1.5 text-[11px] sm:text-xs font-mono ${
-                    isDarkScene ? 'text-slate-400' : 'text-slate-500'
-                  }`}
-                >
+                <div className='flex items-center gap-1.5 text-[11px] sm:text-xs font-mono text-slate-500'>
                   <Clock className='w-3 h-3 sm:w-3.5 sm:h-3.5' />
                   <span>{currentStage.eta}</span>
                 </div>
               </div>
 
-              <h3 className='text-lg sm:text-2xl lg:text-3xl font-extrabold uppercase tracking-tight font-display mb-1.5 sm:mb-2'>
+              <h3 className='text-lg sm:text-2xl lg:text-3xl font-extrabold uppercase tracking-tight font-display mb-1.5 sm:mb-2 text-slate-900'>
                 {currentStage.title}
               </h3>
 
-              <p
-                className={`text-xs sm:text-sm lg:text-base leading-relaxed line-clamp-3 sm:line-clamp-none ${
-                  isDarkScene ? 'text-slate-300' : 'text-slate-600'
-                }`}
-              >
+              <p className='text-xs sm:text-sm lg:text-base leading-relaxed line-clamp-3 sm:line-clamp-none text-slate-600'>
                 {currentStage.description}
               </p>
 
               {/* Minimal Progress Bar within active stage */}
-              <div className='mt-3 sm:mt-5 pt-2 sm:pt-3 border-t border-current/10'>
-                <div className='w-full h-1 sm:h-1.5 rounded-full bg-slate-400/20 overflow-hidden'>
+              <div className='mt-3 sm:mt-5 pt-2 sm:pt-3 border-t border-slate-100'>
+                <div className='w-full h-1 sm:h-1.5 rounded-full bg-slate-200 overflow-hidden'>
                   <div
                     className='h-full bg-gradient-to-r from-[#2F6BFF] to-[#FF7A1A] transition-all duration-200 rounded-full'
                     style={{ width: `${scrollProgress * 100}%` }}
@@ -189,10 +172,8 @@ export const ShipmentJourney: React.FC = () => {
                   onClick={() => scrollToStage(idx)}
                   className={`flex items-center gap-1.5 sm:gap-2 py-1 px-1.5 sm:px-2.5 rounded-lg sm:rounded-xl transition-all text-left ${
                     isActive
-                      ? isDarkScene
-                        ? 'bg-white/15 text-white font-bold'
-                        : 'bg-slate-200 text-slate-900 font-bold'
-                      : 'opacity-50 hover:opacity-80'
+                      ? 'bg-slate-100 text-slate-900 font-bold border border-slate-200 shadow-sm'
+                      : 'opacity-60 hover:opacity-100 text-slate-600'
                   }`}
                 >
                   <div
@@ -201,9 +182,7 @@ export const ShipmentJourney: React.FC = () => {
                         ? 'bg-[#FF7A1A] text-white shadow-md shadow-[#FF7A1A]/40'
                         : isDone
                         ? 'bg-[#2F6BFF] text-white'
-                        : isDarkScene
-                        ? 'bg-white/10 text-slate-400'
-                        : 'bg-slate-300 text-slate-600'
+                        : 'bg-slate-200 text-slate-600'
                     }`}
                   >
                     {isDone ? <CheckCircle2 className='w-2.5 h-2.5 sm:w-3 sm:h-3' /> : stage.id}

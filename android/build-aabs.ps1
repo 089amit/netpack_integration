@@ -12,6 +12,7 @@ $D8 = "$BUILD_TOOLS\d8.bat"
 $ANDROID_JAR = "$SDK_DIR\platforms\android-34\android.jar"
 $JAVAC = "$JAVA_HOME\bin\javac.exe"
 $JAVA = "$JAVA_HOME\bin\java.exe"
+$JAR = "$JAVA_HOME\bin\jar.exe"
 $JARSIGNER = "$JAVA_HOME\bin\jarsigner.exe"
 
 $ROOT_DIR = (Get-Item .).FullName
@@ -39,7 +40,7 @@ function Build-Aab {
     $BIN = "$AppDir\bin"
     $COMPILED_RES = "$AppDir\compiled_res.zip"
     $UNALIGNED_RES = "$AppDir\unaligned_res.apk"
-    $PROTO_APK = "$AppDir\base_proto.apk"
+    $PROTO_APK = "$AppDir\base_proto.zip"
     $BASE_ZIP = "$AppDir\base.zip"
     $TEMP_DIR = "$AppDir\aab_temp"
 
@@ -53,7 +54,7 @@ function Build-Aab {
 
     # 2. Link resources and generate R.java
     Write-Host "2. Generating R.java..." -ForegroundColor Yellow
-    & $AAPT2 link $COMPILED_RES -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 21 --target-sdk-version 34 --java $GEN -o $UNALIGNED_RES --auto-add-overlay
+    & $AAPT2 link $COMPILED_RES -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 24 --target-sdk-version 34 --java $GEN -o $UNALIGNED_RES --auto-add-overlay
     if ($LASTEXITCODE -ne 0) { throw "aapt2 link failed for $AppName" }
 
     # 3. Compile Java sources
@@ -65,12 +66,12 @@ function Build-Aab {
     # 4. Dex classes into classes.dex
     Write-Host "4. Dexing bytecode with d8..." -ForegroundColor Yellow
     $classFiles = Get-ChildItem -Path $OBJ -Recurse -Filter *.class | ForEach-Object { $_.FullName }
-    & $D8 --min-api 21 --lib $ANDROID_JAR --output $BIN $classFiles
+    & $D8 --min-api 24 --lib $ANDROID_JAR --output $BIN $classFiles
     if ($LASTEXITCODE -ne 0) { throw "d8 failed for $AppName" }
 
     # 5. Link proto format for AAB
     Write-Host "5. Linking resources in protobuf format for AAB..." -ForegroundColor Yellow
-    & $AAPT2 link --proto-format -o $PROTO_APK -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 21 --target-sdk-version 34 $COMPILED_RES --auto-add-overlay
+    & $AAPT2 link --proto-format -o $PROTO_APK -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 24 --target-sdk-version 34 $COMPILED_RES --auto-add-overlay
     if ($LASTEXITCODE -ne 0) { throw "aapt2 proto link failed for $AppName" }
 
     # 6. Unpack and restructure into base module zip
@@ -81,7 +82,7 @@ function Build-Aab {
     Copy-Item "$BIN\classes.dex" "$TEMP_DIR\dex\classes.dex" -Force
 
     if (Test-Path $BASE_ZIP) { Remove-Item -Force $BASE_ZIP }
-    Compress-Archive -Path "$TEMP_DIR\*" -DestinationPath $BASE_ZIP -Force
+    & $JAR -cMf $BASE_ZIP -C $TEMP_DIR .
 
     # 7. Build App Bundle with bundletool
     Write-Host "7. Building App Bundle with bundletool..." -ForegroundColor Yellow
