@@ -198,9 +198,41 @@ class AirlineCargoTrackingProvider(BaseTrackingProvider):
         arr_date = (context.get("arrivalDate") if context else None) or (dep_date + timedelta(days=1))
         dest = (context.get("destination") if context else "") or "Destination Airport"
         airline = self.get_airline_name(tracking_number)
+        carrier_hint = (context.get("carrier") if context else None) or (context.get("airlineName") if context else None)
 
-        # 1. Check live TrackingMore AWB API if configured
+        # 1. Check live TrackingMore API if configured
         if trackingmore_service.is_configured:
+            # First: Priority check for international courier master shipments (e.g. DHL Express, FedEx, UPS, DPD, Aramex)
+            courier_data = trackingmore_service.get_tracking(tracking_number, carrier_hint)
+            if not courier_data.get("found"):
+                # Register with TrackingMore courier tracking
+                reg = trackingmore_service.create_tracking(tracking_number, carrier_hint)
+                if reg.get("success"):
+                    courier_data = trackingmore_service.get_tracking(tracking_number, carrier_hint)
+
+            if courier_data.get("found"):
+                raw_cps = courier_data.get("checkpoints", [])
+                if raw_cps:
+                    checkpoints = []
+                    courier_code = courier_data.get("courier_code") or carrier_hint or "courier"
+                    for rcp in raw_cps:
+                        ts_val = None
+                        if rcp.get("timestamp"):
+                            try:
+                                ts_val = datetime.fromisoformat(rcp["timestamp"])
+                            except Exception:
+                                pass
+                        checkpoints.append(TrackingCheckpoint(
+                            timestamp=ts_val or dep_date,
+                            location=rcp.get("location") or "International Courier Facility",
+                            status=rcp.get("status") or "IN_TRANSIT",
+                            activity=rcp.get("activity") or "International Courier Transit Scan",
+                            country=rcp.get("country") or "",
+                            source=f"TRACKINGMORE:{courier_code.upper()}"
+                        ))
+                    return checkpoints
+
+            # Second: Check Airline Cargo AWB API (for passenger/freighter belly cargo)
             awb_data = trackingmore_service.get_awb(tracking_number)
             if not awb_data.get("found") and not awb_data.get("quota_exceeded"):
                 # Attempt to register AWB first
@@ -725,7 +757,10 @@ class TrackingRegistry:
 
             if mawb_api_checkpoints:
                 for macp in mawb_api_checkpoints:
-                    macp.source = "MAWB_FLIGHT"
+                    if not macp.source or macp.source == "INTERNAL":
+                        macp.source = "MAWB_FLIGHT"
+                    elif not macp.source.startswith("MAWB:") and not macp.source.startswith("TRACKINGMORE:"):
+                        macp.source = f"MAWB:{macp.source}"
                     if ship_created_ts and macp.timestamp and macp.timestamp <= ship_created_ts:
                         macp.timestamp = ship_created_ts + timedelta(hours=2)
                     if macp.status == "ARRIVED_AT_HUB" and macp.timestamp and macp.timestamp <= dep_ts:
@@ -1193,70 +1228,93 @@ class TrackingRegistry:
         """
         Forces an on-demand live query to TrackingMore, updates the database,
         and registers the tracking number if not yet registered.
+        Tracks both individual forwarding numbers and Master AWB numbers!
         """
         fwd_no = shipment.forwardingNumber
-        if not fwd_no:
-            return {"success": False, "message": "Shipment does not have an assigned forwarding number yet"}
+        mawb = shipment.mawb or (shipment.enquiry.mawb if shipment.enquiry else None)
+        mawb_no = mawb.mawbNumber if (mawb and mawb.mawbNumber) else None
 
-        courier_name = shipment.forwardingCompany.name if shipment.forwardingCompany else None
+        if not fwd_no and not mawb_no:
+            return {"success": False, "message": "Shipment does not have an assigned forwarding number or MAWB yet"}
 
-        # 1. Register with TrackingMore if configured
-        reg_res = {}
-        if trackingmore_service.is_configured:
-            reg_res = trackingmore_service.create_tracking(
-                tracking_number=fwd_no,
-                courier_code=courier_name,
-                customer_name=shipment.customer.name if shipment.customer else None,
-                title=f"Netpack Shipment {shipment.hawbno or fwd_no}"
-            )
+        courier_name = shipment.forwardingCompany.name if shipment.forwardingCompany else (mawb.airlineName if mawb else None)
 
-        # 2. Query live tracking data
-        tm_res = trackingmore_service.get_tracking(fwd_no, courier_name)
+        numbers_to_sync = []
+        if fwd_no:
+            numbers_to_sync.append({"number": fwd_no, "courier": courier_name, "is_mawb": False})
+        if mawb_no and mawb_no != fwd_no:
+            numbers_to_sync.append({"number": mawb_no, "courier": mawb.airlineName if mawb else courier_name, "is_mawb": True})
+
         new_events_count = 0
-        if tm_res.get("found"):
-            tm_checkpoints = tm_res.get("checkpoints", [])
-            courier_slug = tm_res.get("courier_code") or courier_name or "courier"
+        overall_status = None
+        registered_count = 0
 
-            existing_signatures = {
-                f"{te.location}_{te.activity}"
-                for te in shipment.trackingEvents
-            }
+        existing_signatures = {
+            f"{te.location}_{te.activity}"
+            for te in shipment.trackingEvents
+        }
 
-            for cp in tm_checkpoints:
-                sig = f"{cp.get('location')}_{cp.get('activity')}"
-                if sig not in existing_signatures:
-                    existing_signatures.add(sig)
-                    dt_val = None
-                    if cp.get("timestamp"):
-                        try:
-                            dt_val = datetime.fromisoformat(cp["timestamp"])
-                        except Exception:
-                            dt_val = datetime.utcnow()
+        for item in numbers_to_sync:
+            track_num = item["number"]
+            c_name = item["courier"]
+            is_m = item["is_mawb"]
 
-                    new_te = TrackingEvent(
-                        shipmentId=shipment.id,
-                        trackingNumber=fwd_no,
-                        courierCode=courier_slug,
-                        status=cp.get("status") or "CARRIER_SCANNED",
-                        location=cp.get("location") or "Carrier Facility",
-                        activity=cp.get("activity") or "Carrier Scan",
-                        country=cp.get("country") or "",
-                        checkpointTime=dt_val or datetime.utcnow(),
-                        source=f"TRACKINGMORE:{courier_slug.upper()}"
-                    )
-                    db.add(new_te)
-                    new_events_count += 1
+            # 1. Register with TrackingMore if configured
+            if trackingmore_service.is_configured:
+                reg_res = trackingmore_service.create_tracking(
+                    tracking_number=track_num,
+                    courier_code=c_name,
+                    customer_name=shipment.customer.name if shipment.customer else None,
+                    title=f"Netpack {'MAWB ' if is_m else ''}{shipment.hawbno or track_num}"
+                )
+                if reg_res.get("success"):
+                    registered_count += 1
 
-            mapped = tm_res.get("overall_status") or trackingmore_service.map_status(tm_res.get("delivery_status"), courier_code=courier_slug)
-            shipment.status = mapped
+            # 2. Query live tracking data
+            tm_res = trackingmore_service.get_tracking(track_num, c_name)
+            if tm_res.get("found"):
+                tm_checkpoints = tm_res.get("checkpoints", [])
+                courier_slug = tm_res.get("courier_code") or c_name or "courier"
+                src_label = f"TRACKINGMORE:{'MAWB:' if is_m else ''}{courier_slug.upper()}"
+
+                for cp in tm_checkpoints:
+                    sig = f"{cp.get('location')}_{cp.get('activity')}"
+                    if sig not in existing_signatures:
+                        existing_signatures.add(sig)
+                        dt_val = None
+                        if cp.get("timestamp"):
+                            try:
+                                dt_val = datetime.fromisoformat(cp["timestamp"])
+                            except Exception:
+                                dt_val = datetime.utcnow()
+
+                        new_te = TrackingEvent(
+                            shipmentId=shipment.id,
+                            trackingNumber=track_num,
+                            courierCode=courier_slug,
+                            status=cp.get("status") or "CARRIER_SCANNED",
+                            location=cp.get("location") or "Carrier Facility",
+                            activity=cp.get("activity") or "Carrier Scan",
+                            country=cp.get("country") or "",
+                            checkpointTime=dt_val or datetime.utcnow(),
+                            source=src_label
+                        )
+                        db.add(new_te)
+                        new_events_count += 1
+
+                mapped = tm_res.get("overall_status") or trackingmore_service.map_status(tm_res.get("delivery_status"), courier_code=courier_slug)
+                overall_status = mapped
+
+        if overall_status:
+            shipment.status = overall_status
             if shipment.enquiry:
-                shipment.enquiry.status = mapped
+                shipment.enquiry.status = overall_status
             db.commit()
 
         return {
             "success": True,
-            "registered": reg_res.get("success", False),
-            "trackingMoreFound": tm_res.get("found", False),
+            "registered": registered_count > 0,
+            "trackingMoreFound": overall_status is not None,
             "newEventsAdded": new_events_count,
             "status": shipment.status
         }

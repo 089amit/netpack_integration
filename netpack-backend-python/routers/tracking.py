@@ -182,75 +182,80 @@ async def trackingmore_webhook(request: Request, db: Session = Depends(get_db)):
 
     clean_track = tracking_no.strip()
 
+    target_shipments = []
+
     # 1. Match Shipment by forwardingNumber or hawbno
-    shipment = (
+    single_ship = (
         db.query(Shipment).filter(Shipment.forwardingNumber == clean_track).first() or
         db.query(Shipment).filter(Shipment.hawbno == clean_track).first()
     )
+    if single_ship:
+        target_shipments = [single_ship]
 
-    # 2. Match MAWB if tracking_no is a Master Air Waybill
-    if not shipment:
+    # 2. Match MAWB if tracking_no is a Master Air Waybill (updates all consolidated shipments)
+    if not target_shipments:
         mawb = db.query(MAWB).filter(MAWB.mawbNumber == clean_track).first()
         if mawb and mawb.shipments:
-            shipment = mawb.shipments[0]
+            target_shipments = list(mawb.shipments)
 
     # 3. Match Enquiry by trackingNumber
-    if not shipment:
+    if not target_shipments:
         enq = db.query(Enquiry).filter(Enquiry.trackingNumber == clean_track).first()
         if enq and enq.shipments:
-            shipment = enq.shipments[0]
+            target_shipments = list(enq.shipments)
 
-    if shipment:
-        # Update shipment status
+    if target_shipments:
+        # Determine overall status
+        mapped_status = None
         if delivery_status:
             mapped_status = trackingmore_service.map_status(delivery_status, courier_code=courier_code)
-            shipment.status = mapped_status
-            if shipment.enquiry:
-                shipment.enquiry.status = mapped_status
 
-        # Parse & persist checkpoints
+        # Parse checkpoints from webhook payload
         checkpoints = trackingmore_service.extract_checkpoints_from_data(data)
         if checkpoints:
             latest_cp = checkpoints[-1]
             if latest_cp.get("status") in ("ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"):
                 mapped_status = latest_cp["status"]
+
+        for shipment in target_shipments:
+            if mapped_status:
                 shipment.status = mapped_status
                 if shipment.enquiry:
                     shipment.enquiry.status = mapped_status
 
-        existing_signatures = {
-            f"{te.location}_{te.activity}"
-            for te in shipment.trackingEvents
-        }
+            existing_signatures = {
+                f"{te.location}_{te.activity}"
+                for te in shipment.trackingEvents
+            }
 
-        for cp in checkpoints:
-            sig = f"{cp.get('location')}_{cp.get('activity')}"
-            if sig not in existing_signatures:
-                existing_signatures.add(sig)
-                dt_val = None
-                if cp.get("timestamp"):
-                    try:
-                        dt_val = datetime.fromisoformat(cp["timestamp"])
-                    except Exception:
-                        dt_val = datetime.utcnow()
+            for cp in checkpoints:
+                sig = f"{cp.get('location')}_{cp.get('activity')}"
+                if sig not in existing_signatures:
+                    existing_signatures.add(sig)
+                    dt_val = None
+                    if cp.get("timestamp"):
+                        try:
+                            dt_val = datetime.fromisoformat(cp["timestamp"])
+                        except Exception:
+                            dt_val = datetime.utcnow()
 
-                te = TrackingEvent(
-                    shipmentId=shipment.id,
-                    trackingNumber=clean_track,
-                    courierCode=courier_code,
-                    status=cp.get("status") or "CARRIER_SCANNED",
-                    location=cp.get("location") or "Carrier Facility",
-                    activity=cp.get("activity") or "Carrier Scan",
-                    country=cp.get("country") or "",
-                    checkpointTime=dt_val or datetime.utcnow(),
-                    rawJson=json.dumps(cp)[:3900],
-                    source=f"TRACKINGMORE:{courier_code.upper()}" if courier_code else "TRACKINGMORE"
-                )
-                db.add(te)
+                    te = TrackingEvent(
+                        shipmentId=shipment.id,
+                        trackingNumber=clean_track,
+                        courierCode=courier_code,
+                        status=cp.get("status") or "CARRIER_SCANNED",
+                        location=cp.get("location") or "Carrier Facility",
+                        activity=cp.get("activity") or "Carrier Scan",
+                        country=cp.get("country") or "",
+                        checkpointTime=dt_val or datetime.utcnow(),
+                        rawJson=json.dumps(cp)[:3900],
+                        source=f"TRACKINGMORE:{courier_code.upper()}" if courier_code else "TRACKINGMORE"
+                    )
+                    db.add(te)
 
         try:
             db.commit()
-            logger.info(f"TrackingMore webhook updated shipment {shipment.id} ({clean_track}) to {shipment.status}")
+            logger.info(f"TrackingMore webhook updated {len(target_shipments)} shipment(s) for track {clean_track}")
         except Exception as e:
             db.rollback()
             logger.error(f"Failed committing TrackingMore webhook updates: {e}")
