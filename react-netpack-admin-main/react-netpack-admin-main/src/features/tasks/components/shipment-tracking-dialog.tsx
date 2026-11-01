@@ -785,6 +785,63 @@ export function ShipmentTrackingDialog({
             </div>
           )}
 
+          {/* ── MASTER AIR WAYBILL (MAWB) & AIR FREIGHT / CONSOLIDATION LEG ── */}
+          {liveData?.mawbNumber && (
+            <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>
+              <div className='flex items-center justify-between border-b pb-2.5'>
+                <div className='flex items-center gap-2'>
+                  <Plane className='h-4 w-4 text-sky-500' />
+                  <span className='text-xs font-bold uppercase tracking-wider text-foreground'>
+                    Master Air Waybill (MAWB) & Air Freight
+                  </span>
+                </div>
+                <Badge variant='outline' className='bg-sky-50 dark:bg-sky-950 font-bold text-xs text-sky-700 dark:text-sky-300'>
+                  {liveData.airlineName || 'Air Cargo Consolidation'}
+                </Badge>
+              </div>
+
+              <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg border bg-muted/20 border-border/80 text-xs'>
+                <div className='flex items-center gap-2 flex-wrap'>
+                  <span className='font-semibold text-foreground'>
+                    MAWB Number:
+                  </span>
+                  <span className='font-mono font-bold text-sky-600 dark:text-sky-400'>
+                    {liveData.mawbNumber}
+                  </span>
+                  <button
+                    type='button'
+                    onClick={() => handleCopy(liveData.mawbNumber)}
+                    className='text-muted-foreground hover:text-primary cursor-pointer'
+                    title='Copy MAWB number'
+                  >
+                    <Copy className='h-3.5 w-3.5' />
+                  </button>
+                  {liveData.flightNumber && (
+                    <Badge variant='secondary' className='font-bold text-xs px-2 py-0.5'>
+                      Flight {liveData.flightNumber}
+                    </Badge>
+                  )}
+                  {liveData.departureDate && (
+                    <span className='text-[11px] text-muted-foreground'>
+                      Dep: {formatDateTime(liveData.departureDate)}
+                    </span>
+                  )}
+                </div>
+
+                {liveData.airlineTrackingUrl && (
+                  <a
+                    href={liveData.airlineTrackingUrl}
+                    target='_blank'
+                    rel='noreferrer'
+                    className='inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline self-start sm:self-auto shrink-0'
+                  >
+                    Track MAWB <ExternalLink className='h-3 w-3' />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ── OVERSEAS COURIER LEG & CARRIER FORWARDING WITH BOXES ── */}
           {(displayForwardingNumber || (liveData?.hawbs && liveData.hawbs.some((h: any) => h.forwardingNumber)) || liveData?.forwardingCompany) && (
             <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>

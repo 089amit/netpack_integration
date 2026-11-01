@@ -177,6 +177,10 @@ interface TrackingDetails {
   carrier: string
   carrierTracking: string
   carrierUrl: string
+  mawbNumber?: string
+  airlineName?: string
+  airlineTrackingUrl?: string
+  flightNumber?: string
   status:
     | 'in_progress'
     | 'delivered'
@@ -1768,6 +1772,10 @@ function TrackingScreen({
             carrier: fwdCo || (fwdNo ? 'International Carrier' : 'Assigned at Airport Hub'),
             carrierTracking: fwdNo,
             carrierUrl,
+            mawbNumber: (liveRes.mawbNumber || '').trim() || undefined,
+            airlineName: (liveRes.airlineName || '').trim() || undefined,
+            airlineTrackingUrl: (liveRes.airlineTrackingUrl || '').trim() || undefined,
+            flightNumber: (liveRes.flightNumber || '').trim() || undefined,
             status: statusStr.includes('DELIVERED')
               ? 'delivered'
               : statusStr.includes('CARRIER') || statusStr.includes('OUT_FOR_DELIVERY')
@@ -2429,6 +2437,47 @@ function TrackingScreen({
                   </div>
                 )
               })()}
+
+              {/* Master Air Waybill (MAWB) Leg Card */}
+              {data.mawbNumber && (
+                <div className="rounded-xl border border-sky-100 p-3.5 bg-sky-50/40 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-sky-700 font-semibold flex items-center gap-1.5">
+                      <IconPlane size={14} className="text-sky-600" />
+                      Master Air Waybill (MAWB)
+                    </span>
+                    <span className="font-bold text-sky-900 bg-sky-100/80 px-2 py-0.5 rounded text-[11px]">
+                      {data.airlineName || 'Air Freight Consolidation'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-sky-100">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-gray-400">Master AWB Number</p>
+                      <p className="font-mono font-bold text-xs text-[#0D1B2A] mt-0.5">{data.mawbNumber}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => data.mawbNumber && handleCopy(data.mawbNumber)}
+                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all cursor-pointer"
+                        title="Copy MAWB Number"
+                      >
+                        {copied ? <IconCheck size={14} className="text-emerald-600" /> : <IconCopy size={14} />}
+                      </button>
+                      {data.airlineTrackingUrl && (
+                        <a
+                          href={data.airlineTrackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all inline-flex items-center justify-center"
+                          title="Track MAWB on Airline / Carrier Portal"
+                        >
+                          <IconExternalLink size={14} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Overseas Courier Leg Card */}
               <div className="rounded-xl border border-gray-100 p-3.5 bg-white shadow-2xs space-y-2">

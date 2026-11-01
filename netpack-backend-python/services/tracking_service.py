@@ -175,11 +175,18 @@ class AirlineCargoTrackingProvider(BaseTrackingProvider):
         "125": {"name": "British Airways World Cargo", "url": "https://www.iagcargo.com/en/tracking?awb={awb}"},
         "020": {"name": "Lufthansa Cargo", "url": "https://lufthansa-cargo.com/track-trace?awb={awb}"},
         "016": {"name": "United Airlines Cargo", "url": "https://www.unitedcargo.com"},
-        "006": {"name": "Delta Cargo", "url": "https://www.deltacargo.com/Cargo/catalog/tracking"}
+        "006": {"name": "Delta Cargo", "url": "https://www.deltacargo.com/Cargo/catalog/tracking"},
+        "603": {"name": "SriLankan Cargo", "url": "https://www.srilankan.com/en_uk/cargo/track-your-cargo?awb={awb}"},
+        "618": {"name": "Singapore Airlines Cargo", "url": "https://www.siacargo.com/track-shipment?awb={awb}"},
+        "160": {"name": "Cathay Cargo", "url": "https://www.cathaycargo.com/en-us/manage/tracking.html?awb={awb}"},
+        "217": {"name": "Thai Airways Cargo", "url": "https://www.thaicargo.com/en/tracking?awb={awb}"},
+        "784": {"name": "China Southern Cargo", "url": "https://cargo.csair.com/en/track?awb={awb}"},
+        "999": {"name": "Air China Cargo", "url": "https://www.airchinacargo.com"},
+        "057": {"name": "Air France Cargo", "url": "https://www.afklcargo.com/mycargo/shipment/tracking?awb={awb}"}
     }
 
     def get_tracking_url(self, tracking_number: str) -> str:
-        clean = tracking_number.replace("-", "").replace(" ", "")
+        clean = (tracking_number or "").strip().replace("-", "").replace(" ", "").replace("\t", "")
         prefix = clean[:3]
         if prefix in self.AIRLINE_MAP:
             template = self.AIRLINE_MAP[prefix]["url"]
@@ -187,7 +194,7 @@ class AirlineCargoTrackingProvider(BaseTrackingProvider):
         return f"https://www.track-trace.com/aircargo#{clean}"
 
     def get_airline_name(self, mawb_number: str) -> str:
-        clean = mawb_number.replace("-", "").replace(" ", "")
+        clean = (mawb_number or "").strip().replace("-", "").replace(" ", "").replace("\t", "")
         prefix = clean[:3]
         if prefix in self.AIRLINE_MAP:
             return self.AIRLINE_MAP[prefix]["name"]
@@ -745,11 +752,13 @@ class TrackingRegistry:
             mawb_api_checkpoints: List[TrackingCheckpoint] = []
             try:
                 mawb_api_checkpoints = airline_provider.track(
-                    linked_mawb.mawbNumber,
+                    linked_mawb.mawbNumber.strip(),
                     context={
                         "departureDate": dep_ts,
                         "arrivalDate": hub_ts,
-                        "destination": dest_name
+                        "destination": dest_name,
+                        "carrier": airline_name,
+                        "airlineName": airline_name
                     }
                 )
             except Exception as mawb_err:
