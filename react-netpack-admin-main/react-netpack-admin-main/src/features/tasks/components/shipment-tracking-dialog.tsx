@@ -76,6 +76,16 @@ function formatDateTime(isoStr?: string | null): string {
   }
 }
 
+function parseCheckpointActivity(activity: string) {
+  const match = activity.match(/\s*\(Note:\s*([^)]+)\)\s*$/i)
+  if (match) {
+    const cleanTitle = activity.replace(/\s*\(Note:\s*([^)]+)\)\s*$/i, '').trim()
+    const noteText = match[1].trim()
+    return { title: cleanTitle, noteText }
+  }
+  return { title: activity, noteText: null }
+}
+
 function getProgressPercent(status: string): number {
   const s = (status || '').toUpperCase()
   if (s.includes('DELIVERED')) return 100
@@ -241,7 +251,6 @@ export function ShipmentTrackingDialog({
   const [liveData, setLiveData] = useState<any>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [isExpanded, setIsExpanded] = useState<boolean>(false)
-  const [isMilestonesFolded, setIsMilestonesFolded] = useState<boolean>(true)
   const [isPackageDetailsOpen, setIsPackageDetailsOpen] = useState<boolean>(false)
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null)
   const [copied, setCopied] = useState<boolean>(false)
@@ -278,7 +287,6 @@ export function ShipmentTrackingDialog({
     if (open && queryParam) {
       fetchTracking()
       setIsExpanded(false)
-      setIsMilestonesFolded(true)
       setIsPackageDetailsOpen(false)
       setSelectedPhotoIndex(null)
     }
@@ -340,166 +348,88 @@ export function ShipmentTrackingDialog({
     return 'Status active'
   }, [latestCheckpoint])
 
-  // Milestone Stages Definition (Clean Flowchart-aligned lifecycle stages)
-  const milestoneStages = useMemo(() => {
-    const enquiryCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'ENQUIRY_GENERATED')
-    const pickupCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'PICKED_UP')
-    const packedCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'PACKED')
-    const wtDimCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'WT_DIMENSION_VERIFIED')
-    const createdCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'SHIPMENT_CREATED')
-    const airlineTransitCp = checkpoints.find(
-      (cp) => (cp.status || '').toUpperCase() === 'IN_TRANSIT' && (!cp.source || cp.source.includes('AIRLINE') || cp.source.includes('INTERNAL') || cp.source.includes('MAWB') || cp.source.includes('MANUAL'))
-    )
-    const hubCp = checkpoints.find(
-      (cp) => (cp.status || '').toUpperCase() === 'ARRIVED_AT_HUB'
-    )
-    const carrierCp = checkpoints.find(
-      (cp) => (cp.status || '').toUpperCase() === 'CARRIER_SCANNED' ||
-              (cp.status || '').toUpperCase() === 'OUT_FOR_DELIVERY' ||
-              (cp.source || '').includes('CARRIER') ||
-              (cp.source || '').includes('TRACKINGMORE')
-    )
-    const deliveredCp = checkpoints.find((cp) => (cp.status || '').toUpperCase() === 'DELIVERED')
-
-    const dest = liveData?.destination || 'Overseas'
-    const displayHawb = liveData?.hawbNumber || hawbNumber || 'Consignment'
-    const isSelfDrop = liveData?.isSelfDrop || liveData?.pickupRequired === false
-    const trackingMode = liveData?.trackingMode || 'MANUAL'
-
-    const stages: any[] = [
-      {
-        id: 'ENQUIRY_GENERATED',
-        label: 'Enquiry Generated',
-        description: 'Shipment enquiry registered with NetPack Logistic',
-        timestamp: enquiryCp?.timestamp || liveData?.enquiryCreatedAt,
-        icon: <PackageSearch className='h-3.5 w-3.5' />,
-      },
-      {
-        id: 'PICKED_UP',
-        label: isSelfDrop ? 'Counter Drop-off (Self Drop)' : 'Cargo Picked Up',
-        description:
-          isSelfDrop
-            ? 'Consignment dropped off at counter by customer'
-            : (pickupCp?.activity || 'Cargo picked up by NetPack courier & received at warehouse'),
-        timestamp: pickupCp?.timestamp || liveData?.pickedUpAt,
-        icon: <Truck className='h-3.5 w-3.5' />,
-        badge: isSelfDrop ? 'Self Drop' : undefined,
-        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300',
-      },
-      {
-        id: 'PACKED',
-        label: 'Cargo Packed',
-        description:
-          packedCp?.activity ||
-          'Cargo securely packed, dimensioned & boxed by NetPack operations',
-        timestamp: packedCp?.timestamp,
-        icon: <Boxes className='h-3.5 w-3.5' />,
-      },
-      {
-        id: 'WT_DIMENSION_VERIFIED',
-        label: 'Weight & Dim Verified',
-        description:
-          wtDimCp?.activity ||
-          `Actual weight & dimensions verified by operations (${liveData?.weight || 'Verified'} kg)`,
-        timestamp: wtDimCp?.timestamp,
-        icon: <Scale className='h-3.5 w-3.5' />,
-      },
-      {
-        id: 'SHIPMENT_CREATED',
-        label: 'Shipment Created',
-        description:
-          createdCp?.activity ||
-          `HAWB allocated (${displayHawb}) & prepared for overseas routing`,
-        timestamp: createdCp?.timestamp || enquiryCp?.timestamp,
-        icon: <PackageOpen className='h-3.5 w-3.5' />,
-      },
-      {
-        id: 'IN_TRANSIT',
-        label: 'In Transit',
-        description:
-          airlineTransitCp?.activity ||
-          (trackingMode === 'MANUAL'
-            ? `In Transit on scheduled cargo route to ${dest}${additionalNote ? ` • Note: ${additionalNote}` : ''}`
-            : (liveData?.airlineName
-              ? `Departed on ${liveData.airlineName} scheduled flight to ${dest}`
-              : `Air cargo departed Kathmandu (KTM) on scheduled route to ${dest}`)),
-        timestamp: airlineTransitCp?.timestamp || liveData?.departureDate,
-        icon: <Plane className='h-3.5 w-3.5' />,
-      },
-      {
-        id: 'ARRIVED_AT_HUB',
-        label: 'Arrived at Hub',
-        description:
-          hubCp?.activity ||
-          (trackingMode === 'MANUAL'
-            ? `Arrived at Destination Hub (${dest})${additionalNote ? ` • Note: ${additionalNote}` : ''}`
-            : `Landed & cleared through ${dest} destination cargo terminal`),
-        timestamp: hubCp?.timestamp || liveData?.arrivalDate,
-        icon: <Warehouse className='h-3.5 w-3.5' />,
-      },
-      {
-        id: 'CARRIER_SCANNED',
-        label: 'Carrier Scanned',
-        description:
-          carrierCp?.activity
-            ? (carrierCp.location ? `${carrierCp.activity} • ${carrierCp.location}` : carrierCp.activity)
-            : `Scanned by ${displayForwardingCompany} for final courier delivery`,
-        timestamp: carrierCp?.timestamp,
-        icon: <Truck className='h-3.5 w-3.5' />,
-      },
-      {
-        id: 'DELIVERED',
-        label: 'Delivered',
-        description:
-          deliveredCp?.activity ||
-          `Consignment successfully delivered to ${liveData?.receiverName || 'Consignee'}`,
-        timestamp: deliveredCp?.timestamp,
-        icon: <CheckCircle2 className='h-3.5 w-3.5' />,
-      },
-    ]
-
-    return stages
-  }, [checkpoints, liveData, hawbNumber, displayForwardingCompany, additionalNote])
-
-  // Determine stage progression index based on active stages
-  const stageIndex = useMemo(() => {
-    const s = (effectiveStatus || '').toUpperCase()
-    let highestIdx = 0
-    milestoneStages.forEach((stage, idx) => {
-      if (stage.id === 'DELIVERED' && s.includes('DELIVERED')) {
-        highestIdx = Math.max(highestIdx, idx)
-      } else if (stage.id === 'CARRIER_SCANNED' && (s.includes('CARRIER') || s.includes('OUT_FOR_DELIVERY'))) {
-        highestIdx = Math.max(highestIdx, idx)
-      } else if (stage.id === 'ARRIVED_AT_HUB' && (s.includes('ARRIVED_AT_HUB') || s.includes('HUB'))) {
-        highestIdx = Math.max(highestIdx, idx)
-      } else if (stage.id === 'IN_TRANSIT' && s.includes('TRANSIT')) {
-        highestIdx = Math.max(highestIdx, idx)
-      } else if (stage.id === 'SHIPMENT_CREATED' && s.includes('SHIPMENT_CREATED')) {
-        highestIdx = Math.max(highestIdx, idx)
-      } else if (stage.id === 'WT_DIMENSION_VERIFIED' && (s.includes('WT_DIMENSION_VERIFIED') || s.includes('DIMENSION_VERIFIED') || s.includes('WEIGHT_VERIFIED'))) {
-        highestIdx = Math.max(highestIdx, idx)
-      } else if (stage.id === 'PACKED' && s.includes('PACKED')) {
-        highestIdx = Math.max(highestIdx, idx)
-      } else if (stage.id === 'PICKED_UP' && (s.includes('PICKED_UP') || s.includes('PICKUP'))) {
-        highestIdx = Math.max(highestIdx, idx)
-      } else if (stage.id === 'ENQUIRY_GENERATED' && (s.includes('ENQUIRY_GENERATED') || s.includes('PENDING'))) {
-        highestIdx = Math.max(highestIdx, idx)
-      }
-    })
-    return highestIdx
-  }, [effectiveStatus, milestoneStages])
-
   // Display items based on packed collapsible logic
-  const canCollapse = checkpoints.length > 3
+  const canCollapse = checkpoints.length > 5
   const displayedItems = useMemo(() => {
     if (!canCollapse || isExpanded) {
       return checkpoints.map((cp, i) => ({ cp, originalIdx: i, isBottomSummary: false }))
     }
-    // Collapsed: Top 2, and bottom 1
-    const topTwo = checkpoints.slice(0, 2).map((cp, i) => ({ cp, originalIdx: i, isBottomSummary: false }))
+    // Collapsed: Top 3, and bottom 1
+    const topThree = checkpoints.slice(0, 3).map((cp, i) => ({ cp, originalIdx: i, isBottomSummary: false }))
     const bottomOne = { cp: checkpoints[checkpoints.length - 1], originalIdx: checkpoints.length - 1, isBottomSummary: true }
-    return [...topTwo, bottomOne]
+    return [...topThree, bottomOne]
   }, [checkpoints, canCollapse, isExpanded])
+
+  const isDelivered = (effectiveStatus || '').toUpperCase().includes('DELIVERED')
+  const isOutOfDelivery = (effectiveStatus || '').toUpperCase().includes('OUT_FOR_DELIVERY') || (effectiveStatus || '').toUpperCase().includes('CARRIER')
+  const isHub = (effectiveStatus || '').toUpperCase().includes('HUB') || (effectiveStatus || '').toUpperCase().includes('ARRIVED')
+  const isInTransit = (effectiveStatus || '').toUpperCase().includes('TRANSIT')
+  const isCreated = (effectiveStatus || '').toUpperCase().includes('SHIPMENT_CREATED')
+  const isPickedUp = (effectiveStatus || '').toUpperCase().includes('PICKED_UP') || (effectiveStatus || '').toUpperCase().includes('PACKED')
+
+  const routeStatusBadge = useMemo(() => {
+    if (isDelivered) {
+      return {
+        Icon: CheckCircle2,
+        badgeClass: 'border-emerald-300 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:border-emerald-800',
+        animateClass: '',
+        iconClass: 'text-emerald-600 dark:text-emerald-400',
+        borderClass: 'border-emerald-300 dark:border-emerald-700',
+      }
+    }
+    if (isOutOfDelivery) {
+      return {
+        Icon: Truck,
+        badgeClass: 'border-orange-300 bg-orange-50 text-orange-600 dark:bg-orange-950 dark:border-orange-800',
+        animateClass: 'animate-pulse',
+        iconClass: 'text-orange-600 dark:text-orange-400',
+        borderClass: 'border-orange-300 dark:border-orange-700',
+      }
+    }
+    if (isHub) {
+      return {
+        Icon: Warehouse,
+        badgeClass: 'border-purple-300 bg-purple-50 text-purple-600 dark:bg-purple-950 dark:border-purple-800',
+        animateClass: '',
+        iconClass: 'text-purple-600 dark:text-purple-400',
+        borderClass: 'border-purple-300 dark:border-purple-700',
+      }
+    }
+    if (isInTransit) {
+      return {
+        Icon: Plane,
+        badgeClass: 'border-sky-300 bg-sky-50 text-sky-600 dark:bg-sky-950 dark:border-sky-800',
+        animateClass: '',
+        iconClass: 'text-sky-600 dark:text-sky-400 rotate-45',
+        borderClass: 'border-sky-400 dark:border-sky-700',
+      }
+    }
+    if (isCreated) {
+      return {
+        Icon: PackageOpen,
+        badgeClass: 'border-indigo-200 bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:border-indigo-800',
+        animateClass: '',
+        iconClass: 'text-indigo-600 dark:text-indigo-400',
+        borderClass: 'border-indigo-300 dark:border-indigo-700',
+      }
+    }
+    if (isPickedUp) {
+      return {
+        Icon: Boxes,
+        badgeClass: 'border-teal-200 bg-teal-50 text-teal-600 dark:bg-teal-950 dark:border-teal-800',
+        animateClass: '',
+        iconClass: 'text-teal-600 dark:text-teal-400',
+        borderClass: 'border-teal-300 dark:border-teal-700',
+      }
+    }
+    return {
+      Icon: Clock,
+      badgeClass: 'border-blue-200 bg-blue-50 text-blue-600 dark:bg-blue-950 dark:border-blue-800',
+      animateClass: '',
+      iconClass: 'text-blue-600 dark:text-blue-400',
+      borderClass: 'border-blue-300 dark:border-blue-700',
+    }
+  }, [isDelivered, isOutOfDelivery, isHub, isInTransit, isCreated, isPickedUp])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -538,18 +468,18 @@ export function ShipmentTrackingDialog({
             </div>
           )}
 
-          {/* ── HERO STATUS & LATEST UPDATE SECTION ───────────────── */}
+          {/* ── HERO STATUS & DYNAMIC ROUTE INDICATOR ───────────────── */}
           <div className='space-y-3'>
             <div>
               <div className='flex items-center justify-between'>
-                <h2 className='text-2xl font-bold tracking-tight text-foreground'>
+                <h2 className='text-xl sm:text-2xl font-bold tracking-tight text-foreground'>
                   {statusCfg.heroTitle}
                 </h2>
               </div>
               <p className='text-xs text-muted-foreground font-medium mt-1'>
                 {latestCheckpoint?.activity ? (
                   <span className='text-foreground font-semibold'>
-                    {latestCheckpoint.activity}
+                    {parseCheckpointActivity(latestCheckpoint.activity).title}
                     {latestCheckpoint.location ? ` • ${latestCheckpoint.location}` : ''}
                     {latestCheckpoint.timestamp ? ` • ${formatDateTime(latestCheckpoint.timestamp)}` : ''}
                   </span>
@@ -559,158 +489,101 @@ export function ShipmentTrackingDialog({
               </p>
             </div>
 
-            {/* Horizontal Progress Bar */}
-            <div className='relative w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden'>
-              <div
-                className='h-full bg-sky-500 dark:bg-sky-400 rounded-full transition-all duration-500 ease-out'
-                style={{ width: `${progressPercent}%` }}
-              />
+            {/* Dynamic Route Status Banner */}
+            <div className='flex items-center justify-between gap-3 py-2 px-3.5 rounded-2xl bg-muted/40 border border-border/80 text-xs'>
+              <div className='flex items-center gap-1.5 font-bold text-foreground shrink-0'>
+                <MapPin className='h-4 w-4 text-primary shrink-0' />
+                <span>{liveData?.origin || 'Kathmandu, Nepal'}</span>
+              </div>
+              <div className='flex-1 flex items-center justify-center relative px-2'>
+                <div className={`w-full border-t border-dashed ${routeStatusBadge.borderClass}`} />
+                <span className={`absolute bg-background p-1 rounded-full border shadow-xs ${routeStatusBadge.badgeClass} ${routeStatusBadge.animateClass}`}>
+                  <routeStatusBadge.Icon className={`h-3.5 w-3.5 ${routeStatusBadge.iconClass}`} />
+                </span>
+              </div>
+              <div className='flex items-center gap-1.5 font-bold text-foreground shrink-0'>
+                <span>{liveData?.destination || 'Destination'}</span>
+                <MapPin className={`h-4 w-4 shrink-0 ${isDelivered ? 'text-emerald-600' : 'text-primary'}`} />
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className='space-y-1'>
+              <div className='relative w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden'>
+                <div
+                  className='h-full bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-500 rounded-full transition-all duration-500 ease-out'
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <div className='flex justify-between items-center text-[10px] text-muted-foreground font-medium'>
+                <span>Kathmandu (Origin)</span>
+                <span className='font-bold text-primary'>{progressPercent}% Completed</span>
+                <span>Consignee Delivery</span>
+              </div>
             </div>
           </div>
 
-          {/* ── MILESTONES LIFECYCLE SECTION (In Folding Format) ─────── */}
-          <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>
-            <div className='flex items-center justify-between'>
-              <div className='flex items-center gap-2'>
-                <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
-                  Milestones & Lifecycle
+          {/* ── COMPACT INFO CHIPS ROW (Forwarding & Scale Photo) ─────── */}
+          <div className='grid grid-cols-2 gap-2.5'>
+            {/* Forwarding Courier Chip */}
+            <div className='p-2.5 rounded-2xl bg-muted/40 border border-border/80 flex items-center justify-between'>
+              <div className='min-w-0'>
+                <span className='text-[10px] uppercase font-bold text-muted-foreground block tracking-wider'>
+                  Courier Forwarding
                 </span>
-                <Badge variant='outline' className='text-[10px] font-bold py-0 h-5'>
-                  Stage {stageIndex + 1} of {milestoneStages.length}: {milestoneStages[stageIndex]?.label}
-                </Badge>
+                <span className='text-xs font-mono font-bold text-foreground truncate block mt-0.5'>
+                  {displayForwardingCompany}: {displayForwardingNumber || 'Assigned'}
+                </span>
               </div>
-              <button
-                type='button'
-                onClick={() => setIsMilestonesFolded(!isMilestonesFolded)}
-                className='inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer'
-              >
-                <span>{isMilestonesFolded ? 'Expand Milestones' : 'Fold Milestones'}</span>
-                {isMilestonesFolded ? (
-                  <ChevronDown className='h-3.5 w-3.5' />
-                ) : (
-                  <ChevronUp className='h-3.5 w-3.5' />
+              <div className='flex items-center gap-1 shrink-0 ml-1.5'>
+                {displayForwardingNumber && (
+                  <button
+                    type='button'
+                    onClick={() => handleCopy(displayForwardingNumber)}
+                    className='p-1 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground transition'
+                    title='Copy Forwarding Number'
+                  >
+                    <Copy className='h-3 w-3' />
+                  </button>
                 )}
-              </button>
+                {carrierUrl && (
+                  <a
+                    href={carrierUrl}
+                    target='_blank'
+                    rel='noreferrer'
+                    className='p-1 rounded-lg border border-border bg-background text-primary hover:bg-primary/5 transition'
+                    title='Track on Courier Website'
+                  >
+                    <ExternalLink className='h-3 w-3' />
+                  </a>
+                )}
+              </div>
             </div>
 
-            {/* Folded View: Single Horizontal Line Stepper (Picture 5) */}
-            {isMilestonesFolded ? (
-              <div className='w-full overflow-x-auto py-3 px-1 scrollbar-none'>
-                <div className='flex items-center justify-between min-w-[540px] sm:min-w-full relative px-2'>
-                  {/* Background connecting line */}
-                  <div className='absolute left-6 right-6 top-4 h-0.5 bg-slate-200 dark:bg-slate-700 -z-0' />
-                  {/* Completed progress line */}
-                  <div
-                    className='absolute left-6 top-4 h-0.5 bg-emerald-500 -z-0 transition-all duration-300'
-                    style={{
-                      width:
-                        milestoneStages.length > 1
-                          ? `${Math.min(100, Math.max(0, (stageIndex / (milestoneStages.length - 1)) * 100))}%`
-                          : '0%',
-                    }}
-                  />
-
-                  {milestoneStages.map((stg: any, sIdx: number) => {
-                    const isCompleted =
-                      sIdx < stageIndex ||
-                      (sIdx === stageIndex && stageIndex === milestoneStages.length - 1)
-                    const isActive =
-                      sIdx === stageIndex && stageIndex < milestoneStages.length - 1
-
-                    return (
-                      <div
-                        key={stg.id}
-                        className='flex flex-col items-center relative z-10 min-w-[62px] text-center'
-                      >
-                        <div
-                          className={`h-8 w-8 rounded-full flex items-center justify-center transition-all ${
-                            isCompleted
-                              ? 'bg-emerald-500 text-white shadow-xs'
-                              : isActive
-                              ? 'bg-sky-600 text-white shadow-md ring-4 ring-sky-200 dark:ring-sky-900 animate-pulse'
-                              : 'bg-muted border border-slate-300 dark:border-slate-700 text-muted-foreground'
-                          }`}
-                        >
-                          {isCompleted ? (
-                            <Check className='h-4 w-4 stroke-[2.5]' />
-                          ) : (
-                            <span className='scale-85'>{stg.icon}</span>
-                          )}
-                        </div>
-                        <span
-                          className={`text-[10px] mt-1.5 font-semibold text-center whitespace-nowrap leading-none ${
-                            isActive
-                              ? 'text-sky-600 dark:text-sky-400 font-bold'
-                              : isCompleted
-                              ? 'text-emerald-700 dark:text-emerald-400'
-                              : 'text-muted-foreground'
-                          }`}
-                        >
-                          {stg.label.split(' ')[0]}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
+            {/* Verified Cargo Chip */}
+            <div className='p-2.5 rounded-2xl bg-muted/40 border border-border/80 flex items-center justify-between'>
+              <div className='min-w-0'>
+                <span className='text-[10px] uppercase font-bold text-muted-foreground block tracking-wider'>
+                  Verified Cargo
+                </span>
+                <span className='text-xs font-bold text-foreground truncate block mt-0.5'>
+                  {liveData?.chargeableWeight || liveData?.weight || '25.0'} kg{' '}
+                  <span className='text-muted-foreground font-normal'>
+                    / {liveData?.pieces ? `${liveData.pieces} Box` : '1 Box'}
+                  </span>
+                </span>
               </div>
-            ) : (
-              /* Expanded View: Full Authentic Stepper with Connecting Line */
-              <div className='relative pl-6 pt-2 before:absolute before:left-[11px] before:top-3.5 before:bottom-3.5 before:w-[2px] before:bg-slate-200 dark:before:bg-slate-800'>
-                {milestoneStages.map((stg: any, sIdx: number) => {
-                  const isCompleted = sIdx < stageIndex || (sIdx === stageIndex && stageIndex === milestoneStages.length - 1)
-                  const isActive = sIdx === stageIndex && stageIndex < milestoneStages.length - 1
-
-                  return (
-                    <div key={stg.id} className='relative pb-4 last:pb-1 group'>
-                      {/* Stepper Node Dot with Icon */}
-                      <div
-                        className={`absolute -left-6 top-0 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${
-                          isCompleted
-                            ? 'border-emerald-500 bg-emerald-500 text-white'
-                            : isActive
-                            ? 'border-sky-500 bg-sky-100 dark:bg-sky-950 text-sky-600 ring-2 ring-sky-200 dark:ring-sky-900'
-                            : 'border-slate-300 dark:border-slate-700 bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {isCompleted ? <Check className='h-3.5 w-3.5 stroke-[3]' /> : stg.icon}
-                      </div>
-
-                      {/* Milestone Details */}
-                      <div className='space-y-0.5 text-left ml-2'>
-                        <div className='flex items-center justify-between'>
-                          <div className='flex items-center gap-1.5 flex-wrap'>
-                            <span
-                              className={`text-xs font-bold leading-tight ${
-                                isActive
-                                  ? 'text-sky-600 dark:text-sky-400'
-                                  : isCompleted
-                                  ? 'text-foreground'
-                                  : 'text-muted-foreground'
-                              }`}
-                            >
-                              {stg.label}
-                            </span>
-                            {stg.badge && (
-                              <Badge variant='outline' className={`text-[9px] font-bold px-1.5 py-0 h-4 border ${stg.badgeClass || ''}`}>
-                                {stg.badge}
-                              </Badge>
-                            )}
-                          </div>
-                          {stg.timestamp && (
-                            <span className='text-[10px] text-muted-foreground font-mono'>
-                              {formatDateTime(stg.timestamp)}
-                            </span>
-                          )}
-                        </div>
-                        <p className='text-xs text-muted-foreground leading-snug'>
-                          {stg.description}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+              {proofImages.length > 0 && (
+                <button
+                  type='button'
+                  onClick={() => setSelectedPhotoIndex(0)}
+                  className='px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition shrink-0'
+                  title='View Scale Calibration Proof'
+                >
+                  {proofImages.length} {proofImages.length > 1 ? 'Photos' : 'Photo'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ── CONSIGNMENT HAWBS OVERVIEW (For Partitioned Shipments) ── */}
@@ -785,170 +658,84 @@ export function ShipmentTrackingDialog({
             </div>
           )}
 
-          {/* ── OVERSEAS COURIER LEG & CARRIER FORWARDING WITH BOXES ── */}
-          {(displayForwardingNumber || (liveData?.hawbs && liveData.hawbs.some((h: any) => h.forwardingNumber)) || liveData?.forwardingCompany) && (
-            <div className='rounded-xl border bg-card p-4 space-y-3 shadow-xs'>
-              <div className='flex items-center justify-between border-b pb-2.5'>
-                <div className='flex items-center gap-2'>
-                  <Truck className='h-4 w-4 text-indigo-500' />
-                  <span className='text-xs font-bold uppercase tracking-wider text-foreground'>
-                    Carrier Forwarding & Box Numbers
-                  </span>
-                </div>
-                <Badge variant='outline' className='bg-indigo-50 dark:bg-indigo-950 font-bold text-xs text-indigo-700 dark:text-indigo-300'>
-                  {displayForwardingCompany}
-                </Badge>
-              </div>
-
-              <div className='space-y-2 pt-1'>
-                {liveData?.hawbs && liveData.hawbs.length > 1 ? (
-                  liveData.hawbs.map((h: any, idx: number) => {
-                    const fwdCompany = h.forwardingCompany || displayForwardingCompany || 'Carrier'
-                    const fwdNo = h.forwardingNumber || 'Pending assignment'
-                    const boxesDisplay = h.boxNumbersDisplay || (h.assignedBoxNumbers?.length ? `Box ${h.assignedBoxNumbers.join(', ')}` : `Box 1-${h.boxCount}`)
-                    const isCurrent = h.hawbno === (liveData.hawbNumber || hawbNumber)
-
-                    return (
-                      <div
-                        key={h.id || idx}
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg border transition-all text-xs ${
-                          isCurrent
-                            ? 'bg-primary/5 border-primary/40 ring-1 ring-primary/20'
-                            : 'bg-muted/20 border-border/80'
-                        }`}
-                      >
-                        <div className='flex items-center gap-2 flex-wrap'>
-                          <span className='font-semibold text-foreground'>
-                            {fwdCompany} Forwarding Number:
-                          </span>
-                          <span className='font-mono font-bold text-primary'>
-                            {fwdNo}
-                          </span>
-                          {h.forwardingNumber && (
-                            <button
-                              type='button'
-                              onClick={() => handleCopy(h.forwardingNumber)}
-                              className='text-muted-foreground hover:text-primary cursor-pointer'
-                              title='Copy carrier forwarding number'
-                            >
-                              <Copy className='h-3.5 w-3.5' />
-                            </button>
-                          )}
-                          <span className='text-muted-foreground font-bold'>&rarr;</span>
-                          <Badge variant='secondary' className='font-bold font-mono text-xs px-2 py-0.5'>
-                            {boxesDisplay}
-                          </Badge>
-                          <span className='text-[11px] text-muted-foreground'>
-                            ({h.totalWeight} KG)
-                          </span>
-                        </div>
-
-                        {h.carrierTrackingUrl && (
-                          <a
-                            href={h.carrierTrackingUrl}
-                            target='_blank'
-                            rel='noreferrer'
-                            className='inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline self-start sm:self-auto shrink-0'
-                          >
-                            Track <ExternalLink className='h-3 w-3' />
-                          </a>
-                        )}
-                      </div>
-                    )
-                  })
-                ) : (
-                  <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg border bg-muted/20 border-border/80 text-xs'>
-                    <div className='flex items-center gap-2 flex-wrap'>
-                      <span className='font-semibold text-foreground'>
-                        {displayForwardingCompany} Forwarding Number:
-                      </span>
-                      <span className='font-mono font-bold text-primary'>
-                        {displayForwardingNumber || 'Assigned'}
-                      </span>
-                      {displayForwardingNumber && (
-                        <button
-                          type='button'
-                          onClick={() => handleCopy(displayForwardingNumber)}
-                          className='text-muted-foreground hover:text-primary cursor-pointer'
-                          title='Copy carrier forwarding number'
-                        >
-                          <Copy className='h-3.5 w-3.5' />
-                        </button>
-                      )}
-                      <span className='text-muted-foreground font-bold'>&rarr;</span>
-                      <Badge variant='secondary' className='font-bold font-mono text-xs px-2 py-0.5'>
-                        {liveData?.pieces ? `Box 1-${liveData.pieces}` : 'All Boxes'}
-                      </Badge>
-                    </div>
-
-                    {carrierUrl && (
-                      <a
-                        href={carrierUrl}
-                        target='_blank'
-                        rel='noreferrer'
-                        className='inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline self-start sm:self-auto shrink-0'
-                      >
-                        Track <ExternalLink className='h-3 w-3' />
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── TRANSIT CHECKPOINTS SECTION (Descending Order: Freshest at Top) ── */}
-          <div className='space-y-2 pt-1'>
+          {/* ── UNIFIED CHRONOLOGICAL TIMELINE (Merged Milestones + Scans, Newest First) ── */}
+          <div className='space-y-3 pt-1'>
             <div className='flex items-center justify-between'>
-              <span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
-                Transit Checkpoints & Scans ({checkpoints.length})
-              </span>
-              <span className='text-[11px] text-muted-foreground'>Newest First</span>
+              <div className='flex items-center gap-1.5'>
+                <span className='w-2 h-2 rounded-full bg-primary'></span>
+                <span className='text-xs font-bold uppercase tracking-wider text-foreground'>
+                  Consignment Journey & Scans ({checkpoints.length})
+                </span>
+              </div>
+              <span className='text-[11px] font-mono text-muted-foreground font-semibold'>Newest First</span>
             </div>
 
             {checkpoints.length > 0 ? (
-              <div className='relative pl-6 before:absolute before:left-[7px] before:top-2.5 before:bottom-2.5 before:w-[2px] before:bg-slate-200 dark:before:bg-slate-800'>
+              <div className='relative pl-6 before:absolute before:left-[9px] before:top-2.5 before:bottom-2.5 before:w-[2px] before:bg-slate-200 dark:before:bg-slate-800'>
                 {displayedItems.map(({ cp, originalIdx }, loopIdx) => {
                   const isTopItem = originalIdx === 0
                   const isSelfDropEvent = cp.source === 'COUNTER_DROPOFF'
+                  const { title, noteText } = parseCheckpointActivity(cp.activity || '')
+                  const isPickupOrPacked = (cp.status === 'PICKED_UP' || cp.status === 'PACKED' || title.toLowerCase().includes('picked') || title.toLowerCase().includes('packed'))
 
                   return (
-                    <div key={originalIdx} className='relative group pb-5 last:pb-1'>
-                      {/* Node Dot on vertical connecting line */}
+                    <div key={originalIdx} className='relative group pb-4 last:pb-1'>
+                      {/* Top Node Dot or Regular Node */}
                       <div
-                        className={`absolute -left-6 top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 bg-background transition-all ${
+                        className={`absolute -left-6 top-0.5 flex items-center justify-center rounded-full transition-all ${
                           isTopItem
-                            ? 'border-sky-500 dark:border-sky-400 ring-2 ring-sky-200 dark:ring-sky-950'
-                            : 'border-slate-300 dark:border-slate-600'
+                            ? isDelivered
+                              ? 'w-5 h-5 bg-emerald-500 text-white ring-4 ring-emerald-100 dark:ring-emerald-950/80 shadow-xs'
+                              : 'w-5 h-5 bg-sky-500 text-white ring-4 ring-sky-100 dark:ring-sky-950/80 shadow-xs animate-pulse'
+                            : 'w-5 h-5 bg-background border-2 border-slate-300 dark:border-slate-600 text-muted-foreground'
                         }`}
                       >
-                        {isTopItem && (
-                          <div className='h-1.5 w-1.5 rounded-full bg-sky-500 dark:bg-sky-400' />
+                        {isTopItem ? (
+                          isDelivered ? (
+                            <Check className='h-3 w-3 stroke-[3]' />
+                          ) : (
+                            <div className='h-1.5 w-1.5 rounded-full bg-white' />
+                          )
+                        ) : (
+                          <div className='h-1.5 w-1.5 rounded-full bg-slate-400 dark:bg-slate-500' />
                         )}
                       </div>
 
                       {/* Checkpoint Detail Block */}
-                      <div className='space-y-1 text-left'>
-                        <div className='flex flex-wrap items-center gap-1.5'>
-                          <span className='font-bold text-sm text-foreground leading-snug'>
-                            {cp.activity}
+                      <div className='space-y-0.5 text-left'>
+                        <div className='flex items-center justify-between'>
+                          <div className='flex flex-wrap items-center gap-1.5'>
+                            <span className={`text-xs font-bold leading-snug ${isTopItem ? 'text-foreground' : 'text-foreground/90'}`}>
+                              {title}
+                            </span>
+                            {isSelfDropEvent && (
+                              <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'>
+                                Self Drop
+                              </Badge>
+                            )}
+                          </div>
+                          <span className='text-[10px] text-muted-foreground font-mono shrink-0 ml-2'>
+                            {formatDateTime(cp.timestamp)}
                           </span>
-                          {isSelfDropEvent && (
-                            <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'>
-                              Self Drop
-                            </Badge>
-                          )}
                         </div>
-                        <div className='text-xs text-muted-foreground font-medium'>
+
+                        <div className='text-[11px] text-muted-foreground font-medium'>
                           {cp.location || 'Kathmandu, Nepal'}
                         </div>
-                        <div className='text-xs text-muted-foreground/80 font-normal'>
-                          {formatDateTime(cp.timestamp)}
-                        </div>
+
+                        {/* Dedicated Amber Rider Note Pill */}
+                        {noteText && isPickupOrPacked && (
+                          <div className='p-2 rounded-xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-800 flex items-center gap-1.5 mt-1 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'>
+                            <span className='font-bold uppercase tracking-wider text-[10px] bg-amber-200/70 dark:bg-amber-800/60 px-1.5 py-0.5 rounded shrink-0'>
+                              Rider Note
+                            </span>
+                            <span className='leading-snug'>{noteText}</span>
+                          </div>
+                        )}
                       </div>
 
-                      {/* "SEE ALL UPDATES (N)" Button inserted between Top 2 and Bottom 1 when collapsed */}
-                      {!isExpanded && canCollapse && loopIdx === 1 && (
+                      {/* "SEE ALL UPDATES (N)" Button inserted between Top 3 and Bottom 1 when collapsed */}
+                      {!isExpanded && canCollapse && loopIdx === 2 && (
                         <div className='my-3 -ml-1'>
                           <button
                             type='button'
@@ -966,7 +753,7 @@ export function ShipmentTrackingDialog({
 
                 {/* "COLLAPSE UPDATES" Button at bottom when expanded */}
                 {isExpanded && canCollapse && (
-                  <div className='pt-1 pb-3 -ml-1'>
+                  <div className='pt-1 pb-2 -ml-1'>
                     <button
                       type='button'
                       onClick={() => setIsExpanded(false)}

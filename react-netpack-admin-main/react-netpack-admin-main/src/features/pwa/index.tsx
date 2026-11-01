@@ -71,6 +71,16 @@ function formatRelativeTime(val?: string | number | null): string {
   }
 }
 
+function parseCheckpointActivity(activity: string) {
+  const match = activity.match(/\s*\(Note:\s*([^)]+)\)\s*$/i)
+  if (match) {
+    const cleanTitle = activity.replace(/\s*\(Note:\s*([^)]+)\)\s*$/i, '').trim()
+    const noteText = match[1].trim()
+    return { title: cleanTitle, noteText }
+  }
+  return { title: activity, noteText: null }
+}
+
 function playNotificationChime() {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
@@ -1621,12 +1631,9 @@ function TrackingScreen({
 }) {
   const [trackingId, setTrackingId] = useState(initialTrackingId)
   const [searchInput, setSearchInput] = useState(initialTrackingId)
-  const [isFolded, setIsFolded] = useState(true)
   const [isBoxesOpen, setIsBoxesOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState<number | null>(null)
-  const stepperScrollRef = useRef<HTMLDivElement>(null)
-  const activeStepRef = useRef<HTMLDivElement>(null)
   const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null)
   const [selectedBox, setSelectedBox] = useState<any | null>(null)
   const [showHawbGuide, setShowHawbGuide] = useState(false)
@@ -1952,14 +1959,6 @@ function TrackingScreen({
     { label: 'Delivered', title: 'Delivered', desc: `Delivered to ${data.receiverName}`, Icon: IconCheck },
   ]
 
-  const currentStatusLabel = (milestones[data.stageIndex]?.title || data.statusLabel).replace(/\s*\([^)]*\)\s*$/, '')
-
-  useEffect(() => {
-    if (isFolded && activeStepRef.current && stepperScrollRef.current) {
-      activeStepRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-    }
-  }, [isFolded, data.stageIndex])
-
   const progressPercent = Math.min(100, Math.round(((data.stageIndex + 1) / milestones.length) * 100))
 
   const routeStatusBadge = useMemo(() => {
@@ -2191,138 +2190,62 @@ function TrackingScreen({
                 </div>
               </div>
 
-              {/* Milestones Stepper — "Flight Path" (Folded / Expanded) */}
-              <div className="rounded-2xl bg-gradient-to-br from-[#0D1B2A] to-[#16293D] p-4 space-y-4 relative overflow-hidden">
-                {/* faint route texture */}
-                <svg className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none" viewBox="0 0 300 160" preserveAspectRatio="none">
-                  <path d="M-10 140 C 60 90, 100 160, 160 100 S 280 20, 320 -10" stroke="#60A5FA" strokeWidth="1.5" strokeDasharray="1 8" />
-                </svg>
-
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span style={{ fontFamily: 'Jost, sans-serif' }} className="text-[12px] font-700 text-white tracking-tight truncate">
-                      {currentStatusLabel}
+              {/* 2. Compact Info Chips Row (Courier Forwarding + Verified Cargo) */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Forwarding Courier Chip */}
+                <div className="p-2.5 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Courier Forwarding</span>
+                    <span className="text-xs font-mono font-bold text-[#0D1B2A] truncate block mt-0.5">
+                      {data.carrier || 'NetPack'}: {data.carrierTracking || 'Assigned'}
                     </span>
                   </div>
-                  <button
-                    onClick={() => setIsFolded(!isFolded)}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-400 hover:text-sky-300 transition-colors cursor-pointer"
-                  >
-                    <span>{isFolded ? 'Expand' : 'Fold'}</span>
-                    {isFolded ? <IconChevronDown size={13} /> : <IconChevronUp size={13} />}
-                  </button>
-                </div>
-
-                {isFolded ? (
-                  /* Folded View: Horizontal Scrollable Nodes */
-                  <div ref={stepperScrollRef} className="overflow-x-auto no-scrollbar -mx-1 px-1 py-1">
-                    <div className="flex items-center gap-6 min-w-max px-2">
-                      {milestones.map((stg, sIdx) => {
-                        const isCompleted = sIdx < data.stageIndex || (sIdx === 6 && data.stageIndex === 6)
-                        const isActive = sIdx === data.stageIndex && data.stageIndex < 6
-                        const Icon = stg.Icon
-
-                        return (
-                          <div
-                            key={stg.label}
-                            ref={isActive ? activeStepRef : null}
-                            className="flex flex-col items-center shrink-0 text-center"
-                          >
-                            <div
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                                isCompleted
-                                  ? 'bg-emerald-400 text-[#0D1B2A]'
-                                  : isActive
-                                  ? 'bg-gradient-to-br from-sky-400 to-[#2563EB] text-white shadow-lg ring-4 ring-sky-400/25'
-                                  : 'bg-white/5 border border-white/10 text-white/30'
-                              }`}
-                            >
-                              <Icon size={16} />
-                            </div>
-                            <span
-                              className={`text-[9px] mt-2 font-semibold whitespace-nowrap leading-none ${
-                                isActive ? 'text-sky-300' : isCompleted ? 'text-emerald-300' : 'text-white/30'
-                              }`}
-                            >
-                              {stg.label}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  /* Expanded View: Itinerary-style Vertical Stepper */
-                  <div className="relative pl-9 pt-1 space-y-4 before:absolute before:left-[15px] before:top-1 before:bottom-1 before:w-[2px] before:bg-white/10">
-                    {milestones.map((stg, sIdx) => {
-                      const isCompleted = sIdx < data.stageIndex || (sIdx === 6 && data.stageIndex === 6)
-                      const isActive = sIdx === data.stageIndex && data.stageIndex < 6
-                      const Icon = stg.Icon
-
-                      return (
-                        <div key={stg.label} className="relative text-left">
-                          <div
-                            className={`absolute -left-9 top-0 flex h-8 w-8 items-center justify-center rounded-xl transition-all ${
-                              isCompleted
-                                ? 'bg-emerald-400 text-[#0D1B2A]'
-                                : isActive
-                                ? 'bg-gradient-to-br from-sky-400 to-[#2563EB] text-white ring-4 ring-sky-400/25'
-                                : 'bg-white/5 border border-white/10 text-white/30'
-                            }`}
-                          >
-                            <Icon size={15} />
-                          </div>
-                          <div className="pt-1">
-                            <p
-                              style={{ fontFamily: 'Jost, sans-serif' }}
-                              className={`text-[13px] font-700 leading-tight ${
-                                isActive ? 'text-sky-300' : isCompleted ? 'text-white' : 'text-white/35'
-                              }`}
-                            >
-                              {stg.title}
-                            </p>
-                            <p className={`text-[11px] leading-snug mt-0.5 ${isActive || isCompleted ? 'text-white/55' : 'text-white/20'}`}>
-                              {stg.desc}
-                            </p>
-                            {(sIdx === 1 || sIdx === 2) && ((data.weightProofImages && data.weightProofImages.length > 0) || data.weightProofImageUrl) && (
-                              <button
-                                type="button"
-                                onClick={() => setPreviewPhotoIndex(0)}
-                                className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-400/30 text-[10px] font-semibold transition-all cursor-pointer"
-                              >
-                                <IconScale size={12} />
-                                <span>
-                                  View Verified Proof ({data.weightProofImages && data.weightProofImages.length > 1 ? `${data.weightProofImages.length} Photos` : data.weight})
-                                </span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-
-                    {canRequestConsignmentPickup && (
-                      <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
-                        <div>
-                          <p className="text-[11px] font-bold text-sky-300">Doorstep Pickup Service</p>
-                          <p className="text-[10px] text-white/60">
-                            {data.stageIndex === 0
-                              ? 'Request courier rider to pick up from your address'
-                              : 'Schedule additional multi-stop pickup locations'}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => onRequestPickup?.(data.tracking || trackingId)}
-                          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-300 hover:to-blue-400 text-white text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap flex items-center gap-1"
-                        >
-                          <IconPlus size={13} />
-                          <span>{data.stageIndex === 0 ? 'Request Pickup' : 'New Pickup'}</span>
-                        </button>
-                      </div>
+                  <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                    {data.carrierTracking && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(data.carrierTracking)}
+                        className="p-1 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition cursor-pointer"
+                        title="Copy Carrier Tracking"
+                      >
+                        {copied ? <IconCheck size={12} className="text-emerald-600" /> : <IconCopy size={12} />}
+                      </button>
+                    )}
+                    {data.carrierUrl && (
+                      <a
+                        href={data.carrierUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 rounded-lg border border-gray-200 bg-white text-blue-600 hover:bg-blue-50 transition shrink-0"
+                        title="Track on Courier Website"
+                      >
+                        <IconExternalLink size={12} />
+                      </a>
                     )}
                   </div>
-                )}
+                </div>
+
+                {/* Verified Cargo Chip */}
+                <div className="p-2.5 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Verified Cargo</span>
+                    <span className="text-xs font-bold text-[#0D1B2A] truncate block mt-0.5">
+                      {data.weight} <span className="text-gray-400 font-normal">/ {data.boxes?.length ? `${data.boxes.length} Box` : '1 Box'}</span>
+                    </span>
+                  </div>
+                  {((data.weightProofImages && data.weightProofImages.length > 0) || data.weightProofImageUrl) && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPhotoIndex(0)}
+                      className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 transition shrink-0 cursor-pointer"
+                      title="View Scale Calibration Proof"
+                    >
+                      {data.weightProofImages && data.weightProofImages.length > 1
+                        ? `${data.weightProofImages.length} Photos`
+                        : '1 Photo'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Assigned Rider for Pickup Milestone Banner Card */}
@@ -2373,7 +2296,7 @@ function TrackingScreen({
                 </div>
               )}
 
-              {/* Doorstep Cargo Pickup Banner / Re-booking / Multi-Stop Request Just Below Milestones */}
+              {/* Doorstep Cargo Pickup Banner / Re-booking / Multi-Stop Request */}
               {canRequestConsignmentPickup && (
                 <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/90 via-sky-50/40 to-white p-4 shadow-xs flex items-center justify-between gap-3 animate-in fade-in-50 duration-200">
                   <div className="flex items-center gap-3">
@@ -2408,172 +2331,72 @@ function TrackingScreen({
                 </div>
               )}
 
-              {/* Warehouse Verified Weight Scale Photo Card */}
-              {((data.weightProofImages && data.weightProofImages.length > 0) || data.weightProofImageUrl) && (() => {
-                const photos = (data.weightProofImages && data.weightProofImages.length > 0)
-                  ? data.weightProofImages
-                  : (data.weightProofImageUrl ? [data.weightProofImageUrl] : [])
-
-                return (
-                  <div className="rounded-2xl border border-emerald-100 bg-white p-3.5 shadow-2xs space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                          <IconScale size={15} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-[#0D1B2A] leading-tight">Warehouse Verified Weight</p>
-                          <p className="text-[10px] text-gray-400">Electronic Scale Calibration Proof</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {photos.length > 1 && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                            {photos.length} Photos
-                          </span>
-                        )}
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {data.weight} Certified
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Photo Thumbnails Gallery */}
-                    <div className="bg-emerald-50/40 p-2.5 rounded-xl border border-emerald-100/60 space-y-2.5">
-                      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                        {photos.map((imgUrl, pIdx) => {
-                          const fullUrl = imgUrl.startsWith('http') ? imgUrl : `${API_BASE}${imgUrl}`
-                          return (
-                            <button
-                              key={pIdx}
-                              type="button"
-                              onClick={() => setPreviewPhotoIndex(pIdx)}
-                              className="relative group overflow-hidden rounded-xl border border-emerald-200 shadow-2xs shrink-0 cursor-pointer h-20 w-24 bg-black/10"
-                            >
-                              <img
-                                src={fullUrl}
-                                alt={`Proof ${pIdx + 1}`}
-                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
-                                View #{pIdx + 1}
-                              </div>
-                              {photos.length > 1 && (
-                                <span className="absolute bottom-1 right-1 bg-black/75 text-[9px] font-mono text-white px-1.5 py-0.5 rounded-md backdrop-blur-xs">
-                                  #{pIdx + 1}
-                                </span>
-                              )}
-                            </button>
-                          )
-                        })}
-                      </div>
-
-                      <div className="pt-1 border-t border-emerald-100/80 space-y-1">
-                        <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
-                          <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
-                            <span className="text-gray-400 block text-[10px]">Gross Weight:</span>
-                            <span className="font-bold text-[#0D1B2A]">{data.weight}</span>
-                          </div>
-                          <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
-                            <span className="text-gray-400 block text-[10px]">Volumetric:</span>
-                            <span className="font-medium text-gray-700">{data.volumetricWeight}</span>
-                          </div>
-                          <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
-                            <span className="text-gray-400 block text-[10px]">Chargeable:</span>
-                            <span className="font-bold text-emerald-700">{data.chargeableWeight}</span>
-                          </div>
-                        </div>
-
-                        <div className="pt-1 flex items-center justify-between">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewPhotoIndex(0)}
-                            className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>Inspect {photos.length > 1 ? `All ${photos.length} Verified Photos` : 'Scale Proof Photo'}</span>
-                            <IconArrowRight size={11} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* Overseas Courier Leg Card */}
-              <div className="rounded-xl border border-gray-100 p-3.5 bg-white shadow-2xs space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-400 font-medium">Overseas Forwarding Courier</span>
-                  <span className="font-bold text-[#0D1B2A]">{data.carrier}</span>
-                </div>
-                {data.carrierTracking ? (
-                  <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-gray-400">Carrier AWB / Tracking</p>
-                      <p className="font-mono font-bold text-xs text-[#0D1B2A] mt-0.5">{data.carrierTracking}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleCopy(data.carrierTracking)}
-                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all cursor-pointer"
-                        title="Copy Tracking Number"
-                      >
-                        {copied ? <IconCheck size={14} className="text-emerald-600" /> : <IconCopy size={14} />}
-                      </button>
-                      {data.carrierUrl && (
-                        <a
-                          href={data.carrierUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all inline-flex items-center justify-center"
-                          title="Track on Carrier Website"
-                        >
-                          <IconExternalLink size={14} />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-400">Carrier AWB / Tracking</p>
-                      <p className="text-xs text-slate-600 mt-0.5">Assigned upon flight departure & customs handover</p>
-                    </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                      Pending Handover
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Transit Checkpoints & Scans */}
-              <div className="space-y-2.5">
+              {/* 3. UNIFIED CHRONOLOGICAL TIMELINE (Merged Milestones + Scans, Newest First) */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Activity Checkpoints</span>
-                  <span className="text-[11px] text-gray-400">{data.checkpoints.length} scans</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">Consignment Journey & Scans</h3>
+                  </div>
+                  <span className="text-[11px] font-mono text-gray-400 font-semibold">Newest First</span>
                 </div>
-                <div className="space-y-2">
-                  {data.checkpoints.map((cp, idx) => (
-                    <div key={idx} className="bg-gray-50/70 rounded-xl p-3 border border-gray-100 flex items-start gap-2.5">
-                      <div className="mt-0.5">
-                        {idx === 0 ? (
-                          <span className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-                          </span>
-                        ) : (
-                          <span className="w-2 h-2 rounded-full bg-gray-300 block" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-1">
-                          <p className="text-xs font-semibold text-[#0D1B2A] leading-tight">{cp.activity}</p>
+
+                {/* Timeline Feed */}
+                <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
+                  {data.checkpoints.map((cp, idx) => {
+                    const isTop = idx === 0
+                    const isDelivered = (data.status || '').toLowerCase() === 'delivered'
+                    const { title, noteText } = parseCheckpointActivity(cp.activity)
+                    const isPickupOrPacked = (title.toLowerCase().includes('picked') || title.toLowerCase().includes('packed'))
+
+                    return (
+                      <div key={idx} className="relative group">
+                        {/* Node Icon on vertical connecting line */}
+                        <div
+                          className={`absolute -left-6 top-0.5 flex items-center justify-center rounded-full transition-all ${
+                            isTop
+                              ? isDelivered
+                                ? 'w-5 h-5 bg-emerald-500 text-white ring-4 ring-emerald-100 shadow-xs'
+                                : 'w-5 h-5 bg-blue-600 text-white ring-4 ring-blue-100 shadow-xs animate-pulse'
+                              : 'w-5 h-5 bg-white border-2 border-gray-300 text-gray-400'
+                          }`}
+                        >
+                          {isTop ? (
+                            isDelivered ? (
+                              <IconCheck size={12} className="stroke-[3]" />
+                            ) : (
+                              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                            )
+                          ) : (
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                          )}
                         </div>
-                        <p className="text-[11px] text-gray-500 mt-0.5">{cp.location}</p>
-                        <p className="text-[10px] text-gray-400 mt-1">{cp.time}</p>
+
+                        {/* Checkpoint Details */}
+                        <div className="space-y-0.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-xs leading-snug ${isTop ? 'font-extrabold text-[#0D1B2A]' : 'font-bold text-gray-800'}`}>
+                              {title}
+                            </span>
+                            <span className="text-[11px] font-mono text-gray-400 shrink-0">
+                              {cp.time}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500">{cp.location}</p>
+
+                          {/* Clean Rider Note Callout (Amber Badge) */}
+                          {noteText && isPickupOrPacked && (
+                            <div className="p-2 rounded-xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-800 flex items-center gap-1.5 mt-1">
+                              <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-200/70 px-1.5 py-0.5 rounded shrink-0">
+                                Rider Note
+                              </span>
+                              <span className="leading-snug">{noteText}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
