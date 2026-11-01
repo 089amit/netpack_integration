@@ -15,6 +15,7 @@ import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -51,21 +52,31 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
             return;
         }
 
-        // Check login state: DO NOT poll or notify if logged out!
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        boolean isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false);
-
-        if (!isLoggedIn) {
-            Log.d(TAG, "Rider is logged out. Cancelling all alarms and dismissing notifications.");
-            cancelAlerts(context);
-            return;
-        }
-
         // 1. Re-arm the next alarm for continuous background monitoring (every 60s)
         rearmAlarm(context);
 
-        // 2. Perform network check in background thread
-        new Thread(() -> checkBackendForPickups(context)).start();
+        // 2. Perform network check in background thread with WakeLock + goAsync so Android OS doesn't kill the process
+        final PendingResult pendingResult = goAsync();
+        new Thread(() -> {
+            PowerManager.WakeLock wakeLock = null;
+            try {
+                PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "NetPack:RiderBackgroundWakeLock");
+                    wakeLock.acquire(15000); // 15 seconds max
+                }
+                checkBackendForPickups(context);
+            } catch (Throwable t) {
+                Log.e(TAG, "Error in background pickup task: " + t.getMessage());
+            } finally {
+                if (wakeLock != null && wakeLock.isHeld()) {
+                    try {
+                        wakeLock.release();
+                    } catch (Throwable ignored) {}
+                }
+                pendingResult.finish();
+            }
+        }).start();
     }
 
     private void rearmAlarm(Context context) {
@@ -85,7 +96,11 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
             long nextTrigger = SystemClock.elapsedRealtime() + (60 * 1000); // 60s from now
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, nextTrigger, pi);
+                try {
+                    am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, nextTrigger, pi);
+                } catch (SecurityException se) {
+                    am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, nextTrigger, pi);
+                }
             } else {
                 am.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, nextTrigger, pi);
             }

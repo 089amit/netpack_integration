@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
+import { ModernFloatingNotificationBanner, type ModernNotificationData } from '@/components/ModernFloatingNotificationBanner'
 
 // ─── API Base URL ─────────────────────────────────────────────────────────────
 
@@ -30,6 +31,23 @@ function formatDateTime(isoStr?: string | null): string {
     })
   } catch {
     return isoStr
+  }
+}
+
+function formatRelativeTime(val?: string | number | null): string {
+  if (!val) return 'Recent'
+  try {
+    const timeMs = typeof val === 'number' ? val : new Date(val).getTime()
+    if (isNaN(timeMs) || timeMs <= 0) return 'Recent'
+    const now = Date.now()
+    const diffSec = Math.floor((now - timeMs) / 1000)
+    if (diffSec < 45) return 'Just now'
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`
+    if (diffSec < 172800) return 'Yesterday'
+    return new Date(timeMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  } catch {
+    return 'Recent'
   }
 }
 
@@ -101,6 +119,8 @@ interface Shipment {
     | 'out_for_delivery'
     | 'assigned_for_pickup'
   date: string
+  createdAt?: string
+  timestamp?: number
   eta?: string
   receiverName?: string
   receiverCity?: string
@@ -116,6 +136,7 @@ interface NotificationItem {
   title: string
   body: string
   time: string
+  timestamp?: number
   read: boolean
   type: 'welcome' | 'update' | 'delivered' | 'alert'
   tracking?: string
@@ -3454,7 +3475,12 @@ function NotificationsScreen({
   onMarkRead?: (id: string) => void
   onSelectNotification?: (item: NotificationItem) => void
 }) {
-  const unread = items.filter(n => !n.read).length
+  // Guarantee chronological descending sorting: newest notifications strictly on top
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+  }, [items])
+
+  const unread = sortedItems.filter(n => !n.read).length
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
@@ -3473,7 +3499,7 @@ function NotificationsScreen({
               <h1 style={{ fontFamily: 'Jost, sans-serif' }} className="text-xl font-700 text-[#0D1B2A] tracking-tight">
                 Notifications
               </h1>
-              <p className="text-gray-500 text-xs mt-0.5">Live cargo milestone alerts.</p>
+              <p className="text-gray-500 text-xs mt-0.5">Live cargo milestone alerts & updates.</p>
             </div>
           </div>
           {unread > 0 && onMarkAllRead && (
@@ -3494,7 +3520,7 @@ function NotificationsScreen({
       </div>
 
       <div className="px-4 flex flex-col gap-2.5">
-        {items.length === 0 ? (
+        {sortedItems.length === 0 ? (
           <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-10 flex flex-col items-center gap-3">
             <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">
               <IconBell size={24} className="text-gray-300" />
@@ -3502,8 +3528,9 @@ function NotificationsScreen({
             <p className="text-gray-400 text-sm">No notifications yet.</p>
           </div>
         ) : (
-          items.map(n => {
+          sortedItems.map(n => {
             const { bg, icon } = notifIconMap[n.type] || notifIconMap.alert
+            const isRecent = n.timestamp && Date.now() - n.timestamp < 24 * 3600 * 1000
             return (
               <button
                 key={n.id}
@@ -3514,18 +3541,27 @@ function NotificationsScreen({
                   }
                 }}
                 className={`w-full text-left rounded-2xl border p-4 flex flex-col gap-2 transition-all active:scale-[0.99] cursor-pointer ${
-                  n.read ? 'bg-white border-gray-100' : 'bg-white border-blue-100 shadow-xs'
+                  n.read ? 'bg-white border-gray-100' : 'bg-white border-blue-200 shadow-xs ring-1 ring-blue-50'
                 }`}
               >
                 <div className="flex gap-3 items-start">
                   <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}>{icon}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm leading-tight ${n.read ? 'font-medium text-[#0D1B2A]' : 'font-semibold text-[#0D1B2A]'}`}>{n.title}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className={`text-sm leading-tight ${n.read ? 'font-medium text-[#0D1B2A]' : 'font-bold text-[#0D1B2A]'}`}>{n.title}</p>
+                        {isRecent && !n.read && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-700">
+                            NEW
+                          </span>
+                        )}
+                      </div>
                       {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1" />}
                     </div>
-                    <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{n.body}</p>
-                    <p className="text-[11px] text-gray-400 mt-1.5">{n.time}</p>
+                    <p className="text-[12px] text-gray-600 mt-1 leading-relaxed">{n.body}</p>
+                    <p className="text-[11px] text-gray-400 mt-1.5 font-medium">
+                      {n.timestamp ? formatRelativeTime(n.timestamp) : n.time}
+                    </p>
                   </div>
                 </div>
                 {n.tracking && (
@@ -4827,32 +4863,94 @@ export default function CustomerPWA() {
   // Customer pickup request modal state
   const [pickupModalTracking, setPickupModalTracking] = useState<string | null>(null)
 
+  // Modern Floating Alert Banner State
+  const [activeBannerNotification, setActiveBannerNotification] = useState<ModernNotificationData | null>(null)
+  const [backendNotifs, setBackendNotifs] = useState<NotificationItem[]>([])
+
   const handleProfileUpdated = (updatedUser: any) => {
     setCustomerUser(updatedUser)
     localStorage.setItem('netpack_customer_user', JSON.stringify(updatedUser))
   }
 
-  // Dynamic notifications derived from user consignments + welcome alert
+  // Real-time backend notifications polling from database
+  useEffect(() => {
+    if (!customerToken) return
+    const fetchBackendNotifs = () => {
+      fetch(`${API_BASE}/api/notification/getNotifications`, {
+        headers: {
+          Authorization: `Bearer ${customerToken}`,
+          Accept: 'application/json',
+        },
+      })
+        .then(res => (res.ok ? res.json() : []))
+        .then(data => {
+          if (Array.isArray(data)) {
+            const mapped: NotificationItem[] = data.map((n: any) => {
+              const trMatch =
+                n.body?.match(/NP-\d{8}-\d{3}|NP-[A-Z0-9-]+/i) ||
+                n.title?.match(/NP-\d{8}-\d{3}|NP-[A-Z0-9-]+/i)
+              const trCode = trMatch ? trMatch[0] : undefined
+              const ts = n.createdAt ? new Date(n.createdAt).getTime() : Date.now()
+              return {
+                id: `backend-${n.id}`,
+                title: n.title || 'NetPack Logistic Update',
+                body: n.body || n.description || '',
+                time: formatRelativeTime(ts),
+                timestamp: ts,
+                read: Boolean(n.isRead),
+                type: n.title?.toLowerCase().includes('deliver')
+                  ? 'delivered'
+                  : n.title?.toLowerCase().includes('pickup')
+                  ? 'alert'
+                  : 'update',
+                tracking: trCode,
+              }
+            })
+            setBackendNotifs(mapped)
+          }
+        })
+        .catch(() => {})
+    }
+    fetchBackendNotifs()
+    const notifInterval = setInterval(fetchBackendNotifs, 25000)
+    return () => clearInterval(notifInterval)
+  }, [customerToken])
+
+  // Dynamic notifications derived from user consignments + backend notifications + welcome alert
   const notifications = useMemo<NotificationItem[]>(() => {
-    const list: NotificationItem[] = []
+    const list: NotificationItem[] = [...backendNotifs]
 
     shipments.forEach(s => {
+      const sTimestamp = s.timestamp || (s.date ? new Date(s.date).getTime() : 0) || Date.now()
       if (s.status === 'delivered') {
         list.push({
           id: `notif-${s.id}-delivered`,
-          title: `Shipment ${s.tracking} Delivered`,
+          title: `Shipment ${s.tracking} Delivered 🎉`,
           body: `Consignment to ${s.destination} has been successfully delivered. Thank you for choosing NetPack!`,
-          time: s.date || 'Recent',
+          time: formatRelativeTime(sTimestamp),
+          timestamp: sTimestamp,
           read: false,
           type: 'delivered',
           tracking: s.tracking,
         })
-      } else if (s.status === 'in_progress' || s.status === 'arrived_at_hub' || s.status === 'out_for_delivery') {
+      } else if (s.status === 'out_for_delivery') {
+        list.push({
+          id: `notif-${s.id}-ofd`,
+          title: `Shipment ${s.tracking} Out For Delivery 🚚`,
+          body: `Doorstep delivery is underway to ${s.destination}. Courier has loaded your package.`,
+          time: formatRelativeTime(sTimestamp),
+          timestamp: sTimestamp,
+          read: false,
+          type: 'alert',
+          tracking: s.tracking,
+        })
+      } else if (s.status === 'in_progress' || s.status === 'arrived_at_hub') {
         list.push({
           id: `notif-${s.id}-progress`,
-          title: `Shipment ${s.tracking} In Transit`,
+          title: `Shipment ${s.tracking} In Transit ✈️`,
           body: `Air cargo en route to ${s.destination}. Verified electronic scale weight: ${s.weight}.`,
-          time: s.date || 'In Transit',
+          time: formatRelativeTime(sTimestamp),
+          timestamp: sTimestamp,
           read: false,
           type: 'update',
           tracking: s.tracking,
@@ -4860,9 +4958,10 @@ export default function CustomerPWA() {
       } else {
         list.push({
           id: `notif-${s.id}-pending`,
-          title: `Consignment ${s.tracking} Created`,
+          title: `Consignment ${s.tracking} Created 📦`,
           body: `Doorstep rider pickup scheduled in Kathmandu. Destination: ${s.destination}.`,
-          time: s.date || 'Recent',
+          time: formatRelativeTime(sTimestamp),
+          timestamp: sTimestamp,
           read: false,
           type: 'update',
           tracking: s.tracking,
@@ -4870,18 +4969,29 @@ export default function CustomerPWA() {
       }
     })
 
-    // Clean initial welcome notification
+    // Clean initial welcome notification (timestamp 0 so it stays at the very bottom when there are recent updates)
     list.push({
       id: 'notif-welcome',
       title: 'Welcome to NetPack Logistic!',
       body: 'Book international express consignments and request doorstep rider pickup across Kathmandu.',
       time: 'Account Active',
+      timestamp: 0,
       read: false,
       type: 'welcome',
     })
 
-    return list
-  }, [shipments])
+    // Remove duplicates by tracking + title if backend and dynamic overlap
+    const seen = new Set<string>()
+    const unique = list.filter(item => {
+      const key = `${item.title}-${item.tracking || ''}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
+    // Strict chronological sort: NEWEST / MOST RECENT NOTIFICATIONS ON TOP!
+    return unique.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+  }, [shipments, backendNotifs])
 
   const [readNotifIds, setReadNotifIds] = useState<string[]>(() => {
     try {
@@ -4970,6 +5080,8 @@ export default function CustomerPWA() {
             date: b.createdAt
               ? new Date(b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
               : 'Recent',
+            createdAt: b.createdAt,
+            timestamp: b.createdAt ? new Date(b.createdAt).getTime() : Date.now(),
             receiverName: b.receiverName,
             receiverCity: b.receiverCity,
             riderName: b.riderName,
@@ -4983,7 +5095,7 @@ export default function CustomerPWA() {
             weightProofImageUrl: b.weightProofImageUrl,
           }))
 
-          // Check for status changes to trigger sound/vibration chime
+          // Check for status changes to trigger sound/vibration chime & sleek modern banner
           let hasStatusChange = false
           const prevMap = prevStatusesRef.current
           const isInitialLoad = Object.keys(prevMap).length === 0
@@ -4993,12 +5105,28 @@ export default function CustomerPWA() {
             currentMap[s.id] = s.status
             if (!isInitialLoad && prevMap[s.id] && prevMap[s.id] !== s.status) {
               hasStatusChange = true
-              toast.info(`Shipment ${s.tracking} updated: ${s.status.replace(/_/g, ' ').toUpperCase()}`, {
-                description: `Destination: ${s.destination}. Tap Track to open live tracking details.`,
-                action: {
-                  label: 'Track Cargo',
-                  onClick: () => handleTrackNav(s.tracking, 'home'),
-                },
+              // Trigger sleek, modern floating push alert
+              const isDelivered = s.status === 'delivered'
+              const isOFD = s.status === 'out_for_delivery'
+              setActiveBannerNotification({
+                id: `banner-${s.id}-${Date.now()}`,
+                title: isDelivered
+                  ? '🎉 Shipment Delivered!'
+                  : isOFD
+                  ? '🚚 Consignment Out For Delivery!'
+                  : s.status === 'in_progress'
+                  ? '✈️ Air Cargo In Transit'
+                  : `📦 Milestone Update: ${s.status.replace(/_/g, ' ').toUpperCase()}`,
+                message: isDelivered
+                  ? `Your package ${s.tracking} has been safely delivered to ${s.destination}.`
+                  : isOFD
+                  ? `Your package ${s.tracking} is with our courier for doorstep delivery in Kathmandu.`
+                  : `Shipment ${s.tracking} to ${s.destination} is now ${s.status.replace(/_/g, ' ')}.`,
+                tracking: s.tracking,
+                status: s.status,
+                type: isDelivered ? 'delivered' : isOFD ? 'pickup' : 'update',
+                actionLabel: 'Track Cargo',
+                onAction: () => handleTrackNav(s.tracking, 'home'),
               })
             }
           })
@@ -5094,6 +5222,10 @@ export default function CustomerPWA() {
 
   return (
     <div className="min-h-screen bg-[#0D1B2A] sm:bg-[#E2E8F0] flex justify-center selection:bg-blue-100 selection:text-blue-900">
+      <ModernFloatingNotificationBanner
+        notification={activeBannerNotification}
+        onDismiss={() => setActiveBannerNotification(null)}
+      />
       <div className="w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] shadow-2xl">
         {!customerUser ? (
           <AuthScreen

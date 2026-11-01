@@ -161,17 +161,10 @@ public class MainActivity extends Activity {
             }
         } catch (Throwable ignored) {}
 
-        // Initialize Rider Notification Channel & Schedule Background Alarm safely ONLY if logged in
+        // Initialize Rider Notification Channel & Schedule Background Alarm safely
         try {
             NotificationAlarmReceiver.createNotificationChannel(this);
-            SharedPreferences prefs = getSharedPreferences(
-                NotificationAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE
-            );
-            if (prefs.getBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, false)) {
-                BootReceiver.scheduleAlertChecks(this);
-            } else {
-                NotificationAlarmReceiver.cancelAlerts(this);
-            }
+            BootReceiver.scheduleAlertChecks(this);
         } catch (Throwable t) {
             android.util.Log.e("NetPackRider", "Failed to schedule alerts", t);
         }
@@ -623,6 +616,16 @@ public class MainActivity extends Activity {
 
             String[] perms = permList.toArray(new String[0]);
             requestPermissions(perms, PERMISSION_REQUEST_CODE);
+
+            // Request battery optimization exemption so background pickup alerts run reliably when app is closed
+            try {
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                    Intent bIntent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    bIntent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(bIntent);
+                }
+            } catch (Throwable ignored) {}
         }
     }
 

@@ -18,27 +18,12 @@ public class BootReceiver extends BroadcastReceiver {
             Intent.ACTION_MY_PACKAGE_REPLACED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
             
-            SharedPreferences prefs = context.getSharedPreferences(
-                NotificationAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE
-            );
-            if (prefs.getBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, false)) {
-                scheduleAlertChecks(context);
-            } else {
-                NotificationAlarmReceiver.cancelAlerts(context);
-            }
+            scheduleAlertChecks(context);
         }
     }
 
     public static void scheduleAlertChecks(Context context) {
         try {
-            SharedPreferences prefs = context.getSharedPreferences(
-                NotificationAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE
-            );
-            if (!prefs.getBoolean(NotificationAlarmReceiver.KEY_IS_LOGGED_IN, false)) {
-                NotificationAlarmReceiver.cancelAlerts(context);
-                return;
-            }
-
             AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
             if (am == null) return;
 

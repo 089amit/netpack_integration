@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Clock,
   Search,
-  BellRing,
   Volume2,
   VolumeX,
   Navigation,
@@ -31,6 +30,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ModernFloatingNotificationBanner, type ModernNotificationData } from '@/components/ModernFloatingNotificationBanner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -145,6 +145,7 @@ export default function PickupRiderPWA() {
     return localStorage.getItem('netpack_rider_sound') !== 'false'
   })
   const [newPickupAlert, setNewPickupAlert] = useState<any | null>(null)
+  const [modernPickupAlert, setModernPickupAlert] = useState<ModernNotificationData | null>(null)
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null)
 
   // Rider Authentication State
@@ -265,41 +266,22 @@ export default function PickupRiderPWA() {
         } catch {}
       }
 
-      // 3. In-App Banner Alert
+      // 3. Modern Floating Banner Alert
       setNewPickupAlert(pickup)
       setTimeout(() => setNewPickupAlert(null), 12000)
 
-      toast.custom(
-        () => (
-          <div className='flex items-center gap-3 p-3 bg-card text-card-foreground border border-sky-500 rounded-xl shadow-xl animate-in slide-in-from-top-4 duration-300'>
-            <div className='p-2 bg-sky-600 text-white rounded-lg animate-pulse shrink-0'>
-              <BellRing className='h-5 w-5' />
-            </div>
-            <div className='flex-1 min-w-0'>
-              <div className='text-xs font-bold uppercase tracking-wider text-sky-500'>
-                Incoming Pickup Request!
-              </div>
-              <div className='text-sm font-semibold truncate'>
-                {pickup.senderName} • {pickup.commodity || 'Cargo'}
-              </div>
-              <div className='text-xs text-muted-foreground truncate'>
-                {pickup.pickupAddress || pickup.senderAddress}
-              </div>
-            </div>
-            <Button
-              size='sm'
-              className='bg-sky-600 hover:bg-sky-500 text-white text-xs h-8 px-3'
-              onClick={() => {
-                setActiveTab('pending')
-                window.scrollTo({ top: 0, behavior: 'smooth' })
-              }}
-            >
-              View
-            </Button>
-          </div>
-        ),
-        { duration: 8000 }
-      )
+      setModernPickupAlert({
+        id: `pickup-${pickup.id || Date.now()}`,
+        title: `🚨 Incoming Pickup: ${pickup.senderName || 'Customer'}`,
+        message: `${pickup.pickupAddress || pickup.senderAddress || 'Kathmandu'} • ${pickup.commodity || 'Consignment'} (~${pickup.approximateWeight || '1.5'} kg)`,
+        tracking: pickup.trackingNumber,
+        type: 'pickup',
+        actionLabel: 'Accept & Route',
+        onAction: () => {
+          handleStartRoute(pickup)
+          setModernPickupAlert(null)
+        },
+      })
     },
     [soundEnabled]
   )
@@ -690,9 +672,9 @@ export default function PickupRiderPWA() {
     }
   }
 
-  // ─── Filtered Pickups ───────────────────────────────────────────────────────
+  // ─── Filtered Pickups (Recent First) ────────────────────────────────────────
   const filteredPickups = useMemo(() => {
-    return pickups.filter((p) => {
+    const list = pickups.filter((p) => {
       const st = (p.status || '').toUpperCase()
       const isPickedUp =
         ['PICKED_UP', 'PACKED', 'SHIPMENT_CREATED', 'IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'DELIVERED'].includes(st) ||
@@ -716,6 +698,13 @@ export default function PickupRiderPWA() {
         if (!matchTr && !matchSender && !matchPhone && !matchAddr && !matchComm) return false
       }
       return true
+    })
+
+    // Sort strictly descending: most recent pickup on top
+    return list.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : (a.id || 0)
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b.id || 0)
+      return timeB - timeA
     })
   }, [pickups, activeTab, searchQuery])
 
@@ -892,6 +881,10 @@ export default function PickupRiderPWA() {
 
   return (
     <div className='min-h-screen bg-[#0D1B2A] sm:bg-[#E2E8F0] flex justify-center text-foreground font-sans selection:bg-blue-100 selection:text-blue-900'>
+      <ModernFloatingNotificationBanner
+        notification={modernPickupAlert}
+        onDismiss={() => setModernPickupAlert(null)}
+      />
       <div className='w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl pb-24 select-none'>
         {/* ─── Sticky Top App Bar (Curved Gradient Header) ────────────────── */}
         <header

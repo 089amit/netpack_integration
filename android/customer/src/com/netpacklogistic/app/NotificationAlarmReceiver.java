@@ -15,6 +15,7 @@ import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -51,21 +52,31 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
             return;
         }
 
-        // Check login state: DO NOT poll or notify if logged out!
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        boolean isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false);
-
-        if (!isLoggedIn) {
-            Log.d(TAG, "Customer is logged out. Cancelling all alarms and dismissing notifications.");
-            cancelNotifications(context);
-            return;
-        }
-
         // 1. Re-arm the next alarm for continuous background monitoring (every 60s)
         rearmAlarm(context);
 
-        // 2. Perform network check in background thread
-        new Thread(() -> checkBackendForNotifications(context)).start();
+        // 2. Perform network check in background thread with WakeLock + goAsync so Android OS doesn't kill the process
+        final PendingResult pendingResult = goAsync();
+        new Thread(() -> {
+            PowerManager.WakeLock wakeLock = null;
+            try {
+                PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "NetPack:CustomerBackgroundWakeLock");
+                    wakeLock.acquire(15000); // 15 seconds max
+                }
+                checkBackendForNotifications(context);
+            } catch (Throwable t) {
+                Log.e(TAG, "Error in background notification task: " + t.getMessage());
+            } finally {
+                if (wakeLock != null && wakeLock.isHeld()) {
+                    try {
+                        wakeLock.release();
+                    } catch (Throwable ignored) {}
+                }
+                pendingResult.finish();
+            }
+        }).start();
     }
 
     private void rearmAlarm(Context context) {
@@ -85,7 +96,11 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
             long nextTrigger = SystemClock.elapsedRealtime() + (60 * 1000); // 60s from now
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, nextTrigger, pi);
+                try {
+                    am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, nextTrigger, pi);
+                } catch (SecurityException se) {
+                    am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, nextTrigger, pi);
+                }
             } else {
                 am.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, nextTrigger, pi);
             }
@@ -122,11 +137,6 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
 
     private void checkBackendForNotifications(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        boolean isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false);
-        if (!isLoggedIn) {
-            return;
-        }
-
         String serverUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL);
         int lastId = prefs.getInt(KEY_LAST_NOTIF_ID, 0);
         String token = prefs.getString(KEY_AUTH_TOKEN, "");
@@ -137,11 +147,11 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
             URL url = new URL(endpoint);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
-            conn.setConnectTimeout(8000);
-            conn.setReadTimeout(8000);
+            conn.setConnectTimeout(9000);
+            conn.setReadTimeout(9000);
             conn.setRequestProperty("Accept", "application/json");
-            if (token != null && !token.isEmpty()) {
-                conn.setRequestProperty("Authorization", "Bearer " + token);
+            if (token != null && !token.trim().isEmpty()) {
+                conn.setRequestProperty("Authorization", "Bearer " + token.trim());
             }
 
             int responseCode = conn.getResponseCode();
@@ -161,7 +171,7 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
                     int newestId = newest.optInt("id", 0);
 
                     if (lastId == 0) {
-                        // First run: establish baseline
+                        // First run baseline: save newestId
                         prefs.edit().putInt(KEY_LAST_NOTIF_ID, newestId).apply();
                     } else if (newestId > lastId) {
                         // Found new notification!
@@ -175,9 +185,8 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
                         fireNotification(context, newestId, title, body);
                     }
                 }
-            } else if (responseCode == 401 || responseCode == 403) {
-                prefs.edit().putBoolean(KEY_IS_LOGGED_IN, false).apply();
-                cancelNotifications(context);
+            } else if (responseCode == 401) {
+                Log.d(TAG, "Customer session status (401)");
             }
         } catch (Exception e) {
             Log.d(TAG, "Notification check error: " + e.getMessage());
