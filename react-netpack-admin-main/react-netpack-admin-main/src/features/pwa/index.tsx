@@ -2500,47 +2500,6 @@ function TrackingScreen({
                 )
               })()}
 
-              {/* Master Air Waybill (MAWB) Leg Card */}
-              {data.mawbNumber && (
-                <div className="rounded-xl border border-sky-100 p-3.5 bg-sky-50/40 shadow-2xs space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-sky-700 font-semibold flex items-center gap-1.5">
-                      <IconPlane size={14} className="text-sky-600" />
-                      Master Air Waybill (MAWB) / Primary Carrier
-                    </span>
-                    <span className="font-bold text-sky-900 bg-sky-100/80 px-2 py-0.5 rounded text-[11px]">
-                      {data.airlineName || 'Primary Carrier / Linehaul'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-sky-100">
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-gray-400">Master AWB Number</p>
-                      <p className="font-mono font-bold text-xs text-[#0D1B2A] mt-0.5">{data.mawbNumber}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => data.mawbNumber && handleCopy(data.mawbNumber)}
-                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all cursor-pointer"
-                        title="Copy MAWB Number"
-                      >
-                        {copied ? <IconCheck size={14} className="text-emerald-600" /> : <IconCopy size={14} />}
-                      </button>
-                      {data.airlineTrackingUrl && (
-                        <a
-                          href={data.airlineTrackingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-blue-600 active:scale-95 transition-all inline-flex items-center justify-center"
-                          title="Track MAWB on Airline / Carrier Portal"
-                        >
-                          <IconExternalLink size={14} />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Overseas Courier Leg Card */}
               <div className="rounded-xl border border-gray-100 p-3.5 bg-white shadow-2xs space-y-2">
                 <div className="flex items-center justify-between text-xs">
@@ -2688,7 +2647,7 @@ function TrackingScreen({
                     >
                       <span className="flex items-center gap-1.5">
                         <IconHelpCircle size={13} className="text-blue-600" />
-                        Understanding HAWB, MAWB & Piece Splitting
+                        Understanding HAWB & Piece Splitting
                       </span>
                       <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Guide →</span>
                     </button>
@@ -2876,7 +2835,7 @@ function TrackingScreen({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#0D1B2A]">Air Cargo Tracking Guide</h3>
-                  <p className="text-[11px] text-gray-400">HAWB, MAWB & Piece Splitting</p>
+                  <p className="text-[11px] text-gray-400">HAWB & Piece Splitting</p>
                 </div>
               </div>
               <button
@@ -2897,21 +2856,14 @@ function TrackingScreen({
               </div>
 
               <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200/70 space-y-1">
-                <span className="font-bold text-gray-900 block text-xs">2. MAWB (Master Air Waybill)</span>
-                <p className="text-[11px] text-gray-600">
-                  Issued by the international airline (e.g. Qatar Airways, Emirates, Air India) for the entire cargo flight pallet. Multiple HAWBs are consolidated under one MAWB for cross-border flight dispatch.
-                </p>
-              </div>
-
-              <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200/70 space-y-1">
-                <span className="font-bold text-gray-900 block text-xs">3. What is a "Split Shipment" or "Partial Uplift"?</span>
+                <span className="font-bold text-gray-900 block text-xs">2. What is a "Split Shipment" or "Partial Uplift"?</span>
                 <p className="text-[11px] text-gray-600">
                   If you ship multiple boxes (e.g. 4 cartons) and the scheduled passenger aircraft reaches max cargo payload, the airline may fly 2 boxes on flight #1 and the remaining 2 boxes on the next flight. Individual piece barcodes (<code className="font-mono text-gray-800 font-bold">-B1</code>, <code className="font-mono text-gray-800 font-bold">-B2</code>) allow every carton to be tracked separately without confusion until merged at the destination hub.
                 </p>
               </div>
 
               <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200/80 space-y-1">
-                <span className="font-bold text-emerald-900 block text-xs">4. Final Carrier Tracking</span>
+                <span className="font-bold text-emerald-900 block text-xs">3. Final Carrier Tracking</span>
                 <p className="text-[11px] text-emerald-800">
                   Once your shipment clears destination customs, it is handed over to regional carriers (DHL, FedEx, UPS, or DPD) for last-mile delivery to your consignee's doorstep.
                 </p>

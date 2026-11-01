@@ -1273,11 +1273,11 @@ class TrackingRegistry:
             "carrierCode": carrier_provider.code,
             "carrierTrackingUrl": carrier_tracking_url,
             "carrierApiConfigured": carrier_provider.is_live_configured,
-            # Airline freight details
-            "mawbNumber": linked_mawb.mawbNumber if linked_mawb else None,
+            # Airline freight details (Internal flight routing - MAWB stripped for customer privacy)
+            "mawbNumber": None,
             "airlineName": airline_name,
-            "flightNumber": linked_mawb.flightNumber if linked_mawb else None,
-            "airlineTrackingUrl": airline_tracking_url,
+            "flightNumber": None,
+            "airlineTrackingUrl": None,
             "departureDate": dep_ts.isoformat() if dep_ts else (linked_mawb.departureDate.isoformat() if (linked_mawb and linked_mawb.departureDate) else None),
             "arrivalDate": hub_ts.isoformat() if hub_ts else (linked_mawb.dateOfArrival.isoformat() if (linked_mawb and linked_mawb.dateOfArrival) else None),
             # Checkpoints
