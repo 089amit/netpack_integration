@@ -71,7 +71,7 @@ function Build-Aab {
 
     # 5. Link proto format for AAB
     Write-Host "5. Linking resources in protobuf format for AAB..." -ForegroundColor Yellow
-    & $AAPT2 link --proto-format -o $PROTO_APK -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 24 --target-sdk-version 34 $COMPILED_RES --auto-add-overlay
+    & $AAPT2 link --proto-format -o $PROTO_APK -I $ANDROID_JAR --manifest "$AppDir\AndroidManifest.xml" --min-sdk-version 24 --target-sdk-version 36 $COMPILED_RES --auto-add-overlay
     if ($LASTEXITCODE -ne 0) { throw "aapt2 proto link failed for $AppName" }
 
     # 6. Unpack and restructure into base module zip
