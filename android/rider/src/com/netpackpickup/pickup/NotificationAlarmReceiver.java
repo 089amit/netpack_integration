@@ -137,11 +137,6 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
 
     private void checkBackendForPickups(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        boolean isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false);
-        if (!isLoggedIn) {
-            return;
-        }
-
         String serverUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL);
         int lastId = prefs.getInt(KEY_LAST_PICKUP_ID, 0);
         String token = prefs.getString(KEY_AUTH_TOKEN, "");
@@ -177,10 +172,7 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
                 int latestId = res.optInt("latestId", 0);
                 boolean hasNew = res.optBoolean("hasNew", false);
 
-                if (lastId == 0) {
-                    // First run: save current high watermark
-                    prefs.edit().putInt(KEY_LAST_PICKUP_ID, latestId).apply();
-                } else if (hasNew && latestId > lastId) {
+                if (hasNew && latestId > lastId) {
                     JSONArray pickups = res.optJSONArray("newPickups");
                     String alertTitle = "🚨 New Pickup Order Assigned!";
                     String alertBody = "You have a new pickup assignment waiting.";
@@ -194,11 +186,13 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
 
                     prefs.edit().putInt(KEY_LAST_PICKUP_ID, latestId).apply();
                     fireNotification(context, latestId, alertTitle, alertBody);
+                } else if (latestId > 0 && lastId == 0) {
+                    // Set baseline watermark
+                    prefs.edit().putInt(KEY_LAST_PICKUP_ID, latestId).apply();
                 }
             } else if (responseCode == 401 || responseCode == 403) {
-                // Token invalid: mark logged out and stop alarms
-                prefs.edit().putBoolean(KEY_IS_LOGGED_IN, false).apply();
-                cancelAlerts(context);
+                // Log and keep alarms active for continuous monitoring
+                Log.d(TAG, "Rider alert check status: " + responseCode);
             }
         } catch (Exception e) {
             Log.d(TAG, "Rider alert check error: " + e.getMessage());

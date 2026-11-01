@@ -28,9 +28,11 @@ import {
   ChevronDown,
   ChevronUp,
   Image as ImageIcon,
+  MessageCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ModernFloatingNotificationBanner, type ModernNotificationData } from '@/components/ModernFloatingNotificationBanner'
+import { ContactOptionsModal, type ContactTarget } from '@/components/ContactOptionsModal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -147,6 +149,7 @@ export default function PickupRiderPWA() {
   const [newPickupAlert, setNewPickupAlert] = useState<any | null>(null)
   const [modernPickupAlert, setModernPickupAlert] = useState<ModernNotificationData | null>(null)
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null)
+  const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null)
 
   // Rider Authentication State
   const [riderToken, setRiderToken] = useState<string | null>(() => {
@@ -1359,13 +1362,19 @@ export default function PickupRiderPWA() {
 
                                 {stopPhone && (
                                   <div className='flex items-center gap-2 pt-0.5'>
-                                    <a
-                                      href={`tel:${stopPhone}`}
-                                      className='inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline'
+                                    <button
+                                      type='button'
+                                      onClick={() => setContactTarget({
+                                        name: loc.locationName || `Stop #${idx + 1}`,
+                                        phone: stopPhone,
+                                        role: 'sender',
+                                        trackingNumber: p.trackingNumber || p.enquiryNumber,
+                                      })}
+                                      className='inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer'
                                     >
-                                      <Phone className='h-3 w-3' />
-                                      <span>{stopPhone}</span>
-                                    </a>
+                                      <MessageCircle className='h-3 w-3 text-emerald-500' />
+                                      <span>WhatsApp / Call: {stopPhone}</span>
+                                    </button>
                                   </div>
                                 )}
 
@@ -1473,7 +1482,24 @@ export default function PickupRiderPWA() {
                           </div>
                           <div className='text-muted-foreground'>
                             <strong className='text-foreground'>{p.senderName || 'Sender'}</strong>
-                            {p.senderPhone && <span> · Tel: <a href={`tel:${p.senderPhone}`} className='text-primary hover:underline'>{p.senderPhone}</a></span>}
+                            {p.senderPhone && (
+                              <span className='inline-flex items-center gap-1 ml-1'>
+                                ·{' '}
+                                <button
+                                  type='button'
+                                  onClick={() => setContactTarget({
+                                    name: p.senderName || 'Sender',
+                                    phone: p.senderPhone,
+                                    role: 'sender',
+                                    trackingNumber: p.trackingNumber || p.enquiryNumber,
+                                  })}
+                                  className='text-primary hover:underline font-semibold cursor-pointer inline-flex items-center gap-1'
+                                >
+                                  <Phone className='h-3 w-3 inline text-emerald-500' />
+                                  {p.senderPhone}
+                                </button>
+                              </span>
+                            )}
                             {p.senderEmail && <div>Email: {p.senderEmail}</div>}
                             <div className='mt-0.5 text-foreground leading-snug'>
                               {combinedSenderAddress || p.senderAddress || 'Kathmandu, Nepal'}
@@ -1488,7 +1514,25 @@ export default function PickupRiderPWA() {
                           </div>
                           <div className='text-muted-foreground'>
                             <strong className='text-foreground'>{p.receiverName || 'Consignee'}</strong>
-                            {p.receiverPhone && <span> · Tel: <a href={`tel:${p.receiverPhone}`} className='text-primary hover:underline'>{p.receiverPhone}</a></span>}
+                            {p.receiverPhone && (
+                              <span className='inline-flex items-center gap-1 ml-1'>
+                                ·{' '}
+                                <button
+                                  type='button'
+                                  onClick={() => setContactTarget({
+                                    name: p.receiverName || 'Consignee',
+                                    phone: p.receiverPhone,
+                                    role: 'consignee',
+                                    destinationCountry: p.receiverCountry,
+                                    trackingNumber: p.trackingNumber || p.enquiryNumber,
+                                  })}
+                                  className='text-emerald-600 dark:text-emerald-400 hover:underline font-semibold cursor-pointer inline-flex items-center gap-1'
+                                >
+                                  <MessageCircle className='h-3 w-3 inline text-emerald-500' />
+                                  WhatsApp / Call {p.receiverCountry ? `(${p.receiverCountry})` : ''}
+                                </button>
+                              </span>
+                            )}
                             <div>Country: <strong className='text-foreground'>{p.receiverCountry || 'Global'}</strong> {p.receiverCity ? `(${p.receiverCity})` : ''}</div>
                             {p.receiverAddress && <div className='leading-snug text-foreground'>{p.receiverAddress}</div>}
                           </div>
@@ -1559,17 +1603,40 @@ export default function PickupRiderPWA() {
 
                   {/* Card Actions Footer */}
                   <CardFooter className='p-3.5 pt-0 flex items-center gap-2'>
-                    {/* Call Customer Button */}
+                    {/* Contact Customer / WhatsApp Buttons */}
                     {phoneToCall && (
-                      <a href={`tel:${phoneToCall}`} className='flex-1'>
-                        <Button
-                          variant='outline'
-                          className='w-full text-xs h-9 border-border bg-muted/40 hover:bg-muted text-foreground font-bold'
-                        >
-                          <Phone className='h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400' />
-                          Call Sender
-                        </Button>
-                      </a>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={() => setContactTarget({
+                          name: p.senderName || 'Sender',
+                          phone: phoneToCall,
+                          role: 'sender',
+                          trackingNumber: p.trackingNumber || p.enquiryNumber,
+                        })}
+                        className='flex-1 text-xs h-9 border-border bg-muted/40 hover:bg-muted text-foreground font-bold cursor-pointer'
+                      >
+                        <MessageCircle className='h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400' />
+                        Call / WhatsApp
+                      </Button>
+                    )}
+                    {p.receiverPhone && p.receiverPhone !== phoneToCall && (
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={() => setContactTarget({
+                          name: p.receiverName || 'Consignee',
+                          phone: p.receiverPhone,
+                          role: 'consignee',
+                          destinationCountry: p.receiverCountry,
+                          trackingNumber: p.trackingNumber || p.enquiryNumber,
+                        })}
+                        className='h-9 px-2.5 text-xs border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold cursor-pointer'
+                        title={`WhatsApp Consignee ${p.receiverCountry ? `(${p.receiverCountry})` : ''}`}
+                      >
+                        <MessageCircle className='h-3.5 w-3.5 mr-1 text-emerald-500' />
+                        WhatsApp
+                      </Button>
                     )}
 
                     {/* Status Action Buttons */}
@@ -1960,6 +2027,9 @@ export default function PickupRiderPWA() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* WhatsApp & Contact Options Modal */}
+      <ContactOptionsModal target={contactTarget} onClose={() => setContactTarget(null)} />
 
       </div>
     </div>

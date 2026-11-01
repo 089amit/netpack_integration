@@ -399,6 +399,18 @@ public class MainActivity extends Activity {
                         }
                     }
 
+                    if (url.startsWith("tel:") || url.startsWith("whatsapp:") || url.startsWith("mailto:") || url.startsWith("sms:")) {
+                        try {
+                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                            return true;
+                        } catch (Throwable t) {
+                            android.util.Log.e("NetPack", "Failed to launch direct intent: " + url, t);
+                            return true;
+                        }
+                    }
+
                     openExternalUri(Uri.parse(url));
                     return true;
                 } catch (Throwable t) {

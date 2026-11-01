@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { ModernFloatingNotificationBanner, type ModernNotificationData } from '@/components/ModernFloatingNotificationBanner'
+import { ContactOptionsModal, type ContactTarget } from '@/components/ContactOptionsModal'
 
 // ─── API Base URL ─────────────────────────────────────────────────────────────
 
@@ -597,9 +598,9 @@ const IconEyeOff = ({ size = 16, className = '' }: { size?: number; className?: 
   </svg>
 )
 
-const IconPhone = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+const IconWhatsApp = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
   </svg>
 )
 
@@ -1589,6 +1590,7 @@ function TrackingScreen({
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState<number | null>(null)
   const stepperScrollRef = useRef<HTMLDivElement>(null)
   const activeStepRef = useRef<HTMLDivElement>(null)
+  const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null)
 
   // Tracking details from live API or mock fallback
   const [data, setData] = useState<TrackingDetails>(() => {
@@ -2168,13 +2170,19 @@ function TrackingScreen({
                       </div>
                     </div>
                     {data.riderPhone && (
-                      <a
-                        href={`tel:${data.riderPhone}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 shrink-0"
+                      <button
+                        type="button"
+                        onClick={() => setContactTarget({
+                          name: data.riderName || 'NetPack Dedicated Courier',
+                          phone: data.riderPhone!,
+                          role: 'rider',
+                          trackingNumber: data.tracking,
+                        })}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 shrink-0 cursor-pointer"
                       >
-                        <IconPhone size={14} />
-                        <span>Call Rider</span>
-                      </a>
+                        <IconWhatsApp size={14} />
+                        <span>WhatsApp / Call</span>
+                      </button>
                     )}
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-blue-200/60 text-[11px] text-blue-900/80">
@@ -2523,6 +2531,9 @@ function TrackingScreen({
           onClose={() => setPreviewPhotoIndex(null)}
         />
       )}
+
+      {/* Rider Contact & WhatsApp Modal */}
+      <ContactOptionsModal target={contactTarget} onClose={() => setContactTarget(null)} />
     </div>
   )
 }
@@ -3771,6 +3782,30 @@ function ProfileScreen({
               <p className="text-[11px] text-gray-400 mt-0.5">Delivered</p>
             </div>
           </div>
+        </div>
+
+        {/* Live WhatsApp Customer Care */}
+        <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center shadow-xs shrink-0">
+              <IconWhatsApp size={20} />
+            </div>
+            <div>
+              <p style={{ fontFamily: 'Jost, sans-serif' }} className="text-xs font-700 text-[#0D1B2A]">
+                NetPack Support Desk
+              </p>
+              <p className="text-[11px] text-gray-500">Live WhatsApp courier assistance</p>
+            </div>
+          </div>
+          <a
+            href="https://wa.me/9779841234567?text=Hello%20NetPack%20Support%2C%20I%20need%20assistance%20with%20my%20shipment."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <IconWhatsApp size={14} />
+            <span>Chat</span>
+          </a>
         </div>
 
         {/* Sign Out with generous bottom padding for bottom navigation bar */}
