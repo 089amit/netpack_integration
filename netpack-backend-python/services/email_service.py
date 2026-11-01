@@ -238,15 +238,15 @@ def build_booking_html(
     status_label = status.replace("_", " ").title()
 
     if is_receiver_copy:
-        badge_text = "CONSIGNEE COPY"
+        badge_text = "CONSIGNMENT"
         greeting = f"Namaste / Hello {receiver_name},"
-        headline = "An Express Air Consignment Has Been Booked for You"
-        summary_p = f"An international express shipment destined to you has been booked by <strong>{sender_name}</strong> via NetPack Logistic. You can track this parcel in real-time."
+        headline = f"A Consignment Has Been Booked for You by {sender_name}"
+        summary_p = f"A Consignment Has Been Booked for You by <strong>{sender_name}</strong> via NetPack Logistic."
     else:
-        badge_text = "BOOKING CONFIRMATION"
+        badge_text = "CONSIGNMENT BOOKING"
         greeting = f"Namaste / Hello {sender_name},"
-        headline = "Your Shipment Booking is Confirmed"
-        summary_p = f"Thank you for choosing NetPack Logistic. Your air consignment (Tracking #<strong>{tracking_no}</strong>) has been registered in our system and is ready for logistic processing."
+        headline = "Your Consignment Booking is Confirmed"
+        summary_p = f"Thank you for choosing NetPack Logistic. Your consignment (Tracking #<strong>{tracking_no}</strong>) has been registered in our system and is ready for logistic processing."
 
     return f"""<!DOCTYPE html>
 <html>
@@ -304,7 +304,7 @@ def build_booking_html(
         <td class="val">{receiver_name}</td>
       </tr>
       <tr>
-        <td class="label">Destination</td>
+        <td class="label">Expected Destination</td>
         <td class="val">{dest_loc}{f', {dest_country}' if dest_country else ''}</td>
       </tr>
       <tr>
@@ -342,9 +342,10 @@ def send_enquiry_booking_notification(
     frontend_base = getattr(config, "FRONTEND_URL", "http://localhost:8000") or "http://localhost:8000"
     tracking_url = f"{frontend_base.rstrip('/')}/#track?q={tracking_no}"
 
-    # 1. Send confirmation ONLY to Sender (if email exists)
+    subject = f"[NetPack Logistic] Consignment - AWB #{tracking_no}"
+
+    # 1. Send confirmation to Sender (if email exists)
     if sender_email and "@" in sender_email:
-        subject = f"[NetPack Logistic] Booking Confirmation - AWB #{tracking_no}"
         html = build_booking_html(enquiry, is_receiver_copy=False, tracking_url=tracking_url)
         send_email(
             to_emails=sender_email,
@@ -352,7 +353,18 @@ def send_enquiry_booking_notification(
             html_content=html,
             background_tasks=background_tasks
         )
-        logger.info(f"[EmailService] Dispatched booking confirmation to sender: {sender_email}")
+        logger.info(f"[EmailService] Dispatched consignment booking to sender: {sender_email}")
+
+    # 2. Also send receiver copy if receiverEmail exists
+    if receiver_email and "@" in receiver_email and receiver_email.lower() != sender_email.lower():
+        receiver_html = build_booking_html(enquiry, is_receiver_copy=True, tracking_url=tracking_url)
+        send_email(
+            to_emails=receiver_email,
+            subject=subject,
+            html_content=receiver_html,
+            background_tasks=background_tasks
+        )
+        logger.info(f"[EmailService] Dispatched consignment notification to receiver: {receiver_email}")
 
 
 def build_delivery_html(item, tracking_url: str = "") -> str:
@@ -518,7 +530,7 @@ def build_out_for_delivery_html(item, tracking_url: str = "") -> str:
 
   <div class="content">
     <div class="greeting">Hello {sender_name},</div>
-    <p class="lead">Your consignment is now out for delivery with our local delivery courier and is scheduled to be delivered today!</p>
+    <p class="lead">Your consignment is now out for delivery with our local courier driver and is scheduled for delivery !</p>
 
     <div class="ofd-box">
       <div class="ofd-label">Status: Out for Delivery</div>
@@ -536,12 +548,12 @@ def build_out_for_delivery_html(item, tracking_url: str = "") -> str:
         <td class="val">{dest_loc}</td>
       </tr>
       <tr>
-        <td class="label">Estimated Delivery</td>
-        <td class="val"><strong style="color: #ea580c;">Today (Scheduled)</strong></td>
+        <td class="label">Dispatch Timestamp</td>
+        <td class="val">{out_for_delivery_time}</td>
       </tr>
     </table>
 
-    <a href="{tracking_url}" class="btn-track" target="_blank">Track Delivery Vehicle Live</a>
+    <a href="{tracking_url}" class="btn-track" target="_blank">Track Shipment</a>
   </div>
 
   <div class="footer">

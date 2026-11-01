@@ -1663,7 +1663,7 @@ function TrackingScreen({
   })
   const [loading, setLoading] = useState(false)
 
-  const fetchTracking = async (idToFetch: string, showToast = false) => {
+  const fetchTracking = async (idToFetch: string, _showToast = false) => {
     if (!idToFetch) return
     setLoading(true)
 
@@ -1844,18 +1844,15 @@ function TrackingScreen({
             weightProofImages: proofImgs,
             pickupLocations: liveRes.pickupLocations || [],
           })
-          if (showToast) toast.success('Tracking status refreshed!')
           return
         }
       }
       if (mockTrackingMap[idToFetch]) {
         setData(mockTrackingMap[idToFetch])
-        if (showToast) toast.success('Tracking status refreshed!')
       }
     } catch {
       if (mockTrackingMap[idToFetch]) {
         setData(mockTrackingMap[idToFetch])
-        if (showToast) toast.success('Tracking status refreshed!')
       }
     } finally {
       setLoading(false)

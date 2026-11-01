@@ -340,7 +340,7 @@ class AirlineCargoTrackingProvider(BaseTrackingProvider):
                         timestamp=use_arr,
                         location=f"{arr_station} Cargo Hub",
                         status="ARRIVED_AT_HUB",
-                        activity=f"Landed and de-consolidated at {arr_station} cargo terminal",
+                        activity="Arrived at hub - Landed & cleared through destination cargo terminal",
                         country=arr_station,
                         source="TRACKINGMORE:AWB"
                     ))
@@ -368,7 +368,7 @@ class AirlineCargoTrackingProvider(BaseTrackingProvider):
                 timestamp=arr_date,
                 location=f"{dest} International Airport",
                 status="ARRIVED_AT_HUB",
-                activity=f"Landed and de-consolidated at {dest} cargo terminal",
+                activity="Arrived at hub - Landed & cleared through destination cargo terminal",
                 country="Destination",
                 source="AIRLINE_API"
             )
@@ -719,7 +719,7 @@ class TrackingRegistry:
                     timestamp=pickup_ts,
                     location="NetPack Central Warehouse, Kathmandu",
                     status="PICKED_UP",
-                    activity="Cargo Picked Up by NetPack Courier & Received at Central Warehouse",
+                    activity="Shipment Picked Up by NetPack  & Received at Warehouse",
                     country="Nepal",
                     source="WAREHOUSE_PICKUP"
                 ))
@@ -731,7 +731,7 @@ class TrackingRegistry:
                     timestamp=pickup_ts,
                     location="NetPack Central Warehouse / Intake Counter",
                     status="PICKED_UP",
-                    activity="Consignment Dropped Off at Counter by Customer (Self Drop)",
+                    activity="Shipment Picked Up by NetPack  & Received at Warehouse",
                     country="Nepal",
                     source="COUNTER_DROPOFF"
                 ))
@@ -742,7 +742,7 @@ class TrackingRegistry:
                 timestamp=packed_ts,
                 location="NetPack Central Operations, Teku, Kathmandu",
                 status="PACKED",
-                activity="Cargo Packed - Items, Quantities, Unit Values & Box Dimensions Recorded by Operations",
+                activity="Packed - Items, Quantities, Unit Values & Box Dimensions Recorded by Operations",
                 country="Nepal",
                 source="WAREHOUSE_OPERATIONS"
             ))
@@ -768,12 +768,11 @@ class TrackingRegistry:
 
         # 2. Shipment Created (After push to shipment)
         if shipment and ship_created_ts:
-            hawb_label = f" (HAWB: {shipment.hawbno})" if shipment.hawbno else ""
             checkpoints.append(TrackingCheckpoint(
                 timestamp=ship_created_ts,
                 location="Kathmandu Central Operations",
                 status="SHIPMENT_CREATED",
-                activity=f"Shipment Created{hawb_label} - Export Documentation & Routing Prepared",
+                activity="Shipment Created - Export Documentation & Routing Prepared",
                 country="Nepal",
                 source="INTERNAL"
             ))
@@ -840,7 +839,7 @@ class TrackingRegistry:
                     timestamp=hub_ts,
                     location=f"{dest_name} Hub / Airport",
                     status="ARRIVED_AT_HUB",
-                    activity=f"Arrived at destination hub ({dest_name}) via {flight_str}".strip(),
+                    activity="Arrived at hub - Landed & cleared through destination cargo terminal",
                     country=dest_name,
                     source="MAWB_FLIGHT"
                 ))
@@ -954,9 +953,9 @@ class TrackingRegistry:
                 hub_final_ts = hub_ts
 
             if tracking_mode == "MANUAL":
-                hub_act = f"Arrived at Destination Hub ({dest_name}){note_tag}"
+                hub_act = f"Arrived at hub - Landed & cleared through destination cargo terminal{note_tag}"
             else:
-                hub_act = f"Arrived at hub ({dest_name}) - Landed & cleared through destination cargo terminal"
+                hub_act = "Arrived at hub - Landed & cleared through destination cargo terminal"
             checkpoints.append(TrackingCheckpoint(
                 timestamp=hub_final_ts,
                 location=f"{dest_name} Cargo Terminal / Hub",
