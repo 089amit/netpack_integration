@@ -1962,6 +1962,71 @@ function TrackingScreen({
 
   const progressPercent = Math.min(100, Math.round(((data.stageIndex + 1) / milestones.length) * 100))
 
+  const routeStatusBadge = useMemo(() => {
+    const st = (data.status || '').toLowerCase()
+    if (st === 'delivered' || data.stageIndex >= 6) {
+      return {
+        Icon: IconCheck,
+        badgeClass: 'border-emerald-300 bg-emerald-50 text-emerald-600',
+        animateClass: '',
+        iconClass: 'text-emerald-600',
+        borderClass: 'border-emerald-300',
+      }
+    }
+    if (st === 'out_for_delivery' || st === 'carrier_scanned' || data.stageIndex === 5) {
+      return {
+        Icon: IconTruck,
+        badgeClass: 'border-orange-300 bg-orange-50 text-orange-600',
+        animateClass: 'animate-pulse',
+        iconClass: 'text-orange-600',
+        borderClass: 'border-orange-300',
+      }
+    }
+    if (st === 'arrived_at_hub' || data.stageIndex === 4) {
+      return {
+        Icon: IconWarehouse,
+        badgeClass: 'border-purple-300 bg-purple-50 text-purple-600',
+        animateClass: '',
+        iconClass: 'text-purple-600',
+        borderClass: 'border-purple-300',
+      }
+    }
+    if (st === 'in_transit' || data.stageIndex === 3) {
+      return {
+        Icon: IconPlane,
+        badgeClass: 'border-sky-300 bg-sky-50 text-sky-600',
+        animateClass: 'animate-plane-glide',
+        iconClass: 'text-sky-600 rotate-45',
+        borderClass: 'border-sky-400',
+      }
+    }
+    if (st === 'shipment_created' || data.stageIndex === 2) {
+      return {
+        Icon: IconTag,
+        badgeClass: 'border-indigo-200 bg-indigo-50 text-indigo-600',
+        animateClass: '',
+        iconClass: 'text-indigo-600',
+        borderClass: 'border-indigo-300',
+      }
+    }
+    if (['picked_up', 'packed', 'wt_dimension_verified'].includes(st) || data.stageIndex === 1) {
+      return {
+        Icon: IconBox,
+        badgeClass: 'border-teal-200 bg-teal-50 text-teal-600',
+        animateClass: '',
+        iconClass: 'text-teal-600',
+        borderClass: 'border-teal-300',
+      }
+    }
+    return {
+      Icon: isAssignedRider ? IconTruck : IconDocument,
+      badgeClass: 'border-blue-200 bg-blue-50 text-blue-600',
+      animateClass: '',
+      iconClass: 'text-blue-600',
+      borderClass: 'border-blue-300',
+    }
+  }, [data.status, data.stageIndex, isAssignedRider])
+
   return (
     <div
       ref={containerRef}
@@ -2092,21 +2157,21 @@ function TrackingScreen({
                   <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{data.heroSubtitle}</p>
                 </div>
 
-                {/* Animated Flight Route Banner */}
+                {/* Dynamic Route Status Banner */}
                 <div className="flex items-center justify-between gap-3 py-2 px-3 rounded-xl bg-gray-50 border border-gray-100 text-xs">
                   <div className="flex items-center gap-1 font-bold text-[#0D1B2A] shrink-0">
                     <IconMapPin size={14} className="text-blue-600" />
                     <span>{data.origin}</span>
                   </div>
                   <div className="flex-1 flex items-center justify-center relative px-2">
-                    <div className="w-full border-t border-dashed border-blue-400" />
-                    <span className="absolute bg-white p-1 rounded-full border border-blue-200 shadow-2xs animate-plane-glide">
-                      <IconPlane size={14} className="text-blue-600 rotate-45" />
+                    <div className={`w-full border-t border-dashed ${routeStatusBadge.borderClass}`} />
+                    <span className={`absolute bg-white p-1 rounded-full border shadow-2xs ${routeStatusBadge.badgeClass} ${routeStatusBadge.animateClass}`}>
+                      <routeStatusBadge.Icon size={14} className={routeStatusBadge.iconClass} />
                     </span>
                   </div>
                   <div className="flex items-center gap-1 font-bold text-[#0D1B2A] shrink-0">
                     <span>{data.destination}</span>
-                    <IconMapPin size={14} className="text-emerald-600" />
+                    <IconMapPin size={14} className={data.status?.toLowerCase() === 'delivered' ? 'text-emerald-600' : 'text-blue-600'} />
                   </div>
                 </div>
 

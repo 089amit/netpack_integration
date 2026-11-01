@@ -719,7 +719,7 @@ class TrackingRegistry:
                     timestamp=pickup_ts,
                     location="NetPack Central Warehouse, Kathmandu",
                     status="PICKED_UP",
-                    activity="Shipment Picked Up by NetPack  & Received at Warehouse",
+                    activity=f"Shipment Picked Up by NetPack  & Received at Warehouse{note_tag}",
                     country="Nepal",
                     source="WAREHOUSE_PICKUP"
                 ))
@@ -731,18 +731,19 @@ class TrackingRegistry:
                     timestamp=pickup_ts,
                     location="NetPack Central Warehouse / Intake Counter",
                     status="PICKED_UP",
-                    activity="Shipment Picked Up by NetPack  & Received at Warehouse",
+                    activity=f"Shipment Picked Up by NetPack  & Received at Warehouse{note_tag}",
                     country="Nepal",
                     source="COUNTER_DROPOFF"
                 ))
 
         # 1.6. PACKED
         if is_packed:
+            packed_note_tag = note_tag if not is_picked_up else ""
             checkpoints.append(TrackingCheckpoint(
                 timestamp=packed_ts,
                 location="NetPack Central Operations, Teku, Kathmandu",
                 status="PACKED",
-                activity="Packed - Items, Quantities, Unit Values & Box Dimensions Recorded by Operations",
+                activity=f"Packed - Items, Quantities, Unit Values & Box Dimensions Recorded by Operations{packed_note_tag}",
                 country="Nepal",
                 source="WAREHOUSE_OPERATIONS"
             ))
@@ -930,7 +931,7 @@ class TrackingRegistry:
         has_in_transit_cp = any(cp.status == "IN_TRANSIT" for cp in checkpoints)
         if not has_in_transit_cp and is_progressed_transit:
             if tracking_mode == "MANUAL":
-                in_transit_act = f"In Transit on scheduled cargo route to {dest_name}{note_tag}"
+                in_transit_act = f"In Transit on scheduled cargo route to {dest_name}"
             else:
                 airline_lbl = f" on {airline_name}" if airline_name else ""
                 in_transit_act = f"Air cargo departed Kathmandu (KTM){airline_lbl} on scheduled flight to {dest_name}"
@@ -953,7 +954,7 @@ class TrackingRegistry:
                 hub_final_ts = hub_ts
 
             if tracking_mode == "MANUAL":
-                hub_act = f"Arrived at hub - Landed & cleared through destination cargo terminal{note_tag}"
+                hub_act = "Arrived at hub - Landed & cleared through destination cargo terminal"
             else:
                 hub_act = "Arrived at hub - Landed & cleared through destination cargo terminal"
             checkpoints.append(TrackingCheckpoint(
