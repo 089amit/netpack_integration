@@ -32,6 +32,11 @@ class TrackingMoreService:
         "tnt": "tnt",
         "ems": "ems",
         "royal mail": "royal-mail",
+        "startrack": "star-track",
+        "star track": "star-track",
+        "star-track": "star-track",
+        "australia post": "australia-post",
+        "auspost": "australia-post",
         # Major Airline Cargo prefixes / codes supported
         "emirates": "emirates",
         "qatar": "qatar-airways",
