@@ -237,13 +237,13 @@ def export_database_snapshot():
 @app.get("/api/version", tags=["App"])
 def get_app_version():
     return {
-        "version": "1.1.0",
-        "versionCode": 10,
+        "version": "1.0.0",
+        "versionCode": 11,
         "releaseDate": "2026-11-02",
-        "minRequiredVersionCode": 9,
+        "minRequiredVersionCode": 10,
         "customerApkUrl": "/download/customer.apk",
         "riderApkUrl": "/download/rider.apk",
-        "releaseNotes": "Camera scale proof capture fix, TrackingMore estimated delivery date, in-app update banner, and admin freight margin controls."
+        "releaseNotes": "Production release v1.0.0 (Build 11): in-app update popup, camera capture enhancement, accurate estimated delivery dates, and website ticker display."
     }
 
 # Custom hook router for future Python project integrations

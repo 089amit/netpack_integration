@@ -229,23 +229,36 @@ def run_auto_migrations(target_engine):
                     pass
                 print(f"[Migration Warning] surcharge_rules column reconciliation: {e}")
 
-        # 1e. Add festiveTheme and festiveGreeting to website_contents table if needed
+        # 1e. Add festiveTheme, festiveGreeting, appFreightMarkupPercent, googleMapsUrl, mapCoordinates, tickerItems to website_contents table if needed
         if "website_contents" in table_names:
             try:
+                is_pg = "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL
                 existing_wc_cols = {col["name"].lower() for col in inspector.get_columns("website_contents")}
                 if "festivetheme" not in existing_wc_cols:
-                    conn.execute(sa.text('ALTER TABLE website_contents ADD COLUMN "festiveTheme" VARCHAR(50) DEFAULT \'auto\''))
+                    col_sql = 'ALTER TABLE website_contents ADD COLUMN "festiveTheme" VARCHAR(50) DEFAULT \'auto\'' if is_pg else 'ALTER TABLE website_contents ADD COLUMN festiveTheme VARCHAR(50) DEFAULT \'auto\''
+                    conn.execute(sa.text(col_sql))
                 if "festivegreeting" not in existing_wc_cols:
-                    conn.execute(sa.text('ALTER TABLE website_contents ADD COLUMN "festiveGreeting" VARCHAR(255)'))
+                    col_sql = 'ALTER TABLE website_contents ADD COLUMN "festiveGreeting" VARCHAR(255)' if is_pg else 'ALTER TABLE website_contents ADD COLUMN festiveGreeting VARCHAR(255)'
+                    conn.execute(sa.text(col_sql))
                 if "appfreightmarkuppercent" not in existing_wc_cols:
-                    conn.execute(sa.text('ALTER TABLE website_contents ADD COLUMN "appFreightMarkupPercent" FLOAT DEFAULT 10.0'))
+                    col_sql = 'ALTER TABLE website_contents ADD COLUMN "appFreightMarkupPercent" FLOAT DEFAULT 10.0' if is_pg else 'ALTER TABLE website_contents ADD COLUMN appFreightMarkupPercent FLOAT DEFAULT 10.0'
+                    conn.execute(sa.text(col_sql))
+                if "googlemapsurl" not in existing_wc_cols:
+                    col_sql = 'ALTER TABLE website_contents ADD COLUMN "googleMapsUrl" TEXT' if is_pg else 'ALTER TABLE website_contents ADD COLUMN googleMapsUrl TEXT'
+                    conn.execute(sa.text(col_sql))
+                if "mapcoordinates" not in existing_wc_cols:
+                    col_sql = 'ALTER TABLE website_contents ADD COLUMN "mapCoordinates" VARCHAR(100) DEFAULT \'27.6975, 85.3090\'' if is_pg else 'ALTER TABLE website_contents ADD COLUMN mapCoordinates VARCHAR(100) DEFAULT \'27.6975, 85.3090\''
+                    conn.execute(sa.text(col_sql))
+                if "tickeritems" not in existing_wc_cols:
+                    col_sql = 'ALTER TABLE website_contents ADD COLUMN "tickerItems" TEXT' if is_pg else 'ALTER TABLE website_contents ADD COLUMN tickerItems TEXT'
+                    conn.execute(sa.text(col_sql))
                 conn.commit()
             except Exception as e:
                 try:
                     conn.rollback()
                 except Exception:
                     pass
-                print(f"[Migration Warning] website_contents festive columns check: {e}")
+                print(f"[Migration Warning] website_contents columns check: {e}")
 
         # 2. Ensure baseline roles exist
         if "roles" in table_names:

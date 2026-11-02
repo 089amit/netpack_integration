@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { ModernFloatingNotificationBanner, type ModernNotificationData } from '@/components/ModernFloatingNotificationBanner'
 import { ContactOptionsModal, type ContactTarget } from '@/components/ContactOptionsModal'
@@ -5412,6 +5413,12 @@ export default function CustomerPWA() {
   const [activeTrackingId, setActiveTrackingId] = useState('NP-20240922-001')
   const [trackingReturnScreen, setTrackingReturnScreen] = useState<Screen>('home')
   const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
+  const [remindLaterUpdate, setRemindLaterUpdate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('netpack_dismiss_update_prompt') === 'true'
+    }
+    return false
+  })
 
   useEffect(() => {
     const checkVersion = async () => {
@@ -5419,7 +5426,7 @@ export default function CustomerPWA() {
         const res = await fetch(`${API_BASE}/api/app/version`)
         if (res.ok) {
           const data = await res.json()
-          const currentLoadedVersion = '1.0.9'
+          const currentLoadedVersion = '1.0.0'
           if (data.version && data.version !== currentLoadedVersion) {
             setUpdateAvailable(data.version)
           }
@@ -5821,31 +5828,55 @@ export default function CustomerPWA() {
         notification={activeBannerNotification}
         onDismiss={() => setActiveBannerNotification(null)}
       />
-      <div className="w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] shadow-2xl">
-        {updateAvailable && (
-          <div className="sticky top-0 z-50 bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-800 text-white px-3.5 py-2.5 shadow-lg flex items-center justify-between text-xs font-semibold animate-in fade-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-2 truncate">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-              </span>
-              <span className="truncate">New version v{updateAvailable} available!</span>
+      {/* 🚀 In-App Version Update Modal Popup */}
+      {updateAvailable && !remindLaterUpdate && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-[340px] bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/25">
+              <Sparkles className="w-8 h-8 animate-pulse" />
             </div>
-            <button
-              onClick={() => {
-                try {
-                  if ('caches' in window) {
-                    caches.keys().then(names => names.forEach(name => caches.delete(name)))
-                  }
-                } catch {}
-                window.location.reload()
-              }}
-              className="shrink-0 ml-2 bg-white hover:bg-blue-50 text-blue-900 font-black px-3 py-1 rounded-lg text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
-            >
-              Tap to update
-            </button>
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                <span>v{updateAvailable} Available</span>
+              </div>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight pt-1">
+                New Version Available
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                A new version of NetPack (v{updateAvailable}) is ready. Update now to enjoy the latest features and speed enhancements.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  try {
+                    if ('caches' in window) {
+                      caches.keys().then((names) => names.forEach((name) => caches.delete(name)))
+                    }
+                  } catch {}
+                  window.location.reload()
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs tracking-wider uppercase shadow-lg shadow-blue-500/30 active:scale-98 transition-all cursor-pointer"
+              >
+                Update Now
+              </button>
+              <button
+                onClick={() => {
+                  setRemindLaterUpdate(true)
+                  try {
+                    sessionStorage.setItem('netpack_dismiss_update_prompt', 'true')
+                  } catch {}
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                Remind Me Later
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+      <div className="w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] shadow-2xl">
         {!customerUser ? (
           <AuthScreen
             onAuthenticated={(user, token) => {

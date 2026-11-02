@@ -29,6 +29,7 @@ import {
   ChevronUp,
   Image as ImageIcon,
   MessageCircle,
+  Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ModernFloatingNotificationBanner, type ModernNotificationData } from '@/components/ModernFloatingNotificationBanner'
@@ -234,13 +235,20 @@ export default function PickupRiderPWA() {
 
   // In-app version update listener
   const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
+  const [remindLaterUpdate, setRemindLaterUpdate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('netpack_rider_dismiss_update_prompt') === 'true'
+    }
+    return false
+  })
+
   useEffect(() => {
     const checkVersion = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/app/version`)
         if (res.ok) {
           const data = await res.json()
-          const currentLoadedVersion = '1.0.9'
+          const currentLoadedVersion = '1.0.0'
           if (data.version && data.version !== currentLoadedVersion) {
             setUpdateAvailable(data.version)
           }
@@ -977,31 +985,55 @@ export default function PickupRiderPWA() {
         notification={modernPickupAlert}
         onDismiss={() => setModernPickupAlert(null)}
       />
-      <div className='w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl pb-24 select-none'>
-        {updateAvailable && (
-          <div className="sticky top-0 z-50 bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-800 text-white px-3.5 py-2.5 shadow-lg flex items-center justify-between text-xs font-semibold animate-in fade-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-2 truncate">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-              </span>
-              <span className="truncate">New Rider version v{updateAvailable} available!</span>
+      {/* 🚀 In-App Version Update Modal Popup */}
+      {updateAvailable && !remindLaterUpdate && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-[340px] bg-[#112233] text-white rounded-3xl p-6 shadow-2xl border border-blue-900/40 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-xl shadow-amber-500/25">
+              <Sparkles className="w-8 h-8 animate-pulse" />
             </div>
-            <button
-              onClick={() => {
-                try {
-                  if ('caches' in window) {
-                    caches.keys().then(names => names.forEach(name => caches.delete(name)))
-                  }
-                } catch {}
-                window.location.reload()
-              }}
-              className="shrink-0 ml-2 bg-white hover:bg-blue-50 text-blue-900 font-black px-3 py-1 rounded-lg text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
-            >
-              Tap to update
-            </button>
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                <span>Rider v{updateAvailable} Available</span>
+              </div>
+              <h3 className="text-lg font-black tracking-tight pt-1">
+                New Update Available
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                A new version of the NetPack Rider app is ready. Update now for improved pickup sync and camera speed.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  try {
+                    if ('caches' in window) {
+                      caches.keys().then((names) => names.forEach((name) => caches.delete(name)))
+                    }
+                  } catch {}
+                  window.location.reload()
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-xs tracking-wider uppercase shadow-lg shadow-orange-500/30 active:scale-98 transition-all cursor-pointer"
+              >
+                Update Now
+              </button>
+              <button
+                onClick={() => {
+                  setRemindLaterUpdate(true)
+                  try {
+                    sessionStorage.setItem('netpack_rider_dismiss_update_prompt', 'true')
+                  } catch {}
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+              >
+                Remind Me Later
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+      <div className='w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl pb-24 select-none'>
         {/* ─── Sticky Top App Bar (Curved Gradient Header) ────────────────── */}
         <header
           className='sticky top-0 z-40 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] text-white px-4 pb-3 rounded-b-[20px] shadow-lg shadow-black/20'
