@@ -210,10 +210,10 @@ async def trackingmore_webhook(request: Request, db: Session = Depends(get_db)):
         if delivery_status:
             mapped_status = trackingmore_service.map_status(delivery_status, courier_code=courier_code)
 
-        # Parse checkpoints from webhook payload
+        # Parse checkpoints from webhook payload (extract_checkpoints_from_data returns newest-first)
         checkpoints = trackingmore_service.extract_checkpoints_from_data(data)
         if checkpoints:
-            latest_cp = checkpoints[-1]
+            latest_cp = checkpoints[0]
             if latest_cp.get("status") in ("ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"):
                 mapped_status = latest_cp["status"]
 

@@ -552,10 +552,14 @@ class TrackingRegistry:
             (linked_mawb.destination.strip() if (linked_mawb and linked_mawb.destination) else "International")
         )
 
-        # Operator note for manual checkpoints (ignore internal split/partition notes)
-        raw_op_note = (getattr(shipment, "note", None) if shipment else None) or (getattr(enquiry, "pickupNotes", None) if enquiry else None)
-        clean_op_note = raw_op_note.strip() if (raw_op_note and not raw_op_note.lower().startswith("split from")) else ""
-        note_tag = f" (Note: {clean_op_note})" if clean_op_note else ""
+        # Rider note: strictly from enquiry.pickupNotes (written by field rider at doorstep pickup)
+        raw_rider_note = (getattr(enquiry, "pickupNotes", None) if enquiry else None) or ""
+        clean_rider_note = raw_rider_note.strip() if (raw_rider_note and not raw_rider_note.lower().startswith("split from")) else ""
+        rider_note_tag = f" (Note: {clean_rider_note})" if clean_rider_note else ""
+
+        # Admin / Operations / CSD note: strictly from shipment.note
+        raw_admin_note = (getattr(shipment, "note", None) if shipment else None) or ""
+        clean_admin_note = raw_admin_note.strip() if (raw_admin_note and not raw_admin_note.lower().startswith("split from")) else ""
 
         is_pickup_required = True
         if enquiry is not None:
@@ -672,6 +676,26 @@ class TrackingRegistry:
         else:
             hub_ts = dep_ts + timedelta(hours=8)
 
+        # Reconcile with actual courier carrier scan timestamps (e.g. from TrackingMore / StarTrack / FedEx)
+        # Prevents future or dummy MAWB template dates from overriding real chronological carrier delivery scans
+        carrier_event_times = []
+        if shipment and shipment.trackingEvents:
+            for te in shipment.trackingEvents:
+                t_val = te.checkpointTime or te.createdAt
+                if t_val:
+                    if hasattr(t_val, "tzinfo") and t_val.tzinfo is not None:
+                        t_val = t_val.replace(tzinfo=None)
+                    carrier_event_times.append(t_val)
+
+        earliest_carrier_ts = min(carrier_event_times) if carrier_event_times else None
+        if earliest_carrier_ts:
+            if hub_ts >= earliest_carrier_ts:
+                hub_ts = max(earliest_carrier_ts - timedelta(hours=4), (wt_ts or created_at) + timedelta(hours=4))
+            if dep_ts >= hub_ts:
+                dep_ts = max(hub_ts - timedelta(hours=8), (wt_ts or created_at) + timedelta(hours=1))
+            if ship_created_ts and ship_created_ts >= dep_ts:
+                ship_created_ts = max(dep_ts - timedelta(hours=2), (wt_ts or created_at) + timedelta(minutes=15))
+
         # 1.5. Cargo Picked Up OR Self Drop Counter Handover
         if is_pickup_required:
             is_picked_up = bool(
@@ -719,7 +743,7 @@ class TrackingRegistry:
                     timestamp=pickup_ts,
                     location="NetPack Central Warehouse, Kathmandu",
                     status="PICKED_UP",
-                    activity=f"Shipment Picked Up by NetPack  & Received at Warehouse{note_tag}",
+                    activity=f"Shipment Picked Up by NetPack  & Received at Warehouse{rider_note_tag}",
                     country="Nepal",
                     source="WAREHOUSE_PICKUP"
                 ))
@@ -731,14 +755,14 @@ class TrackingRegistry:
                     timestamp=pickup_ts,
                     location="NetPack Central Warehouse / Intake Counter",
                     status="PICKED_UP",
-                    activity=f"Shipment Picked Up by NetPack  & Received at Warehouse{note_tag}",
+                    activity=f"Shipment Picked Up by NetPack  & Received at Warehouse{rider_note_tag}",
                     country="Nepal",
                     source="COUNTER_DROPOFF"
                 ))
 
         # 1.6. PACKED
         if is_packed:
-            packed_note_tag = note_tag if not is_picked_up else ""
+            packed_note_tag = rider_note_tag if not is_picked_up else ""
             checkpoints.append(TrackingCheckpoint(
                 timestamp=packed_ts,
                 location="NetPack Central Operations, Teku, Kathmandu",
@@ -847,10 +871,13 @@ class TrackingRegistry:
 
         # (C) Existing tracking events (manual operator notes or carrier scans)
         if shipment and shipment.trackingEvents:
-            for te in shipment.trackingEvents:
-                if te.status == "HAWB_SPLIT" or "partition" in (te.activity or "").lower():
-                    continue
-
+            # Sort carrier events in descending order (newest first)
+            sorted_carrier_events = sorted(
+                [te for te in shipment.trackingEvents if te.status != "HAWB_SPLIT" and "partition" not in (te.activity or "").lower()],
+                key=lambda te: (te.checkpointTime or te.createdAt or datetime.min, te.id or 0),
+                reverse=True
+            )
+            for te in sorted_carrier_events:
                 te_status = te.status or "CARRIER_SCANNED"
                 te_source = te.source or "CARRIER"
                 if "MANUAL" in te_source:
@@ -862,12 +889,17 @@ class TrackingRegistry:
                 else:
                     src_label = te_source
 
-                if te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB") and ("CARRIER" in te_source or "TRACKINGMORE" in te_source):
+                act_lower = (te.activity or "").lower()
+                if "delivered" in act_lower:
+                    te_status = "DELIVERED"
+                elif any(ofd_kw in act_lower for ofd_kw in ("onboard for delivery", "on board for delivery", "out for delivery", "with delivery courier", "with courier", "with driver", "scheduled for delivery")):
+                    te_status = "OUT_FOR_DELIVERY"
+                elif te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB") and ("CARRIER" in te_source or "TRACKINGMORE" in te_source):
                     te_status = "CARRIER_SCANNED"
 
                 te_ts = te.checkpointTime or te.createdAt
-                if hub_ts and te_ts and te_ts <= hub_ts:
-                    te_ts = hub_ts + timedelta(hours=2)
+                if hasattr(te_ts, "tzinfo") and te_ts.tzinfo is not None:
+                    te_ts = te_ts.replace(tzinfo=None)
 
                 checkpoints.append(TrackingCheckpoint(
                     timestamp=te_ts,
@@ -888,19 +920,27 @@ class TrackingRegistry:
                 self.sync_tracking_live(db, shipment)
                 db.refresh(shipment)
                 checkpoints = [cp for cp in checkpoints if not (cp.source and ("TRACKINGMORE" in cp.source or "CARRIER" in cp.source or cp.source == "CARRIER_API"))]
-                for te in shipment.trackingEvents:
-                    if te.status == "HAWB_SPLIT" or "partition" in (te.activity or "").lower():
-                        continue
-
+                sorted_live_events = sorted(
+                    [te for te in shipment.trackingEvents if te.status != "HAWB_SPLIT" and "partition" not in (te.activity or "").lower()],
+                    key=lambda te: (te.checkpointTime or te.createdAt or datetime.min, te.id or 0),
+                    reverse=True
+                )
+                for te in sorted_live_events:
                     te_status = te.status or "CARRIER_SCANNED"
                     te_source = te.source or "CARRIER"
                     src_label = f"CARRIER:{te.courierCode.upper()}" if te.courierCode else ("CARRIER_API" if ("CARRIER" in te_source or "TRACKINGMORE" in te_source) else te_source)
-                    if te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB") and ("CARRIER" in (te.source or "") or "TRACKINGMORE" in (te.source or "")):
+                    
+                    act_lower = (te.activity or "").lower()
+                    if "delivered" in act_lower:
+                        te_status = "DELIVERED"
+                    elif any(ofd_kw in act_lower for ofd_kw in ("onboard for delivery", "on board for delivery", "out for delivery", "with delivery courier", "with courier", "with driver", "scheduled for delivery")):
+                        te_status = "OUT_FOR_DELIVERY"
+                    elif te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB") and ("CARRIER" in (te.source or "") or "TRACKINGMORE" in (te.source or "")):
                         te_status = "CARRIER_SCANNED"
 
                     te_ts = te.checkpointTime or te.createdAt
-                    if hub_ts and te_ts and te_ts <= hub_ts:
-                        te_ts = hub_ts + timedelta(hours=2)
+                    if hasattr(te_ts, "tzinfo") and te_ts.tzinfo is not None:
+                        te_ts = te_ts.replace(tzinfo=None)
 
                     checkpoints.append(TrackingCheckpoint(
                         timestamp=te_ts,
@@ -1020,6 +1060,27 @@ class TrackingRegistry:
                     source="DELIVERY_COMPLETE"
                 ))
 
+        # 6. Admin / Operations Note from shipment.note (appears at top under the current active status)
+        if clean_admin_note:
+            has_matching_event = any(
+                clean_admin_note.lower() in (cp.activity or "").lower()
+                for cp in checkpoints
+            )
+            if not has_matching_event:
+                op_ts = (shipment.updatedAt if shipment and shipment.updatedAt else None) or datetime.utcnow()
+                if hasattr(op_ts, "tzinfo") and op_ts.tzinfo is not None:
+                    op_ts = op_ts.replace(tzinfo=None)
+                curr_loc = f"{dest_name} Hub / Transit" if current_status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") else "Kathmandu Central Operations"
+                curr_country = dest_name if current_status in ("ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") else "Nepal"
+                checkpoints.append(TrackingCheckpoint(
+                    timestamp=op_ts,
+                    location=curr_loc,
+                    status=current_status,
+                    activity=clean_admin_note,
+                    country=curr_country,
+                    source="OPERATIONS_NOTE"
+                ))
+
         # Stage hierarchy for primary tracking statuses (Flowchart-aligned):
         STAGE_ORDER = {
             "ENQUIRY_GENERATED": 10,
@@ -1038,6 +1099,8 @@ class TrackingRegistry:
 
         def get_checkpoint_sort_key(cp: TrackingCheckpoint):
             stage_w = STAGE_ORDER.get(cp.status, 35)
+            if cp.source in ("OPERATIONS_NOTE", "MANUAL_NOTE"):
+                stage_w += 0.5
             ts_val = cp.timestamp.timestamp() if cp.timestamp else 0.0
             return (stage_w, ts_val)
 

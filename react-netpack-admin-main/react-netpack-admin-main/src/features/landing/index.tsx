@@ -129,7 +129,7 @@ export default function LandingPage() {
           <div className='hidden md:flex items-center gap-4'>
             {/* Discreet Staff / Admin Login */}
             <a
-              href={isAuth ? '/enquiries' : '/sign-in'}
+              href={isAuth ? '/dashboard' : '/sign-in'}
               className='text-xs font-mono uppercase text-slate-600 hover:text-slate-900 transition px-2 py-1'
             >
               {isAuth ? 'Dashboard' : 'Login'}
@@ -196,7 +196,7 @@ export default function LandingPage() {
               </button>
 
               <a
-                href={isAuth ? '/enquiries' : '/sign-in'}
+                href={isAuth ? '/dashboard' : '/sign-in'}
                 className='text-center py-2 text-xs font-mono text-slate-600 hover:text-slate-900'
               >
                 {isAuth ? 'Open Staff Dashboard →' : 'Staff / Agent Login →'}
@@ -385,6 +385,10 @@ export default function LandingPage() {
         open={showRateModal}
         onClose={() => setShowRateModal(false)}
         initialService={prefilledService}
+        onOpenAppModal={() => {
+          setShowRateModal(false)
+          setShowAppModal(true)
+        }}
       />
 
       {/* ──────────────────────────────────────────────────────────

@@ -2375,9 +2375,16 @@ function TrackingScreen({
                         {/* Checkpoint Details */}
                         <div className="space-y-0.5">
                           <div className="flex items-center justify-between gap-2">
-                            <span className={`text-xs leading-snug ${isTop ? 'font-extrabold text-[#0D1B2A]' : 'font-bold text-gray-800'}`}>
-                              {title}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-xs leading-snug ${isTop ? 'font-extrabold text-[#0D1B2A]' : 'font-bold text-gray-800'}`}>
+                                {title}
+                              </span>
+                              {cp.source === 'OPERATIONS_NOTE' && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                                  Operations Note
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[11px] font-mono text-gray-400 shrink-0">
                               {cp.time}
                             </span>

@@ -335,7 +335,7 @@ class TrackingMoreService:
 
                     # If checkpoints exist and latest checkpoint has a more advanced status, respect it
                     if checkpoints:
-                        latest_cp = checkpoints[-1]
+                        latest_cp = checkpoints[0]
                         if mapped_overall in ("IN_TRANSIT", "ARRIVED_AT_HUB") and latest_cp.get("status") in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"):
                             mapped_overall = latest_cp["status"]
 
@@ -393,7 +393,13 @@ class TrackingMoreService:
             s in ("out_for_delivery", "outfordelivery")
             or sub in ("transit003", "out_for_delivery", "outfordelivery")
             or "out for delivery" in act
+            or "onboard for delivery" in act
+            or "on board for delivery" in act
             or "with delivery courier" in act
+            or "with courier" in act
+            or "with driver" in act
+            or "scheduled for delivery" in act
+            or "delivery driver" in act
             or "loaded onto delivery vehicle" in act
         ):
             return "OUT_FOR_DELIVERY"
@@ -521,8 +527,10 @@ class TrackingMoreService:
         dest = data.get("destination_info") or {}
         add_trackinfo(dest.get("trackinfo") or [], dest.get("courier_code") or data.get("courier_code") or "courier")
 
-        # Sort chronologically
-        results.sort(key=lambda x: x.get("dt_object", datetime.min))
+        # Reverse TrackingMore raw array (TrackingMore lists oldest-first, we standardise to newest-first)
+        results.reverse()
+        # Sort chronologically in DESCENDING order (newest 1st, oldest at bottom)
+        results.sort(key=lambda x: x.get("dt_object", datetime.min), reverse=True)
         # Remove helper dt_object
         for r in results:
             r.pop("dt_object", None)

@@ -708,6 +708,11 @@ export function ShipmentTrackingDialog({
                             <span className={`text-xs font-bold leading-snug ${isTopItem ? 'text-foreground' : 'text-foreground/90'}`}>
                               {title}
                             </span>
+                            {cp.source === 'OPERATIONS_NOTE' && (
+                              <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300 border-sky-300'>
+                                Operations Note
+                              </Badge>
+                            )}
                             {isSelfDropEvent && (
                               <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'>
                                 Self Drop
