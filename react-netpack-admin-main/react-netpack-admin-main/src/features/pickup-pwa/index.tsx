@@ -240,7 +240,7 @@ export default function PickupRiderPWA() {
         const res = await fetch(`${API_BASE}/api/app/version`)
         if (res.ok) {
           const data = await res.json()
-          const currentLoadedVersion = '1.0.8'
+          const currentLoadedVersion = '1.0.9'
           if (data.version && data.version !== currentLoadedVersion) {
             setUpdateAvailable(data.version)
           }
