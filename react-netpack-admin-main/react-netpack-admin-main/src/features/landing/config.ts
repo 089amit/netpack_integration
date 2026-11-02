@@ -206,7 +206,7 @@ export const LANDING_CONFIG = {
 
   // Contact Info & Headquarters
   contact: {
-    address: 'Teku-12, Kathmandu, Nepal (Opposite Customs Post)',
+    address: 'Teku-12, Kathmandu, Nepal',
     phone: '+977 15339942',
     mobile: '+977 9851000000',
     email: 'info@netpacklogistic.com',

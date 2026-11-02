@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { LANDING_CONFIG } from '../config'
 import {
   Send,
@@ -11,6 +11,8 @@ import {
   Instagram,
   Linkedin,
   ArrowUp,
+  ExternalLink,
+  Navigation,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SERVER_URL } from '@/constants/endpoint'
@@ -30,6 +32,32 @@ export const QuoteSection: React.FC<{
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [mapInfo, setMapInfo] = useState<{
+    address: string
+    coordinates: string
+    googleMapsUrl: string
+  }>({
+    address: LANDING_CONFIG.contact.address || 'Teku-12, Kathmandu, Nepal',
+    coordinates: '27.6975, 85.3090',
+    googleMapsUrl: 'https://maps.google.com/maps?q=27.6975,85.3090&hl=en&z=16&output=embed',
+  })
+
+  useEffect(() => {
+    fetch(`${SERVER_URL}/api/website-content`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data) {
+          const coords = data.mapCoordinates || '27.6975, 85.3090'
+          const mapsUrl = data.googleMapsUrl || `https://maps.google.com/maps?q=${encodeURIComponent(coords.replace(/\s+/g, ''))}&hl=en&z=16&output=embed`
+          setMapInfo({
+            address: data.contactAddress || LANDING_CONFIG.contact.address || 'Teku-12, Kathmandu, Nepal',
+            coordinates: coords,
+            googleMapsUrl: mapsUrl,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,20 +68,20 @@ export const QuoteSection: React.FC<{
 
     setSubmitting(true)
     try {
-      // Optional async submission to backend enquiry or simulated dispatch
+      const cleanDigits = form.phone.trim().replace(/^0+/, '')
+      const fullPhone = form.phone.trim() ? (form.phone.trim().startsWith('+') ? form.phone.trim() : `${senderDialCode}-${cleanDigits}`) : ''
+      
+      // Dispatch email directly to info@netpacklogistic.com (does not book an enquiry/shipment)
       try {
-        const cleanDigits = form.phone.trim().replace(/^0+/, '')
-        const fullPhone = form.phone.trim() ? (form.phone.trim().startsWith('+') ? form.phone.trim() : `${senderDialCode}-${cleanDigits}`) : ''
-        await fetch(`${SERVER_URL}/api/enquiry/webenquirycreate`, {
+        await fetch(`${SERVER_URL}/api/website-content/contact-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            senderName: form.fullName,
-            senderEmail: form.email,
-            senderPhone: fullPhone,
-            commodity: form.serviceInterest || 'General Inquiry',
-            packageDetails: form.message,
-            destinationLocation: 'International Dispatch',
+            fullName: form.fullName.trim(),
+            email: form.email.trim(),
+            phone: fullPhone,
+            serviceInterest: form.serviceInterest || 'General Inquiry',
+            message: form.message.trim(),
           }),
         })
       } catch {
@@ -61,9 +89,9 @@ export const QuoteSection: React.FC<{
       }
 
       setSubmitted(true)
-      toast.success('Thank you! Your message has been sent. We will get back to you within 24 hours.')
+      toast.success('Thank you! Your message has been sent to info@netpacklogistic.com. We will get back to you within 24 hours.')
     } catch {
-      toast.error('Failed to send message. Please call our hotline directly.')
+      toast.error('Failed to send message. Please email info@netpacklogistic.com directly.')
     } finally {
       setSubmitting(false)
     }
@@ -284,6 +312,52 @@ export const QuoteSection: React.FC<{
             </div>
           </div>
         </div>
+
+        {/* Interactive Location Map Section */}
+        <div className='mt-16 pt-12 border-t border-slate-200'>
+          <div className='rounded-2xl sm:rounded-3xl bg-slate-50 border border-slate-200 p-4 sm:p-6 lg:p-8 space-y-4 shadow-sm'>
+            <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4'>
+              <div className='space-y-1'>
+                <div className='inline-flex items-center gap-2 text-xs font-mono font-semibold tracking-wider text-[#0066CC] uppercase bg-blue-50 px-3 py-0.5 rounded-full border border-blue-200/60'>
+                  <MapPin className='w-3.5 h-3.5 text-[#0066CC]' />
+                  <span>OFFICE LOCATION & GPS COORDINATES</span>
+                </div>
+                <h3 className='text-xl sm:text-2xl font-bold font-display uppercase tracking-tight text-slate-900'>
+                  NETPACK LOGISTIC HEADQUARTERS
+                </h3>
+                <p className='text-xs sm:text-sm text-slate-600 font-mono'>
+                  {mapInfo.address} • GPS: <span className='font-bold text-slate-900'>{mapInfo.coordinates}</span>
+                </p>
+              </div>
+
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapInfo.coordinates || 'NetPack Logistic Teku Kathmandu')}`}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-xs font-mono font-bold text-slate-800 transition shadow-xs'
+              >
+                <Navigation className='w-4 h-4 text-[#0066CC]' />
+                <span>Open in Google Maps</span>
+                <ExternalLink className='w-3.5 h-3.5 text-slate-400' />
+              </a>
+            </div>
+
+            {/* Embedded Google Map */}
+            <div className='w-full overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-inner bg-slate-200 h-[260px] sm:h-[340px] md:h-[400px]'>
+              <iframe
+                src={mapInfo.googleMapsUrl}
+                width='100%'
+                height='100%'
+                style={{ border: 0 }}
+                allowFullScreen
+                loading='lazy'
+                referrerPolicy='no-referrer-when-downgrade'
+                title='NetPack Logistic Location Map'
+                className='w-full h-full'
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* PART B: Clean Hairline Footer & Legal Disclosures (White / Slate-50) */}
@@ -346,9 +420,7 @@ export const QuoteSection: React.FC<{
           <div className='pt-8 flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-slate-500 gap-4'>
             <p>© {new Date().getFullYear()} {LANDING_CONFIG.legalName}. All rights reserved.</p>
             <div className='flex items-center gap-6'>
-              <span>Teku Customs Gateway</span>
-              <span>•</span>
-              <span>License No: 4892/080</span>
+              <span>Kathmandu Central Hub</span>
             </div>
           </div>
         </div>

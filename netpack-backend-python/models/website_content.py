@@ -13,6 +13,8 @@ class WebsiteContent(Base):
     contactEmail = Column(String(100), default="admin@netpacklogistic.com")
     contactAddress = Column(String(255), default="Teku Road, Ward No. 15, Kathmandu, Nepal")
     businessHours = Column(String(100), default="10:00 am - 5:00 pm (Sun - Fri)")
+    googleMapsUrl = Column(Text, nullable=True)
+    mapCoordinates = Column(String(100), default="27.6975, 85.3090")
     tickerItems = Column(Text, default='["Air Cargo Route: KTM ➔ DXB (Daily Direct)", "Kathmandu Valley Pickup: Active (20-30 min dispatch)", "TIA Customs Clearance: Operational", "Coverage: 75+ Hubs Across Nepal & Worldwide"]')
     festiveTheme = Column(String(50), default="auto")
     festiveGreeting = Column(String(255), nullable=True)

@@ -14,14 +14,22 @@ import { QuoteSection } from './components/QuoteSection'
 import { RateEnquiryModal } from './components/RateEnquiryModal'
 import { MobileAppModal } from './components/MobileAppModal'
 import { isAuthenticated } from '@/lib/auth'
+import { SERVER_URL } from '@/constants/endpoint'
 
 import {
   Menu,
   X,
   Search,
   ArrowRight,
-  MessageCircle,
 } from 'lucide-react'
+
+const DEFAULT_TICKER_ITEMS = [
+  'Air Cargo Route: KTM ➔ DXB (Daily Direct)',
+  'Kathmandu Valley Pickup: Active (20–30 min dispatch)',
+  'TIA Customs Clearance: Operational & Export Cleared',
+  'Global Forwarding: 45+ Countries Worldwide',
+  'Teku Central Sorting Hub: Live Handling',
+]
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -32,8 +40,20 @@ export default function LandingPage() {
   const [prefilledService, setPrefilledService] = useState('')
   const [heroTrackInput, setHeroTrackInput] = useState('')
   const [showHeroTrackBar, setShowHeroTrackBar] = useState(false)
+  const [tickerItems, setTickerItems] = useState<string[]>(DEFAULT_TICKER_ITEMS)
 
   const lenisRef = useRef<Lenis | null>(null)
+
+  useEffect(() => {
+    fetch(`${SERVER_URL}/api/website-content`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.tickerItems && Array.isArray(data.tickerItems) && data.tickerItems.length > 0) {
+          setTickerItems(data.tickerItems)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Initialize Butter-Smooth Scrolling via Lenis
   useEffect(() => {
@@ -214,10 +234,22 @@ export default function LandingPage() {
           <div className='grid grid-cols-1 lg:grid-cols-12 gap-12 items-center'>
             {/* Hero Left Content */}
             <div className='lg:col-span-7 space-y-6 text-center lg:text-left'>
-              {/* Operational Status Pill */}
-              <div className='inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-mono tracking-wider text-slate-700 shadow-sm'>
-                <span className='w-2 h-2 rounded-full bg-[#10B981] animate-pulse' />
-                <span>KATHMANDU INTERNATIONAL CARGO TERMINAL • LIVE</span>
+              {/* Moving Dispatch Ticker mapped above Headline */}
+              <div className='w-full max-w-xl mx-auto lg:mx-0 overflow-hidden rounded-full bg-slate-900 text-white border border-slate-800 shadow-sm flex items-center p-1 select-none'>
+                <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 text-[11px] font-mono tracking-wider uppercase font-semibold text-emerald-400 shrink-0 z-10'>
+                  <span className='w-2 h-2 rounded-full bg-emerald-400 animate-pulse' />
+                  <span>LIVE DISPATCH</span>
+                </div>
+                <div className='overflow-hidden w-full relative flex-1'>
+                  <div className='animate-marquee flex items-center gap-6 whitespace-nowrap pl-4 text-xs font-mono text-slate-200'>
+                    {tickerItems.concat(tickerItems).map((item, idx) => (
+                      <span key={idx} className='inline-flex items-center gap-2'>
+                        <span>{item}</span>
+                        <span className='text-slate-500'>•</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Huge Bold Grotesk Headline */}
@@ -358,25 +390,6 @@ export default function LandingPage() {
         prefilledService={prefilledService}
         onOpenAppModal={() => setShowAppModal(true)}
       />
-
-      {/* ──────────────────────────────────────────────────────────
-          FLOATING WHATSAPP BUTTON (Bottom-Right)
-          ────────────────────────────────────────────────────────── */}
-      <a
-        href={`https://wa.me/${LANDING_CONFIG.whatsapp.phone}?text=${encodeURIComponent(
-          LANDING_CONFIG.whatsapp.defaultMessage
-        )}`}
-        target='_blank'
-        rel='noopener noreferrer'
-        className='fixed bottom-6 right-6 z-40 p-4 rounded-full bg-[#25D366] text-white shadow-2xl hover:scale-110 active:scale-95 transition-transform flex items-center justify-center group'
-        aria-label='Direct WhatsApp Support'
-        title={`WhatsApp Support: ${LANDING_CONFIG.whatsapp.displayNumber}`}
-      >
-        <MessageCircle className='w-6 h-6 fill-current' />
-        <span className='max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 ease-out font-mono text-xs font-bold pl-0 group-hover:pl-2'>
-          WhatsApp Desk
-        </span>
-      </a>
 
       {/* ──────────────────────────────────────────────────────────
           RATE ENQUIRY & ESTIMATE MODAL (Cargo / Courier Quote)

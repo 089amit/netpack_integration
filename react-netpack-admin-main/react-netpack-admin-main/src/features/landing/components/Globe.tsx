@@ -278,11 +278,6 @@ export const HeroGlobe: React.FC = () => {
       {/* Three.js Canvas Container */}
       <div ref={containerRef} className='w-full h-full relative z-10' />
 
-      {/* Telemetry Badge */}
-      <div className='absolute bottom-4 left-4 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 border border-slate-200 backdrop-blur-md text-[11px] font-mono tracking-wider text-slate-700 shadow-md'>
-        <span className='w-2 h-2 rounded-full bg-[#FF7A1A] animate-ping' />
-        <span>KTM GLOBAL 3D NETWORK ACTIVE</span>
-      </div>
     </div>
   )
 }

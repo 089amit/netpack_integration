@@ -106,15 +106,6 @@ export const ServicesSection: React.FC<{ onSelectServiceForQuote?: (title: strin
                   <span>Learn Details</span>
                   <ArrowRight className='w-3.5 h-3.5 group-hover:translate-x-1 transition-transform' />
                 </button>
-
-                <button
-                  onClick={() => {
-                    if (onSelectServiceForQuote) onSelectServiceForQuote(service.title)
-                  }}
-                  className='text-[11px] font-mono px-3 py-1 rounded-full border border-slate-200 hover:border-[#0066CC] hover:text-[#0066CC] text-slate-600 transition'
-                >
-                  Quote
-                </button>
               </div>
             </div>
           ))}

@@ -132,8 +132,10 @@ const DEFAULT_CONTENT: WebsiteContent = {
   heroBadge: 'Teku, Kathmandu Headquarters',
   contactPhone: '+977 15339942',
   contactEmail: 'info@netpacklogistic.com',
-  contactAddress: 'Teku Road, Ward No. 15, Kathmandu, Nepal',
+  contactAddress: 'Teku-12, Kathmandu, Nepal',
   businessHours: '10:00 am - 5:00 pm (Sun - Fri)',
+  googleMapsUrl: 'https://maps.google.com/maps?q=27.6975,85.3090&hl=en&z=16&output=embed',
+  mapCoordinates: '27.6975, 85.3090',
   tickerItems: [
     'Air Cargo Route: KTM ➔ DXB (Daily Direct)',
     'Kathmandu Valley Pickup: Active (20-30 min dispatch)',
@@ -166,6 +168,8 @@ export default function WebsiteContentPage() {
           contactEmail: res.contactEmail || DEFAULT_CONTENT.contactEmail,
           contactAddress: res.contactAddress || DEFAULT_CONTENT.contactAddress,
           businessHours: res.businessHours || DEFAULT_CONTENT.businessHours,
+          googleMapsUrl: res.googleMapsUrl || DEFAULT_CONTENT.googleMapsUrl,
+          mapCoordinates: res.mapCoordinates || DEFAULT_CONTENT.mapCoordinates,
           tickerItems:
             Array.isArray(res.tickerItems) && res.tickerItems.length > 0
               ? res.tickerItems
@@ -642,6 +646,32 @@ export default function WebsiteContentPage() {
                       value={formData.businessHours}
                       onChange={(e) => setFormData({ ...formData, businessHours: e.target.value })}
                       placeholder='10:00 am - 5:00 pm (Sun - Fri)'
+                      className='h-9 text-xs'
+                    />
+                  </div>
+
+                  <div className='space-y-1.5'>
+                    <label className='text-xs font-semibold text-foreground flex items-center gap-1.5'>
+                      <MapPin className='h-3.5 w-3.5 text-blue-500' />
+                      <span>Google Maps Location Coordinates</span>
+                    </label>
+                    <Input
+                      value={formData.mapCoordinates || ''}
+                      onChange={(e) => setFormData({ ...formData, mapCoordinates: e.target.value })}
+                      placeholder='27.6975, 85.3090'
+                      className='h-9 text-xs'
+                    />
+                  </div>
+
+                  <div className='space-y-1.5 md:col-span-2'>
+                    <label className='text-xs font-semibold text-foreground flex items-center gap-1.5'>
+                      <ExternalLink className='h-3.5 w-3.5 text-emerald-500' />
+                      <span>Google Maps Embed or Direct Link</span>
+                    </label>
+                    <Input
+                      value={formData.googleMapsUrl || ''}
+                      onChange={(e) => setFormData({ ...formData, googleMapsUrl: e.target.value })}
+                      placeholder='https://maps.google.com/maps?q=27.6975,85.3090&hl=en&z=16&output=embed'
                       className='h-9 text-xs'
                     />
                   </div>

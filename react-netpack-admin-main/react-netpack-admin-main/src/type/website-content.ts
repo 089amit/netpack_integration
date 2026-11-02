@@ -7,6 +7,8 @@ export interface WebsiteContent {
   contactEmail: string
   contactAddress: string
   businessHours: string
+  googleMapsUrl?: string
+  mapCoordinates?: string
   tickerItems: string[]
   festiveTheme?: string
   festiveGreeting?: string
