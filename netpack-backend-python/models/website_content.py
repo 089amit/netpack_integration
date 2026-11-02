@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float
 from datetime import datetime
 from database import Base
 
@@ -18,4 +18,5 @@ class WebsiteContent(Base):
     tickerItems = Column(Text, default='["Air Cargo Route: KTM ➔ DXB (Daily Direct)", "Kathmandu Valley Pickup: Active (20-30 min dispatch)", "TIA Customs Clearance: Operational", "Coverage: 75+ Hubs Across Nepal & Worldwide"]')
     festiveTheme = Column(String(50), default="auto")
     festiveGreeting = Column(String(255), nullable=True)
+    appFreightMarkupPercent = Column(Float, default=10.0)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

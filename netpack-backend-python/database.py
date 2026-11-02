@@ -237,6 +237,8 @@ def run_auto_migrations(target_engine):
                     conn.execute(sa.text('ALTER TABLE website_contents ADD COLUMN "festiveTheme" VARCHAR(50) DEFAULT \'auto\''))
                 if "festivegreeting" not in existing_wc_cols:
                     conn.execute(sa.text('ALTER TABLE website_contents ADD COLUMN "festiveGreeting" VARCHAR(255)'))
+                if "appfreightmarkuppercent" not in existing_wc_cols:
+                    conn.execute(sa.text('ALTER TABLE website_contents ADD COLUMN "appFreightMarkupPercent" FLOAT DEFAULT 10.0'))
                 conn.commit()
             except Exception as e:
                 try:

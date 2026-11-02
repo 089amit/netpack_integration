@@ -1267,6 +1267,15 @@ class TrackingRegistry:
                 "items": box_items_list
             })
 
+        tm_est_delivery = getattr(shipment, "_tm_estimated_delivery", None) if shipment else None
+        if not tm_est_delivery and fwd_number and trackingmore_service.is_configured:
+            try:
+                tm_live = trackingmore_service.get_tracking(fwd_number, fwd_company_name)
+                if tm_live.get("found") and tm_live.get("estimated_delivery_date"):
+                    tm_est_delivery = tm_live.get("estimated_delivery_date")
+            except Exception:
+                pass
+
         return {
             "found": True,
             "shipmentId": shipment.id if shipment else None,
@@ -1377,7 +1386,8 @@ class TrackingRegistry:
             "flightNumber": None,
             "airlineTrackingUrl": None,
             "departureDate": dep_ts.isoformat() if dep_ts else (linked_mawb.departureDate.isoformat() if (linked_mawb and linked_mawb.departureDate) else None),
-            "arrivalDate": hub_ts.isoformat() if hub_ts else (linked_mawb.dateOfArrival.isoformat() if (linked_mawb and linked_mawb.dateOfArrival) else None),
+            "arrivalDate": None,
+            "estimatedDeliveryDate": tm_est_delivery,
             # Checkpoints
             "checkpoints": [cp.to_dict() for cp in checkpoints]
         }

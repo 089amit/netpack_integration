@@ -324,6 +324,13 @@ class TrackingMoreService:
                     del_status = raw_info.get("delivery_status")
                     latest_substatus = raw_info.get("substatus") or raw_info.get("latest_substatus") or ""
                     milestone_date = raw_info.get("milestone_date") or {}
+                    estimated_delivery = (
+                        raw_info.get("estimated_delivery_date")
+                        or raw_info.get("expected_delivery")
+                        or raw_info.get("predicted_delivery_date")
+                        or (milestone_date.get("estimated_delivery") if isinstance(milestone_date, dict) else None)
+                        or (milestone_date.get("delivery") if isinstance(milestone_date, dict) else None)
+                    )
                     latest_event = raw_info.get("latest_event") or ""
                     c_code = raw_info.get("courier_code") or courier_code
                     mapped_overall = self.map_status(
@@ -348,6 +355,7 @@ class TrackingMoreService:
                         "overall_status": mapped_overall,
                         "latest_event": latest_event,
                         "latest_checkpoint_time": raw_info.get("latest_checkpoint_time"),
+                        "estimated_delivery_date": estimated_delivery,
                         "raw_info": raw_info,
                         "checkpoints": checkpoints
                     }

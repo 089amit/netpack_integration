@@ -4,6 +4,7 @@ from typing import List, Optional, Union, Any
 import openpyxl
 from database import get_db
 from models.rate import Rate, TIACharge, CustomCharge, PackingCharge
+from models.website_content import WebsiteContent
 from models.location import Country, Zone
 from schemas.rate import (
     RateCalculatorRequest, SurchargeUpdateRequest,
@@ -88,6 +89,25 @@ def update_packing_charge(payload: SurchargeUpdateRequest, db: Session = Depends
         r.rate = payload.rate
     db.commit()
     return {"message": "Packing charge updated", "rate": payload.rate}
+
+@router.get("/getMarkup")
+@router.get("/markup")
+def get_freight_markup(db: Session = Depends(get_db)):
+    wc = db.query(WebsiteContent).first()
+    val = float(wc.appFreightMarkupPercent) if (wc and wc.appFreightMarkupPercent is not None) else 10.0
+    return {"markupPercent": val, "rate": val}
+
+@router.post("/updateMarkup")
+@router.put("/markup")
+def update_freight_markup(payload: SurchargeUpdateRequest, db: Session = Depends(get_db)):
+    wc = db.query(WebsiteContent).first()
+    if not wc:
+        wc = WebsiteContent(appFreightMarkupPercent=payload.rate)
+        db.add(wc)
+    else:
+        wc.appFreightMarkupPercent = payload.rate
+    db.commit()
+    return {"message": "Freight markup percentage updated", "rate": payload.rate, "markupPercent": payload.rate}
 
 @router.get("/countries/{countryName}")
 def get_rates_by_country(countryName: str, db: Session = Depends(get_db)):

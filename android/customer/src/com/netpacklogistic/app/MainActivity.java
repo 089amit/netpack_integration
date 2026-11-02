@@ -43,6 +43,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.InputStream;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -686,12 +687,26 @@ public class MainActivity extends Activity {
                 }
                 // If results is still null, camera capture saved directly to cameraPhotoUri
                 if (results == null && cameraPhotoUri != null) {
+                    boolean valid = false;
                     try {
-                        File f = new File(cameraPhotoUri.getPath());
-                        if (f.exists() && f.length() > 0) {
-                            results = new Uri[]{cameraPhotoUri};
+                        if ("content".equalsIgnoreCase(cameraPhotoUri.getScheme())) {
+                            try (InputStream is = getContentResolver().openInputStream(cameraPhotoUri)) {
+                                if (is != null) {
+                                    valid = true;
+                                }
+                            }
+                        } else {
+                            File f = new File(cameraPhotoUri.getPath());
+                            if (f.exists() && f.length() > 0) {
+                                valid = true;
+                            }
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Throwable t) {
+                        valid = true;
+                    }
+                    if (valid) {
+                        results = new Uri[]{cameraPhotoUri};
+                    }
                 }
             }
             fileUploadCallback.onReceiveValue(results);

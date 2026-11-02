@@ -232,6 +232,20 @@ def export_database_snapshot():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+# App Version check endpoint for in-app updates
+@app.get("/api/app/version", tags=["App"])
+@app.get("/api/version", tags=["App"])
+def get_app_version():
+    return {
+        "version": "1.0.9",
+        "versionCode": 9,
+        "releaseDate": "2026-11-02",
+        "minRequiredVersionCode": 8,
+        "customerApkUrl": "/download/customer.apk",
+        "riderApkUrl": "/download/rider.apk",
+        "releaseNotes": "Fast notifications, camera scale proof capture fix, milestone tracking, and freight rate margin controls."
+    }
+
 # Custom hook router for future Python project integrations
 @app.get("/api/integrations/status", tags=["Integrations"])
 def integration_status():

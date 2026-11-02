@@ -5411,6 +5411,25 @@ export default function CustomerPWA() {
   const [screen, setScreen] = useState<Screen>('home')
   const [activeTrackingId, setActiveTrackingId] = useState('NP-20240922-001')
   const [trackingReturnScreen, setTrackingReturnScreen] = useState<Screen>('home')
+  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
+
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/app/version`)
+        if (res.ok) {
+          const data = await res.json()
+          const currentLoadedVersion = '1.0.8'
+          if (data.version && data.version !== currentLoadedVersion) {
+            setUpdateAvailable(data.version)
+          }
+        }
+      } catch {}
+    }
+    checkVersion()
+    const timer = setInterval(checkVersion, 5 * 60 * 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Real backend state: clean empty default so new accounts have 0 consignments
   const [shipments, setShipments] = useState<Shipment[]>([])
@@ -5803,6 +5822,30 @@ export default function CustomerPWA() {
         onDismiss={() => setActiveBannerNotification(null)}
       />
       <div className="w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] shadow-2xl">
+        {updateAvailable && (
+          <div className="sticky top-0 z-50 bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-800 text-white px-3.5 py-2.5 shadow-lg flex items-center justify-between text-xs font-semibold animate-in fade-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2 truncate">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+              </span>
+              <span className="truncate">New version v{updateAvailable} available!</span>
+            </div>
+            <button
+              onClick={() => {
+                try {
+                  if ('caches' in window) {
+                    caches.keys().then(names => names.forEach(name => caches.delete(name)))
+                  }
+                } catch {}
+                window.location.reload()
+              }}
+              className="shrink-0 ml-2 bg-white hover:bg-blue-50 text-blue-900 font-black px-3 py-1 rounded-lg text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+            >
+              Tap to update
+            </button>
+          </div>
+        )}
         {!customerUser ? (
           <AuthScreen
             onAuthenticated={(user, token) => {

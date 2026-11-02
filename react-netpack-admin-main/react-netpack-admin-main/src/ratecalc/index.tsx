@@ -63,10 +63,11 @@ export default function RateCalculatorPage() {
   const [tiaRate, setTiaRate] = useState<number | null>(null)
   const [customRate, setCustomRate] = useState<number | null>(null)
   const [packingRate, setPackingRate] = useState<number | null>(null)
+  const [markupRate, setMarkupRate] = useState<number | null>(null)
   const [ratesLoading, setRatesLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState<
-    'TIA' | 'CUSTOM' | 'PACKING' | null
+    'TIA' | 'CUSTOM' | 'PACKING' | 'MARKUP' | null
   >(null)
   const [modalValue, setModalValue] = useState<number>(0)
   const [modalLoading, setModalLoading] = useState(false)
@@ -95,14 +96,16 @@ export default function RateCalculatorPage() {
       setCountries(countryList)
       if (countryList.length > 0) setDestination(countryList[0].name)
 
-      const [tiaRes, customRes, packingRes] = await Promise.all([
+      const [tiaRes, customRes, packingRes, markupRes] = await Promise.all([
         http.get<{ rate: string }>(RATE_ENDPOINT.GET_TIA_RATE),
         http.get<{ rate: string }>(RATE_ENDPOINT.GET_CUSTOM_RATE),
         http.get<{ rate: string }>(RATE_ENDPOINT.GET_PACKING_RATE),
+        http.get<{ rate: number; markupPercent: number }>(RATE_ENDPOINT.GET_MARKUP_RATE).catch(() => ({ rate: 10, markupPercent: 10 })),
       ])
       setTiaRate(parseFloat(tiaRes.rate))
       setCustomRate(parseFloat(customRes.rate))
       setPackingRate(parseFloat(packingRes.rate))
+      setMarkupRate(markupRes.markupPercent ?? 10)
     } catch (err: any) {
       console.error('Excel Import Error:', err)
       alert(`Failed to import Excel file: ${err.message || 'Unknown error'}`)
@@ -161,14 +164,16 @@ export default function RateCalculatorPage() {
     fetchRates()
   }, [])
 
-  const openModal = (type: 'TIA' | 'CUSTOM' | 'PACKING') => {
+  const openModal = (type: 'TIA' | 'CUSTOM' | 'PACKING' | 'MARKUP') => {
     setModalType(type)
     const currentValue =
       type === 'TIA'
         ? (tiaRate ?? 0)
         : type === 'CUSTOM'
           ? (customRate ?? 0)
-          : (packingRate ?? 0)
+          : type === 'PACKING'
+            ? (packingRate ?? 0)
+            : (markupRate ?? 10)
     setModalValue(currentValue)
     setShowModal(true)
   }
@@ -188,20 +193,24 @@ export default function RateCalculatorPage() {
           ? RATE_ENDPOINT.UPDATE_TIA_CHARGE
           : modalType === 'CUSTOM'
             ? RATE_ENDPOINT.UPDATE_CUSTOM_CHARGE
-            : RATE_ENDPOINT.UPDATE_PACKING_CHARGE
+            : modalType === 'PACKING'
+              ? RATE_ENDPOINT.UPDATE_PACKING_CHARGE
+              : RATE_ENDPOINT.UPDATE_MARKUP_RATE
 
       await http.post(endpoint, { rate: modalValue })
-      alert(`${modalType} rate updated successfully.`)
+      alert(`${modalType === 'MARKUP' ? 'App & Web freight markup' : modalType} updated successfully.`)
 
       // Refresh rates
-      const [tiaRes, customRes, packingRes] = await Promise.all([
+      const [tiaRes, customRes, packingRes, markupRes] = await Promise.all([
         http.get<{ rate: string }>(RATE_ENDPOINT.GET_TIA_RATE),
         http.get<{ rate: string }>(RATE_ENDPOINT.GET_CUSTOM_RATE),
         http.get<{ rate: string }>(RATE_ENDPOINT.GET_PACKING_RATE),
+        http.get<{ rate: number; markupPercent: number }>(RATE_ENDPOINT.GET_MARKUP_RATE).catch(() => ({ rate: 10, markupPercent: 10 })),
       ])
       setTiaRate(parseFloat(tiaRes.rate))
       setCustomRate(parseFloat(customRes.rate))
       setPackingRate(parseFloat(packingRes.rate))
+      setMarkupRate(markupRes.markupPercent ?? 10)
 
       closeModal()
     } catch {
@@ -286,6 +295,16 @@ export default function RateCalculatorPage() {
           >
             Change Packing Rate{' '}
             {packingRate !== null ? `: Rs ${packingRate.toFixed(2)}` : ''}
+          </Button>
+
+          <Button
+            variant='outline'
+            className='border-blue-300 bg-blue-50/50 hover:bg-blue-100/50 text-blue-900 font-medium'
+            onClick={() => openModal('MARKUP')}
+            disabled={ratesLoading}
+            title='Define freight markup for public mobile app and landing page enquiries'
+          >
+            App & Landing Margin: {markupRate !== null ? `${markupRate}%` : '10%'}
           </Button>
         </div>
       )}
@@ -433,10 +452,12 @@ export default function RateCalculatorPage() {
           <DialogHeader>
             <DialogTitle>
               {modalType === 'TIA'
-                ? 'Update TIA Rate'
+                ? 'Update TIA Rate (Rs / kg)'
                 : modalType === 'CUSTOM'
-                  ? 'Update Custom Rate'
-                  : 'Update Packing Rate'}
+                  ? 'Update Custom Rate (Rs / box)'
+                  : modalType === 'PACKING'
+                    ? 'Update Packing Rate (Rs / box)'
+                    : 'Update App & Landing Freight Margin (%)'}
             </DialogTitle>
           </DialogHeader>
           <Input

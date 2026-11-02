@@ -90,9 +90,9 @@ export async function fetchTracking(trackingId: string): Promise<TrackingResult>
           pieces: data.pieces || (Array.isArray(data.boxes) ? data.boxes.length : 1),
           actualWeight: data.weight || 0,
           chargeableWeight: data.chargeableWeight || data.weight || 0,
-          estimatedDelivery: data.arrivalDate
-            ? formatCheckpointTime(data.arrivalDate)
-            : 'Scheduled Route',
+          estimatedDelivery: data.estimatedDeliveryDate
+            ? formatCheckpointTime(data.estimatedDeliveryDate)
+            : undefined,
           timeline: mappedTimeline,
         }
       }
@@ -143,7 +143,7 @@ function getDemoTrackingResult(): TrackingResult {
     pieces: 2,
     actualWeight: 18.5,
     chargeableWeight: 22.0,
-    estimatedDelivery: 'Nov 04, 2026, 04:30 PM',
+    estimatedDelivery: undefined,
     timeline: [
       {
         id: 1,
@@ -358,10 +358,12 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
                   {result.chargeableWeight || result.actualWeight} kg • {result.pieces} {result.pieces === 1 ? 'Box' : 'Boxes'}
                 </span>
               </div>
-              <div>
-                <span className='text-slate-500 block uppercase'>Estimated Arrival</span>
-                <span className='text-[#0066CC] font-bold text-sm block mt-0.5'>{result.estimatedDelivery}</span>
-              </div>
+              {result.estimatedDelivery ? (
+                <div>
+                  <span className='text-slate-500 block uppercase'>Estimated Delivery</span>
+                  <span className='text-[#0066CC] font-bold text-sm block mt-0.5'>{result.estimatedDelivery}</span>
+                </div>
+              ) : null}
             </div>
 
             {/* Chronological Real Checkpoints Timeline */}

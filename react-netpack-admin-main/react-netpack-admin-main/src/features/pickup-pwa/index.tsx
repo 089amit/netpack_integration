@@ -232,6 +232,26 @@ export default function PickupRiderPWA() {
     }
   }, [riderToken, riderUser])
 
+  // In-app version update listener
+  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/app/version`)
+        if (res.ok) {
+          const data = await res.json()
+          const currentLoadedVersion = '1.0.8'
+          if (data.version && data.version !== currentLoadedVersion) {
+            setUpdateAvailable(data.version)
+          }
+        }
+      } catch {}
+    }
+    checkVersion()
+    const timer = setInterval(checkVersion, 5 * 60 * 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   // ─── Save Settings ────────────────────────────────────────────────────────
   const toggleOnline = (val: boolean) => {
     setIsOnline(val)
@@ -958,6 +978,30 @@ export default function PickupRiderPWA() {
         onDismiss={() => setModernPickupAlert(null)}
       />
       <div className='w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl pb-24 select-none'>
+        {updateAvailable && (
+          <div className="sticky top-0 z-50 bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-800 text-white px-3.5 py-2.5 shadow-lg flex items-center justify-between text-xs font-semibold animate-in fade-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2 truncate">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+              </span>
+              <span className="truncate">New Rider version v{updateAvailable} available!</span>
+            </div>
+            <button
+              onClick={() => {
+                try {
+                  if ('caches' in window) {
+                    caches.keys().then(names => names.forEach(name => caches.delete(name)))
+                  }
+                } catch {}
+                window.location.reload()
+              }}
+              className="shrink-0 ml-2 bg-white hover:bg-blue-50 text-blue-900 font-black px-3 py-1 rounded-lg text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+            >
+              Tap to update
+            </button>
+          </div>
+        )}
         {/* ─── Sticky Top App Bar (Curved Gradient Header) ────────────────── */}
         <header
           className='sticky top-0 z-40 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] text-white px-4 pb-3 rounded-b-[20px] shadow-lg shadow-black/20'
@@ -1728,13 +1772,15 @@ export default function PickupRiderPWA() {
                         </Button>
                       )
                     ) : (p.shipmentId || ['SHIPMENT_CREATED', 'IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'DELIVERED'].includes((p.status || '').toUpperCase())) ? (
-                      <div
-                        className='flex-1 h-9 rounded-xl border border-border/60 bg-muted/20 px-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground font-medium select-none'
-                        title='Shipment export routing has been created. Consignment box details and notes are locked from rider edits.'
+                      <Button
+                        variant='outline'
+                        disabled
+                        className='flex-1 text-xs h-9 border-border bg-muted/20 text-muted-foreground/50 cursor-not-allowed opacity-50'
+                        title='Box details and notes are locked once shipment is created'
                       >
-                        <Lock className='h-3.5 w-3.5 text-amber-500' />
-                        <span>Shipment Created (Locked)</span>
-                      </div>
+                        <Lock className='h-3.5 w-3.5 mr-1 text-muted-foreground/50' />
+                        Re-inspect / Edit
+                      </Button>
                     ) : (
                       <Button
                         variant='outline'

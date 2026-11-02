@@ -3,6 +3,7 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from models.location import Country, Zone, AreaSurcharge
 from models.rate import Rate, TIACharge, CustomCharge, PackingCharge
+from models.website_content import WebsiteContent
 
 def calculate_ceiling_weight(weight: float) -> float:
     if weight is None or weight <= 0:
@@ -89,7 +90,17 @@ def compute_shipping_rate(
     if is_web_customer:
         freight_multiplier = 1.0
     else:
-        margin_pct = 0.10 if custom_margin_pct is None else float(custom_margin_pct)
+        if custom_margin_pct is not None:
+            margin_pct = float(custom_margin_pct)
+        else:
+            try:
+                wc = db.query(WebsiteContent).first()
+                if wc and getattr(wc, "appFreightMarkupPercent", None) is not None:
+                    margin_pct = float(wc.appFreightMarkupPercent) / 100.0
+                else:
+                    margin_pct = 0.10
+            except Exception:
+                margin_pct = 0.10
         freight_multiplier = 1.0 + margin_pct
 
     base_rate = raw_base_rate * freight_multiplier

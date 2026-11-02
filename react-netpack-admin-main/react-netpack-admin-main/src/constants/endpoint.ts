@@ -195,6 +195,8 @@ export const RATE_ENDPOINT = {
   GET_TIA_RATE: `${BASE_URL}/rate/getTIACharge`,
   GET_PACKING_RATE: `${BASE_URL}/rate/getPackingRate`,
   GET_CUSTOM_RATE: `${BASE_URL}/rate/getCustomCharge`,
+  GET_MARKUP_RATE: `${BASE_URL}/rate/getMarkup`,
+  UPDATE_MARKUP_RATE: `${BASE_URL}/rate/updateMarkup`,
 }
 
 export const USER_ROLE = {
