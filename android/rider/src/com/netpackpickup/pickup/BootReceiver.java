@@ -37,7 +37,7 @@ public class BootReceiver extends BroadcastReceiver {
 
             PendingIntent pi = PendingIntent.getBroadcast(context, 2001, alarmIntent, flags);
 
-            long triggerAtMillis = SystemClock.elapsedRealtime() + 10 * 1000;
+            long triggerAtMillis = SystemClock.elapsedRealtime() + 3 * 1000; // 3s initial check
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAtMillis, pi);

@@ -222,6 +222,20 @@ interface TrackingDetails {
   weightProofImageUrl?: string
   weightProofImages?: string[]
   pickupLocations?: Array<{ id?: number; location: string; phoneNumber?: string; note?: string; isPickedUp?: boolean; pickedUpAt?: string }>
+  hawbs?: Array<{
+    id: number
+    hawbno: string
+    forwardingNumber?: string
+    forwardingCompany?: string
+    status: string
+    boxCount: number
+    totalWeight: number
+    assignedBoxNumbers?: number[]
+    boxNumbersDisplay?: string
+    carrierCode?: string
+    carrierTrackingUrl?: string
+  }>
+  isSplitHawb?: boolean
 }
 
 // ─── Initial Mock Data & Fallbacks ─────────────────────────────────────────────
@@ -1775,6 +1789,10 @@ function TrackingScreen({
 
           setData({
             tracking: liveRes.trackingNumber,
+            hawbno: liveRes.hawbNumber || liveRes.hawbno,
+            hawbNumber: liveRes.hawbNumber || liveRes.hawbno,
+            hawbs: Array.isArray(liveRes.hawbs) ? liveRes.hawbs : undefined,
+            isSplitHawb: Boolean(liveRes.isSplitHawb || (Array.isArray(liveRes.hawbs) && liveRes.hawbs.length > 1)),
             receiverName: liveRes.receiverName || 'Consignee',
             carrier: fwdCo || (fwdNo ? 'International Carrier' : 'Assigned at Airport Hub'),
             carrierTracking: fwdNo,
@@ -2247,6 +2265,85 @@ function TrackingScreen({
                   )}
                 </div>
               </div>
+
+              {/* Multi-HAWB Consignment Switcher for Partitioned Shipments */}
+              {data.hawbs && data.hawbs.length > 1 && (
+                <div className="rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50/60 to-white p-3.5 shadow-sm space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-sky-100 pb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                        Consignment HAWBs ({data.hawbs.length})
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
+                      Multi-HAWB Consignment
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {data.hawbs.map((h, hIdx) => {
+                      const isCurrent = h.hawbno === (data.hawbNumber || data.hawbno || data.tracking)
+                      return (
+                        <div
+                          key={h.id || hIdx}
+                          onClick={() => {
+                            if (!isCurrent && h.hawbno) {
+                              setTrackingId(h.hawbno)
+                              setSearchInput(h.hawbno)
+                              fetchTracking(h.hawbno)
+                            }
+                          }}
+                          className={`rounded-xl border p-2.5 text-xs transition-all cursor-pointer ${
+                            isCurrent
+                              ? 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-300 shadow-xs'
+                              : 'bg-white border-gray-200 hover:border-blue-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-xs text-slate-900">{h.hawbno}</span>
+                              {isCurrent ? (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-600 text-white">
+                                  Active View
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-blue-600 font-semibold underline">
+                                  Tap to view
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-semibold text-slate-600 bg-gray-100 px-1.5 py-0.5 rounded">
+                              {h.boxCount} {h.boxCount === 1 ? 'Box' : 'Boxes'} ({h.totalWeight} kg)
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] pt-1 border-t border-gray-100">
+                            <div className="truncate mr-2">
+                              <span className="text-gray-400 text-[10px] block">Carrier & Boxes:</span>
+                              <span className="font-mono font-bold text-slate-800">
+                                {h.forwardingNumber || 'Pending'} &rarr;{' '}
+                                <span className="text-blue-600">{h.boxNumbersDisplay || `Box 1-${h.boxCount}`}</span>
+                              </span>
+                            </div>
+                            {h.carrierTrackingUrl && (
+                              <a
+                                href={h.carrierTrackingUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline shrink-0"
+                              >
+                                Carrier Link
+                                <IconExternalLink size={10} />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Assigned Rider for Pickup Milestone Banner Card */}
               {data.stageIndex === 0 && Boolean(data.riderName || data.statusLabel === 'Rider Assigned') && (

@@ -25,6 +25,11 @@ from services.email_service import (
     send_shipment_delivery_notification,
     send_shipment_out_for_delivery_notification
 )
+from services.tracking_service import tracking_registry
+from services.trackingmore_service import trackingmore_service
+import logging
+
+logger = logging.getLogger("shipments")
 
 router = APIRouter(prefix="/api/shipments", tags=["Shipments"])
 
@@ -813,6 +818,24 @@ def update_shipment(id: int, payload: ShipmentUpdateRequest, db: Session = Depen
 
     db.commit()
     db.refresh(s)
+
+    # Immediately register with TrackingMore & sync live events so tracking is active instantly
+    if s.forwardingNumber and str(s.forwardingNumber).strip() and trackingmore_service.is_configured:
+        try:
+            fwd_clean = str(s.forwardingNumber).strip()
+            c_name = s.forwardingCompany.name if s.forwardingCompany else None
+            cust_name = s.customer.name if s.customer else (s.enquiry.senderName if s.enquiry else None)
+            trackingmore_service.create_tracking(
+                tracking_number=fwd_clean,
+                courier_code=c_name,
+                customer_name=cust_name,
+                title=f"NetPack {s.hawbno or fwd_clean}"
+            )
+            tracking_registry.sync_tracking_live(db, s)
+            db.refresh(s)
+        except Exception as tm_err:
+            logger.warning(f"Failed auto-registering TrackingMore for {s.forwardingNumber}: {tm_err}")
+
     return {"message": "Shipment updated successfully", "shipment": format_shipment_response(s, db)}
 
 @router.patch("/{id}/status")
@@ -1295,6 +1318,20 @@ def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depend
 
     for s in created_shipments:
         db.refresh(s)
+        if s.forwardingNumber and str(s.forwardingNumber).strip() and trackingmore_service.is_configured:
+            try:
+                fwd_clean = str(s.forwardingNumber).strip()
+                c_name = s.forwardingCompany.name if s.forwardingCompany else None
+                cust_name = s.customer.name if s.customer else (s.enquiry.senderName if s.enquiry else None)
+                trackingmore_service.create_tracking(
+                    tracking_number=fwd_clean,
+                    courier_code=c_name,
+                    customer_name=cust_name,
+                    title=f"NetPack {s.hawbno or fwd_clean}"
+                )
+                tracking_registry.sync_tracking_live(db, s)
+            except Exception as tm_err:
+                logger.warning(f"Failed auto-registering TrackingMore for partition {s.hawbno}: {tm_err}")
 
     return {
         "success": True,

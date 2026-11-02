@@ -18,6 +18,7 @@ import {
   Boxes,
   MapPin,
   X,
+  RefreshCw,
 } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import {
@@ -250,21 +251,58 @@ export function ShipmentTrackingDialog({
 }: ShipmentTrackingDialogProps) {
   const [liveData, setLiveData] = useState<any>(null)
   const [loading, setLoading] = useState<boolean>(false)
+  const [isSyncing, setIsSyncing] = useState<boolean>(false)
+  const [activeTarget, setActiveTarget] = useState<string | null>(null)
   const [isExpanded, setIsExpanded] = useState<boolean>(false)
   const [isPackageDetailsOpen, setIsPackageDetailsOpen] = useState<boolean>(false)
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null)
   const [copied, setCopied] = useState<boolean>(false)
 
-  const queryParam = trackingNumber || (enquiryId !== undefined ? String(enquiryId) : null)
+  const initialTarget = hawbNumber || trackingNumber || (enquiryId !== undefined ? String(enquiryId) : null)
 
-  const fetchTracking = () => {
-    if (!queryParam) return
+  const fetchTracking = (targetOverride?: string) => {
+    const idToUse = targetOverride || activeTarget || initialTarget
+    if (!idToUse) return
     setLoading(true)
-    fetch(`${API_BASE}/api/tracking/${encodeURIComponent(queryParam)}`)
+    fetch(`${API_BASE}/api/tracking/${encodeURIComponent(idToUse)}`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setLiveData(data))
+      .then((data) => {
+        if (data && data.found) {
+          setLiveData(data)
+          if (data.hawbNumber) {
+            setActiveTarget(data.hawbNumber)
+          }
+        } else {
+          setLiveData(data)
+        }
+      })
       .catch(() => setLiveData(null))
       .finally(() => setLoading(false))
+  }
+
+  const handleLiveSync = async () => {
+    const idToSync = liveData?.hawbNumber || liveData?.forwardingNumber || liveData?.shipmentId || activeTarget || initialTarget
+    if (!idToSync) return
+    setIsSyncing(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/tracking/sync/${encodeURIComponent(String(idToSync))}`, {
+        method: 'POST',
+      })
+      if (res.ok) {
+        const syncData = await res.json()
+        if (syncData.tracking) {
+          setLiveData(syncData.tracking)
+        } else {
+          fetchTracking(idToSync)
+        }
+      } else {
+        fetchTracking(idToSync)
+      }
+    } catch {
+      fetchTracking(idToSync)
+    } finally {
+      setIsSyncing(false)
+    }
   }
 
   const proofImages: string[] = useMemo(() => {
@@ -284,19 +322,23 @@ export function ShipmentTrackingDialog({
   }, [liveData?.boxes, liveData?.packages])
 
   useEffect(() => {
-    if (open && queryParam) {
-      fetchTracking()
+    if (open) {
+      const initId = hawbNumber || trackingNumber || (enquiryId !== undefined ? String(enquiryId) : null)
+      setActiveTarget(initId)
+      if (initId) {
+        fetchTracking(initId)
+      }
       setIsExpanded(false)
       setIsPackageDetailsOpen(false)
       setSelectedPhotoIndex(null)
-    }
-    if (!open) {
+    } else {
       setLiveData(null)
+      setActiveTarget(null)
       setIsExpanded(false)
       setIsPackageDetailsOpen(false)
       setSelectedPhotoIndex(null)
     }
-  }, [open, queryParam])
+  }, [open, trackingNumber, hawbNumber, enquiryId])
 
   useEffect(() => {
     if (selectedPhotoIndex === null) return
@@ -603,29 +645,56 @@ export function ShipmentTrackingDialog({
 
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1'>
                 {liveData.hawbs.map((h: any, hIdx: number) => {
-                  const isCurrent = h.hawbno === (liveData.hawbNumber || hawbNumber)
+                  const isCurrent = h.hawbno === (liveData.hawbNumber || activeTarget || hawbNumber)
 
                   return (
                     <div
                       key={h.id || hIdx}
-                      className={`rounded-lg border p-3 space-y-2 text-xs transition-all ${
+                      onClick={() => {
+                        if (!isCurrent && h.hawbno) {
+                          setActiveTarget(h.hawbno)
+                          fetchTracking(h.hawbno)
+                        }
+                      }}
+                      className={`rounded-lg border p-3 space-y-2 text-xs transition-all cursor-pointer ${
                         isCurrent
-                          ? 'bg-primary/5 border-primary/40 ring-1 ring-primary/20'
-                          : 'bg-background hover:bg-muted/30'
+                          ? 'bg-primary/10 border-primary ring-2 ring-primary/30 shadow-xs'
+                          : 'bg-background hover:bg-muted/60 hover:border-primary/40'
                       }`}
+                      title={isCurrent ? 'Currently viewing this HAWB' : `Click to view tracking for ${h.hawbno}`}
                     >
                       <div className='flex items-center justify-between gap-2'>
                         <div className='flex items-center gap-1.5'>
                           <span className='font-mono font-bold text-sm text-foreground'>{h.hawbno}</span>
-                          {isCurrent && (
+                          {isCurrent ? (
                             <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-primary text-primary-foreground'>
                               Active View
                             </Badge>
+                          ) : (
+                            <span className='text-[10px] text-primary/80 font-medium underline'>
+                              Click to view
+                            </span>
                           )}
                         </div>
-                        <Badge variant='outline' className='text-[10px] font-semibold'>
-                          {h.boxCount} {h.boxCount === 1 ? 'Box' : 'Boxes'} ({h.totalWeight} KG)
-                        </Badge>
+                        <div className='flex items-center gap-1.5'>
+                          {h.status && (
+                            <Badge
+                              variant='outline'
+                              className={`text-[9px] font-semibold uppercase px-1.5 py-0 h-4 ${
+                                h.status === 'DELIVERED'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300'
+                                  : h.status === 'CARRIER_SCANNED' || h.status === 'OUT_FOR_DELIVERY'
+                                  ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-indigo-300'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              {h.status.replace(/_/g, ' ')}
+                            </Badge>
+                          )}
+                          <Badge variant='outline' className='text-[10px] font-semibold'>
+                            {h.boxCount} {h.boxCount === 1 ? 'Box' : 'Boxes'} ({h.totalWeight} KG)
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className='flex items-center justify-between gap-2 pt-1 border-t text-[11px]'>
@@ -644,6 +713,7 @@ export function ShipmentTrackingDialog({
                             href={h.carrierTrackingUrl}
                             target='_blank'
                             rel='noreferrer'
+                            onClick={(e) => e.stopPropagation()}
                             className='inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline'
                           >
                             Carrier Link
@@ -667,7 +737,19 @@ export function ShipmentTrackingDialog({
                   Consignment Journey & Scans ({checkpoints.length})
                 </span>
               </div>
-              <span className='text-[11px] font-mono text-muted-foreground font-semibold'>Newest First</span>
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  onClick={handleLiveSync}
+                  disabled={isSyncing}
+                  className='inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md border border-primary/30 text-[11px] font-mono font-bold text-primary hover:bg-primary/5 transition disabled:opacity-50'
+                  title='Fetch newest carrier scans from TrackingMore API'
+                >
+                  <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? 'Syncing...' : 'Sync Live'}</span>
+                </button>
+                <span className='text-[11px] font-mono text-muted-foreground font-semibold'>Newest First</span>
+              </div>
             </div>
 
             {checkpoints.length > 0 ? (

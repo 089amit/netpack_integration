@@ -639,7 +639,30 @@ public class MainActivity extends Activity {
                     startActivity(bIntent);
                 }
             } catch (Throwable ignored) {}
+
+            // Android 12+ (API 31+) & Samsung: Check exact alarm permission
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+                    if (am != null && !am.canScheduleExactAlarms()) {
+                        Intent sIntent = new Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                        sIntent.setData(Uri.parse("package:" + getPackageName()));
+                        startActivity(sIntent);
+                    }
+                }
+            } catch (Throwable ignored) {}
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Immediately query notifications upon resuming/unlocking app
+        try {
+            Intent alarmIntent = new Intent(this, NotificationAlarmReceiver.class);
+            alarmIntent.setAction("com.netpacklogistic.app.CHECK_NOTIFICATIONS");
+            sendBroadcast(alarmIntent);
+        } catch (Throwable ignored) {}
     }
 
     @Override
