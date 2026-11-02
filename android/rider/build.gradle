@@ -10,8 +10,8 @@ android {
         applicationId "com.netpacklogistic.rider"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 9
+        versionName "1.0.9"
     }
 
     buildTypes {
