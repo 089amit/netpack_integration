@@ -22,17 +22,25 @@ from services.auth_service import (
     get_password_hash,
     create_access_token,
     decode_token,
-    get_current_admin
+    get_current_admin,
+    get_requester_identity
 )
 from services.email_service import (
     send_user_welcome_email,
     send_forgot_password_email
 )
+from pydantic import BaseModel
+
+class ChangePasswordPayload(BaseModel):
+    currentPassword: Optional[str] = None
+    oldPassword: Optional[str] = None
+    newPassword: str
 
 # In-memory store for 6-digit password reset codes: email -> (code, expiry_datetime)
 _password_reset_codes: Dict[str, Tuple[str, datetime]] = {}
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
+user_router = APIRouter(tags=["User Auth & Profile"])
 
 @router.post("/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
@@ -208,6 +216,108 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         "success": True
     }
 
+def process_change_password(payload: ChangePasswordPayload, authorization: Optional[str], db: Session):
+    requester = get_requester_identity(authorization, db)
+    if not requester.is_authenticated or not (requester.user or requester.customer):
+        raise HTTPException(status_code=401, detail="Authentication required to change password.")
+
+    current_pw = (payload.currentPassword or payload.oldPassword or "").strip()
+    new_pw = (payload.newPassword or "").strip()
+
+    if not new_pw or len(new_pw) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters long.")
+
+    target_hash = None
+    if requester.user and requester.user.password:
+        target_hash = requester.user.password
+    elif requester.customer and getattr(requester.customer, "password", None):
+        target_hash = requester.customer.password
+
+    if not target_hash or not verify_password(current_pw, target_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+
+    hashed = get_password_hash(new_pw)
+    if requester.user:
+        requester.user.password = hashed
+
+    # Also update linked Customer record if one exists
+    cust = None
+    if requester.user:
+        cust = db.query(Customer).filter(Customer.userId == requester.user.id).first()
+        if not cust and requester.user.email:
+            cust = db.query(Customer).filter(Customer.email == requester.user.email).first()
+    elif requester.customer:
+        cust = requester.customer
+
+    if cust:
+        cust.password = hashed
+
+    db.commit()
+    return {"success": True, "message": "Password changed successfully"}
+
+@router.post("/change-password")
+@router.post("/change-password/")
+@router.post("/user/changepassword")
+@router.post("/user/changepassword/")
+def admin_change_password(
+    payload: ChangePasswordPayload,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    return process_change_password(payload, authorization, db)
+
+@user_router.post("/user/changepassword")
+@user_router.post("/user/changepassword/")
+@user_router.post("/user/change-password")
+@user_router.post("/user/change-password/")
+@user_router.post("/users/change-password")
+@user_router.post("/users/change-password/")
+@user_router.post("/api/user/changepassword")
+@user_router.post("/api/user/changepassword/")
+@user_router.post("/api/user/change-password")
+@user_router.post("/api/user/change-password/")
+@user_router.post("/api/users/change-password")
+@user_router.post("/api/users/change-password/")
+def global_change_password(
+    payload: ChangePasswordPayload,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    return process_change_password(payload, authorization, db)
+
+@user_router.get("/api/users/me")
+def get_current_user_me(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    requester = get_requester_identity(authorization, db)
+    if not requester.is_authenticated or not requester.user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    u = requester.user
+    role_name = (u.role.name if u.role else "USER").upper()
+    return {
+        "admin": {
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "fullName": u.fullName,
+            "phoneNumber": u.phoneNumber,
+            "isActive": u.isActive,
+            "role": role_name,
+            "roleId": u.roleId,
+            "createdAt": u.createdAt.isoformat() if u.createdAt else None,
+            "updatedAt": u.updatedAt.isoformat() if u.updatedAt else None,
+            "address1": u.address1,
+            "address2": u.address2,
+            "city": u.city,
+            "state": u.state,
+            "postcode": u.postcode,
+            "countryId": u.countryId,
+            "isOrganization": u.isOrganization or False,
+            "organizationName": u.organizationName
+        }
+    }
+
 @router.post("/signUp")
 @router.post("/signUp/")
 @router.post("/signup")
@@ -225,12 +335,28 @@ def sign_up(
     user_role = db.query(Role).filter(Role.name == "USER").first()
     role_id = user_role.id if user_role else 3
 
+    # Resolve countryId safely
+    country_id = 1
+    if payload.countryId:
+        try:
+            country_id = int(payload.countryId)
+        except (ValueError, TypeError):
+            country_id = 1
+
     hashed_pw = get_password_hash(payload.password)
     user = User(
         email=payload.email.strip(),
         password=hashed_pw,
         fullName=payload.fullName or payload.email.split("@")[0],
         phoneNumber=payload.phoneNumber,
+        address1=payload.address1,
+        address2=payload.address2,
+        city=payload.city,
+        state=payload.state,
+        postcode=payload.postcode,
+        countryId=country_id,
+        isOrganization=payload.isOrganization or False,
+        organizationName=payload.organizationName,
         roleId=role_id,
         isActive=True
     )
@@ -238,7 +364,7 @@ def sign_up(
     db.commit()
     db.refresh(user)
 
-    # Automatically ensure user is also registered as a Customer
+    # Automatically ensure user is also registered as a Customer with complete address
     from models.customer import Customer
     cust = db.query(Customer).filter(Customer.userId == user.id).first()
     if not cust and user.email:
@@ -248,10 +374,37 @@ def sign_up(
             name=user.fullName or user.email.split("@")[0],
             phone=user.phoneNumber or "+977-00000000",
             email=user.email,
-            countryId=1,
+            address1=payload.address1,
+            address2=payload.address2,
+            city=payload.city,
+            state=payload.state,
+            postcode=payload.postcode,
+            countryId=country_id,
+            isOrganization=payload.isOrganization or False,
+            organizationName=payload.organizationName,
             userId=user.id
         )
         db.add(c)
+        db.commit()
+    else:
+        # Update existing customer record with provided signup address
+        if payload.address1:
+            cust.address1 = payload.address1
+        if payload.address2:
+            cust.address2 = payload.address2
+        if payload.city:
+            cust.city = payload.city
+        if payload.state:
+            cust.state = payload.state
+        if payload.postcode:
+            cust.postcode = payload.postcode
+        if country_id:
+            cust.countryId = country_id
+        if payload.isOrganization is not None:
+            cust.isOrganization = payload.isOrganization
+        if payload.organizationName:
+            cust.organizationName = payload.organizationName
+        cust.userId = user.id
         db.commit()
 
     # Dispatch welcome & account confirmation email
@@ -319,30 +472,92 @@ def get_all_admins(
     }
 
 @router.get("/users/{id}")
-def get_admin_by_id(id: int, db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+def get_admin_by_id(
+    id: int,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    requester = get_requester_identity(authorization, db)
+    if not requester.is_authenticated:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if not (requester.is_staff or (requester.user and requester.user.id == id)):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     u = db.query(User).filter(User.id == id).first()
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Link with customer record if available to guarantee no missing fields
+    cust = db.query(Customer).filter(Customer.userId == u.id).first()
+    if not cust and u.email:
+        cust = db.query(Customer).filter(Customer.email == u.email).first()
+
+    fn = u.fullName or (cust.name if cust else None) or u.username or (u.email.split("@")[0] if u.email else "")
+    em = u.email or (cust.email if cust else "")
+    ph = u.phoneNumber or (cust.phone if cust else "")
+    a1 = u.address1 or (cust.address1 if cust else "")
+    a2 = u.address2 or (getattr(cust, "address2", None) if cust else "")
+    ct = u.city or (cust.city if cust else "")
+    st = u.state or (cust.state if cust else "")
+    pc = u.postcode or (cust.postcode if cust else "")
+    cid = u.countryId or (cust.countryId if cust else None)
+    is_org = u.isOrganization or (cust.isOrganization if cust else False)
+    org_name = u.organizationName or (cust.organizationName if cust else "")
+
+    # Backfill missing User columns from Customer so they persist
+    updated_u = False
+    if not u.fullName and fn:
+        u.fullName = fn
+        updated_u = True
+    if not u.phoneNumber and ph:
+        u.phoneNumber = ph
+        updated_u = True
+    if not u.address1 and a1:
+        u.address1 = a1
+        updated_u = True
+    if not u.city and ct:
+        u.city = ct
+        updated_u = True
+    if not u.state and st:
+        u.state = st
+        updated_u = True
+    if not u.postcode and pc:
+        u.postcode = pc
+        updated_u = True
+    if not u.countryId and cid:
+        u.countryId = cid
+        updated_u = True
+    if updated_u:
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+
     role_name = (u.role.name if u.role else "USER").upper()
-    return {
+    user_dict = {
         "id": u.id,
         "username": u.username,
-        "email": u.email,
-        "fullName": u.fullName,
-        "phoneNumber": u.phoneNumber,
+        "email": em,
+        "fullName": fn,
+        "phoneNumber": ph,
         "isActive": u.isActive,
         "role": role_name,
         "roleId": u.roleId,
         "createdAt": u.createdAt.isoformat() if u.createdAt else None,
         "updatedAt": u.updatedAt.isoformat() if u.updatedAt else None,
-        "address1": u.address1,
-        "address2": u.address2,
-        "city": u.city,
-        "state": u.state,
-        "postcode": u.postcode,
-        "countryId": u.countryId,
-        "isOrganization": u.isOrganization or False,
-        "organizationName": u.organizationName
+        "address1": a1,
+        "address2": a2,
+        "city": ct,
+        "state": st,
+        "postcode": pc,
+        "countryId": cid,
+        "isOrganization": is_org,
+        "organizationName": org_name
+    }
+    return {
+        "admin": user_dict,
+        "user": user_dict,
+        **user_dict
     }
 
 @router.post("/create")
@@ -447,73 +662,113 @@ def create_admin_user(
 @router.put("/users/{id}/")
 @router.patch("/users/{id}")
 @router.patch("/users/{id}/")
-def update_admin(id: int, payload: UserUpdateRequest, db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+def update_admin(
+    id: int,
+    payload: UserUpdateRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    requester = get_requester_identity(authorization, db)
+    if not requester.is_authenticated:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if not (requester.is_staff or (requester.user and requester.user.id == id)):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     u = db.query(User).filter(User.id == id).first()
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if payload.username is not None:
-        u.username = payload.username.strip() if payload.username else None
-    if payload.fullName is not None:
-        u.fullName = payload.fullName
-    if payload.phoneNumber is not None:
-        u.phoneNumber = payload.phoneNumber
+    try:
+        if payload.username is not None and str(payload.username).strip():
+            u.username = str(payload.username).strip()
+        if payload.fullName is not None and str(payload.fullName).strip():
+            u.fullName = str(payload.fullName).strip()
+        if payload.phoneNumber is not None and str(payload.phoneNumber).strip():
+            u.phoneNumber = str(payload.phoneNumber).strip()
 
-    # Update role
-    if payload.roleId is not None:
-        try:
-            u.roleId = int(payload.roleId)
-        except (ValueError, TypeError):
-            pass
-    elif payload.role is not None:
-        r = db.query(Role).filter(Role.name.ilike(payload.role)).first()
-        if r:
-            u.roleId = r.id
+        # Update role & active status (Staff only)
+        if requester.is_staff:
+            if payload.roleId is not None:
+                try:
+                    u.roleId = int(payload.roleId)
+                except (ValueError, TypeError):
+                    pass
+            elif payload.role is not None:
+                r = db.query(Role).filter(Role.name.ilike(payload.role)).first()
+                if r:
+                    u.roleId = r.id
+            if payload.isActive is not None:
+                u.isActive = payload.isActive
 
-    if payload.countryId is not None:
-        try:
-            u.countryId = int(payload.countryId) if payload.countryId else None
-        except (ValueError, TypeError):
-            u.countryId = None
+        if payload.countryId is not None:
+            try:
+                u.countryId = int(payload.countryId) if payload.countryId else None
+            except (ValueError, TypeError):
+                u.countryId = None
 
-    if payload.email is not None:
-        u.email = payload.email
-    if payload.password:
-        u.password = get_password_hash(payload.password)
-    if payload.isActive is not None:
-        u.isActive = payload.isActive
-    if payload.isOrganization is not None:
-        u.isOrganization = payload.isOrganization
-    if payload.organizationName is not None:
-        u.organizationName = payload.organizationName
-    if payload.address1 is not None:
-        u.address1 = payload.address1
-    if payload.address2 is not None:
-        u.address2 = payload.address2
-    if payload.city is not None:
-        u.city = payload.city
-    if payload.state is not None:
-        u.state = payload.state
-    if payload.postcode is not None:
-        u.postcode = payload.postcode
+        if payload.email is not None and str(payload.email).strip() and requester.is_staff:
+            u.email = str(payload.email).strip()
+        if payload.password and str(payload.password).strip():
+            u.password = get_password_hash(str(payload.password).strip())
+        if payload.isOrganization is not None:
+            u.isOrganization = payload.isOrganization
+        if payload.organizationName is not None:
+            u.organizationName = str(payload.organizationName).strip() if payload.organizationName else None
+        if payload.address1 is not None and str(payload.address1).strip():
+            u.address1 = str(payload.address1).strip()
+        if payload.address2 is not None:
+            u.address2 = str(payload.address2).strip() if payload.address2 else None
+        if payload.city is not None and str(payload.city).strip():
+            u.city = str(payload.city).strip()
+        if payload.state is not None and str(payload.state).strip():
+            u.state = str(payload.state).strip()
+        if payload.postcode is not None and str(payload.postcode).strip():
+            u.postcode = str(payload.postcode).strip()
 
-    # Sync linked customer
-    cust = db.query(Customer).filter(Customer.userId == u.id).first()
-    if cust:
-        if payload.fullName is not None: cust.name = payload.fullName
-        if payload.phoneNumber is not None: cust.phone = payload.phoneNumber
-        if payload.email is not None: cust.email = payload.email
-        if payload.isOrganization is not None: cust.isOrganization = payload.isOrganization
-        if payload.organizationName is not None: cust.organizationName = payload.organizationName
-        if payload.address1 is not None: cust.address1 = payload.address1
-        if payload.city is not None: cust.city = payload.city
-        if payload.state is not None: cust.state = payload.state
-        if payload.countryId is not None and u.countryId: cust.countryId = u.countryId
-        if payload.postcode is not None: cust.postcode = payload.postcode
+        # Sync linked customer
+        cust = db.query(Customer).filter(Customer.userId == u.id).first()
+        if not cust and u.email:
+            cust = db.query(Customer).filter(Customer.email == u.email).first()
 
-    db.commit()
-    db.refresh(u)
-    return {"message": "User updated successfully", "id": u.id}
+        if cust:
+            if u.fullName: cust.name = u.fullName
+            if u.phoneNumber: cust.phone = u.phoneNumber
+            if u.email and not cust.email: cust.email = u.email
+            if u.isOrganization is not None: cust.isOrganization = u.isOrganization
+            if u.organizationName is not None: cust.organizationName = u.organizationName
+            if u.address1: cust.address1 = u.address1
+            if u.address2 is not None: cust.address2 = u.address2
+            if u.city: cust.city = u.city
+            if u.state: cust.state = u.state
+            if u.countryId: cust.countryId = u.countryId
+            if u.postcode: cust.postcode = u.postcode
+            cust.userId = u.id
+        else:
+            first_c = db.query(Country).first()
+            target_country_id = u.countryId or (first_c.id if first_c else 1)
+            new_cust = Customer(
+                name=u.fullName or (u.email.split("@")[0] if u.email else "Customer"),
+                phone=u.phoneNumber or "+977-00000000",
+                email=u.email,
+                isOrganization=u.isOrganization or False,
+                organizationName=u.organizationName,
+                address1=u.address1,
+                address2=u.address2,
+                city=u.city,
+                state=u.state,
+                countryId=target_country_id,
+                postcode=u.postcode,
+                userId=u.id
+            )
+            db.add(new_cust)
+
+        db.commit()
+        db.refresh(u)
+        return {"message": "User updated successfully", "id": u.id}
+    except Exception as err:
+        db.rollback()
+        print(f"[Error in update_admin] {err}")
+        raise HTTPException(status_code=400, detail=f"Failed to update profile: {str(err)}")
 
 @router.delete("/users/{id}")
 def delete_admin(id: int, db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):

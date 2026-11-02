@@ -1328,14 +1328,42 @@ function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
   const [weight, setWeight] = useState('')
   const [result, setResult] = useState<null | { rate: string; transit: string; service: string }>(null)
 
-  const handleCalc = () => {
+  const [calculating, setCalculating] = useState(false)
+
+  const handleCalc = async () => {
     const w = parseFloat(weight) || 1
-    const base = 15 + w * 8.5
-    setResult({
-      rate: `NPR ${(base * 135).toFixed(0)} – NPR ${(base * 145).toFixed(0)}`,
-      transit: '7–12 business days',
-      service: 'International Air Cargo Express',
-    })
+    const dest = destCountry.trim()
+    if (!dest) return
+
+    setCalculating(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/rate/rate-calculator`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weight: w, destination: dest }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data && typeof data.totalRate === 'number') {
+          setResult({
+            rate: `NPR ${Math.round(data.totalRate).toLocaleString()}`,
+            transit: '5–9 business days',
+            service: 'International Air Cargo Express',
+          })
+          return
+        }
+      }
+      throw new Error('Fallback')
+    } catch {
+      const base = (15 + w * 8.5) * 1.10
+      setResult({
+        rate: `NPR ${(base * 135).toFixed(0)} – NPR ${(base * 145).toFixed(0)}`,
+        transit: '7–12 business days',
+        service: 'International Air Cargo Express',
+      })
+    } finally {
+      setCalculating(false)
+    }
   }
 
   return (
@@ -1397,12 +1425,12 @@ function RateEnquiryScreen({ onBack }: { onBack: () => void }) {
 
         <button
           onClick={handleCalc}
-          disabled={!destCountry || !weight}
+          disabled={calculating || !destCountry || !weight}
           style={{ fontFamily: 'Jost, sans-serif' }}
           className="w-full bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 active:opacity-90 shadow-md shadow-blue-200 transition-all cursor-pointer"
         >
           <IconReceiptDollar size={18} />
-          Calculate Rate
+          {calculating ? 'Calculating...' : 'Calculate Rate'}
         </button>
 
         {result && (

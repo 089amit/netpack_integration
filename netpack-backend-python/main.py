@@ -190,6 +190,7 @@ from routers import (
 )
 
 app.include_router(admin.router)
+app.include_router(admin.user_router)
 app.include_router(user_roles.router)
 app.include_router(enquiry.router)
 app.include_router(pickup.router)

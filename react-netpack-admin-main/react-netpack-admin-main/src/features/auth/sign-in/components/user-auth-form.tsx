@@ -57,10 +57,13 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
       if (result.token && result.admin) {
         localStorage.setItem('token', result.token)
         localStorage.setItem('admin', JSON.stringify(result.admin))
-        localStorage.setItem('userEmail', result.admin.email)
-        localStorage.setItem('fullName', result.admin.emailname)
-        localStorage.setItem('userRole', result.admin.role)
-        localStorage.setItem('role', result.admin.role)
+        if (result.admin.id) {
+          localStorage.setItem('userId', String(result.admin.id))
+        }
+        localStorage.setItem('userEmail', result.admin.email || '')
+        localStorage.setItem('fullName', (result.admin as any).fullName || result.admin.emailname || '')
+        localStorage.setItem('userRole', result.admin.role || '')
+        localStorage.setItem('role', result.admin.role || '')
         if (result.admin.role === 'PICKUP') {
           window.location.href = '/pickups'
         } else {

@@ -19,7 +19,13 @@ def calculate_number_of_boxes(weight: float, box_weight_limit: Optional[float]) 
         raise ValueError("Invalid boxWeightLimit: must be a positive number.")
     return math.ceil(weight / box_weight_limit)
 
-def compute_shipping_rate(db: Session, weight: float, destination: str) -> Dict[str, Any]:
+def compute_shipping_rate(
+    db: Session,
+    weight: float,
+    destination: str,
+    is_web_customer: bool = False,
+    custom_margin_pct: Optional[float] = None
+) -> Dict[str, Any]:
     # 1. Fetch destination country
     dest_country = db.query(Country).filter(Country.name == destination).first()
     if not dest_country:
@@ -71,15 +77,25 @@ def compute_shipping_rate(db: Session, weight: float, destination: str) -> Dict[
     additional_box_rate = number_of_boxes * packing_rate
 
     if is_per_kg:
-        base_rate = ceiling_weight * rate_val
-        tia_charge = tia_rate * ceiling_weight
-        custom_charge = number_of_boxes * custom_rate
-        total_rate = base_rate + tia_charge + custom_charge + additional_box_rate
+        raw_base_rate = ceiling_weight * rate_val
     else:
-        base_rate = rate_val
-        tia_charge = ceiling_weight * tia_rate
-        custom_charge = number_of_boxes * custom_rate
-        total_rate = base_rate + tia_charge + custom_charge + additional_box_rate
+        raw_base_rate = rate_val
+
+    # Rate logic:
+    # For web customers (cargo couriers) - display exact rate per rate sheet (0% margin).
+    # For Landing page and app customers - add extra 10% (or custom configured %) on freight charge (base_rate).
+    # Other rates (packing, clearance, and TIA) remain identical for both.
+    # Never display any margin labels or indicators to users.
+    if is_web_customer:
+        freight_multiplier = 1.0
+    else:
+        margin_pct = 0.10 if custom_margin_pct is None else float(custom_margin_pct)
+        freight_multiplier = 1.0 + margin_pct
+
+    base_rate = raw_base_rate * freight_multiplier
+    tia_charge = ceiling_weight * tia_rate
+    custom_charge = number_of_boxes * custom_rate
+    total_rate = base_rate + tia_charge + custom_charge + additional_box_rate
 
     rate_per_kg = "-" if weight < 1 else round(total_rate / weight, 2)
 

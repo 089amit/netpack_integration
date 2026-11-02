@@ -1,5 +1,5 @@
 import math
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
@@ -8,6 +8,7 @@ from models.location import Country
 from models.enquiry import Enquiry
 from models.shipment import Shipment
 from schemas.customer import CustomerCreateRequest, CustomerUpdateRequest
+from services.auth_service import get_requester_identity
 
 router = APIRouter(prefix="/api/customer", tags=["Customer"])
 
@@ -20,9 +21,28 @@ def get_all_customers(
     gender: Optional[str] = None,
     countryId: Optional[str] = None,
     isOrganization: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    requester = get_requester_identity(authorization, db)
     q = db.query(Customer)
+
+    # Scoping: If caller is a Customer or User (Cargo Courier), only return their own Customer record
+    if requester.is_authenticated and requester.is_user_or_customer:
+        user_id = requester.user.id if requester.user else None
+        user_email = requester.user.email if requester.user else None
+        filter_cond = []
+        if user_id:
+            filter_cond.append(Customer.userId == user_id)
+        if user_email:
+            filter_cond.append(Customer.email.ilike(user_email.strip()))
+        if requester.customer:
+            filter_cond.append(Customer.id == requester.customer.id)
+        if filter_cond:
+            from sqlalchemy import or_
+            q = q.filter(or_(*filter_cond))
+        else:
+            q = q.filter(Customer.id == -1)
     if search:
         s = f"%{search}%"
         q = q.filter((Customer.name.ilike(s)) | (Customer.email.ilike(s)) | (Customer.phone.ilike(s)))

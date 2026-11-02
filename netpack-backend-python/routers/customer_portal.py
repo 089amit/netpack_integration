@@ -213,21 +213,30 @@ def customer_to_dict(customer: Customer) -> Dict[str, Any]:
     except Exception:
         pass
 
+    # Check linked user for any missing fields (e.g. from web signup)
+    linked_user = getattr(customer, "linkedUser", None)
+    addr1 = customer.address1 or (linked_user.address1 if linked_user else None)
+    addr2 = getattr(customer, "address2", None) or (linked_user.address2 if linked_user else None)
+    city_val = customer.city or (linked_user.city if linked_user else "Kathmandu")
+    state_val = customer.state or (linked_user.state if linked_user else None)
+    postcode_val = getattr(customer, "postcode", None) or (linked_user.postcode if linked_user else None)
+    phone_val = customer.phone or (linked_user.phoneNumber if linked_user else None)
+
     is_incomplete = (
-        not customer.phone
-        or customer.phone == "+977-9800000000"
-        or not customer.address1
+        not phone_val
+        or phone_val == "+977-9800000000"
+        or not addr1
     )
     return {
         "id": customer.id,
         "name": customer.name,
         "email": customer.email,
-        "phone": customer.phone,
-        "address1": customer.address1,
-        "address2": getattr(customer, "address2", None),
-        "city": customer.city or "Kathmandu",
-        "state": customer.state,
-        "postcode": getattr(customer, "postcode", None),
+        "phone": phone_val,
+        "address1": addr1,
+        "address2": addr2,
+        "city": city_val,
+        "state": state_val,
+        "postcode": postcode_val,
         "countryId": c_id,
         "country": c_name,              # Clean string name (e.g. "Nepal" or "Germany")
         "countryName": c_name,          # Clean string name
@@ -447,9 +456,32 @@ def customer_login(payload: CustomerLoginRequest, db: Session = Depends(get_db))
             db.commit()
             db.refresh(customer)
         else:
-            if not customer.userId or customer.password != user.password:
+            changed = False
+            if not customer.userId:
                 customer.userId = user.id
+                changed = True
+            if customer.password != user.password:
                 customer.password = user.password
+                changed = True
+            if not customer.address1 and user.address1:
+                customer.address1 = user.address1
+                changed = True
+            if not getattr(customer, "address2", None) and user.address2:
+                customer.address2 = user.address2
+                changed = True
+            if not customer.city and user.city:
+                customer.city = user.city
+                changed = True
+            if not customer.state and user.state:
+                customer.state = user.state
+                changed = True
+            if not getattr(customer, "postcode", None) and user.postcode:
+                customer.postcode = user.postcode
+                changed = True
+            if (not customer.phone or customer.phone == "+977-9800000000") and user.phoneNumber:
+                customer.phone = user.phoneNumber
+                changed = True
+            if changed:
                 db.commit()
                 db.refresh(customer)
 

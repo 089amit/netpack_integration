@@ -333,10 +333,12 @@ def send_enquiry_booking_notification(
 ):
     """
     Sends booking confirmation email to sender AND automatically sends
-    a copy to the receiver if receiverEmail is provided.
+    a copy to the receiver if receiverEmail is provided, plus notifies operations at info@netpacklogistic.com.
     """
     tracking_no = getattr(enquiry, "trackingNumber", "")
     sender_email = (getattr(enquiry, "senderEmail", "") or "").strip()
+    if not sender_email and getattr(enquiry, "customer", None) and getattr(enquiry.customer, "email", None):
+        sender_email = str(enquiry.customer.email).strip()
     receiver_email = (getattr(enquiry, "receiverEmail", "") or "").strip()
 
     frontend_base = getattr(config, "FRONTEND_URL", "http://localhost:8000") or "http://localhost:8000"
@@ -365,6 +367,21 @@ def send_enquiry_booking_notification(
             background_tasks=background_tasks
         )
         logger.info(f"[EmailService] Dispatched consignment notification to receiver: {receiver_email}")
+
+    # 3. Always alert NetPack Operations
+    try:
+        ops_email = getattr(config, "INFO_EMAIL", "info@netpacklogistic.com")
+        ops_subject = f"[New Consignment Booking] AWB #{tracking_no} - {getattr(enquiry, 'senderName', 'Customer')}"
+        ops_html = build_booking_html(enquiry, is_receiver_copy=False, tracking_url=tracking_url)
+        send_email(
+            to_emails=ops_email,
+            subject=ops_subject,
+            html_content=ops_html,
+            background_tasks=background_tasks
+        )
+        logger.info(f"[EmailService] Dispatched booking notification to NetPack operations: {ops_email}")
+    except Exception as ops_err:
+        logger.warning(f"[EmailService] Could not send operations booking alert: {ops_err}")
 
 
 def build_delivery_html(item, tracking_url: str = "") -> str:
@@ -657,13 +674,9 @@ def build_user_welcome_html(
   <div style="padding: 28px 30px;">
     <h2 style="color: #0f172a; margin-top: 0; font-size: 18px;">Welcome to NetPack, {full_name}!</h2>
     <p style="font-size: 14px; line-height: 1.6; color: #475569;">
-      Your account has been successfully created with the role of <strong>{role_name.upper()}</strong>.
-      You can now access the {portal_name} to manage shipments, bookings, and operations.
+      Your account has been successfully created. You can now access your NetPack account to manage shipments, bookings, and cargo operations.
     </p>
     {pw_block}
-    <div style="margin: 26px 0 20px 0; text-align: center;">
-      <a href="{login_url}" style="background-color: #0284c7; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Log in to {portal_name} &rarr;</a>
-    </div>
   </div>
   <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; font-size: 12px; color: #64748b; text-align: center;">
     <p style="margin: 0;">NetPack Logistic Cargo Terminal, Kathmandu, Nepal</p>

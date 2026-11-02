@@ -686,6 +686,13 @@ async def pickup_and_weigh(
     if not e:
         raise HTTPException(status_code=404, detail="Enquiry not found")
 
+    # When a consignment has been pushed to shipment (SHIPMENT_CREATED or beyond), rider cannot modify box details or notes
+    if (e.shipments and len(e.shipments) > 0) or e.status in ("SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "DELIVERED"):
+        raise HTTPException(
+            status_code=403,
+            detail="Shipment has already been created for this consignment. Box details and notes can no longer be modified by rider."
+        )
+
     # 1. Handle scale & box proof image upload(s)
     saved_urls = []
     if existingImagesJson:

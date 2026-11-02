@@ -254,7 +254,36 @@ export const setFullName = (fullName: string): void => {
 }
 
 export const getUserId = (): string | null => {
-  return localStorage.getItem(AUTH_USER_ID_KEY)
+  const direct = localStorage.getItem(AUTH_USER_ID_KEY)
+  if (direct && direct !== 'undefined' && direct !== 'null') {
+    return direct
+  }
+  // Fallback 1: Parse from cached admin object in localStorage
+  try {
+    const adminRaw = localStorage.getItem('admin')
+    if (adminRaw) {
+      const parsed = JSON.parse(adminRaw)
+      if (parsed?.id) {
+        setUserId(parsed.id.toString())
+        return parsed.id.toString()
+      }
+    }
+  } catch {}
+  // Fallback 2: Parse from decoded JWT token
+  try {
+    const token = getToken()
+    if (token) {
+      const parts = token.split('.')
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]))
+        if (payload?.userId) {
+          setUserId(payload.userId.toString())
+          return payload.userId.toString()
+        }
+      }
+    }
+  } catch {}
+  return null
 }
 
 export const setUserId = (userId: string): void => {

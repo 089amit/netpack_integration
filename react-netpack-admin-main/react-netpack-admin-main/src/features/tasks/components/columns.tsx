@@ -102,7 +102,7 @@ const baseColumns: ColumnDef<EnquiryTableRow>[] = [
     cell: ({ row }) => {
       const enquiry = row.original
       const role = (getUserRole() || '').toUpperCase()
-      const isCustomerView = role === 'CUSTOMER'
+      const isCustomerView = role === 'CUSTOMER' || role === 'USER'
 
       const enteredSender = enquiry.senderName && enquiry.senderName !== 'N/A' ? enquiry.senderName : ''
       const customerAccount = enquiry.customerName && enquiry.customerName !== 'N/A' ? enquiry.customerName : ''

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Header
 from sqlalchemy.orm import Session
 from typing import List, Optional, Union, Any
 import openpyxl
@@ -10,13 +10,31 @@ from schemas.rate import (
     RateCreateRequest, RateUpdateRequest
 )
 from services.rate_service import compute_shipping_rate
+from services.auth_service import decode_token
 
 router = APIRouter(prefix="/api/rate", tags=["Rates"])
 
 @router.post("/rate-calculator")
-def calculate_rate(payload: RateCalculatorRequest, db: Session = Depends(get_db)):
+def calculate_rate(
+    payload: RateCalculatorRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
     try:
-        result = compute_shipping_rate(db, payload.weight, payload.destination)
+        is_web_customer = False
+        if authorization and "Bearer " in authorization:
+            token = authorization.replace("Bearer ", "").strip()
+            decoded = decode_token(token)
+            # If authenticated user on web platform (Cargo Courier / Admin / Staff / Operator)
+            if decoded and decoded.get("role") in ("USER", "CUSTOMER", "ADMIN", "STAFF", "OPERATOR", "CSD"):
+                is_web_customer = True
+
+        result = compute_shipping_rate(
+            db=db,
+            weight=payload.weight,
+            destination=payload.destination,
+            is_web_customer=is_web_customer
+        )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -11,6 +11,14 @@ class SignUpRequest(BaseModel):
     fullName: Optional[str] = None
     phoneNumber: Optional[str] = None
     roleId: Optional[int] = None
+    address1: Optional[str] = None
+    address2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postcode: Optional[str] = None
+    countryId: Optional[Any] = None
+    isOrganization: Optional[bool] = False
+    organizationName: Optional[str] = None
 
 class TokenValidationRequest(BaseModel):
     token: Optional[str] = None

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Country } from '@/type/country'
 import { toast } from 'sonner'
+import { Eye, EyeOff } from 'lucide-react'
 import { logout, getToken } from '@/lib/auth'
 import { getUserId } from '@/lib/auth'
 import http from '@/utils/http'
@@ -42,6 +43,9 @@ export function ProfileDropdown() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [showProfileSettings, setShowProfileSettings] = useState(false)
@@ -75,16 +79,15 @@ export function ProfileDropdown() {
       const checkProfile = async () => {
         try {
           // Fetch user profile
-          const res = await http.get<{ admin: any }>(
+          const res = await http.get<any>(
             USER_ENDPOINTS.GET_USER(userId)
           )
-          if (res && res.admin) {
-            const admin = res.admin
+          const admin = res?.admin || res?.user || res
+          if (admin && admin.id) {
             const incomplete =
               !admin.fullName ||
               !admin.phoneNumber ||
               !admin.address1 ||
-              !admin.address2 ||
               !admin.city ||
               !admin.state ||
               !admin.postcode ||
@@ -94,8 +97,6 @@ export function ProfileDropdown() {
             if (incomplete) {
               setIsProfileIncomplete(true)
               setShowProfileSettings(true)
-              // Since it's the initial check, we don't necessarily need a toast yet
-              // but it helps the user understand why the dialog popped up
               toast.error('Please complete your profile details to proceed.')
             }
           }
@@ -156,7 +157,15 @@ export function ProfileDropdown() {
       })
 
       if (!res.ok) {
-        throw new Error(await res.text())
+        const errorText = await res.text()
+        let errorMsg = 'Failed to change password'
+        try {
+          const parsed = JSON.parse(errorText)
+          errorMsg = parsed.detail || parsed.message || errorMsg
+        } catch {
+          errorMsg = errorText || errorMsg
+        }
+        throw new Error(errorMsg)
       }
 
       toast.success('Password changed successfully')
@@ -164,6 +173,9 @@ export function ProfileDropdown() {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
+      setShowCurrentPassword(false)
+      setShowNewPassword(false)
+      setShowConfirmPassword(false)
     } catch (err: any) {
       console.error(err)
       toast.error(err?.message || 'Failed to change password')
@@ -186,14 +198,16 @@ export function ProfileDropdown() {
           // Fetch user profile
           const userId = getUserId()
           if (userId) {
-            const res = await http.get<{ admin: any }>(
+            const res = await http.get<any>(
               USER_ENDPOINTS.GET_USER(userId)
             )
-            if (res && res.admin) {
-              const admin = res.admin
+            const admin = res?.admin || res?.user || res
+            if (admin) {
+              const fName = admin.fullName || localStorage.getItem('fullName') || admin.emailname || ''
+              const eMail = admin.email || localStorage.getItem('userEmail') || ''
               setProfileData({
-                fullName: admin.fullName || '',
-                email: admin.email || '',
+                fullName: fName,
+                email: eMail,
                 phoneNumber: admin.phoneNumber || '',
                 address1: admin.address1 || '',
                 address2: admin.address2 || '',
@@ -306,24 +320,71 @@ export function ProfileDropdown() {
           </DialogHeader>
 
           <div className='space-y-4'>
-            <Input
-              type='password'
-              placeholder='Current password'
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
-            <Input
-              type='password'
-              placeholder='New password'
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-            <Input
-              type='password'
-              placeholder='Confirm new password'
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
+            <div className='relative'>
+              <Input
+                type={showCurrentPassword ? 'text' : 'password'}
+                placeholder='Current password'
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className='pr-10'
+              />
+              <button
+                type='button'
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground'
+                tabIndex={-1}
+              >
+                {showCurrentPassword ? (
+                  <EyeOff className='h-4 w-4' />
+                ) : (
+                  <Eye className='h-4 w-4' />
+                )}
+              </button>
+            </div>
+
+            <div className='relative'>
+              <Input
+                type={showNewPassword ? 'text' : 'password'}
+                placeholder='New password'
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className='pr-10'
+              />
+              <button
+                type='button'
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground'
+                tabIndex={-1}
+              >
+                {showNewPassword ? (
+                  <EyeOff className='h-4 w-4' />
+                ) : (
+                  <Eye className='h-4 w-4' />
+                )}
+              </button>
+            </div>
+
+            <div className='relative'>
+              <Input
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder='Confirm new password'
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className='pr-10'
+              />
+              <button
+                type='button'
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground'
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className='h-4 w-4' />
+                ) : (
+                  <Eye className='h-4 w-4' />
+                )}
+              </button>
+            </div>
 
             <div className='flex justify-end gap-2'>
               <Button
@@ -369,12 +430,17 @@ export function ProfileDropdown() {
 
           <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
             <div className='space-y-2'>
-              <Label htmlFor='fullName'>Full Name</Label>
+              <Label htmlFor='fullName'>
+                Full Name <span className='text-red-500'>*</span>
+              </Label>
               <Input
                 id='fullName'
                 placeholder='Full Name'
                 value={profileData.fullName}
-                disabled
+                onChange={(e) => {
+                  setProfileData({ ...profileData, fullName: e.target.value })
+                  if (e.target.value) setFieldErrors((prev) => ({ ...prev, fullName: false }))
+                }}
               />
             </div>
             <div className='space-y-2'>

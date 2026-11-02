@@ -31,8 +31,17 @@ class ServiceUpdate(BaseModel):
 
 @router.get("")
 @router.get("/")
-def get_all_companies(db: Session = Depends(get_db)):
-    companies = db.query(ForwardingCompany).all()
+def get_all_companies(search: Optional[str] = None, db: Session = Depends(get_db)):
+    q = db.query(ForwardingCompany)
+    if search and search.strip():
+        s = f"%{search.strip()}%"
+        q = q.filter(
+            (ForwardingCompany.name.ilike(s)) |
+            (ForwardingCompany.contactEmail.ilike(s)) |
+            (ForwardingCompany.contactPhone.ilike(s)) |
+            (ForwardingCompany.address.ilike(s))
+        )
+    companies = q.all()
     res = []
     for c in companies:
         res.append({
@@ -115,7 +124,12 @@ def get_service_by_id(id: int, db: Session = Depends(get_db)):
 
 @router.get("/services/company/{companyId}")
 def get_services_by_company(companyId: int, db: Session = Depends(get_db)):
-    return db.query(ForwardingService).filter(ForwardingService.companyId == companyId).all()
+    services = db.query(ForwardingService).filter(ForwardingService.companyId == companyId).all()
+    res = [
+        {"id": s.id, "name": s.name, "description": s.description, "companyId": s.companyId}
+        for s in services
+    ]
+    return {"data": res, "services": res}
 
 @router.post("/services")
 def create_service(payload: ServiceCreate, db: Session = Depends(get_db)):

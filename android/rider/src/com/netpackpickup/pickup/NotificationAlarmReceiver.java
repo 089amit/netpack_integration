@@ -93,7 +93,7 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
             }
 
             PendingIntent pi = PendingIntent.getBroadcast(context, 2001, alarmIntent, flags);
-            long nextTrigger = SystemClock.elapsedRealtime() + (20 * 1000); // 20s for fast real-time alerts
+            long nextTrigger = SystemClock.elapsedRealtime() + (15 * 1000); // 15s for ultra-fast real-time alerts
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 try {
@@ -174,14 +174,14 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
 
                 if (hasNew && latestId > lastId) {
                     JSONArray pickups = res.optJSONArray("newPickups");
-                    String alertTitle = "🚨 New Pickup Order Assigned!";
-                    String alertBody = "You have a new pickup assignment waiting.";
+                    String alertTitle = "New PickUP Order";
+                    String alertBody = "- Tap to open details";
 
                     if (pickups != null && pickups.length() > 0) {
                         JSONObject first = pickups.getJSONObject(0);
                         String addr = first.optString("pickupAddress", "Kathmandu");
                         String commodity = first.optString("commodity", "Consignment");
-                        alertBody = "Pickup: " + addr + " (" + commodity + ")";
+                        alertBody = "- Tap to open details • " + addr + " (" + commodity + ")";
                     }
 
                     prefs.edit().putInt(KEY_LAST_PICKUP_ID, latestId).apply();

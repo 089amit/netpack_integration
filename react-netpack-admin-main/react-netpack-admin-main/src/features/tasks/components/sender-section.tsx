@@ -79,11 +79,13 @@ export function SenderSection({
   onSelfDetailSelect,
   canEdit = true,
 }: SenderSectionProps) {
+  const isCustomerOrCourier = userRole === 'CUSTOMER' || userRole === 'USER'
+
   useEffect(() => {
-    if (userRole === 'CUSTOMER' && onSelfDetailSelect) {
+    if (isCustomerOrCourier && onSelfDetailSelect) {
       onSelfDetailSelect()
     }
-  }, [userRole, onSelfDetailSelect])
+  }, [isCustomerOrCourier, onSelfDetailSelect])
 
   const handleSearchChange = (search: string) => {
     onSenderSearchChange(search)
@@ -103,11 +105,11 @@ export function SenderSection({
         <div className='space-y-2'>
           <div className='flex items-center justify-between'>
             <label className='text-sm font-medium'>
-              {userRole === 'CUSTOMER' ? 'Sender Name' : 'Customer Name'} <span className='text-red-500'>*</span>
+              {isCustomerOrCourier ? 'Sender Name' : 'Customer Name'} <span className='text-red-500'>*</span>
             </label>
           </div>
 
-          {userRole === 'CUSTOMER' ? (
+          {isCustomerOrCourier ? (
             <Input
               id='sender-name'
               name='name'
@@ -199,7 +201,7 @@ export function SenderSection({
 
           {hasError && (
             <p className='text-sm text-red-500'>
-              {userRole === 'CUSTOMER' ? 'Sender name is required' : 'Customer name is required'}
+              {isCustomerOrCourier ? 'Sender name is required' : 'Customer name is required'}
             </p>
           )}
         </div>

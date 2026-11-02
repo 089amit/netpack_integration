@@ -243,7 +243,16 @@ def create_enquiry(
     sender_country = payload.senderCountry or sender.get("country") or "Nepal"
     sender_phone = payload.senderPhone or sender.get("telephoneEmail") or payload.phoneNumber or ""
     sender_postcode = payload.senderPostcode or sender.get("postcode") or sender.get("postcodeCity") or ""
-    sender_email = payload.senderEmail or ""
+    sender_email = payload.senderEmail or sender.get("email") or ""
+    if not sender_email:
+        if requester.user and requester.user.email:
+            sender_email = requester.user.email
+        elif requester.customer and getattr(requester.customer, "email", None):
+            sender_email = requester.customer.email
+        elif cust_id:
+            c_rec = db.query(Customer).filter(Customer.id == cust_id).first()
+            if c_rec and c_rec.email:
+                sender_email = c_rec.email
 
     # Extract receiver fields (supporting nested receiver dict)
     receiver = payload.receiver or {}

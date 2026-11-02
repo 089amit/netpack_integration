@@ -498,8 +498,21 @@ class TrackingRegistry:
             fwd_company_name = shipment.forwardingCompany.name if shipment.forwardingCompany else None
             fwd_number = shipment.forwardingNumber
 
-        carrier_provider = self.get_provider_for_carrier(fwd_company_name)
-        carrier_tracking_url = carrier_provider.get_tracking_url(fwd_number) if fwd_number else None
+        # Resolve carrier and service details (prefer specific service selected during shipment edit)
+        selected_service = shipment.service if (shipment and shipment.service) else None
+        service_name = selected_service.name if selected_service else (getattr(shipment, "serviceName", None) if shipment else None)
+        service_desc = (selected_service.description or "").strip() if selected_service else ""
+
+        carrier_provider = self.get_provider_for_carrier(service_name or fwd_company_name)
+        carrier_tracking_url = None
+        if fwd_number:
+            if "http" in service_desc.lower() and not " " in service_desc:
+                if "{fwd}" in service_desc or "{awb}" in service_desc or "{tracking}" in service_desc:
+                    carrier_tracking_url = service_desc.replace("{fwd}", fwd_number).replace("{awb}", fwd_number).replace("{tracking}", fwd_number).strip()
+                else:
+                    carrier_tracking_url = f"{service_desc.rstrip('/')}/{fwd_number}"
+            else:
+                carrier_tracking_url = carrier_provider.get_tracking_url(fwd_number)
 
         # Determine MAWB details
         linked_mawb = (shipment.mawb if shipment else None) or (enquiry.mawb if enquiry else None) or mawb
@@ -984,8 +997,24 @@ class TrackingRegistry:
                 source="MANUAL_NOTE" if tracking_mode == "MANUAL" else "MAWB_FLIGHT"
             ))
 
+        # Destination hub arrival location (Item 14):
+        # Use destination port entered while creating MAWB for the shipment. If MAWB is not assigned, leave empty.
+        hub_port_location = ""
+        if linked_mawb and not is_custom_manifest:
+            hub_port_location = (
+                getattr(linked_mawb, "destinationAirport", None) or
+                getattr(linked_mawb, "destinationPort", None) or
+                getattr(linked_mawb, "destination", None) or ""
+            ).strip()
+
         has_hub_cp = any(cp.status == "ARRIVED_AT_HUB" for cp in checkpoints)
-        if not has_hub_cp and is_progressed_hub:
+        if has_hub_cp:
+            for cp in checkpoints:
+                if cp.status == "ARRIVED_AT_HUB":
+                    cp.location = hub_port_location
+                    if not hub_port_location:
+                        cp.country = ""
+        elif is_progressed_hub:
             carrier_timestamps = [cp.timestamp for cp in checkpoints if "CARRIER" in (cp.source or "") and cp.timestamp]
             first_carrier_ts = min(carrier_timestamps) if carrier_timestamps else None
             if first_carrier_ts and first_carrier_ts > dep_ts:
@@ -993,16 +1022,13 @@ class TrackingRegistry:
             else:
                 hub_final_ts = hub_ts
 
-            if tracking_mode == "MANUAL":
-                hub_act = "Arrived at hub - Landed & cleared through destination cargo terminal"
-            else:
-                hub_act = "Arrived at hub - Landed & cleared through destination cargo terminal"
+            hub_act = "Arrived at hub - Landed & cleared through destination cargo terminal"
             checkpoints.append(TrackingCheckpoint(
                 timestamp=hub_final_ts,
-                location=f"{dest_name} Cargo Terminal / Hub",
+                location=hub_port_location,
                 status="ARRIVED_AT_HUB",
                 activity=hub_act,
-                country=dest_name,
+                country=dest_name if hub_port_location else "",
                 source="MANUAL_NOTE" if tracking_mode == "MANUAL" else "MAWB_FLIGHT"
             ))
 
@@ -1081,10 +1107,19 @@ class TrackingRegistry:
                     source="OPERATIONS_NOTE"
                 ))
 
+        # Strict API Tracking Gating Rule (Item 12):
+        # External carrier tracking data should only be shown after the shipment has arrived at hub
+        if not is_progressed_hub:
+            checkpoints = [
+                cp for cp in checkpoints
+                if not (cp.source and ("TRACKINGMORE" in cp.source or "CARRIER" in cp.source or cp.source == "CARRIER_API"))
+            ]
+
         # Stage hierarchy for primary tracking statuses (Flowchart-aligned):
         STAGE_ORDER = {
             "ENQUIRY_GENERATED": 10,
             "ASSIGNED_FOR_PICKUP": 12,
+            "STOP_COLLECTED": 14,
             "PICKED_UP": 15,
             "PACKED": 16,
             "WT_DIMENSION_VERIFIED": 18,

@@ -93,7 +93,7 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
             }
 
             PendingIntent pi = PendingIntent.getBroadcast(context, 1001, alarmIntent, flags);
-            long nextTrigger = SystemClock.elapsedRealtime() + (20 * 1000); // 20s for fast real-time alerts
+            long nextTrigger = SystemClock.elapsedRealtime() + (15 * 1000); // 15s for ultra-fast real-time alerts
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 try {

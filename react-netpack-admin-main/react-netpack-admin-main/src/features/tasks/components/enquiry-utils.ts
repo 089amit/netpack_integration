@@ -62,7 +62,10 @@ export const buildEnquiryPayload = (data: EnquiryFormData) => {
     ]
   }
 
+  const senderEmail = (data.sender as any)?.email || localStorage.getItem('userEmail') || ''
+
   return {
+    senderEmail,
     sender: {
       name: data.sender.name,
       addressLine1: data.sender.addressLine1,
@@ -72,6 +75,7 @@ export const buildEnquiryPayload = (data: EnquiryFormData) => {
       country: data.sender.country,
       telephone: data.sender.telephone,
       customerId: data.sender.customerId,
+      email: senderEmail,
     },
     receiver: {
       companyName: data.receiver.companyName,

@@ -460,6 +460,12 @@ export default function PickupRiderPWA() {
 
   // ─── Open Weighing & Inspection Modal ──────────────────────────────────────
   const handleOpenWeighModal = (pickup: any) => {
+    const st = (pickup.status || '').toUpperCase()
+    if (pickup.shipmentId || ['SHIPMENT_CREATED', 'IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'DELIVERED'].includes(st)) {
+      toast.error('Shipment has already been created for this consignment. Box details and notes are locked from rider edits.')
+      return
+    }
+
     setSelectedPickup(pickup)
     setActualWeight(pickup.weight ? String(pickup.weight) : '')
     setRiderNotes(pickup.pickupNotes || '')
@@ -1721,6 +1727,14 @@ export default function PickupRiderPWA() {
                           Start Route
                         </Button>
                       )
+                    ) : (p.shipmentId || ['SHIPMENT_CREATED', 'IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'DELIVERED'].includes((p.status || '').toUpperCase())) ? (
+                      <div
+                        className='flex-1 h-9 rounded-xl border border-border/60 bg-muted/20 px-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground font-medium select-none'
+                        title='Shipment export routing has been created. Consignment box details and notes are locked from rider edits.'
+                      >
+                        <Lock className='h-3.5 w-3.5 text-amber-500' />
+                        <span>Shipment Created (Locked)</span>
+                      </div>
                     ) : (
                       <Button
                         variant='outline'

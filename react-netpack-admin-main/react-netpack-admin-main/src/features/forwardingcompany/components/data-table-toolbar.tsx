@@ -22,13 +22,18 @@ export function DataTableToolbar<TData>({
   // const navigate = useNavigate()
 
   const handleSearch = async (value: string) => {
+    // 1. Instant client-side filter
+    table.getColumn('name')?.setFilterValue(value)
+
+    // 2. Server-side search query
     try {
-      const response = await http.get<{ data: TData[] }>(
+      const response = await http.get<any>(
         `${apiEndpoint}?search=${encodeURIComponent(value)}`
       )
 
-      if (response?.data) {
-        onSearchChange?.(response.data)
+      const items = response?.data || (Array.isArray(response) ? response : null)
+      if (items) {
+        onSearchChange?.(items)
       }
     } catch (err) {
       console.error('Search failed:', err)

@@ -275,6 +275,8 @@ export function TasksMutateDrawer({
     fetchMilestones()
   }, [open, currentRow?.id, isUpdate])
 
+  const prevCompanyIdRef = useRef<number | undefined>(undefined)
+
   // Fetch forwarding company services when company is selected
   useEffect(() => {
     const fetchForwardingCompanyServices = async () => {
@@ -285,14 +287,26 @@ export function TasksMutateDrawer({
               watchForwardingCompany
             )
           )
-          setForwardingCompanyServices(response.data || [])
-          form.setValue('serviceId', undefined)
+          const sList = Array.isArray(response)
+            ? response
+            : (response?.data || response?.services || [])
+          setForwardingCompanyServices(sList)
+
+          // Only reset serviceId if the forwarding company was changed by the user
+          if (
+            prevCompanyIdRef.current !== undefined &&
+            prevCompanyIdRef.current !== watchForwardingCompany
+          ) {
+            form.setValue('serviceId', undefined)
+          }
+          prevCompanyIdRef.current = watchForwardingCompany
         } catch (error) {
           console.error('❌ Error fetching forwarding company services:', error)
           setForwardingCompanyServices([])
         }
       } else {
         setForwardingCompanyServices([])
+        prevCompanyIdRef.current = undefined
       }
     }
 
