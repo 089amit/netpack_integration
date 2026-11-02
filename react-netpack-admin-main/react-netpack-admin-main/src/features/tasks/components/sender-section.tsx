@@ -93,96 +93,114 @@ export function SenderSection({
     }
   }
 
-  const isEditable = canEdit && userRole !== 'CUSTOMER'
+  const isEditable = canEdit
 
   return (
     <div className='border-r pr-6'>
       <h3 className='mb-4 text-lg font-semibold'>Sender Details</h3>
       <div className='space-y-3'>
-        {/* Customer Search Dropdown */}
+        {/* Customer / Sender Name */}
         <div className='space-y-2'>
           <div className='flex items-center justify-between'>
             <label className='text-sm font-medium'>
-              Customer Name <span className='text-red-500'>*</span>
+              {userRole === 'CUSTOMER' ? 'Sender Name' : 'Customer Name'} <span className='text-red-500'>*</span>
             </label>
-           
           </div>
-          <Popover
-            open={senderSearchOpen}
-            onOpenChange={onSenderSearchOpenChange}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                id='sender-name'
-                variant='outline'
-                role='combobox'
-                aria-expanded={senderSearchOpen}
-                disabled={!isEditable}
-                className={cn(
-                  'w-full justify-between',
-                  hasError && 'border-red-500 ring-1 ring-red-500'
-                )}
-              >
-                {formData?.sender.name || 'Search customers...'}
-                <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className='w-full p-0'>
-              <Command>
-                <CommandInput
-                  placeholder='Search customers...'
-                  value={senderSearchValue}
-                  onValueChange={handleSearchChange}
-                />
-                <CommandList>
-                  <CommandEmpty>
-                    <div className='flex flex-col items-center gap-2 p-4'>
-                      <p className='text-muted-foreground text-sm'>
-                        No customers found.
-                      </p>
-                      {onCreateCustomer && (
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          onClick={onCreateCustomer}
-                          className='flex items-center gap-2'
+
+          {userRole === 'CUSTOMER' ? (
+            <Input
+              id='sender-name'
+              name='name'
+              value={formData?.sender.name || ''}
+              onChange={(e) => onFormChange(e, 'sender')}
+              disabled={!isEditable}
+              placeholder='Enter sender or company name'
+              className={cn(
+                'w-full',
+                hasError && 'border-red-500 ring-1 ring-red-500'
+              )}
+            />
+          ) : (
+            <Popover
+              open={senderSearchOpen}
+              onOpenChange={onSenderSearchOpenChange}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  id='sender-name'
+                  variant='outline'
+                  role='combobox'
+                  aria-expanded={senderSearchOpen}
+                  disabled={!isEditable}
+                  className={cn(
+                    'w-full justify-between',
+                    hasError && 'border-red-500 ring-1 ring-red-500'
+                  )}
+                >
+                  {formData?.sender.name || 'Search customers...'}
+                  <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className='w-full p-0'>
+                <Command>
+                  <CommandInput
+                    placeholder='Search customers...'
+                    value={senderSearchValue}
+                    onChangeCapture={(e) => handleSearchChange((e.target as HTMLInputElement).value)}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      <div className='flex flex-col items-center gap-2 p-4'>
+                        <p className='text-muted-foreground text-sm'>
+                          No customers found.
+                        </p>
+                        {onCreateCustomer && (
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            onClick={onCreateCustomer}
+                            className='flex items-center gap-2'
+                          >
+                            <Plus className='h-4 w-4' />
+                            Create New Customer
+                          </Button>
+                        )}
+                      </div>
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {filteredCustomers.map((customer) => (
+                        <CommandItem
+                          key={customer.id}
+                          value={customer.name}
+                          onSelect={() => onCustomerSelect(customer)}
                         >
-                          <Plus className='h-4 w-4' />
-                          Create New Customer
-                        </Button>
-                      )}
-                    </div>
-                  </CommandEmpty>
-                  <CommandGroup>
-                    {filteredCustomers.map((customer) => (
-                      <CommandItem
-                        key={customer.id}
-                        value={customer.name}
-                        onSelect={() => onCustomerSelect(customer)}
-                      >
-                        <Check
-                          className={cn(
-                            'mr-2 h-4 w-4',
-                            formData?.sender.id === customer.id
-                              ? 'opacity-100'
-                              : 'opacity-0'
-                          )}
-                        />
-                        <div className='flex flex-col'>
-                          <span>{customer.name}</span>
-                          <span className='text-muted-foreground text-xs'>
-                            {customer.email} • {customer.phone}
-                          </span>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              formData?.sender.id === customer.id
+                                ? 'opacity-100'
+                                : 'opacity-0'
+                            )}
+                          />
+                          <div className='flex flex-col'>
+                            <span>{customer.name}</span>
+                            <span className='text-muted-foreground text-xs'>
+                              {customer.email} • {customer.phone}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
+
           {hasError && (
-            <p className='text-sm text-red-500'>Customer name is required</p>
+            <p className='text-sm text-red-500'>
+              {userRole === 'CUSTOMER' ? 'Sender name is required' : 'Customer name is required'}
+            </p>
           )}
         </div>
 

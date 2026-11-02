@@ -321,10 +321,13 @@ def create_enquiry(
     if num_boxes <= 0:
         num_boxes = len(boxes_list) if boxes_list else 1
 
+    is_cust_booking = bool(requester.customer or (requester.user and getattr(requester.user, "role", None) in ["CUSTOMER", "CLIENT"]))
+
     enq = Enquiry(
         trackingNumber=tracking_no,
         customerId=customer_id,
         createdBy=created_by_user_id,
+        isFromCustomer=is_cust_booking,
         destinationCountry=dest_country_id,
         destinationLocation=payload.destinationLocation or receiver_city or receiver_country,
         pinCode=_to_int(payload.pinCode, default=None),

@@ -646,6 +646,7 @@ export function ShipmentTrackingDialog({
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1'>
                 {liveData.hawbs.map((h: any, hIdx: number) => {
                   const isCurrent = h.hawbno === (liveData.hawbNumber || activeTarget || hawbNumber)
+                  const isDelivered = h.status === 'DELIVERED'
 
                   return (
                     <div
@@ -656,55 +657,66 @@ export function ShipmentTrackingDialog({
                           fetchTracking(h.hawbno)
                         }
                       }}
-                      className={`rounded-lg border p-3 space-y-2 text-xs transition-all cursor-pointer ${
+                      className={`rounded-xl border p-3.5 space-y-2.5 transition-all duration-200 cursor-pointer select-none ${
                         isCurrent
-                          ? 'bg-primary/10 border-primary ring-2 ring-primary/30 shadow-xs'
-                          : 'bg-background hover:bg-muted/60 hover:border-primary/40'
+                          ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/25 shadow-xs'
+                          : 'bg-card border-border/80 hover:border-blue-400 hover:bg-muted/40'
                       }`}
-                      title={isCurrent ? 'Currently viewing this HAWB' : `Click to view tracking for ${h.hawbno}`}
+                      title={isCurrent ? 'Currently viewing tracking for this HAWB' : `Tap to view live tracking for ${h.hawbno}`}
                     >
+                      {/* Top Row: HAWB number + Active Badge + Status */}
                       <div className='flex items-center justify-between gap-2'>
-                        <div className='flex items-center gap-1.5'>
-                          <span className='font-mono font-bold text-sm text-foreground'>{h.hawbno}</span>
-                          {isCurrent ? (
-                            <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-primary text-primary-foreground'>
-                              Active View
+                        <div className='flex items-center gap-2 min-w-0'>
+                          <span className='font-mono font-bold text-sm tracking-tight text-foreground whitespace-nowrap'>
+                            {h.hawbno}
+                          </span>
+                          {isCurrent && (
+                            <Badge className='text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white tracking-wide shrink-0 border-0'>
+                              Active
                             </Badge>
-                          ) : (
-                            <span className='text-[10px] text-primary/80 font-medium underline'>
-                              Click to view
-                            </span>
                           )}
                         </div>
-                        <div className='flex items-center gap-1.5'>
-                          {h.status && (
-                            <Badge
-                              variant='outline'
-                              className={`text-[9px] font-semibold uppercase px-1.5 py-0 h-4 ${
-                                h.status === 'DELIVERED'
-                                  ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300'
+
+                        {h.status && (
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase shrink-0 border ${
+                              isDelivered
+                                ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                                : h.status === 'CARRIER_SCANNED' || h.status === 'OUT_FOR_DELIVERY'
+                                ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800'
+                                : 'bg-muted text-muted-foreground border-border'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isDelivered
+                                  ? 'bg-emerald-500'
                                   : h.status === 'CARRIER_SCANNED' || h.status === 'OUT_FOR_DELIVERY'
-                                  ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-indigo-300'
-                                  : 'bg-muted text-muted-foreground'
+                                  ? 'bg-indigo-500'
+                                  : 'bg-slate-400'
                               }`}
-                            >
-                              {h.status.replace(/_/g, ' ')}
-                            </Badge>
-                          )}
-                          <Badge variant='outline' className='text-[10px] font-semibold'>
-                            {h.boxCount} {h.boxCount === 1 ? 'Box' : 'Boxes'} ({h.totalWeight} KG)
-                          </Badge>
-                        </div>
+                            />
+                            {h.status.replace(/_/g, ' ')}
+                          </span>
+                        )}
                       </div>
 
-                      <div className='flex items-center justify-between gap-2 pt-1 border-t text-[11px]'>
-                        <div>
-                          <span className='text-muted-foreground block text-[10px]'>Carrier Forwarding & Boxes:</span>
-                          <span className='font-mono font-bold text-foreground'>
-                            {h.forwardingNumber || 'Pending'} &rarr;{' '}
-                            <span className='text-primary font-bold'>
-                              {h.boxNumbersDisplay || (h.assignedBoxNumbers?.length ? `Box ${h.assignedBoxNumbers.join(', ')}` : `Box 1-${h.boxCount}`)}
-                            </span>
+                      {/* Middle Row: Cargo info (boxes + weight + box range) */}
+                      <div className='flex items-center justify-between text-xs text-muted-foreground'>
+                        <span className='font-medium text-foreground'>
+                          {h.boxCount} {h.boxCount === 1 ? 'Box' : 'Boxes'} • {h.totalWeight} KG
+                        </span>
+                        <span className='font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-muted/80 text-foreground border border-border/60'>
+                          {h.boxNumbersDisplay || (h.assignedBoxNumbers?.length ? `Box ${h.assignedBoxNumbers.join(', ')}` : `Box 1-${h.boxCount}`)}
+                        </span>
+                      </div>
+
+                      {/* Bottom Row: Carrier info & link */}
+                      <div className='flex items-center justify-between gap-2 pt-2 border-t border-border/60 text-[11px]'>
+                        <div className='min-w-0 truncate'>
+                          <span className='text-muted-foreground text-[10px] block'>Carrier Forwarding:</span>
+                          <span className='font-mono font-bold text-foreground truncate block'>
+                            {h.forwardingNumber || 'Pending Assignment'}
                           </span>
                         </div>
 
@@ -714,9 +726,9 @@ export function ShipmentTrackingDialog({
                             target='_blank'
                             rel='noreferrer'
                             onClick={(e) => e.stopPropagation()}
-                            className='inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline'
+                            className='inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline shrink-0 px-2 py-1 rounded bg-blue-50/80 dark:bg-blue-950/60 hover:bg-blue-100 transition'
                           >
-                            Carrier Link
+                            <span>Carrier Link</span>
                             <ExternalLink className='h-3 w-3' />
                           </a>
                         )}

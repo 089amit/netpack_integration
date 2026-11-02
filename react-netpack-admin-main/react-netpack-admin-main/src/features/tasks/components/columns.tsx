@@ -6,6 +6,7 @@ import { STATUS_OPTIONS } from '../data/data'
 import { DataTableColumnHeader } from './data-table-column-header'
 import { DataTableRowActions } from './data-table-row-actions'
 import { ShipmentTrackingDialog } from './shipment-tracking-dialog'
+import { getUserRole } from '@/lib/auth'
 
 // Define the actual data type used in table
 export type EnquiryTableRow = {
@@ -29,6 +30,8 @@ export type EnquiryTableRow = {
   additionalNote?: string | null
   senderOrganization?: string | null
   trackingNumber: string | null
+  customerName?: string | null
+  isFromCustomer?: boolean
 }
 
 export const mapEnquiryToTableRow = (enquiry: Enquiry): EnquiryTableRow => ({
@@ -52,6 +55,8 @@ export const mapEnquiryToTableRow = (enquiry: Enquiry): EnquiryTableRow => ({
   additionalNote: enquiry.additionalNote ?? null,
   senderOrganization: enquiry.senderOrganization ?? null,
   trackingNumber: enquiry.trackingNumber ?? 'N/A',
+  customerName: enquiry.customer?.name || enquiry.customerName || (enquiry as any).customer_name || null,
+  isFromCustomer: Boolean((enquiry as any).isFromCustomer),
 })
 
 const baseColumns: ColumnDef<EnquiryTableRow>[] = [
@@ -96,10 +101,35 @@ const baseColumns: ColumnDef<EnquiryTableRow>[] = [
     ),
     cell: ({ row }) => {
       const enquiry = row.original
-      const senderName = enquiry.senderName || '—'
+      const role = (getUserRole() || '').toUpperCase()
+      const isCustomerView = role === 'CUSTOMER'
+
+      const enteredSender = enquiry.senderName && enquiry.senderName !== 'N/A' ? enquiry.senderName : ''
+      const customerAccount = enquiry.customerName && enquiry.customerName !== 'N/A' ? enquiry.customerName : ''
+
+      // Customer web dashboard: show their entered sender name (defaults to their own details, or custom walk-in client)
+      if (isCustomerView) {
+        return (
+          <div className='w-[200px]'>
+            <div className='truncate font-medium text-foreground'>{enteredSender || customerAccount || '—'}</div>
+          </div>
+        )
+      }
+
+      // Admin / CSD / Operation panels:
+      // Show Customer Account name as primary so NetPack operations knows which client booked it.
+      // If entered sender differs from customer account (e.g. booked for sub-client), show shipper below.
+      const primaryName = customerAccount || enteredSender || '—'
+      const showShipperSub = enteredSender && customerAccount && enteredSender.toLowerCase().trim() !== customerAccount.toLowerCase().trim()
+
       return (
         <div className='w-[200px]'>
-          <div className='truncate font-medium'>{senderName}</div>
+          <div className='truncate font-medium text-foreground'>{primaryName}</div>
+          {showShipperSub && (
+            <div className='truncate text-[11px] text-muted-foreground font-normal'>
+              Shipper: <span className='font-medium text-foreground/85'>{enteredSender}</span>
+            </div>
+          )}
         </div>
       )
     },

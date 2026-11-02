@@ -83,9 +83,15 @@ export function ReceiverSection({
   } | null>(null)
 
   // Real-time automatic address verification with Google Maps (debounced 800ms)
+  // Only triggers when the whole address up to Country is entered for optimal UX
   useEffect(() => {
     const addr1 = formData?.receiver.addressLine1?.trim() || ''
-    if (addr1.length < 5) {
+    const city = formData?.receiver.city?.trim() || ''
+    const postcode = formData?.receiver.postcode?.trim() || ''
+    const state = formData?.receiver.state?.trim() || ''
+    const country = formData?.receiver.country?.trim() || ''
+
+    if (!addr1 || addr1.length < 5 || !city || (!postcode && !state) || !country) {
       setVerificationResult(null)
       return
     }
@@ -240,86 +246,6 @@ export function ReceiverSection({
         )}
       </div>
 
-      {/* Real-time Google Maps Address Corrections & Suggestions Banner */}
-      {verificationResult?.hasCorrections && (
-        <div className='mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs shadow-xs transition-all dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100'>
-          <div className='flex items-center justify-between gap-2'>
-            <div className='flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200'>
-              <AlertTriangle className='h-4 w-4 text-amber-600 shrink-0' />
-              <span>Suggested Address Corrections</span>
-              <span className='rounded bg-white/80 dark:bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-normal border border-amber-200 dark:border-amber-800'>
-                {verificationResult.provider || 'Google Maps'}
-              </span>
-            </div>
-            <Button
-              type='button'
-              size='sm'
-              onClick={handleApplySuggestion}
-              className='h-7 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-2.5 shadow-xs'
-            >
-              <Sparkles className='mr-1.5 h-3.5 w-3.5' />
-              Apply Corrections
-            </Button>
-          </div>
-
-          {verificationResult.corrections && verificationResult.corrections.length > 0 && (
-            <ul className='mt-2 space-y-1 list-disc list-inside text-[11px] text-amber-950 dark:text-amber-200'>
-              {verificationResult.corrections.map((corr: string, idx: number) => (
-                <li key={idx} className='leading-tight font-medium'>
-                  {corr}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {verificationResult.formattedAddress && (
-            <div className='mt-2 rounded bg-amber-100/70 dark:bg-amber-900/40 p-2 text-[11px] font-mono text-amber-900 dark:text-amber-200 leading-snug'>
-              <span className='font-sans font-semibold'>Standardized: </span>
-              {verificationResult.formattedAddress}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Verified without any corrections needed */}
-      {verificationResult?.isVerified && !verificationResult?.hasCorrections && (
-        <div className='mb-3 flex items-center justify-between rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'>
-          <div className='flex items-center gap-1.5 font-semibold'>
-            <CheckCircle2 className='h-4 w-4 text-emerald-600 shrink-0' />
-            <span>Address Verified with Google Maps</span>
-          </div>
-          {verificationResult.formattedAddress && (
-            <span className='text-[11px] text-muted-foreground truncate max-w-[280px]'>
-              {verificationResult.formattedAddress}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Verifying background status */}
-      {isVerifying && (
-        <div className='mb-2 flex items-center gap-1.5 text-[11px] text-muted-foreground'>
-          <Loader2 className='h-3 w-3 animate-spin text-blue-600' />
-          <span>Verifying address with Google Maps...</span>
-        </div>
-      )}
-
-      {/* Local Address Structure Warning */}
-      {!addressValidation.isValid && (formData?.receiver.postcode || formData?.receiver.addressLine1) && !verificationResult?.isVerified && !verificationResult?.hasCorrections && (
-        <div className='mb-3 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 shadow-xs dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'>
-          <div className='flex items-center gap-1.5 font-semibold'>
-            <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0' />
-            <span>Address Verification Warning</span>
-          </div>
-          <p className='mt-1 leading-relaxed'>{addressValidation.warning}</p>
-          {addressValidation.suggestion && (
-            <p className='mt-1 text-muted-foreground dark:text-amber-300/80 italic'>
-              Suggestion: {addressValidation.suggestion}
-            </p>
-          )}
-        </div>
-      )}
-
       <div className='space-y-3'>
         <div className='space-y-1'>
           <label className='block text-sm font-medium'>
@@ -461,6 +387,86 @@ export function ReceiverSection({
             <p className='mt-1 text-xs text-red-500'>This field is required</p>
           )}
         </div>
+
+        {/* Real-time Google Maps Address Corrections & Suggestions (Positioned directly below Country) */}
+        {verificationResult?.hasCorrections && (
+          <div className='rounded-md border border-amber-300 bg-amber-50 p-3 text-xs shadow-xs transition-all dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100'>
+            <div className='flex items-center justify-between gap-2'>
+              <div className='flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200'>
+                <AlertTriangle className='h-4 w-4 text-amber-600 shrink-0' />
+                <span>Suggested Address Corrections</span>
+                <span className='rounded bg-white/80 dark:bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-normal border border-amber-200 dark:border-amber-800'>
+                  {verificationResult.provider || 'Google Maps'}
+                </span>
+              </div>
+              <Button
+                type='button'
+                size='sm'
+                onClick={handleApplySuggestion}
+                className='h-7 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-2.5 shadow-xs'
+              >
+                <Sparkles className='mr-1.5 h-3.5 w-3.5' />
+                Apply Corrections
+              </Button>
+            </div>
+
+            {verificationResult.corrections && verificationResult.corrections.length > 0 && (
+              <ul className='mt-2 space-y-1 list-disc list-inside text-[11px] text-amber-950 dark:text-amber-200'>
+                {verificationResult.corrections.map((corr: string, idx: number) => (
+                  <li key={idx} className='leading-tight font-medium'>
+                    {corr}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {verificationResult.formattedAddress && (
+              <div className='mt-2 rounded bg-amber-100/70 dark:bg-amber-900/40 p-2 text-[11px] font-mono text-amber-900 dark:text-amber-200 leading-snug'>
+                <span className='font-sans font-semibold'>Standardized: </span>
+                {verificationResult.formattedAddress}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Verified without any corrections needed */}
+        {verificationResult?.isVerified && !verificationResult?.hasCorrections && (
+          <div className='flex items-center justify-between rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'>
+            <div className='flex items-center gap-1.5 font-semibold'>
+              <CheckCircle2 className='h-4 w-4 text-emerald-600 shrink-0' />
+              <span>Address Verified with Google Maps</span>
+            </div>
+            {verificationResult.formattedAddress && (
+              <span className='text-[11px] text-muted-foreground truncate max-w-[280px]'>
+                {verificationResult.formattedAddress}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Verifying background status */}
+        {isVerifying && (
+          <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+            <Loader2 className='h-3 w-3 animate-spin text-blue-600' />
+            <span>Verifying address with Google Maps...</span>
+          </div>
+        )}
+
+        {/* Local Address Structure Warning */}
+        {!addressValidation.isValid && (formData?.receiver.postcode || formData?.receiver.addressLine1) && !verificationResult?.isVerified && !verificationResult?.hasCorrections && (
+          <div className='rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 shadow-xs dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'>
+            <div className='flex items-center gap-1.5 font-semibold'>
+              <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0' />
+              <span>Address Verification Warning</span>
+            </div>
+            <p className='mt-1 leading-relaxed'>{addressValidation.warning}</p>
+            {addressValidation.suggestion && (
+              <p className='mt-1 text-muted-foreground dark:text-amber-300/80 italic'>
+                Suggestion: {addressValidation.suggestion}
+              </p>
+            )}
+          </div>
+        )}
 
         <div>
           <label className='mb-1 block text-sm font-medium'>

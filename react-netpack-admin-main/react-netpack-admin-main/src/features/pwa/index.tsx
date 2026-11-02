@@ -2280,9 +2280,10 @@ function TrackingScreen({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {data.hawbs.map((h, hIdx) => {
                       const isCurrent = h.hawbno === (data.hawbNumber || data.hawbno || data.tracking)
+                      const isDelivered = h.status === 'DELIVERED'
                       return (
                         <div
                           key={h.id || hIdx}
@@ -2293,36 +2294,58 @@ function TrackingScreen({
                               fetchTracking(h.hawbno)
                             }
                           }}
-                          className={`rounded-xl border p-2.5 text-xs transition-all cursor-pointer ${
+                          className={`rounded-xl border p-3 space-y-2 text-xs transition-all duration-200 cursor-pointer select-none ${
                             isCurrent
-                              ? 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-300 shadow-xs'
-                              : 'bg-white border-gray-200 hover:border-blue-300'
+                              ? 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-400/40 shadow-xs'
+                              : 'bg-white border-slate-200 hover:border-blue-400 hover:bg-slate-50/60'
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-1 mb-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono font-bold text-xs text-slate-900">{h.hawbno}</span>
-                              {isCurrent ? (
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-600 text-white">
-                                  Active View
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-blue-600 font-semibold underline">
-                                  Tap to view
+                          {/* Top Row: HAWB number + Active Badge + Status */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-mono font-bold text-xs tracking-tight text-slate-900 whitespace-nowrap">
+                                {h.hawbno}
+                              </span>
+                              {isCurrent && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-600 text-white shrink-0">
+                                  Active
                                 </span>
                               )}
                             </div>
-                            <span className="text-[10px] font-semibold text-slate-600 bg-gray-100 px-1.5 py-0.5 rounded">
-                              {h.boxCount} {h.boxCount === 1 ? 'Box' : 'Boxes'} ({h.totalWeight} kg)
+                            {h.status && (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase shrink-0 border ${
+                                  isDelivered
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                }`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    isDelivered ? 'bg-emerald-500' : 'bg-indigo-500'
+                                  }`}
+                                />
+                                {h.status.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Middle Row: Cargo info (boxes + weight + box range) */}
+                          <div className="flex items-center justify-between text-[11px] text-slate-600">
+                            <span className="font-medium text-slate-800">
+                              {h.boxCount} {h.boxCount === 1 ? 'Box' : 'Boxes'} • {h.totalWeight} kg
+                            </span>
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200/60">
+                              {h.boxNumbersDisplay || `Box 1-${h.boxCount}`}
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between text-[11px] pt-1 border-t border-gray-100">
-                            <div className="truncate mr-2">
-                              <span className="text-gray-400 text-[10px] block">Carrier & Boxes:</span>
-                              <span className="font-mono font-bold text-slate-800">
-                                {h.forwardingNumber || 'Pending'} &rarr;{' '}
-                                <span className="text-blue-600">{h.boxNumbersDisplay || `Box 1-${h.boxCount}`}</span>
+                          {/* Bottom Row: Carrier info & link */}
+                          <div className="flex items-center justify-between gap-1 text-[11px] pt-1.5 border-t border-slate-100">
+                            <div className="min-w-0 truncate">
+                              <span className="text-slate-400 text-[9px] block">Carrier Forwarding:</span>
+                              <span className="font-mono font-bold text-slate-800 truncate block">
+                                {h.forwardingNumber || 'Pending'}
                               </span>
                             </div>
                             {h.carrierTrackingUrl && (
@@ -2331,9 +2354,9 @@ function TrackingScreen({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline shrink-0"
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:underline shrink-0 px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 transition"
                               >
-                                Carrier Link
+                                <span>Carrier Link</span>
                                 <IconExternalLink size={10} />
                               </a>
                             )}
