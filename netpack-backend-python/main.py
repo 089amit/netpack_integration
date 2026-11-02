@@ -93,14 +93,51 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS configuration - allow React admin frontend, localhost, network IP and mobile clients
+# ─── Strict CORS Configuration ────────────────────────────────────────────────
+# Restrict origins strictly to production domains, Vercel deployments, and local dev
+ALLOWED_ORIGINS = [
+    "https://netpackintegration.vercel.app",
+    "https://netpacklogistic.com",
+    "https://www.netpacklogistic.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https?://.*",
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https://([a-zA-Z0-9_-]+\.)?netpacklogistic\.com$|^https://[a-zA-Z0-9_-]+\.vercel\.app$",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# ─── Enterprise HTTP Security Headers Middleware ─────────────────────────────
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        print(f"[Unhandled Server Error] {request.method} {request.url.path}: {exc}")
+        return Response(
+            content='{"detail": "Internal server error"}',
+            status_code=500,
+            media_type="application/json"
+        )
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(self), geolocation=(self), microphone=()"
+    if not request.url.is_secure and not request.headers.get("x-forwarded-proto") == "https":
+        pass  # Local HTTP dev
+    else:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    return response
 
 @app.get("/api/health", tags=["Health"])
 def health_check():
@@ -222,9 +259,12 @@ if not os.getenv("VERCEL"):
         except Exception as e:
             print(f"[Shutdown Warning] Failed writing backup snapshot: {e}")
 
-# Database snapshot export endpoint
+# Database snapshot export endpoint - strictly protected for staff/administrators
+from services.auth_service import get_current_admin
+from models.user import User
+
 @app.get("/api/admin/backup-database", tags=["Admin"])
-def export_database_snapshot():
+def export_database_snapshot(admin: User = Depends(get_current_admin)):
     try:
         from backup_restore_service import create_database_backup, LATEST_BACKUP_PATH
         path_str = create_database_backup()
@@ -395,10 +435,17 @@ if FRONTEND_DIST:
         if full_path.startswith("api/") or full_path.startswith("uploads/") or full_path in ("docs", "redoc", "openapi.json"):
             return FileResponse(FRONTEND_DIST / "index.html")
 
-        # Serve exact file if it exists (e.g. sw-pickup.js, manifest.webmanifest, favicon.ico, images)
-        target_file = FRONTEND_DIST / full_path
-        if full_path and target_file.is_file():
-            return FileResponse(target_file)
+        # Serve exact file if it exists, safely validating path containment to prevent directory traversal
+        try:
+            target_file = (FRONTEND_DIST / full_path).resolve()
+            if not target_file.is_relative_to(FRONTEND_DIST.resolve()):
+                raise HTTPException(status_code=403, detail="Access denied")
+            if full_path and target_file.is_file():
+                return FileResponse(target_file)
+        except HTTPException:
+            raise
+        except Exception:
+            pass
 
         # Fallback to index.html for client-side routing (/pickup-pwa, /tracking/NP..., /shipment, etc.)
         if full_path.startswith("pickup-pwa"):

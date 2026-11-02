@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { format } from 'date-fns'
 import { Calendar, Clock, X } from 'lucide-react'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 export function PolicyPreviewDialog() {
   const { state, setOpen } = usePolicy()
@@ -85,7 +86,7 @@ export function PolicyPreviewDialog() {
             <div
               className='html-preview'
               dangerouslySetInnerHTML={{
-                __html: policy.content || '<p class="text-muted-foreground italic">No content available.</p>',
+                __html: sanitizeHtml(policy.content || '<p class="text-muted-foreground italic">No content available.</p>'),
               }}
             />
           </div>

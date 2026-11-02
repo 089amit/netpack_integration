@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import List, Optional, Any, Dict
@@ -27,11 +27,23 @@ from services.email_service import (
 )
 from services.tracking_service import tracking_registry
 from services.trackingmore_service import trackingmore_service
+from services.auth_service import get_requester_identity, RequesterIdentity
 import logging
 
 logger = logging.getLogger("shipments")
 
 router = APIRouter(prefix="/api/shipments", tags=["Shipments"])
+
+def require_shipments_staff(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+) -> RequesterIdentity:
+    requester = get_requester_identity(authorization, db)
+    if not requester.is_authenticated:
+        raise HTTPException(status_code=401, detail="Authentication required to manage shipments")
+    if not requester.is_staff:
+        raise HTTPException(status_code=403, detail="Staff or Admin privileges required")
+    return requester
 
 def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
     # 1. Destination Country (Receiver Country)
@@ -508,7 +520,11 @@ def resolve_valid_country_id(db: Session, enquiry: Enquiry) -> Optional[int]:
 
 
 @router.post("/from-enquiry/{enquiryId}")
-def create_shipment_from_enquiry(enquiryId: int, db: Session = Depends(get_db)):
+def create_shipment_from_enquiry(
+    enquiryId: int,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
+    db: Session = Depends(get_db)
+):
     enquiry = db.query(Enquiry).filter(Enquiry.id == enquiryId).first()
     if not enquiry:
         raise HTTPException(status_code=404, detail="Enquiry not found")
@@ -589,7 +605,11 @@ def create_shipment_from_enquiry(enquiryId: int, db: Session = Depends(get_db)):
 
 
 @router.post("/from-enquiries")
-def create_multiple_shipments_from_enquiries(payload: Any = Body(...), db: Session = Depends(get_db)):
+def create_multiple_shipments_from_enquiries(
+    payload: Any = Body(...),
+    staff: RequesterIdentity = Depends(require_shipments_staff),
+    db: Session = Depends(get_db)
+):
     # Safely extract IDs from dict, object, or raw list
     raw_ids = []
     if isinstance(payload, dict):
@@ -717,7 +737,12 @@ def get_shipment_by_id(id: int, db: Session = Depends(get_db)):
     return format_shipment_response(s, db)
 
 @router.put("/{id}")
-def update_shipment(id: int, payload: ShipmentUpdateRequest, db: Session = Depends(get_db)):
+def update_shipment(
+    id: int,
+    payload: ShipmentUpdateRequest,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
+    db: Session = Depends(get_db)
+):
     s = db.query(Shipment).filter(Shipment.id == id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Shipment not found")
@@ -843,6 +868,7 @@ def update_shipment_status(
     id: int,
     payload: ShipmentStatusUpdateRequest,
     background_tasks: BackgroundTasks = None,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
     db: Session = Depends(get_db)
 ):
     s = db.query(Shipment).filter(Shipment.id == id).first()
@@ -951,6 +977,7 @@ def update_shipment_status(
 def bulk_update_status(
     payload: BulkStatusChangeRequest,
     background_tasks: BackgroundTasks = None,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
     db: Session = Depends(get_db)
 ):
     raw_ids = payload.shipmentIds or payload.id or payload.ids or getattr(payload, "shipment_ids", None) or []
@@ -1006,6 +1033,7 @@ def bulk_update_status(
 @router.post("/bulk-assign-custom-manifest")
 def bulk_assign_custom_manifest(
     payload: BulkAssignCustomManifestRequest,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
     db: Session = Depends(get_db)
 ):
     raw_ids = payload.shipmentIds or payload.id or payload.ids or []
@@ -1027,6 +1055,7 @@ def bulk_assign_custom_manifest(
 @router.post("/bulk-assign-mawb")
 def bulk_assign_mawb(
     payload: BulkAssignMawbRequest,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
     db: Session = Depends(get_db)
 ):
     raw_ids = payload.shipmentIds or payload.id or payload.ids or []
@@ -1099,7 +1128,12 @@ def get_shipments_by_customer(customerId: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{id}/assign-agent")
-def assign_agent_to_shipment(id: int, payload: AssignAgentRequest, db: Session = Depends(get_db)):
+def assign_agent_to_shipment(
+    id: int,
+    payload: AssignAgentRequest,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
+    db: Session = Depends(get_db)
+):
     s = db.query(Shipment).filter(Shipment.id == id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Shipment not found")
@@ -1130,7 +1164,11 @@ def assign_agent_to_shipment(id: int, payload: AssignAgentRequest, db: Session =
 
 
 @router.delete("/{shipmentId}")
-def delete_shipment(shipmentId: int, db: Session = Depends(get_db)):
+def delete_shipment(
+    shipmentId: int,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
+    db: Session = Depends(get_db)
+):
     s = db.query(Shipment).filter(Shipment.id == shipmentId).first()
     if not s:
         raise HTTPException(status_code=404, detail="Shipment not found")
@@ -1161,7 +1199,12 @@ class TrackingModeUpdateRequest(BaseModel):
 
 
 @router.patch("/{id}/tracking-mode")
-def update_shipment_tracking_mode(id: int, payload: TrackingModeUpdateRequest, db: Session = Depends(get_db)):
+def update_shipment_tracking_mode(
+    id: int,
+    payload: TrackingModeUpdateRequest,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
+    db: Session = Depends(get_db)
+):
     mode = payload.trackingMode.strip().upper()
     if mode not in ("MANUAL", "API"):
         raise HTTPException(status_code=400, detail="trackingMode must be 'MANUAL' or 'API'")
@@ -1196,7 +1239,12 @@ class BreakHawbRequest(BaseModel):
 
 
 @router.post("/{id}/break-hawb")
-def break_hawb_shipment(id: int, payload: BreakHawbRequest, db: Session = Depends(get_db)):
+def break_hawb_shipment(
+    id: int,
+    payload: BreakHawbRequest,
+    staff: RequesterIdentity = Depends(require_shipments_staff),
+    db: Session = Depends(get_db)
+):
     """
     Partitions boxes of a shipment across multiple HAWBs.
     - Updates original shipment with its chosen boxes, hawbNumber, carrier forwardingNumber, and agent.

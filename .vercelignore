@@ -1,0 +1,32 @@
+# Environments and Secrets
+.env
+.env.*
+*.env
+
+# Databases, Backups, and Dumps
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+*.json.bak
+*.bak
+full_production_backup_latest.json
+netpack_seed_snapshot.json
+backups/
+netpack-backend-python/backups/
+netpack-backend-python/netpack.db
+netpack-backend-python/full_production_backup_latest.json
+netpack-backend-python/netpack_seed_snapshot.json
+
+# Mobile & Native Builds
+android/
+build-aab/
+build-apk/
+
+# Git and OS metadata
+.git/
+.github/
+.vscode/
+.idea/
+*.log
+logs/

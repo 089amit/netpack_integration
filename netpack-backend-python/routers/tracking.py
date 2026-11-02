@@ -10,15 +10,21 @@ from database import get_db
 from models.shipment import Shipment, TrackingEvent
 from models.mawb import MAWB
 from models.enquiry import Enquiry
+from models.user import User
 from services.tracking_service import tracking_registry
 from services.trackingmore_service import trackingmore_service
+from services.auth_service import get_current_admin, get_requester_identity
 
 logger = logging.getLogger("tracking")
 
 router = APIRouter(prefix="/api/tracking", tags=["Tracking"])
 
 @router.get("/trackingmore/status")
-def get_trackingmore_status(request: Request, db: Session = Depends(get_db)):
+def get_trackingmore_status(
+    request: Request,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
     """
     Returns TrackingMore integration health, configuration status,
     and the exact Webhook URL to enter into the TrackingMore Dashboard.
@@ -42,7 +48,10 @@ def get_trackingmore_status(request: Request, db: Session = Depends(get_db)):
     }
 
 @router.post("/trackingmore/save-key")
-def save_trackingmore_key(payload: Dict[str, Any] = Body(...)):
+def save_trackingmore_key(
+    payload: Dict[str, Any] = Body(...),
+    current_admin: User = Depends(get_current_admin)
+):
     """
     Saves TrackingMore API key and/or webhook secret in-memory and persists to .env.
     """
@@ -70,7 +79,11 @@ def save_trackingmore_key(payload: Dict[str, Any] = Body(...)):
     }
 
 @router.post("/trackingmore/test-webhook")
-def test_trackingmore_webhook(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+def test_trackingmore_webhook(
+    payload: Dict[str, Any] = Body(...),
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
     """
     Simulates a live TrackingMore webhook trigger for testing prior to production deployment.
     Ingests realistic carrier tracking event data and synchronizes shipment and enquiry status.
@@ -137,6 +150,7 @@ def test_trackingmore_webhook(payload: Dict[str, Any] = Body(...), db: Session =
 @router.post("/trackingmore/register")
 def register_tracking_with_trackingmore(
     payload: Dict[str, Any] = Body(...),
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """

@@ -7,7 +7,8 @@ from datetime import datetime, date
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Header, Request
+from services.rate_limiter import rate_limiter
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -185,7 +186,8 @@ class BatchPickupStatusUpdate(BaseModel):
 
 
 @router.post("/auth/login")
-def rider_login(payload: RiderLoginRequest, db: Session = Depends(get_db)):
+def rider_login(payload: RiderLoginRequest, request: Request, db: Session = Depends(get_db)):
+    rate_limiter.check(request, category="rider_login", max_requests=5, window_seconds=60)
     ident = payload.identifier.strip()
     if not ident or not payload.password:
         raise HTTPException(status_code=400, detail="Rider ID/Email and password are required")
@@ -268,12 +270,16 @@ def validate_rider_token(payload: TokenValidationRequest, db: Session = Depends(
 def get_live_alerts(
     since_id: Optional[int] = Query(None),
     since_time: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """
     Real-time pickup alerts polling endpoint for the Rider PWA.
     Returns newly created/pending pickups matching criteria.
     """
+    requester = get_requester_identity(authorization, db)
+    if not requester.is_authenticated:
+        raise HTTPException(status_code=401, detail="Authentication required to receive pickup alerts")
     query = db.query(Enquiry).filter(
         Enquiry.status.in_(["ENQUIRY_GENERATED", "PENDING", "ASSIGNED_FOR_PICKUP"]),
         ~Enquiry.shipments.any()
@@ -431,6 +437,8 @@ def update_stop_status(
     If all stops are collected, marks the overall pickup enquiry as PICKED_UP automatically.
     """
     requester = get_requester_identity(authorization, db)
+    if not requester.is_authenticated:
+        raise HTTPException(status_code=401, detail="Authentication required to update stop status")
     e = db.query(Enquiry).filter(Enquiry.id == id).first()
     if not e:
         raise HTTPException(status_code=404, detail="Pickup not found")
@@ -675,6 +683,7 @@ async def pickup_and_weigh(
     existingImagesJson: Optional[str] = Form(None),
     scaleImage: Optional[UploadFile] = File(None),
     scaleImages: Optional[List[UploadFile]] = File(None),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -682,6 +691,10 @@ async def pickup_and_weigh(
     updates box dimensions in place (preserving referential integrity with BoxItems),
     uploads weighing scale and box proof photos, and creates a TrackingEvent milestone.
     """
+    requester = get_requester_identity(authorization, db)
+    if not requester.is_authenticated:
+        raise HTTPException(status_code=401, detail="Authentication required to record pickup and weight")
+
     e = db.query(Enquiry).filter(Enquiry.id == id).first()
     if not e:
         raise HTTPException(status_code=404, detail="Enquiry not found")
@@ -726,6 +739,8 @@ async def pickup_and_weigh(
 
         try:
             content = await img_file.read()
+            if len(content) > 10 * 1024 * 1024:
+                raise HTTPException(status_code=400, detail=f"Weighing scale photo '{img_file.filename}' exceeds 10MB limit.")
             # Try saving to local disk cache
             try:
                 with open(target_path, "wb") as f:

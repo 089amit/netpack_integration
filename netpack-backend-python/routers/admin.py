@@ -1,7 +1,8 @@
 import math
 import random
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, BackgroundTasks, Request
+from services.rate_limiter import rate_limiter
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any, Dict, Tuple
 from database import get_db
@@ -43,7 +44,8 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
 user_router = APIRouter(tags=["User Auth & Profile"])
 
 @router.post("/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    rate_limiter.check(request, category="admin_login", max_requests=5, window_seconds=60)
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password):
         raise HTTPException(
@@ -124,9 +126,11 @@ def validate_mobile_token(payload: TokenValidationRequest, db: Session = Depends
 @router.post("/forgotPassword")
 def forgot_password(
     payload: ForgotPasswordRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
+    rate_limiter.check(request, category="forgot_password", max_requests=3, window_seconds=60)
     clean_email = payload.email.strip().lower()
     user = db.query(User).filter(User.email.ilike(clean_email)).first()
     cust = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
@@ -150,7 +154,8 @@ def forgot_password(
 @router.post("/reset-password")
 @router.post("/reset-password/")
 @router.post("/resetPassword")
-def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(payload: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    rate_limiter.check(request, category="reset_password", max_requests=5, window_seconds=60)
     clean_email = payload.email.strip().lower()
     clean_code = payload.code.strip()
     new_password = (payload.newPassword or payload.password or "").strip()

@@ -653,9 +653,11 @@ export default function CustomManifestPage() {
   }
 
 
-  // Download File Helper
+  // Download File Helper (passes authentication token for secure download)
   const downloadFile = (filename: string) => {
-    window.open(`${BASE_URL}/customs/download/${encodeURIComponent(filename)}`, '_blank')
+    const token = localStorage.getItem('token') || ''
+    const url = `${BASE_URL}/customs/download/${encodeURIComponent(filename)}${token ? `?token=${encodeURIComponent(token)}` : ''}`
+    window.open(url, '_blank')
   }
 
   // Consignee CRUD

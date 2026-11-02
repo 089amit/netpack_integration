@@ -5,7 +5,7 @@ import shutil
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple, Union
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Header
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ import pandas as pd
 from database import get_db
 from models import MAWB, Shipment, Enquiry, EnquiryItem, Box, Country
 from models.customs_consignee import CustomsConsignee, CustomsSetting, CustomManifestHub
+from services.auth_service import get_requester_identity, RequesterIdentity
 from services.custom_manifest_service import (
     suggest_bag_markings,
     prepare_wtbox_data,
@@ -32,6 +33,21 @@ from services.custom_manifest_service import (
 
 
 router = APIRouter(prefix="/api/customs", tags=["Customs & Chamber Generator"])
+
+def require_customs_staff(
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+) -> RequesterIdentity:
+    auth_val = authorization
+    if not auth_val and token:
+        auth_val = f"Bearer {token}"
+    requester = get_requester_identity(auth_val, db)
+    if not requester.is_authenticated:
+        raise HTTPException(status_code=401, detail="Authentication required to access Customs & Chamber manifest tools.")
+    if not requester.is_staff:
+        raise HTTPException(status_code=403, detail="Staff or Admin privileges required to access Customs & Chamber manifest tools.")
+    return requester
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -81,7 +97,7 @@ class GenerateCustomsRequest(BaseModel):
 # ─── Settings Endpoints ───────────────────────────────────────────────────────
 
 @router.get("/settings")
-def get_customs_settings(db: Session = Depends(get_db)):
+def get_customs_settings(staff: RequesterIdentity = Depends(require_customs_staff), db: Session = Depends(get_db)):
     def _get(k: str, default: str) -> str:
         s = db.query(CustomsSetting).filter(CustomsSetting.key == k).first()
         return s.value if s and s.value is not None else default
@@ -95,7 +111,11 @@ def get_customs_settings(db: Session = Depends(get_db)):
 
 @router.post("/settings")
 @router.put("/settings")
-def update_customs_settings(payload: CustomsSettingsPayload, db: Session = Depends(get_db)):
+def update_customs_settings(
+    payload: CustomsSettingsPayload,
+    staff: RequesterIdentity = Depends(require_customs_staff),
+    db: Session = Depends(get_db)
+):
     def _set(k: str, v: Any):
         s = db.query(CustomsSetting).filter(CustomsSetting.key == k).first()
         if not s:
@@ -119,7 +139,7 @@ def update_customs_settings(payload: CustomsSettingsPayload, db: Session = Depen
 # ─── Consignees Endpoints ─────────────────────────────────────────────────────
 
 @router.get("/consignees")
-def list_consignees(db: Session = Depends(get_db)):
+def list_consignees(staff: RequesterIdentity = Depends(require_customs_staff), db: Session = Depends(get_db)):
     consignees = db.query(CustomsConsignee).order_by(CustomsConsignee.isDefault.desc(), CustomsConsignee.id.asc()).all()
     if not consignees:
         # Seed default
@@ -146,7 +166,11 @@ def list_consignees(db: Session = Depends(get_db)):
     ]
 
 @router.post("/consignees")
-def create_consignee(payload: ConsigneeInput, db: Session = Depends(get_db)):
+def create_consignee(
+    payload: ConsigneeInput,
+    staff: RequesterIdentity = Depends(require_customs_staff),
+    db: Session = Depends(get_db)
+):
     if not payload.name or not payload.name.strip():
         raise HTTPException(status_code=400, detail="Consignee name is required")
 
@@ -164,7 +188,11 @@ def create_consignee(payload: ConsigneeInput, db: Session = Depends(get_db)):
     return {"id": c.id, "name": c.name, "address": c.address, "country": c.country, "isDefault": c.isDefault}
 
 @router.delete("/consignees/{consignee_id}")
-def delete_consignee(consignee_id: int, db: Session = Depends(get_db)):
+def delete_consignee(
+    consignee_id: int,
+    staff: RequesterIdentity = Depends(require_customs_staff),
+    db: Session = Depends(get_db)
+):
     c = db.query(CustomsConsignee).filter(CustomsConsignee.id == consignee_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Consignee not found")
@@ -173,7 +201,7 @@ def delete_consignee(consignee_id: int, db: Session = Depends(get_db)):
     return {"message": "Consignee deleted"}
 
 @router.post("/consignees/reset")
-def reset_consignees(db: Session = Depends(get_db)):
+def reset_consignees(staff: RequesterIdentity = Depends(require_customs_staff), db: Session = Depends(get_db)):
     db.query(CustomsConsignee).delete()
     default_c = CustomsConsignee(
         name="ESHIPPER EXPRESS COURIER",
@@ -188,7 +216,7 @@ def reset_consignees(db: Session = Depends(get_db)):
 # ─── Custom Manifest Hubs ─────────────────────────────────────────────────────
 
 @router.get("/hubs")
-def get_custom_manifest_hubs(db: Session = Depends(get_db)):
+def get_custom_manifest_hubs(staff: RequesterIdentity = Depends(require_customs_staff), db: Session = Depends(get_db)):
     hubs = db.query(CustomManifestHub).filter(CustomManifestHub.isActive == True).order_by(CustomManifestHub.code.asc()).all()
     if not hubs:
         defaults = [("AUS", "Australia Gateway"), ("LHR", "London Heathrow Hub"), ("DXB", "Dubai Hub")]
@@ -199,7 +227,11 @@ def get_custom_manifest_hubs(db: Session = Depends(get_db)):
     return [{"id": h.id, "code": h.code, "name": h.name or h.code} for h in hubs]
 
 @router.post("/hubs")
-def create_custom_manifest_hub(payload: HubCreateRequest, db: Session = Depends(get_db)):
+def create_custom_manifest_hub(
+    payload: HubCreateRequest,
+    staff: RequesterIdentity = Depends(require_customs_staff),
+    db: Session = Depends(get_db)
+):
     raw_code = payload.code.strip().upper()
     if not raw_code:
         raise HTTPException(status_code=400, detail="Hub code cannot be empty")
@@ -408,6 +440,7 @@ def get_mawb_customs_data(
     mawbNumber: str,
     maxBagWeight: float = Query(DEFAULT_MAX_BAG_WEIGHT),
     type: Optional[str] = Query(None),
+    staff: RequesterIdentity = Depends(require_customs_staff),
     db: Session = Depends(get_db)
 ):
     mawb, shipments = _fetch_mawb_shipments(mawbNumber, db, query_type=type)
@@ -440,7 +473,11 @@ def get_mawb_customs_data(
     }
 
 @router.post("/preview-parts")
-def preview_parts(payload: PreviewPartsRequest, db: Session = Depends(get_db)):
+def preview_parts(
+    payload: PreviewPartsRequest,
+    staff: RequesterIdentity = Depends(require_customs_staff),
+    db: Session = Depends(get_db)
+):
     mawb, shipments = _fetch_mawb_shipments(payload.mawbNumber, db, query_type=payload.type)
     if not shipments:
         return {"partsCount": 0, "parts": []}
@@ -486,7 +523,11 @@ def preview_parts(payload: PreviewPartsRequest, db: Session = Depends(get_db)):
 # ─── Generation Endpoint ──────────────────────────────────────────────────────
 
 @router.post("/generate")
-def generate_customs_package(payload: GenerateCustomsRequest, db: Session = Depends(get_db)):
+def generate_customs_package(
+    payload: GenerateCustomsRequest,
+    staff: RequesterIdentity = Depends(require_customs_staff),
+    db: Session = Depends(get_db)
+):
     mawb, shipments = _fetch_mawb_shipments(payload.mawbNumber, db, query_type=payload.type)
     if not shipments:
         raise HTTPException(status_code=400, detail="No shipments assigned to this MAWB or Customs Hub")
@@ -650,20 +691,30 @@ def generate_customs_package(payload: GenerateCustomsRequest, db: Session = Depe
     }
 
 @router.get("/preview-manifest/{filename}")
-def preview_manifest_file(filename: str):
+def preview_manifest_file(
+    filename: str,
+    staff: RequesterIdentity = Depends(require_customs_staff)
+):
     safe_name = os.path.basename(filename)
-    filepath = os.path.join(TEMP_OUTPUT_DIR, safe_name)
-    if not os.path.exists(filepath):
+    if not re.match(r'^[a-zA-Z0-9_\-\.]+$', safe_name):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    filepath = (Path(TEMP_OUTPUT_DIR) / safe_name).resolve()
+    if not filepath.is_relative_to(Path(TEMP_OUTPUT_DIR).resolve()) or not filepath.exists():
         raise HTTPException(status_code=404, detail="File not found")
     with open(filepath, "rb") as f:
         data = f.read()
     return extract_sheet_matrix(data)
 
 @router.get("/preview-chamber/{filename}")
-def preview_chamber_file(filename: str):
+def preview_chamber_file(
+    filename: str,
+    staff: RequesterIdentity = Depends(require_customs_staff)
+):
     safe_name = os.path.basename(filename)
-    filepath = os.path.join(TEMP_OUTPUT_DIR, safe_name)
-    if not os.path.exists(filepath):
+    if not re.match(r'^[a-zA-Z0-9_\-\.]+$', safe_name):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    filepath = (Path(TEMP_OUTPUT_DIR) / safe_name).resolve()
+    if not filepath.is_relative_to(Path(TEMP_OUTPUT_DIR).resolve()) or not filepath.exists():
         raise HTTPException(status_code=404, detail="File not found")
     with open(filepath, "rb") as f:
         data = f.read()
@@ -673,10 +724,17 @@ def preview_chamber_file(filename: str):
 # ─── Download Endpoint ────────────────────────────────────────────────────────
 
 @router.get("/download/{filename}")
-def download_customs_file(filename: str):
+def download_customs_file(
+    filename: str,
+    staff: RequesterIdentity = Depends(require_customs_staff)
+):
     safe_name = os.path.basename(filename)
-    filepath = os.path.join(TEMP_OUTPUT_DIR, safe_name)
-    if not os.path.exists(filepath):
+    if not re.match(r'^[a-zA-Z0-9_\-\.]+$', safe_name):
+        raise HTTPException(status_code=400, detail="Invalid filename characters")
+
+    filepath = (Path(TEMP_OUTPUT_DIR) / safe_name).resolve()
+    base_dir = Path(TEMP_OUTPUT_DIR).resolve()
+    if not filepath.is_relative_to(base_dir) or not filepath.exists():
         raise HTTPException(status_code=404, detail="Requested file not found or expired")
 
     media_type = "application/octet-stream"
@@ -688,7 +746,7 @@ def download_customs_file(filename: str):
         media_type = "application/zip"
 
     return FileResponse(
-        path=filepath,
+        path=str(filepath),
         filename=safe_name,
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{safe_name}"'}
@@ -697,12 +755,21 @@ def download_customs_file(filename: str):
 # ─── Offline File Upload (Backward Compatibility) ────────────────────────────
 
 @router.post("/upload-offline")
-async def upload_offline_manifest(file: UploadFile = File(...)):
+async def upload_offline_manifest(
+    file: UploadFile = File(...),
+    staff: RequesterIdentity = Depends(require_customs_staff)
+):
     filename = file.filename or "uploaded_manifest.xlsx"
     ext = os.path.splitext(filename)[1].lower()
+    if ext not in [".xlsx", ".xls", ".csv"]:
+        raise HTTPException(status_code=400, detail="Please upload a .xlsx or .csv file")
 
     content = await file.read()
-    temp_path = os.path.join(TEMP_OUTPUT_DIR, f"offline_{uuid.uuid4().hex[:8]}_{filename}")
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Uploaded file exceeds 10MB limit.")
+
+    safe_base = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', filename)
+    temp_path = os.path.join(TEMP_OUTPUT_DIR, f"offline_{uuid.uuid4().hex[:8]}_{safe_base}")
     with open(temp_path, "wb") as f:
         f.write(content)
 

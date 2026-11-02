@@ -22,6 +22,9 @@ export default defineConfig({
       '@tabler/icons-react': '@tabler/icons-react/dist/esm/icons/index.mjs',
     },
   },
+  build: {
+    sourcemap: false,
+  },
   server: {
     allowedHosts: ['.ngrok-free.app'], // ✅ Allow all ngrok subdomains
     host: true, // ✅ Allow access from external IP (important for tunneling)

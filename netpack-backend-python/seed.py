@@ -30,64 +30,70 @@ def seed_database():
             created_roles[r_name] = role
         print("[OK] Roles seeded.")
 
-        # 2. Seed Admin User
-        admin_email = "admin@example.com"
-        admin_user = db.query(User).filter(User.email == admin_email).first()
-        if not admin_user:
-            admin_user = User(
-                email=admin_email,
-                username="admin",
-                password=get_password_hash("Admin@123"),
-                fullName="System Administrator",
-                phoneNumber="+977-9800000000",
-                roleId=created_roles["ADMIN"].id,
-                isActive=True
-            )
-            db.add(admin_user)
-            db.commit()
-            print(f"[OK] Default Admin created: {admin_email} / Admin@123")
+        # 2. Seed Admin User (DISABLED in production to prevent default credential exploits)
+        import os
+        is_production = os.getenv("NODE_ENV") == "production" or os.getenv("VERCEL")
+        if is_production and not os.getenv("ALLOW_DEFAULT_USER_SEED"):
+            print("[SECURITY] Production environment detected: default test accounts (Admin@123, Driver@123) are NOT seeded.")
         else:
-            print(f"[OK] Admin user already exists: {admin_email}")
+            admin_email = os.getenv("INITIAL_ADMIN_EMAIL", "admin@example.com")
+            admin_user = db.query(User).filter(User.email == admin_email).first()
+            if not admin_user:
+                admin_pw = os.getenv("INITIAL_ADMIN_PASSWORD", "Admin@123")
+                admin_user = User(
+                    email=admin_email,
+                    username="admin",
+                    password=get_password_hash(admin_pw),
+                    fullName="System Administrator",
+                    phoneNumber="+977-9800000000",
+                    roleId=created_roles["ADMIN"].id,
+                    isActive=True
+                )
+                db.add(admin_user)
+                db.commit()
+                print(f"[OK] Default Admin created: {admin_email}")
+            else:
+                print(f"[OK] Admin user already exists: {admin_email}")
 
-        # 2b. Seed Default Field Pickup Rider
-        rider_email = "driver@netpack.com"
-        rider_user = db.query(User).filter(User.email == rider_email).first()
-        if not rider_user:
-            rider_user = User(
-                email=rider_email,
-                username="rider-01",
-                password=get_password_hash("Driver@123"),
-                fullName="Ram Shrestha",
-                phoneNumber="9841234567",
-                roleId=created_roles["PICKUP"].id,
-                isActive=True
-            )
-            db.add(rider_user)
-            db.commit()
-            print(f"[OK] Default Rider created: {rider_email} / Driver@123 (ID: rider-01)")
-        else:
-            print(f"[OK] Rider user already exists: {rider_email}")
+            # 2b. Seed Default Field Pickup Rider
+            rider_email = "driver@netpack.com"
+            rider_user = db.query(User).filter(User.email == rider_email).first()
+            if not rider_user:
+                rider_user = User(
+                    email=rider_email,
+                    username="rider-01",
+                    password=get_password_hash("Driver@123"),
+                    fullName="Ram Shrestha",
+                    phoneNumber="9841234567",
+                    roleId=created_roles["PICKUP"].id,
+                    isActive=True
+                )
+                db.add(rider_user)
+                db.commit()
+                print(f"[OK] Default Rider created: {rider_email}")
+            else:
+                print(f"[OK] Rider user already exists: {rider_email}")
 
-        # 2c. Seed Default Cargo Courier / Staff Account
-        courier_email = "courier@netpack.com"
-        courier_user = db.query(User).filter(User.email == courier_email).first()
-        if not courier_user:
-            courier_user = User(
-                email=courier_email,
-                username="courier-01",
-                password=get_password_hash("Courier@123"),
-                fullName="Sita Sharma (Express Cargo)",
-                phoneNumber="+977-9851000000",
-                roleId=created_roles["USER"].id,
-                isActive=True,
-                city="Kathmandu",
-                address1="Dillibazar"
-            )
-            db.add(courier_user)
-            db.commit()
-            print(f"[OK] Default Courier created: {courier_email} / Courier@123")
-        else:
-            print(f"[OK] Courier user already exists: {courier_email}")
+            # 2c. Seed Default Cargo Courier / Staff Account
+            courier_email = "courier@netpack.com"
+            courier_user = db.query(User).filter(User.email == courier_email).first()
+            if not courier_user:
+                courier_user = User(
+                    email=courier_email,
+                    username="courier-01",
+                    password=get_password_hash("Courier@123"),
+                    fullName="Sita Sharma (Express Cargo)",
+                    phoneNumber="+977-9851000000",
+                    roleId=created_roles["USER"].id,
+                    isActive=True,
+                    city="Kathmandu",
+                    address1="Dillibazar"
+                )
+                db.add(courier_user)
+                db.commit()
+                print(f"[OK] Default Courier created: {courier_email}")
+            else:
+                print(f"[OK] Courier user already exists: {courier_email}")
 
         # 3. Seed Charges
         if not db.query(TIACharge).first():

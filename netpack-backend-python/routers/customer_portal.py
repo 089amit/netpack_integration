@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException, Header, status, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Header, status, UploadFile, File, BackgroundTasks, Request
+from services.rate_limiter import rate_limiter
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -283,9 +284,11 @@ def build_pwa_verification_code_html(email: str, code: str) -> str:
 @router.post("/auth/send-code")
 def customer_send_login_code(
     payload: CustomerSendCodeRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
+    rate_limiter.check(request, category="customer_send_code", max_requests=3, window_seconds=60)
     clean_email = payload.email.strip().lower()
     if not clean_email or "@" not in clean_email:
         raise HTTPException(status_code=400, detail="Please enter a valid email address.")
@@ -312,8 +315,10 @@ def customer_send_login_code(
 @router.post("/auth/verify-code")
 def customer_verify_login_code(
     payload: CustomerVerifyCodeRequest,
+    request: Request,
     db: Session = Depends(get_db)
 ):
+    rate_limiter.check(request, category="customer_verify_code", max_requests=5, window_seconds=60)
     clean_email = payload.email.strip().lower()
     clean_code = payload.code.strip()
 
@@ -409,7 +414,8 @@ def customer_verify_login_code(
 @router.post("/auth/login")
 @router.post("/login")
 @router.post("/customer-login")
-def customer_login(payload: CustomerLoginRequest, db: Session = Depends(get_db)):
+def customer_login(payload: CustomerLoginRequest, request: Request, db: Session = Depends(get_db)):
+    rate_limiter.check(request, category="customer_login", max_requests=5, window_seconds=60)
     clean_email = payload.email.strip().lower()
     customer = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
 
@@ -509,9 +515,11 @@ def customer_login(payload: CustomerLoginRequest, db: Session = Depends(get_db))
 @router.post("/auth/signup")
 def customer_signup(
     payload: CustomerSignupRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
+    rate_limiter.check(request, category="customer_signup", max_requests=5, window_seconds=60)
     clean_email = payload.email.strip().lower()
     existing = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
     if existing:
@@ -741,15 +749,25 @@ async def upload_customer_photo(
     if not photo.filename:
         raise HTTPException(status_code=400, detail="No file uploaded")
 
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic"}
     ext = os.path.splitext(photo.filename)[1].lower()
-    if not ext or ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic"]:
-        ext = ".jpg"
+    if not ext or ext not in allowed_exts:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image format. Permitted file types: JPG, PNG, WEBP, GIF, HEIC."
+        )
+
+    if photo.content_type and not (photo.content_type.startswith("image/") or photo.content_type == "application/octet-stream"):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
+
+    content = await photo.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Profile picture exceeds 10MB file size limit.")
 
     filename = f"avatar_{current_customer.id}_{uuid.uuid4().hex[:8]}{ext}"
     target_path = AVATARS_DIR / filename
 
     try:
-        content = await photo.read()
         with open(target_path, "wb") as f:
             f.write(content)
         
@@ -1218,6 +1236,8 @@ def mark_notification_as_read(
     n = db.query(Notification).filter(Notification.id == id).first()
     if not n:
         raise HTTPException(status_code=404, detail="Notification not found")
+    if n.customerId and n.customerId != current_customer.id and n.scope != "ALL_CUSTOMERS":
+        raise HTTPException(status_code=403, detail="Not authorized to modify this notification")
     n.isRead = True
     db.commit()
     return {"message": "Notification marked as read"}
