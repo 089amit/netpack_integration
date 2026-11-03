@@ -1173,6 +1173,18 @@ def delete_shipment(
     if not s:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
+    # Disallow deletion once shipment has departed or reached in-transit milestones
+    st_upper = (s.status or "").strip().upper()
+    locked_statuses = {
+        "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", 
+        "CUSTOMS_HOLD", "OUT_FOR_DELIVERY", "DELIVERED"
+    }
+    if st_upper in locked_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Shipment cannot be deleted: status '{s.status}' is currently in transit or completed."
+        )
+
     enquiry_id = s.enquiryId
     enquiry = s.enquiry or (db.query(Enquiry).filter(Enquiry.id == enquiry_id).first() if enquiry_id else None)
 

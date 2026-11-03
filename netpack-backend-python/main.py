@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -73,7 +73,41 @@ def ensure_essential_schema(target_engine):
                         ('DXB', 'Dubai Hub')
                     ON CONFLICT (code) DO NOTHING;
                 '''))
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS password_reset_codes (
+                        id SERIAL PRIMARY KEY,
+                        email VARCHAR(255) NOT NULL,
+                        code VARCHAR(10) NOT NULL,
+                        "expiresAt" TIMESTAMP NOT NULL,
+                        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('CREATE INDEX IF NOT EXISTS idx_password_reset_codes_email ON password_reset_codes (email);'))
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS website_contents (
+                        id SERIAL PRIMARY KEY,
+                        "heroTitle" VARCHAR(255) DEFAULT 'Fast & Reliable Courier Services in Teku, Kathmandu',
+                        "heroSubtitle" TEXT DEFAULT 'Your trusted partner for secure package delivery across Nepal and worldwide. Track your shipment in real-time.',
+                        "heroBadge" VARCHAR(100) DEFAULT 'Teku, Kathmandu Headquarters',
+                        "contactPhone" VARCHAR(50) DEFAULT '015339942',
+                        "contactEmail" VARCHAR(100) DEFAULT 'admin@netpacklogistic.com',
+                        "contactAddress" VARCHAR(255) DEFAULT 'Teku Road, Ward No. 15, Kathmandu, Nepal',
+                        "businessHours" VARCHAR(100) DEFAULT '10:00 am - 5:00 pm (Sun - Fri)',
+                        "googleMapsUrl" TEXT,
+                        "mapCoordinates" VARCHAR(100) DEFAULT '27.6975, 85.3090',
+                        "tickerItems" TEXT DEFAULT '["Reliable International Air Cargo", "Express Express Courier to 220+ Countries", "Daily Kathmandu Pickup & Delivery", "Live Real-Time Package Tracking"]',
+                        "festiveTheme" VARCHAR(50) DEFAULT 'auto',
+                        "festiveGreeting" VARCHAR(255),
+                        "appFreightMarkupPercent" FLOAT DEFAULT 10.0,
+                        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('INSERT INTO website_contents (id, "heroTitle") VALUES (1, \'Fast & Reliable Courier Services in Teku, Kathmandu\') ON CONFLICT (id) DO NOTHING;'))
                 conn.commit()
+                try:
+                    Base.metadata.create_all(bind=target_engine)
+                except Exception as _ca_err:
+                    print(f"[Metadata create_all note] {_ca_err}")
             else:
                 Base.metadata.create_all(bind=target_engine)
                 run_auto_migrations(target_engine)
@@ -296,17 +330,17 @@ def integration_status():
     }
 
 # ─── Legacy & PWA Root Aliases ───────────────────────────────────────────────
-from fastapi import BackgroundTasks, Depends
+from fastapi import BackgroundTasks, Depends, Request
 from sqlalchemy.orm import Session
 from database import get_db
 
 @app.post("/api/auth/login", tags=["Auth Aliases"])
-def root_alias_auth_login(payload: admin.LoginRequest, db: Session = Depends(get_db)):
-    return admin.login(payload, db)
+def root_alias_auth_login(payload: admin.LoginRequest, request: Request, db: Session = Depends(get_db)):
+    return admin.login(payload, request, db)
 
 @app.post("/api/auth/customer-login", tags=["Customer Portal Aliases"])
-def root_alias_customer_login(payload: customer_portal.CustomerLoginRequest, db: Session = Depends(get_db)):
-    return customer_portal.customer_login(payload, db)
+def root_alias_customer_login(payload: customer_portal.CustomerLoginRequest, request: Request, db: Session = Depends(get_db)):
+    return customer_portal.customer_login(payload, request, db)
 
 @app.post("/api/bookings", tags=["Customer Portal Aliases"])
 def root_alias_create_booking(
@@ -325,12 +359,12 @@ def root_alias_my_bookings(
     return customer_portal.get_customer_shipments(current_customer, db)
 
 @app.post("/api/auth/reset-password", tags=["Auth Aliases"])
-def root_alias_reset_password(payload: admin.ResetPasswordRequest, db: Session = Depends(get_db)):
-    return admin.reset_password(payload, db)
+def root_alias_reset_password(payload: admin.ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    return admin.reset_password(payload, request, db)
 
 @app.post("/api/auth/forgot-password", tags=["Auth Aliases"])
-def root_alias_forgot_password(payload: admin.ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    return admin.forgot_password(payload, background_tasks, db)
+def root_alias_forgot_password(payload: admin.ForgotPasswordRequest, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    return admin.forgot_password(payload, request, background_tasks, db)
 
 # ─── Mobile APK Distribution Endpoints ──────────────────────────────────────────
 BUILD_APK_DIR = config.BASE_DIR.parent / "build-apk"

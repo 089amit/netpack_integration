@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 import config
 from database import get_db
 from models.user import User
-from models.customer import Customer, Notification
+from models.customer import Customer, Notification, PasswordResetCode
 from models.enquiry import Enquiry, EnquiryItem, Box, PickupLocationEnquiry
 from models.shipment import Shipment
 from models.location import Country
@@ -137,6 +137,7 @@ class CustomerEnquiryCreateRequest(BaseModel):
     senderEmail: Optional[str] = None
     senderAddress: Optional[str] = None
     senderCity: Optional[str] = "Kathmandu"
+    senderPostcode: Optional[str] = None
     
     # Consignee details
     receiverName: str
@@ -144,6 +145,7 @@ class CustomerEnquiryCreateRequest(BaseModel):
     receiverEmail: Optional[str] = None
     receiverAddress: str
     receiverCity: str
+    receiverState: Optional[str] = None
     receiverCountry: str
     receiverCountryId: Optional[int] = None
     receiverPostcode: Optional[str] = None
@@ -296,6 +298,19 @@ def customer_send_login_code(
     code = f"{random.randint(100000, 999999)}"
     _pwa_email_codes[clean_email] = (code, datetime.utcnow() + timedelta(minutes=15))
 
+    # Persist in DB for serverless multi-instance resilience
+    try:
+        db.query(PasswordResetCode).filter(PasswordResetCode.email == clean_email).delete()
+        db.add(PasswordResetCode(
+            email=clean_email,
+            code=code,
+            expiresAt=datetime.utcnow() + timedelta(minutes=15)
+        ))
+        db.commit()
+    except Exception as e:
+        print(f"[PWA Login Code DB Note] {e}")
+        db.rollback()
+
     subject = f"[NetPack Logistic] Your Sign-in Verification Code: {code}"
     html = build_pwa_verification_code_html(clean_email, code)
     send_email(
@@ -322,26 +337,55 @@ def customer_verify_login_code(
     clean_email = payload.email.strip().lower()
     clean_code = payload.code.strip()
 
-    stored = _pwa_email_codes.get(clean_email)
-    if not stored:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No verification code found for this email. Please request a new code."
-        )
+    # Query DB record first (resilient across serverless instances)
+    db_record = None
+    try:
+        db_record = db.query(PasswordResetCode).filter(PasswordResetCode.email == clean_email).order_by(PasswordResetCode.id.desc()).first()
+    except Exception as e:
+        print(f"[PWA Verify DB Note] {e}")
 
-    stored_code, expiry = stored
-    if datetime.utcnow() > expiry:
-        _pwa_email_codes.pop(clean_email, None)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Verification code has expired. Please request a new code."
-        )
+    if db_record:
+        if datetime.utcnow() > db_record.expiresAt:
+            try:
+                db.delete(db_record)
+                db.commit()
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired. Please request a new code."
+            )
+        if db_record.code != clean_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect verification code. Please check your email."
+            )
+        try:
+            db.delete(db_record)
+            db.commit()
+        except Exception:
+            pass
+    else:
+        stored = _pwa_email_codes.get(clean_email)
+        if not stored:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No verification code found for this email. Please request a new code."
+            )
 
-    if stored_code != clean_code:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect verification code. Please check your email."
-        )
+        stored_code, expiry = stored
+        if datetime.utcnow() > expiry:
+            _pwa_email_codes.pop(clean_email, None)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired. Please request a new code."
+            )
+
+        if stored_code != clean_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect verification code. Please check your email."
+            )
 
     _pwa_email_codes.pop(clean_email, None)
 
@@ -813,6 +857,7 @@ def create_customer_enquiry(
     sender_email = payload.senderEmail or current_customer.email
     sender_address = payload.senderAddress or current_customer.address1 or "Kathmandu"
     sender_city = payload.senderCity or current_customer.city or "Kathmandu"
+    sender_postcode = payload.senderPostcode or getattr(current_customer, "postcode", None) or ""
 
     enq = Enquiry(
         trackingNumber=tracking_no,
@@ -831,10 +876,13 @@ def create_customer_enquiry(
         senderEmail=sender_email,
         senderAddressLine1=sender_address,
         senderCity=sender_city,
+        senderPostcode=sender_postcode,
+        senderPostcodeCity=f"{sender_postcode} {sender_city}".strip(),
         senderCountry="Nepal",
         receiverName=payload.receiverName,
         receiverAddressLine1=payload.receiverAddress,
         receiverCity=payload.receiverCity,
+        receiverState=payload.receiverState,
         receiverCountry=payload.receiverCountry,
         receiverTelephone=payload.receiverPhone,
         receiverEmail=payload.receiverEmail,
@@ -1121,12 +1169,8 @@ def request_customer_pickup(
             detail="Doorstep pickup cannot be requested: Shipment has already been created and HAWB generated."
         )
 
-    # Update enquiry pickup status
+    # Update enquiry pickup status (remains ENQUIRY_GENERATED / PENDING until accepted by rider)
     enq.pickupRequired = True
-    if status_upper in ["ENQUIRY_GENERATED", "PENDING", ""]:
-        enq.status = "ASSIGNED_FOR_PICKUP"
-    if linked_shipment and shipment_status_upper in ["PENDING", "ENQUIRY_GENERATED"]:
-        linked_shipment.status = "ASSIGNED_FOR_PICKUP"
 
     sender_addr = payload.pickupAddress or enq.senderAddressLine1 or current_customer.address1 or "Kathmandu"
     sender_ph = payload.pickupPhone or enq.senderPhone or current_customer.phone

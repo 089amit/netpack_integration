@@ -81,7 +81,7 @@ export function DataTableRowActions<
         name: enquiryData.senderName || '',
         addressLine1: enquiryData.senderAddressLine1 || '',
         addressLine2: enquiryData.senderAddressLine2 || '',
-        postcodeCity: enquiryData.senderPostcodeCity || '',
+        postcodeCity: enquiryData.senderPostcodeCity || [enquiryData.senderPostcode, enquiryData.senderCity].filter(Boolean).join(', ') || enquiryData.senderPostcode || (enquiryData as any).customer?.postcode || '',
         country: enquiryData.senderCountry || '',
         telephone: enquiryData.senderPhone || '',
         email: enquiryData.senderEmail || '',

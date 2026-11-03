@@ -312,15 +312,20 @@ export function SenderSection({
         </div>
 
         <div className='space-y-1'>
-          <label className='text-sm font-medium'>
-            Telephone <span className='text-red-500'>*</span>
-          </label>
+          <div className='flex items-center justify-between'>
+            <label className='text-sm font-medium'>
+              Telephone <span className='text-red-500'>*</span>
+            </label>
+            <span className='text-[11px] text-muted-foreground'>
+              (Select country first)
+            </span>
+          </div>
           <Input
             name='telephone'
             id='sender-telephone'
             value={formData?.sender.telephone || ''}
             onChange={(e) => onFormChange(e, 'sender')}
-            placeholder='Enter telephone number'
+            placeholder={formData?.sender.country ? `${formData.sender.country} phone` : 'Select country first'}
             disabled={!isEditable}
             className={cn(
               senderTelephoneError && 'border-red-500 ring-1 ring-red-500'

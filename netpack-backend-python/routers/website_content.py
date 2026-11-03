@@ -42,6 +42,54 @@ def _ensure_website_content_columns():
     Prevents 500 UndefinedColumn errors on PostgreSQL and SQLite.
     """
     try:
+        is_pg = "postgresql" in str(engine.url) or "postgres" in str(engine.url)
+        with engine.begin() as conn:
+            if is_pg:
+                conn.execute(sa.text("""
+                    CREATE TABLE IF NOT EXISTS website_contents (
+                        id SERIAL PRIMARY KEY,
+                        "heroTitle" VARCHAR(255) DEFAULT 'Fast & Reliable Courier Services in Teku, Kathmandu',
+                        "heroSubtitle" TEXT DEFAULT 'Your trusted partner for secure package delivery across Nepal and worldwide. Track your shipment in real-time.',
+                        "heroBadge" VARCHAR(100) DEFAULT 'Teku, Kathmandu Headquarters',
+                        "contactPhone" VARCHAR(50) DEFAULT '015339942',
+                        "contactEmail" VARCHAR(100) DEFAULT 'admin@netpacklogistic.com',
+                        "contactAddress" VARCHAR(255) DEFAULT 'Teku Road, Ward No. 15, Kathmandu, Nepal',
+                        "businessHours" VARCHAR(100) DEFAULT '10:00 am - 5:00 pm (Sun - Fri)',
+                        "googleMapsUrl" TEXT,
+                        "mapCoordinates" VARCHAR(100) DEFAULT '27.6975, 85.3090',
+                        "tickerItems" TEXT DEFAULT '["Reliable International Air Cargo", "Express Express Courier to 220+ Countries", "Daily Kathmandu Pickup & Delivery", "Live Real-Time Package Tracking"]',
+                        "festiveTheme" VARCHAR(50) DEFAULT 'auto',
+                        "festiveGreeting" VARCHAR(255),
+                        "appFreightMarkupPercent" FLOAT DEFAULT 10.0,
+                        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """))
+                conn.execute(sa.text('INSERT INTO website_contents (id, "heroTitle") VALUES (1, \'Fast & Reliable Courier Services in Teku, Kathmandu\') ON CONFLICT (id) DO NOTHING;'))
+            else:
+                conn.execute(sa.text("""
+                    CREATE TABLE IF NOT EXISTS website_contents (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        heroTitle VARCHAR(255),
+                        heroSubtitle TEXT,
+                        heroBadge VARCHAR(100),
+                        contactPhone VARCHAR(50),
+                        contactEmail VARCHAR(100),
+                        contactAddress VARCHAR(255),
+                        businessHours VARCHAR(100),
+                        googleMapsUrl TEXT,
+                        mapCoordinates VARCHAR(100),
+                        tickerItems TEXT,
+                        festiveTheme VARCHAR(50),
+                        festiveGreeting VARCHAR(255),
+                        appFreightMarkupPercent FLOAT,
+                        updatedAt TIMESTAMP
+                    );
+                """))
+                conn.execute(sa.text('INSERT OR IGNORE INTO website_contents (id, heroTitle) VALUES (1, "Fast & Reliable Courier Services in Teku, Kathmandu");'))
+    except Exception as e:
+        print(f"[WebsiteContent] Runtime table creation note: {e}")
+
+    try:
         inspector = sa.inspect(engine)
         if "website_contents" in inspector.get_table_names():
             existing_cols = {col["name"].lower() for col in inspector.get_columns("website_contents")}

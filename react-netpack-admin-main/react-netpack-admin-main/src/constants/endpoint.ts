@@ -28,7 +28,7 @@ export const AUTH_ENDPOINTS = {
   LOGIN_WITH_EMAIL: `${BASE_URL}/admin/login`,
   REGISTER: `${BASE_URL}/auth/register`,
   FORGOT_PASSWORD: `${BASE_URL}/admin/forgot-password`,
-  RESET_PASSWORD: `${BASE_URL}/auth/reset-password`,
+  RESET_PASSWORD: `${BASE_URL}/admin/reset-password`,
   VERIFY_EMAIL: `${BASE_URL}/auth/verify-email`,
   BULK_EMAIL_SENDER: `${BASE_URL}/sendEmail/send-bulk-email`,
   BULK_EMAIL_BROADCAST: `${BASE_URL}/sendEmail/sendBroadcastMail`,

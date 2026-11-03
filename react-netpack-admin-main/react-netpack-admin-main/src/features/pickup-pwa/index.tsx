@@ -126,6 +126,7 @@ interface BoxItem {
 export default function PickupRiderPWA() {
   // Navigation & Filter Tabs: 'pending' | 'assigned' | 'picked_up' | 'all'
   const [activeTab, setActiveTab] = useState<'pending' | 'assigned' | 'picked_up' | 'all'>('pending')
+  const [collectedFilter, setCollectedFilter] = useState<'24h' | 'all'>('24h')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
   // Pickups Data
@@ -786,7 +787,16 @@ export default function PickupRiderPWA() {
 
       if (activeTab === 'pending' && !isPending) return false
       if (activeTab === 'assigned' && !isAssigned) return false
-      if (activeTab === 'picked_up' && !isPickedUp) return false
+      if (activeTab === 'picked_up') {
+        if (!isPickedUp) return false
+        if (collectedFilter === '24h') {
+          const pTime = p.pickedUpAt || p.updatedAt || p.createdAt
+          if (pTime) {
+            const ms = new Date(pTime).getTime()
+            if (!isNaN(ms) && Date.now() - ms > 24 * 60 * 60 * 1000) return false
+          }
+        }
+      }
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase()
@@ -806,7 +816,7 @@ export default function PickupRiderPWA() {
       const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b.id || 0)
       return timeB - timeA
     })
-  }, [pickups, activeTab, searchQuery])
+  }, [pickups, activeTab, searchQuery, collectedFilter])
 
   const pendingCount = useMemo(() => {
     return pickups.filter(
@@ -828,7 +838,7 @@ export default function PickupRiderPWA() {
   if (!riderToken) {
     return (
       <div className='flex-1 flex flex-col min-h-screen overflow-y-auto no-scrollbar bg-[#0D1B2A] sm:bg-[#E2E8F0] dark:bg-[#0B131F] text-foreground font-sans'>
-        <div className='w-full max-w-[430px] mx-auto min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl'>
+        <div className='w-full max-w-md landscape:max-w-4xl mx-auto min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl'>
           {/* Brand panel matching netpackpwa ui */}
           <div
             className='bg-[#0D1B2A] px-6 pb-12 relative overflow-hidden shrink-0'
@@ -1033,13 +1043,13 @@ export default function PickupRiderPWA() {
           </div>
         </div>
       )}
-      <div className='w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl pb-24 select-none'>
+      <div className='w-full max-w-md landscape:max-w-4xl min-h-screen flex flex-col relative bg-[#F1F4F8] dark:bg-[#0B131F] shadow-2xl pb-24 select-none mx-auto'>
         {/* ─── Sticky Top App Bar (Curved Gradient Header) ────────────────── */}
         <header
           className='sticky top-0 z-40 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] text-white px-4 pb-3 rounded-b-[20px] shadow-lg shadow-black/20'
           style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}
         >
-        <div className='max-w-[430px] mx-auto flex items-center justify-between gap-2'>
+        <div className='max-w-md landscape:max-w-4xl mx-auto flex items-center justify-between gap-2'>
           {/* Logo & Online Status */}
           <div className='flex items-center gap-2.5 min-w-0'>
             <div className='relative shrink-0'>
@@ -1119,7 +1129,7 @@ export default function PickupRiderPWA() {
       </header>
 
       {/* ─── Main Content Container ────────────────────────────────────────── */}
-      <main className='max-w-[430px] mx-auto w-full px-3.5 pt-3 space-y-3'>
+      <main className='max-w-md landscape:max-w-4xl mx-auto w-full px-3.5 pt-3 space-y-3'>
 
         {/* New Arrival Banner if active */}
         {newPickupAlert && (
@@ -1203,12 +1213,12 @@ export default function PickupRiderPWA() {
             }`}
             onClick={() => setActiveTab('picked_up')}
           >
-            <div className='text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400'>Collected</div>
+            <div className='text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400'>Collected Today</div>
             <div style={{ fontFamily: 'Jost, sans-serif' }} className='text-2xl font-800 text-emerald-600 dark:text-emerald-400 mt-0.5 leading-none'>
-              {stats.pickedUpCount || 0}
+              {stats.pickedUpTodayCount ?? stats.pickedUpCount ?? 0}
             </div>
             <div className='text-[10px] text-gray-400 mt-1 font-medium'>
-              {stats.totalWeightToday ? `${stats.totalWeightToday} kg` : 'Today'}
+              {stats.totalWeightToday ? `${stats.totalWeightToday} kg` : 'Last 24h'}
             </div>
           </div>
         </div>
@@ -1323,6 +1333,36 @@ export default function PickupRiderPWA() {
           </div>
         ) : (
           <div className='space-y-3'>
+            {activeTab === 'picked_up' && (
+              <div className='flex items-center justify-between bg-white dark:bg-[#152238] px-3.5 py-2 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-2xs'>
+                <span className='text-xs font-semibold text-muted-foreground'>Collected Duration:</span>
+                <div className='flex gap-1.5'>
+                  <button
+                    type='button'
+                    onClick={() => setCollectedFilter('24h')}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      collectedFilter === '24h'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Today (24h)
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setCollectedFilter('all')}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      collectedFilter === 'all'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    All Time
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className='grid grid-cols-1 landscape:grid-cols-2 gap-3'>
             {filteredPickups.map((p) => {
               const isDone =
                 ['PICKED_UP', 'PACKED', 'SHIPMENT_CREATED', 'IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'DELIVERED'].includes(
@@ -1413,11 +1453,15 @@ export default function PickupRiderPWA() {
                       </div>
 
                       {/* Status Badge */}
-                      <div>
+                      <div className='flex flex-col items-end gap-1 shrink-0'>
                         {isDone ? (
                           <Badge className='bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5'>
                             <CheckCircle2 className='h-3 w-3 mr-1' />
                             Picked Up
+                          </Badge>
+                        ) : p.pickupRequired === false || p.isSelfDrop ? (
+                          <Badge className='bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-400/40 text-[10px] font-bold px-2 py-0.5'>
+                            Self-Drop
                           </Badge>
                         ) : isInRoute ? (
                           <Badge className='bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/30 text-[10px] font-bold px-2 py-0.5 animate-pulse'>
@@ -1747,93 +1791,108 @@ export default function PickupRiderPWA() {
                   </CardContent>
 
                   {/* Card Actions Footer */}
-                  <CardFooter className='p-3.5 pt-0 flex items-center gap-2'>
-                    {/* Contact Customer / WhatsApp Buttons */}
-                    {phoneToCall && (
-                      <Button
-                        type='button'
-                        variant='outline'
-                        onClick={() => setContactTarget({
-                          name: p.senderName || 'Sender',
-                          phone: phoneToCall,
-                          role: 'sender',
-                          trackingNumber: p.trackingNumber || p.enquiryNumber,
-                        })}
-                        className='flex-1 text-xs h-9 border-border bg-muted/40 hover:bg-muted text-foreground font-bold cursor-pointer'
-                      >
-                        <MessageCircle className='h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400' />
-                        Call / WhatsApp
-                      </Button>
-                    )}
-                    {p.receiverPhone && p.receiverPhone !== phoneToCall && (
-                      <Button
-                        type='button'
-                        variant='outline'
-                        onClick={() => setContactTarget({
-                          name: p.receiverName || 'Consignee',
-                          phone: p.receiverPhone,
-                          role: 'consignee',
-                          destinationCountry: p.receiverCountry,
-                          trackingNumber: p.trackingNumber || p.enquiryNumber,
-                        })}
-                        className='h-9 px-2.5 text-xs border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold cursor-pointer'
-                        title={`WhatsApp Consignee ${p.receiverCountry ? `(${p.receiverCountry})` : ''}`}
-                      >
-                        <MessageCircle className='h-3.5 w-3.5 mr-1 text-emerald-500' />
-                        WhatsApp
-                      </Button>
+                  <CardFooter className='p-3.5 pt-0 flex flex-col gap-2'>
+                    {/* Row 1: Contact Customer / WhatsApp Buttons */}
+                    {(phoneToCall || (p.receiverPhone && p.receiverPhone !== phoneToCall)) && (
+                      <div className='flex items-center gap-2 w-full'>
+                        {phoneToCall && (
+                          <Button
+                            type='button'
+                            variant='outline'
+                            onClick={() => setContactTarget({
+                              name: p.senderName || 'Sender',
+                              phone: phoneToCall,
+                              role: 'sender',
+                              trackingNumber: p.trackingNumber || p.enquiryNumber,
+                            })}
+                            className='flex-1 text-xs h-9 border-border bg-muted/40 hover:bg-muted text-foreground font-bold cursor-pointer'
+                          >
+                            <MessageCircle className='h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400' />
+                            Call / WhatsApp
+                          </Button>
+                        )}
+                        {p.receiverPhone && p.receiverPhone !== phoneToCall && (
+                          <Button
+                            type='button'
+                            variant='outline'
+                            onClick={() => setContactTarget({
+                              name: p.receiverName || 'Consignee',
+                              phone: p.receiverPhone,
+                              role: 'consignee',
+                              destinationCountry: p.receiverCountry,
+                              trackingNumber: p.trackingNumber || p.enquiryNumber,
+                            })}
+                            className='h-9 px-3 text-xs border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold cursor-pointer'
+                            title={`WhatsApp Consignee ${p.receiverCountry ? `(${p.receiverCountry})` : ''}`}
+                          >
+                            <MessageCircle className='h-3.5 w-3.5 mr-1 text-emerald-500' />
+                            WhatsApp
+                          </Button>
+                        )}
+                      </div>
                     )}
 
-                    {/* Status Action Buttons */}
-                    {!isDone ? (
-                      isInRoute ? (
+                    {/* Row 2: Status Action Button (Full Width Touch Target) */}
+                    <div className='w-full'>
+                      {!isDone ? (
+                        p.pickupRequired === false || p.isSelfDrop ? (
+                          <Button
+                            className='w-full text-xs h-10 bg-indigo-600 hover:bg-indigo-500 text-white font-black shadow-xs flex items-center justify-center'
+                            onClick={() => handleOpenWeighModal(p)}
+                          >
+                            <Scale className='h-3.5 w-3.5 mr-1.5' />
+                            Verify Wt & Dimensions
+                          </Button>
+                        ) : isInRoute ? (
+                          <Button
+                            className='w-full text-xs h-10 bg-emerald-600 hover:bg-emerald-500 text-white font-black shadow-xs flex items-center justify-center'
+                            onClick={() => handleOpenWeighModal(p)}
+                          >
+                            <Scale className='h-3.5 w-3.5 mr-1.5' />
+                            Pickup & Weigh
+                          </Button>
+                        ) : (
+                          <Button
+                            className='w-full text-xs h-10 bg-sky-600 hover:bg-sky-500 text-white font-black shadow-xs flex items-center justify-center'
+                            onClick={() => handleStartRoute(p)}
+                          >
+                            <Truck className='h-3.5 w-3.5 mr-1.5' />
+                            Start Route
+                          </Button>
+                        )
+                      ) : (p.shipmentId || ['SHIPMENT_CREATED', 'IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'DELIVERED'].includes((p.status || '').toUpperCase())) ? (
                         <Button
-                          className='flex-1 text-xs h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-black shadow-xs'
-                          onClick={() => handleOpenWeighModal(p)}
+                          variant='outline'
+                          disabled
+                          className='w-full text-xs h-9 border-border bg-muted/20 text-muted-foreground/50 cursor-not-allowed opacity-50 flex items-center justify-center'
+                          title='Box details and notes are locked once shipment is created'
                         >
-                          <Scale className='h-3.5 w-3.5 mr-1.5' />
-                          Pickup & Weigh
+                          <Lock className='h-3.5 w-3.5 mr-1 text-muted-foreground/50' />
+                          Re-inspect / Edit
                         </Button>
                       ) : (
                         <Button
-                          className='flex-1 text-xs h-9 bg-sky-600 hover:bg-sky-500 text-white font-black shadow-xs'
-                          onClick={() => handleStartRoute(p)}
+                          variant='outline'
+                          className='w-full text-xs h-9 border-border bg-muted/30 text-muted-foreground hover:text-foreground flex items-center justify-center'
+                          onClick={() => handleOpenWeighModal(p)}
                         >
-                          <Truck className='h-3.5 w-3.5 mr-1.5' />
-                          Start Route
+                          <Scale className='h-3.5 w-3.5 mr-1 text-muted-foreground' />
+                          Re-inspect / Edit
                         </Button>
-                      )
-                    ) : (p.shipmentId || ['SHIPMENT_CREATED', 'IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'DELIVERED'].includes((p.status || '').toUpperCase())) ? (
-                      <Button
-                        variant='outline'
-                        disabled
-                        className='flex-1 text-xs h-9 border-border bg-muted/20 text-muted-foreground/50 cursor-not-allowed opacity-50'
-                        title='Box details and notes are locked once shipment is created'
-                      >
-                        <Lock className='h-3.5 w-3.5 mr-1 text-muted-foreground/50' />
-                        Re-inspect / Edit
-                      </Button>
-                    ) : (
-                      <Button
-                        variant='outline'
-                        className='flex-1 text-xs h-9 border-border bg-muted/30 text-muted-foreground hover:text-foreground'
-                        onClick={() => handleOpenWeighModal(p)}
-                      >
-                        <Scale className='h-3.5 w-3.5 mr-1 text-muted-foreground' />
-                        Re-inspect / Edit
-                      </Button>
-                    )}
+                      )}
+                    </div>
                   </CardFooter>
                 </Card>
               )
             })}
+            </div>
           </div>
         )}
       </main>
 
       {/* ─── Mobile Bottom Navigation Bar ──────────────────────────────────── */}
       <nav className='fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-lg border-t border-border px-3 py-1.5'>
-        <div className='max-w-2xl mx-auto grid grid-cols-4 gap-1 text-center'>
+        <div className='max-w-md landscape:max-w-4xl mx-auto grid grid-cols-4 gap-1 text-center'>
           <button
             onClick={() => setActiveTab('pending')}
             className={`py-1.5 flex flex-col items-center justify-center rounded-xl transition-all ${

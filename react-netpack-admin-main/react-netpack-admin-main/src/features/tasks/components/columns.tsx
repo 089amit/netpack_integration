@@ -7,6 +7,7 @@ import { DataTableColumnHeader } from './data-table-column-header'
 import { DataTableRowActions } from './data-table-row-actions'
 import { ShipmentTrackingDialog } from './shipment-tracking-dialog'
 import { getUserRole } from '@/lib/auth'
+import { getCountryDialCode } from './enquiry-utils'
 
 // Define the actual data type used in table
 export type EnquiryTableRow = {
@@ -211,9 +212,20 @@ const baseColumns: ColumnDef<EnquiryTableRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Country' />
     ),
-    cell: ({ row }) => (
-      <div className='truncate'>{row.getValue('destinationCountryName')}</div>
-    ),
+    cell: ({ row }) => {
+      const cName = String(row.getValue('destinationCountryName') || '')
+      const dial = getCountryDialCode(cName)
+      return (
+        <div className='flex items-center gap-1.5'>
+          <span className='font-medium truncate'>{cName}</span>
+          {dial && (
+            <span className='inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary shrink-0'>
+              {dial}
+            </span>
+          )}
+        </div>
+      )
+    },
   },
   {
     accessorKey: 'weight',

@@ -36,6 +36,17 @@ function parseIsoDate(val?: string | number | null): Date | null {
   return d
 }
 
+export function getUserInitials(name?: string): string {
+  if (!name || !name.trim()) return 'NP'
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase()
+  }
+  const first = parts[0][0] || ''
+  const last = parts[parts.length - 1][0] || ''
+  return (first + last).toUpperCase()
+}
+
 function formatDateTime(isoStr?: string | null): string {
   if (!isoStr) return ''
   try {
@@ -567,13 +578,6 @@ const IconSearch = ({ size = 16, className = '' }: { size?: number; className?: 
   </svg>
 )
 
-const IconCamera = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-    <circle cx="12" cy="13" r="4"/>
-  </svg>
-)
-
 const IconLogout = ({ size = 18, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -670,7 +674,7 @@ const IconWhatsApp = ({ size = 16, className = '' }: { size?: number; className?
 
 function Header({
   userName,
-  photoUrl,
+  photoUrl: _photoUrl,
   unreadCount,
   onBellClick,
   onProfileClick,
@@ -681,31 +685,21 @@ function Header({
   onBellClick: () => void
   onProfileClick?: () => void
 }) {
-  const avatarSrc = photoUrl
-    ? photoUrl.startsWith('http') || photoUrl.startsWith('data:')
-      ? photoUrl
-      : `${API_BASE}${photoUrl}`
-    : null
-
   return (
     <header
       className="sticky top-0 z-30 bg-gradient-to-b from-[#0D1B2A] to-[#152A40] px-4 pb-3 flex items-center gap-3 rounded-b-[20px] shadow-lg shadow-black/20"
       style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}
     >
-      {/* Avatar or Initials Button */}
+      {/* Customer Initials Badge */}
       <button
         type="button"
         onClick={onProfileClick}
-        className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/20 flex items-center justify-center bg-white/10 shrink-0 shadow-xs active:scale-95 transition-transform cursor-pointer"
+        className="w-10 h-10 rounded-2xl overflow-hidden border border-white/20 flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 shrink-0 shadow-md active:scale-95 transition-transform cursor-pointer"
         title="View Profile"
       >
-        {avatarSrc ? (
-          <img src={avatarSrc} alt={userName || 'User'} className="w-full h-full object-cover" />
-        ) : (
-          <span className="text-white font-bold text-sm">
-            {(userName || 'C').charAt(0).toUpperCase()}
-          </span>
-        )}
+        <span className="text-white font-black text-sm tracking-wide">
+          {getUserInitials(userName)}
+        </span>
       </button>
 
       <div className="flex-1 min-w-0 cursor-pointer" onClick={onProfileClick} role="button">
@@ -736,7 +730,7 @@ function Header({
 function BottomNav({ screen, setScreen }: { screen: Screen; setScreen: (s: Screen) => void }) {
   const homeActive = screen === 'home' || screen === 'shipments' || screen === 'rateenquiry' || screen === 'tracking'
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-30 max-w-[430px] mx-auto px-4 pb-2.5 pb-safe pointer-events-none">
+    <nav className="fixed bottom-0 left-0 right-0 z-30 max-w-md landscape:max-w-4xl mx-auto px-4 pb-2.5 pb-safe pointer-events-none">
       <div className="pointer-events-auto bg-[#0D1B2A] rounded-[22px] shadow-2xl shadow-black/40 border border-white/10 px-3 py-1.5 flex items-center justify-between">
         {/* Home */}
         <button
@@ -3350,6 +3344,7 @@ function BookScreen({
   const [destCountry, setDestCountry] = useState('United States')
   const [destDialCode, setDestDialCode] = useState('+1')
   const [destCity, setDestCity] = useState('')
+  const [destState, setDestState] = useState('')
   const [streetAddress, setStreetAddress] = useState('')
   const [postalCode, setPostalCode] = useState('')
   const [doorstepPickup, setDoorstepPickup] = useState(true)
@@ -3487,8 +3482,10 @@ function BookScreen({
         receiverPhone: recipientPhone,
         receiverCountry: destCountry,
         receiverCity: destCity,
+        receiverState: destState,
         receiverAddress: streetAddress,
         receiverPostcode: postalCode,
+        senderPostcode: customerUser?.postcode || '',
         isPickupRequired: doorstepPickup,
         pickupAddress: doorstepPickup ? pickupAddress : 'Drop-off at NetPack Teku Hub',
         pickupPhone,
@@ -3733,9 +3730,15 @@ function BookScreen({
                 </div>
               </div>
 
-              <div>
-                <FieldLabel required>Destination City</FieldLabel>
-                <TextInput placeholder="e.g., London, New York, Tokyo, Sydney" value={destCity} onChange={setDestCity} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel required>Destination City</FieldLabel>
+                  <TextInput placeholder="e.g., London, New York" value={destCity} onChange={setDestCity} />
+                </div>
+                <div>
+                  <FieldLabel>State / Province</FieldLabel>
+                  <TextInput placeholder="e.g., NY, Ontario, NSW" value={destState} onChange={setDestState} />
+                </div>
               </div>
 
               <div>
@@ -3744,7 +3747,10 @@ function BookScreen({
               </div>
 
               <div>
-                <FieldLabel required>Recipient Phone Number</FieldLabel>
+                <div className="flex items-center justify-between mb-1">
+                  <FieldLabel required>Recipient Phone Number</FieldLabel>
+                  <span className="text-[11px] text-gray-400 font-normal">Select Country above first</span>
+                </div>
                 <div className="flex gap-2">
                   <span className="bg-gray-100 border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-3 py-3 flex items-center shrink-0">
                     {destDialCode}
@@ -4146,13 +4152,13 @@ function ProfileScreen({
   userCity,
   userPostcode,
   userCountry,
-  photoUrl,
-  customerToken,
+  photoUrl: _photoUrl,
+  customerToken: _customerToken,
   shipmentCount,
   deliveredCount,
   onSignOut,
   onOpenEditProfile,
-  onProfileUpdated,
+  onProfileUpdated: _onProfileUpdated,
 }: {
   userName?: string
   userEmail?: string
@@ -4170,42 +4176,6 @@ function ProfileScreen({
   onOpenEditProfile?: () => void
   onProfileUpdated?: (updated: any) => void
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-
-  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !customerToken) return
-
-    setUploadingPhoto(true)
-    const formData = new FormData()
-    formData.append('photo', file)
-
-    try {
-      const res = await fetch(`${API_BASE}/api/customer/profile/upload-photo`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${customerToken}` },
-        body: formData,
-      })
-      if (!res.ok) throw new Error('Upload failed')
-      const data = await res.json()
-      if (data.customer) {
-        onProfileUpdated?.(data.customer)
-        toast.success('Profile picture updated!')
-      }
-    } catch (err: any) {
-      toast.error('Failed uploading picture: ' + err.message)
-    } finally {
-      setUploadingPhoto(false)
-    }
-  }
-
-  const avatarSrc = photoUrl
-    ? photoUrl.startsWith('http') || photoUrl.startsWith('data:')
-      ? photoUrl
-      : `${API_BASE}${photoUrl}`
-    : null
-
   const countryDisplay =
     typeof userCountry === 'string'
       ? userCountry
@@ -4248,37 +4218,12 @@ function ProfileScreen({
         </button>
       </div>
 
-      {/* Avatar */}
+      {/* Initials Avatar */}
       <div className="flex flex-col items-center py-4">
-        <div className="relative">
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept="image/*"
-            className="hidden"
-            onChange={handleAvatarFile}
-          />
-          <div className="w-20 h-20 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-200">
-            {avatarSrc ? (
-              <img src={avatarSrc} alt={userName || 'User'} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-white font-bold text-3xl">
-                {(userName || 'C').charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingPhoto}
-            className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#0D1B2A] rounded-xl flex items-center justify-center border-2 border-[#F1F4F8] shadow-xs cursor-pointer active:scale-90 transition-transform"
-            title="Upload photo"
-          >
-            {uploadingPhoto ? (
-              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <IconCamera size={14} className="text-white" />
-            )}
-          </button>
+        <div className="w-20 h-20 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-xl shadow-blue-500/20 border-2 border-white">
+          <span className="text-white font-black text-2xl tracking-wider">
+            {getUserInitials(userName)}
+          </span>
         </div>
         <p style={{ fontFamily: 'Jost, sans-serif' }} className="mt-3 text-base font-700 text-[#0D1B2A]">
           {userName || 'Customer'}
@@ -4950,11 +4895,8 @@ function OnboardingModal({
   const [city, setCity] = useState('Kathmandu')
   const [stateProvince, setStateProvince] = useState('')
   const [postcode, setPostcode] = useState('')
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
   const [tutorialIndex, setTutorialIndex] = useState(0)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -4989,7 +4931,6 @@ function OnboardingModal({
         setCity(customerUser.city || 'Kathmandu')
         setStateProvince(customerUser.state || '')
         setPostcode(customerUser.postcode || '')
-        setPhotoUrl(customerUser.photoUrl || null)
       }
     }
   }, [customerUser, isOpen])
@@ -5001,33 +4942,6 @@ function OnboardingModal({
     const opt = COUNTRY_OPTIONS.find(c => c.name === cName)
     if (opt) {
       setDialCode(opt.dialCode)
-    }
-  }
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !customerToken) return
-    setUploadingPhoto(true)
-    const formData = new FormData()
-    formData.append('photo', file)
-
-    try {
-      const res = await fetch(`${API_BASE}/api/customer/profile/upload-photo`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${customerToken}` },
-        body: formData,
-      })
-      if (!res.ok) throw new Error('Failed uploading photo')
-      const data = await res.json()
-      if (data.photoUrl) {
-        setPhotoUrl(data.photoUrl)
-        if (data.customer) onProfileUpdated(data.customer)
-        toast.success('Photo uploaded successfully!')
-      }
-    } catch (err: any) {
-      toast.error('Photo upload failed: ' + err.message)
-    } finally {
-      setUploadingPhoto(false)
     }
   }
 
@@ -5065,7 +4979,7 @@ function OnboardingModal({
       postcode: postcode ? postcode.trim() : '44600',
       countryId: matchedOpt?.id || 1,
       country: selectedCountry,
-      photoUrl: photoUrl || undefined,
+      photoUrl: customerUser?.photoUrl || undefined,
     }
 
     try {
@@ -5143,12 +5057,6 @@ function OnboardingModal({
     },
   ]
 
-  const avatarSrc = photoUrl
-    ? photoUrl.startsWith('http') || photoUrl.startsWith('data:')
-      ? photoUrl
-      : `${API_BASE}${photoUrl}`
-    : null
-
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="max-w-[400px] w-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
@@ -5183,40 +5091,14 @@ function OnboardingModal({
 
             {/* Form Content - Picture 3 specifications */}
             <form onSubmit={handleSaveDetails} className="p-5 overflow-y-auto space-y-4 no-scrollbar flex-1">
-              {/* Photo Avatar Upload */}
-              <div className="flex flex-col items-center">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoUpload}
-                />
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
-                    {avatarSrc ? (
-                      <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-white font-bold text-3xl">
-                        {(name || 'C').charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingPhoto}
-                    className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#0D1B2A] rounded-xl flex items-center justify-center border-2 border-white text-white shadow-xs cursor-pointer active:scale-95"
-                    title="Upload Avatar"
-                  >
-                    {uploadingPhoto ? (
-                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <IconCamera size={14} />
-                    )}
-                  </button>
+              {/* Avatar Initials Badge */}
+              <div className="flex flex-col items-center py-2">
+                <div className="w-18 h-18 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25 border-2 border-white">
+                  <span className="text-white font-black text-2xl tracking-wider">
+                    {getUserInitials(name)}
+                  </span>
                 </div>
-                <p className="text-[11px] text-gray-400 mt-2 font-medium">Tap camera to upload profile photo</p>
+                <p className="text-[12px] font-semibold text-gray-700 mt-2">{name || 'Customer'}</p>
               </div>
 
               {/* 1. Country Selection First with Dial Code Auto-Assign */}
@@ -5492,7 +5374,7 @@ export default function CustomerPWA() {
                 n.body?.match(/NP-\d{8}-\d{3}|NP-[A-Z0-9-]+/i) ||
                 n.title?.match(/NP-\d{8}-\d{3}|NP-[A-Z0-9-]+/i)
               const trCode = trMatch ? trMatch[0] : undefined
-              const ts = n.createdAt ? new Date(n.createdAt).getTime() : Date.now()
+              const ts = parseIsoDate(n.createdAt)?.getTime() || Date.now()
               return {
                 id: `backend-${n.id}`,
                 title: n.title || 'NetPack Logistic Update',
@@ -5591,8 +5473,14 @@ export default function CustomerPWA() {
       return true
     })
 
-    // Strict chronological sort: NEWEST / MOST RECENT NOTIFICATIONS ON TOP!
-    return unique.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    // Strict chronological sort: Unread notifications & NEWEST strictly on top!
+    return unique.sort((a, b) => {
+      const aRead = readNotifIds.includes(a.id) || a.read
+      const bRead = readNotifIds.includes(b.id) || b.read
+      if (!aRead && bRead) return -1
+      if (aRead && !bRead) return 1
+      return (b.timestamp || 0) - (a.timestamp || 0)
+    })
   }, [shipments, backendNotifs])
 
   const [readNotifIds, setReadNotifIds] = useState<string[]>(() => {
@@ -5876,7 +5764,7 @@ export default function CustomerPWA() {
           </div>
         </div>
       )}
-      <div className="w-full max-w-[430px] min-h-screen flex flex-col relative bg-[#F1F4F8] shadow-2xl">
+      <div className="w-full max-w-md landscape:max-w-4xl min-h-screen flex flex-col relative bg-[#F1F4F8] shadow-2xl">
         {!customerUser ? (
           <AuthScreen
             onAuthenticated={(user, token) => {

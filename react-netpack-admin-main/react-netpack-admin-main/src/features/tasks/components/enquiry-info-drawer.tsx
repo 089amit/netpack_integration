@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ShippingLabelDialog } from './shipping-label-dialog'
+import { getCountryDialCode } from './enquiry-utils'
 
 interface Props {
   open: boolean
@@ -166,12 +167,10 @@ export function GetEnquiryInfoDrawer({
                   <strong>Email:</strong> {enquiryData.senderEmail}
                 </p>
                 <p>
-                  <strong>Address:</strong> {enquiryData.senderAddressLine1},{' '}
-                  {enquiryData.senderAddressLine2},{' '}
-                  {enquiryData.senderPostcodeCity}
+                  <strong>Address:</strong> {[enquiryData.senderAddressLine1, enquiryData.senderAddressLine2, enquiryData.senderPostcode || enquiryData.senderPostcodeCity || (enquiryData as any).customer?.postcode, enquiryData.senderCity].filter(Boolean).join(', ')}
                 </p>
                 <p>
-                  <strong>Country:</strong> {enquiryData.senderCountry}
+                  <strong>Country:</strong> {enquiryData.senderCountry || 'Nepal'} {getCountryDialCode(enquiryData.senderCountry || 'Nepal') ? `(${getCountryDialCode(enquiryData.senderCountry || 'Nepal')})` : ''}
                 </p>
               </div>
 
@@ -195,7 +194,7 @@ export function GetEnquiryInfoDrawer({
                   {enquiryData.receiverPostcodeCity}
                 </p>
                 <p>
-                  <strong>Country:</strong> {enquiryData.receiverCountry}
+                  <strong>Country:</strong> {enquiryData.receiverCountry || '—'} {getCountryDialCode(enquiryData.receiverCountry || '') ? `(${getCountryDialCode(enquiryData.receiverCountry || '')})` : ''}
                 </p>
               </div>
 

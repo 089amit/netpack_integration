@@ -66,3 +66,14 @@ class Notification(Base):
     user = relationship("User", back_populates="notifications")
     customer = relationship("Customer", back_populates="notifications")
     fcmToken = relationship("FcmToken", back_populates="notifications")
+
+
+class PasswordResetCode(Base):
+    __tablename__ = "password_reset_codes"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    email = Column(String(255), index=True, nullable=False)
+    code = Column(String(20), nullable=False)
+    expiresAt = Column(DateTime, nullable=False)
+    createdAt = Column(DateTime, default=datetime.utcnow)
+

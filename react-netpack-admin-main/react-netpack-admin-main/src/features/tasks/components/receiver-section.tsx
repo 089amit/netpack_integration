@@ -469,14 +469,20 @@ export function ReceiverSection({
         )}
 
         <div>
-          <label className='mb-1 block text-sm font-medium'>
-            Telephone <span className='text-red-500'>*</span>
-          </label>
+          <div className='mb-1 flex items-center justify-between'>
+            <label className='block text-sm font-medium'>
+              Telephone <span className='text-red-500'>*</span>
+            </label>
+            <span className='text-[11px] text-muted-foreground'>
+              (Select country first)
+            </span>
+          </div>
           <Input
             name='telephone'
             id='receiver-telephone'
             value={formData?.receiver.telephone || ''}
             onChange={(e) => onFormChange(e, 'receiver')}
+            placeholder={formData?.receiver.country ? `${formData.receiver.country} phone` : 'Select country first'}
              className={cn(
               receiverTelephoneError && 'border-red-500 ring-1 ring-red-500'
             )}

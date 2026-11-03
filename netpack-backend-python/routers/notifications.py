@@ -59,16 +59,20 @@ def send_bulk_notification(payload: BulkNotificationRequest, db: Session = Depen
                 isRead=False
             )
             db.add(n)
-    else:
+        db.commit()
+        return {"message": f"Notifications dispatched to {len(target_ids)} selected recipients"}
+    elif payload.scope in ("ALL_CUSTOMERS", "ALL_USERS"):
         n = Notification(
             title=notif_title,
             body=notif_body,
-            scope=payload.scope or "ALL_CUSTOMERS",
+            scope=payload.scope,
             isRead=False
         )
         db.add(n)
-    db.commit()
-    return {"message": "Bulk notifications dispatched successfully"}
+        db.commit()
+        return {"message": "Broadcast notification dispatched successfully"}
+
+    return {"message": "No recipient selected for notification"}
 
 @router.post("/register-token")
 def register_device_token(
@@ -98,11 +102,13 @@ def get_notifications(
 ):
     """
     Returns real-time notifications for the customer app and dashboard.
-    If authenticated as a customer, delivers customer-specific alerts plus global notifications.
+    Strictly prevents notifications from leaking to unauthenticated devices.
     """
     requester = get_requester_identity(authorization, db)
-    query = db.query(Notification)
+    if not requester.customer_id and not requester.user_id:
+        return []
 
+    query = db.query(Notification)
     if requester.customer_id:
         query = query.filter(
             (Notification.customerId == requester.customer_id) |
@@ -116,7 +122,22 @@ def get_notifications(
             (Notification.scope == "ALL_CUSTOMERS")
         )
 
-    return query.order_by(Notification.createdAt.desc()).limit(50).all()
+    notifs = query.order_by(Notification.createdAt.desc()).limit(50).all()
+    results = []
+    for n in notifs:
+        created_str = n.createdAt.strftime('%Y-%m-%dT%H:%M:%SZ') if n.createdAt else None
+        results.append({
+            "id": n.id,
+            "title": n.title,
+            "body": n.body,
+            "userId": n.userId,
+            "customerId": n.customerId,
+            "scope": n.scope,
+            "isRead": bool(n.isRead),
+            "createdAt": created_str,
+            "updatedAt": (n.updatedAt.strftime('%Y-%m-%dT%H:%M:%SZ') if n.updatedAt else created_str)
+        })
+    return results
 
 @router.get("/unreadCount")
 def get_unread_count(
@@ -124,8 +145,10 @@ def get_unread_count(
     db: Session = Depends(get_db)
 ):
     requester = get_requester_identity(authorization, db)
-    query = db.query(Notification).filter(Notification.isRead == False)
+    if not requester.customer_id and not requester.user_id:
+        return {"count": 0}
 
+    query = db.query(Notification).filter(Notification.isRead == False)
     if requester.customer_id:
         query = query.filter(
             (Notification.customerId == requester.customer_id) |

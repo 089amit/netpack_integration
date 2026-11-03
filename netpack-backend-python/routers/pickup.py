@@ -578,7 +578,7 @@ def get_pickup_stats(
         (Enquiry.shipments.any())
     ).count()
 
-    today_start = datetime.combine(date.today(), datetime.min.time())
+    today_start = datetime.utcnow() - timedelta(hours=24)
     today_pickups = base_query.filter(
         Enquiry.pickedUpAt >= today_start
     ).all()
@@ -589,6 +589,7 @@ def get_pickup_stats(
     return {
         "pendingCount": pending_count,
         "pickedUpCount": picked_up_count,
+        "pickedUpTodayCount": len(today_pickups),
         "totalWeightToday": round(total_weight_today, 2),
         "totalBoxesToday": total_boxes_today
     }

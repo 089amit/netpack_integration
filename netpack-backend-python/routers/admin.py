@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Any, Dict, Tuple
 from database import get_db
 from models.user import User, Role
-from models.customer import Customer
+from models.customer import Customer, PasswordResetCode
 from models.location import Country
 from schemas.auth import (
     LoginRequest,
@@ -141,6 +141,19 @@ def forgot_password(
     reset_code = f"{random.randint(100000, 999999)}"
     _password_reset_codes[clean_email] = (reset_code, datetime.utcnow() + timedelta(minutes=15))
 
+    # Persist in DB for serverless multi-instance resilience
+    try:
+        db.query(PasswordResetCode).filter(PasswordResetCode.email == clean_email).delete()
+        db.add(PasswordResetCode(
+            email=clean_email,
+            code=reset_code,
+            expiresAt=datetime.utcnow() + timedelta(minutes=15)
+        ))
+        db.commit()
+    except Exception as e:
+        print(f"[ForgotPassword DB Warning] Could not persist reset code to DB: {e}")
+        db.rollback()
+
     full_name = (user.fullName if user else None) or (cust.name if cust else "User")
     target_email = user.email if user else cust.email
     send_forgot_password_email(
@@ -166,26 +179,51 @@ def reset_password(payload: ResetPasswordRequest, request: Request, db: Session 
             detail="Password must be at least 6 characters long."
         )
 
-    stored = _password_reset_codes.get(clean_email)
-    if not stored:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification code. Please request a new code."
-        )
+    # Query DB record first (resilient across serverless instances)
+    db_record = None
+    try:
+        db_record = db.query(PasswordResetCode).filter(PasswordResetCode.email == clean_email).order_by(PasswordResetCode.id.desc()).first()
+    except Exception as e:
+        print(f"[ResetPassword DB Note] {e}")
 
-    stored_code, expiry = stored
-    if datetime.utcnow() > expiry:
-        _password_reset_codes.pop(clean_email, None)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Verification code has expired. Please request a new code."
-        )
+    if db_record:
+        if datetime.utcnow() > db_record.expiresAt:
+            try:
+                db.delete(db_record)
+                db.commit()
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired. Please request a new code."
+            )
+        if db_record.code != clean_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect verification code. Please check your email and try again."
+            )
+    else:
+        # Fallback to in-memory store
+        stored = _password_reset_codes.get(clean_email)
+        if not stored:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification code. Please request a new code."
+            )
 
-    if stored_code != clean_code:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect verification code. Please check your email and try again."
-        )
+        stored_code, expiry = stored
+        if datetime.utcnow() > expiry:
+            _password_reset_codes.pop(clean_email, None)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired. Please request a new code."
+            )
+
+        if stored_code != clean_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect verification code. Please check your email and try again."
+            )
 
     hashed_pw = get_password_hash(new_password)
     updated = False
@@ -213,6 +251,11 @@ def reset_password(payload: ResetPasswordRequest, request: Request, db: Session 
             detail="Account not found."
         )
 
+    if db_record:
+        try:
+            db.delete(db_record)
+        except Exception:
+            pass
     _password_reset_codes.pop(clean_email, None)
     db.commit()
 

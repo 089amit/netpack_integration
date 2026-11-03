@@ -78,7 +78,7 @@ export function DataTableRowActions<TData>({
           >
             Edit
           </DropdownMenuItem>
-          {task.mawbId == null ? (
+          {task.mawbId == null && !['IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CUSTOMS_HOLD'].includes((task.status || '').toUpperCase()) ? (
             <DropdownMenuItem
               onClick={() => {
                 console.log('task', task)
