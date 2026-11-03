@@ -39,7 +39,10 @@ dist/
 react-netpack-admin-main/react-netpack-admin-main/dist/
 react-netpack-admin-main/react-netpack-admin-main/node_modules/
 
-# ─── Android Build Artifacts ────────────────────────────────────────────────
+# ─── Zip & Archive Files ─────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.tgz
 android/*/gen/
 android/*/obj/
 android/*/bin/
