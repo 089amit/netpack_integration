@@ -71,7 +71,7 @@ export async function fetchTracking(trackingId: string): Promise<TrackingResult>
         const mappedTimeline: TrackingTimelineStep[] = rawCheckpoints.map((cp, idx) => ({
           id: idx + 1,
           title: cp.activity || (cp.status ? cp.status.replace(/_/g, ' ') : 'Status Recorded'),
-          location: cp.location || (cp.country ? `${cp.country} Facility` : 'En Route'),
+          location: cp.location || '',
           timestamp: formatCheckpointTime(cp.timestamp),
           completed: idx > 0,
           current: idx === 0,
@@ -405,10 +405,12 @@ export const TrackingWidget: React.FC<{ initialTrackingId?: string }> = ({ initi
                           >
                             {step.title}
                           </h5>
-                          <p className='text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-1.5'>
-                            <MapPin className='w-3 h-3 text-[#0066CC] shrink-0' />
-                            <span>{step.location}</span>
-                          </p>
+                          {step.location ? (
+                            <p className='text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-1.5'>
+                              <MapPin className='w-3 h-3 text-[#0066CC] shrink-0' />
+                              <span>{step.location}</span>
+                            </p>
+                          ) : null}
                         </div>
 
                         <span className='text-xs font-mono text-slate-500 shrink-0'>

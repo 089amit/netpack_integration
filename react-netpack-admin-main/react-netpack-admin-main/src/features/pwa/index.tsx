@@ -1876,7 +1876,7 @@ function TrackingScreen({
             checkpoints: liveRes.checkpoints && liveRes.checkpoints.length > 0
               ? liveRes.checkpoints.map((cp: any) => ({
                   activity: cp.activity || cp.status?.replace(/_/g, ' ') || 'Checkpoint Scanned',
-                  location: cp.location || 'Kathmandu Hub',
+                  location: cp.location || '',
                   time: formatDateTime(cp.timestamp || cp.created_at) || 'Recently',
                   source: cp.source || 'NetPack Operations',
                 }))
@@ -2532,7 +2532,7 @@ function TrackingScreen({
                               {cp.time}
                             </span>
                           </div>
-                          <p className="text-[11px] text-gray-500">{cp.location}</p>
+                          {cp.location ? <p className="text-[11px] text-gray-500">{cp.location}</p> : null}
 
                           {/* Clean Rider Note Callout (Amber Badge) */}
                           {noteText && isPickupOrPacked && (

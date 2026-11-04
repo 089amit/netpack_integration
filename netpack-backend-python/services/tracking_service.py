@@ -347,6 +347,7 @@ class AirlineCargoTrackingProvider(BaseTrackingProvider):
                 return checkpoints
 
         # 2. Seamless fallback to NetPack MAWB operational schedule from database
+        context_dest_port = (context.get("destinationPort") or "").strip() if context else ""
         return [
             TrackingCheckpoint(
                 timestamp=dep_date - timedelta(hours=6),
@@ -358,18 +359,18 @@ class AirlineCargoTrackingProvider(BaseTrackingProvider):
             ),
             TrackingCheckpoint(
                 timestamp=dep_date,
-                location="Tribhuvan International Airport (KTM)",
+                location="",
                 status="IN_TRANSIT",
-                activity=f"Departed on flight to {dest}",
-                country="Nepal",
+                activity=f"In Transit on scheduled cargo route to {dest}",
+                country="",
                 source="AIRLINE_API"
             ),
             TrackingCheckpoint(
                 timestamp=arr_date,
-                location=f"{dest} International Airport",
+                location=context_dest_port,
                 status="ARRIVED_AT_HUB",
                 activity="Arrived at hub - Landed & cleared through destination cargo terminal",
-                country="Destination",
+                country="",
                 source="AIRLINE_API"
             )
         ]
@@ -551,6 +552,15 @@ class TrackingRegistry:
 
         has_valid_mawb = bool(linked_mawb and linked_mawb.mawbNumber and not is_custom_manifest)
         has_fwd_number = bool(fwd_number and str(fwd_number).strip())
+
+        # Destination port entered while creating MAWB (if provided, else empty string)
+        hub_port_location = ""
+        if linked_mawb and not is_custom_manifest:
+            hub_port_location = (
+                getattr(linked_mawb, "destinationPort", None) or
+                getattr(linked_mawb, "destinationAirport", None) or
+                getattr(linked_mawb, "destination", None) or ""
+            ).strip()
 
         if has_valid_mawb or has_fwd_number:
             tracking_mode = "API"
@@ -866,19 +876,19 @@ class TrackingRegistry:
             else:
                 checkpoints.append(TrackingCheckpoint(
                     timestamp=dep_ts,
-                    location="Tribhuvan International Airport (KTM)",
+                    location="",
                     status="IN_TRANSIT",
-                    activity=f"Air cargo departed Kathmandu (KTM) on {flight_str} {air_str} to {dest_name}".strip(),
-                    country="Nepal",
+                    activity=f"In Transit on scheduled cargo route to {dest_name}",
+                    country="",
                     source="MAWB_FLIGHT"
                 ))
 
                 checkpoints.append(TrackingCheckpoint(
                     timestamp=hub_ts,
-                    location=f"{dest_name} Hub / Airport",
+                    location=hub_port_location,
                     status="ARRIVED_AT_HUB",
                     activity="Arrived at hub - Landed & cleared through destination cargo terminal",
-                    country=dest_name,
+                    country=dest_name if hub_port_location else "",
                     source="MAWB_FLIGHT"
                 ))
 
@@ -983,38 +993,18 @@ class TrackingRegistry:
 
         has_in_transit_cp = any(cp.status == "IN_TRANSIT" for cp in checkpoints)
         if not has_in_transit_cp and is_progressed_transit:
-            if tracking_mode == "MANUAL":
-                in_transit_act = f"In Transit on scheduled cargo route to {dest_name}"
-            else:
-                airline_lbl = f" on {airline_name}" if airline_name else ""
-                in_transit_act = f"Air cargo departed Kathmandu (KTM){airline_lbl} on scheduled flight to {dest_name}"
+            in_transit_act = f"In Transit on scheduled cargo route to {dest_name}"
             checkpoints.append(TrackingCheckpoint(
                 timestamp=dep_ts,
-                location="Tribhuvan International Airport (KTM)",
+                location="",
                 status="IN_TRANSIT",
                 activity=in_transit_act,
-                country="Nepal",
+                country="",
                 source="MANUAL_NOTE" if tracking_mode == "MANUAL" else "MAWB_FLIGHT"
             ))
 
-        # Destination hub arrival location (Item 14):
-        # Use destination port entered while creating MAWB for the shipment. If MAWB is not assigned, leave empty.
-        hub_port_location = ""
-        if linked_mawb and not is_custom_manifest:
-            hub_port_location = (
-                getattr(linked_mawb, "destinationAirport", None) or
-                getattr(linked_mawb, "destinationPort", None) or
-                getattr(linked_mawb, "destination", None) or ""
-            ).strip()
-
         has_hub_cp = any(cp.status == "ARRIVED_AT_HUB" for cp in checkpoints)
-        if has_hub_cp:
-            for cp in checkpoints:
-                if cp.status == "ARRIVED_AT_HUB":
-                    cp.location = hub_port_location
-                    if not hub_port_location:
-                        cp.country = ""
-        elif is_progressed_hub:
+        if not has_hub_cp and is_progressed_hub:
             carrier_timestamps = [cp.timestamp for cp in checkpoints if "CARRIER" in (cp.source or "") and cp.timestamp]
             first_carrier_ts = min(carrier_timestamps) if carrier_timestamps else None
             if first_carrier_ts and first_carrier_ts > dep_ts:
@@ -1031,6 +1021,19 @@ class TrackingRegistry:
                 country=dest_name if hub_port_location else "",
                 source="MANUAL_NOTE" if tracking_mode == "MANUAL" else "MAWB_FLIGHT"
             ))
+
+        # Enforce user requirements strictly across all checkpoints:
+        # 1. Use destination port of MAWB as arrived at hub location if provided or leave it empty.
+        # 2. In Transit location shouldn't be specified, only the title "In Transit on scheduled cargo route to ......" is enough.
+        for cp in checkpoints:
+            if cp.status == "IN_TRANSIT":
+                cp.activity = f"In Transit on scheduled cargo route to {dest_name}"
+                cp.location = ""
+                cp.country = ""
+            elif cp.status == "ARRIVED_AT_HUB":
+                cp.location = hub_port_location
+                if not hub_port_location:
+                    cp.country = ""
 
         # (F) Carrier Scanned milestone for Manual mode when status reaches CARRIER_SCANNED or beyond
         if shipment_stage in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") and not has_carrier_events:

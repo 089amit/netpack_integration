@@ -818,9 +818,11 @@ export function ShipmentTrackingDialog({
                           </span>
                         </div>
 
-                        <div className='text-[11px] text-muted-foreground font-medium'>
-                          {cp.location || 'Kathmandu, Nepal'}
-                        </div>
+                        {cp.location ? (
+                          <div className='text-[11px] text-muted-foreground font-medium'>
+                            {cp.location}
+                          </div>
+                        ) : null}
 
                         {/* Dedicated Amber Rider Note Pill */}
                         {noteText && isPickupOrPacked && (
