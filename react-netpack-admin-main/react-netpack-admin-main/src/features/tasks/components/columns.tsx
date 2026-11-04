@@ -145,69 +145,6 @@ const baseColumns: ColumnDef<EnquiryTableRow>[] = [
     ),
   },
   {
-    accessorKey: 'receiverTelephone',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Receiver Phone' />
-    ),
-    cell: ({ row }) => (
-      <div className='w-[150px]'>{row.getValue('receiverTelephone')}</div>
-    ),
-  },
-  {
-    accessorKey: 'hawbNumber',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='HAWB' />
-    ),
-    cell: ({ row }) => {
-      const hawb = row.getValue('hawbNumber') as string | null
-      const hasHawb = hawb && hawb !== 'N/A' && hawb !== '-'
-      if (!hasHawb) {
-        return <div className='text-muted-foreground text-xs italic'>Not assigned</div>
-      }
-      return (
-        <div className='w-[140px]'>
-          <span className='inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-800 select-all dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'>
-            {hawb}
-          </span>
-        </div>
-      )
-    },
-  },
-  {
-    accessorKey: 'forwardingCompanyName',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Forwarding Details' />
-    ),
-    cell: ({ row }) => {
-      const enquiry = row.original
-      const companyName = enquiry.forwardingCompanyName || 'N/A'
-      const forwardingNumber = enquiry.forwardingNumber || 'N/A'
-      const hasForwarding = (companyName !== 'N/A' && companyName !== '-') || (forwardingNumber !== 'N/A' && forwardingNumber !== '-')
-
-      if (!hasForwarding) {
-        return <div className='text-muted-foreground text-xs italic'>Not forwarded yet</div>
-      }
-
-      return (
-        <div className='w-[200px]'>
-          <div className='flex items-center gap-1.5'>
-            <span className='inline-flex items-center rounded bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'>
-              {companyName !== '-' && companyName !== 'N/A' ? companyName : 'Courier'}
-            </span>
-          </div>
-          {forwardingNumber && forwardingNumber !== '-' && forwardingNumber !== 'N/A' && (
-            <div
-              className='text-muted-foreground mt-0.5 truncate font-mono text-xs select-all'
-              title={forwardingNumber}
-            >
-              {forwardingNumber}
-            </div>
-          )}
-        </div>
-      )
-    },
-  },
-  {
     accessorKey: 'destinationCountryName',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Country' />
@@ -226,40 +163,6 @@ const baseColumns: ColumnDef<EnquiryTableRow>[] = [
         </div>
       )
     },
-  },
-  {
-    accessorKey: 'weight',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Weight (kg)' />
-    ),
-    cell: ({ row }) => {
-      const enq: any = row.original
-      const cw = enq.chargeableWeight || enq.weight || 0
-      const actual = enq.weight
-      const showActual = actual && cw && Number(cw) !== Number(actual)
-
-      return (
-        <div className='w-[110px]'>
-          <div className='font-semibold text-foreground'>
-            {cw} kg
-          </div>
-          {showActual && (
-            <div className='text-[10px] text-muted-foreground'>
-              Act: {actual} kg
-            </div>
-          )}
-        </div>
-      )
-    },
-  },
-  {
-    accessorKey: 'noOfBox',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Boxes' />
-    ),
-    cell: ({ row }) => (
-      <div className='w-[80px]'>{row.getValue('noOfBox')}</div>
-    ),
   },
   {
     accessorKey: 'trackingNumber',
@@ -336,6 +239,94 @@ const baseColumns: ColumnDef<EnquiryTableRow>[] = [
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
     },
+  },
+  {
+    accessorKey: 'hawbNumber',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='HAWB' />
+    ),
+    cell: ({ row }) => {
+      const hawb = row.getValue('hawbNumber') as string | null
+      const hasHawb = hawb && hawb !== 'N/A' && hawb !== '-'
+      if (!hasHawb) {
+        return <div className='text-muted-foreground text-xs italic'>Not assigned</div>
+      }
+      return (
+        <div className='w-[140px]'>
+          <span className='inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-800 select-all dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'>
+            {hawb}
+          </span>
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: 'forwardingCompanyName',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Forwarding Details' />
+    ),
+    cell: ({ row }) => {
+      const enquiry = row.original
+      const companyName = enquiry.forwardingCompanyName || 'N/A'
+      const forwardingNumber = enquiry.forwardingNumber || 'N/A'
+      const hasForwarding = (companyName !== 'N/A' && companyName !== '-') || (forwardingNumber !== 'N/A' && forwardingNumber !== '-')
+
+      if (!hasForwarding) {
+        return <div className='text-muted-foreground text-xs italic'>Not forwarded yet</div>
+      }
+
+      return (
+        <div className='w-[200px]'>
+          <div className='flex items-center gap-1.5'>
+            <span className='inline-flex items-center rounded bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'>
+              {companyName !== '-' && companyName !== 'N/A' ? companyName : 'Courier'}
+            </span>
+          </div>
+          {forwardingNumber && forwardingNumber !== '-' && forwardingNumber !== 'N/A' && (
+            <div
+              className='text-muted-foreground mt-0.5 truncate font-mono text-xs select-all'
+              title={forwardingNumber}
+            >
+              {forwardingNumber}
+            </div>
+          )}
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: 'weight',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Weight' />
+    ),
+    cell: ({ row }) => {
+      const enq: any = row.original
+      const cw = enq.chargeableWeight || enq.weight || 0
+      const actual = enq.weight
+      const showActual = actual && cw && Number(cw) !== Number(actual)
+
+      return (
+        <div className='w-[110px]'>
+          <div className='font-semibold text-foreground'>
+            {cw} kg
+          </div>
+          {showActual && (
+            <div className='text-[10px] text-muted-foreground'>
+              Act: {actual} kg
+            </div>
+          )}
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: 'noOfBox',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Box' />
+    ),
+    cell: ({ row }) => (
+      <div className='w-[80px]'>{row.getValue('noOfBox')}</div>
+    ),
   },
 ]
 

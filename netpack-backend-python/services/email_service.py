@@ -86,7 +86,36 @@ def send_email_sync(
     part2 = MIMEText(html_content, "html", "utf-8")
     message.attach(part2)
 
-    # 1. First priority: Direct SMTP (Zoho Mail Organization)
+    # 1. First priority: Brevo HTTPS API (fast, reliable HTTPS port 443, no SMTP port blocks)
+    if config.BREVO_API_KEY:
+        try:
+            brevo_url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "api-key": config.BREVO_API_KEY.strip(),
+                "Content-Type": "application/json"
+            }
+            brevo_sender = getattr(config, "BREVO_FROM_EMAIL", "") or config.SMTP_FROM_EMAIL or "noreply@netpacklogistic.com"
+            payload = {
+                "sender": {"name": sender_name, "email": brevo_sender},
+                "to": [{"email": e} for e in clean_recipients],
+                "subject": subject,
+                "htmlContent": html_content
+            }
+            if reply_to_email:
+                payload["replyTo"] = {"email": reply_to_email, "name": sender_name}
+            if text_content:
+                payload["textContent"] = text_content
+
+            r = requests.post(brevo_url, json=payload, headers=headers, timeout=12)
+            if r.status_code in (200, 201):
+                logger.info(f"[EmailService Brevo HTTPS SUCCESS] Sent '{subject}' to {clean_recipients} from {brevo_sender}")
+                return {"success": True, "provider": "Brevo (HTTPS Port 443)", "recipients": clean_recipients}
+            else:
+                logger.warning(f"[EmailService Brevo Warning] Status {r.status_code}: {r.text}. Falling back to SMTP...")
+        except Exception as brevo_err:
+            logger.warning(f"[EmailService Brevo Error] {brevo_err}. Falling back to SMTP...")
+
+    # 2. Secondary fallback: Direct SMTP (Zoho Mail / Custom SMTP)
     if config.SMTP_HOST and config.SMTP_USER and config.SMTP_PASSWORD:
         primary_host = config.SMTP_HOST.strip()
         hosts_to_try = [primary_host]
@@ -135,35 +164,6 @@ def send_email_sync(
                     logger.warning(f"[EmailService SMTP Attempt Failed] {host}:{curr_port} (SSL={curr_ssl}): {err}")
 
         logger.warning(f"[EmailService] All SMTP attempts failed ({last_smtp_err}). Checking HTTPS fallbacks...")
-
-    # 2. Secondary fallback: Brevo HTTPS API (if configured)
-    if config.BREVO_API_KEY:
-        try:
-            brevo_url = "https://api.brevo.com/v3/smtp/email"
-            headers = {
-                "api-key": config.BREVO_API_KEY.strip(),
-                "Content-Type": "application/json"
-            }
-            brevo_sender = getattr(config, "BREVO_FROM_EMAIL", "") or config.SMTP_FROM_EMAIL or sender_email
-            payload = {
-                "sender": {"name": sender_name, "email": brevo_sender},
-                "to": [{"email": e} for e in clean_recipients],
-                "subject": subject,
-                "htmlContent": html_content
-            }
-            if reply_to_email:
-                payload["replyTo"] = {"email": reply_to_email, "name": sender_name}
-            if text_content:
-                payload["textContent"] = text_content
-
-            r = requests.post(brevo_url, json=payload, headers=headers, timeout=12)
-            if r.status_code in (200, 201):
-                logger.info(f"[EmailService Brevo HTTPS SUCCESS] Sent '{subject}' to {clean_recipients}")
-                return {"success": True, "provider": "Brevo (HTTPS Port 443)", "recipients": clean_recipients}
-            else:
-                logger.warning(f"[EmailService Brevo Warning] Status {r.status_code}: {r.text}. Falling back...")
-        except Exception as brevo_err:
-            logger.warning(f"[EmailService Brevo Error] {brevo_err}. Falling back...")
 
     # 3. Tertiary fallback: Resend HTTPS API (if configured)
     if config.RESEND_API_KEY:

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks, Header
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, and_, func
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel
 from datetime import datetime
@@ -355,6 +355,45 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
         ]
     }
 
+def parse_multi_search_terms(search: Optional[str]) -> List[str]:
+    if not search:
+        return []
+    cleaned = search.strip()
+    raw_tokens = [t.strip().strip("()[]\"'") for t in cleaned.split(",")]
+    return [t for t in raw_tokens if t]
+
+def build_shipment_token_filters(token: str):
+    s = f"%{token}%"
+    filters = [
+        Shipment.hawbno.ilike(s),
+        Shipment.forwardingNumber.ilike(s),
+        Shipment.status.ilike(s),
+        Shipment.agent.ilike(s),
+        Shipment.note.ilike(s),
+        Shipment.customManifestHub.ilike(s),
+        Enquiry.trackingNumber.ilike(s),
+        Enquiry.senderName.ilike(s),
+        Enquiry.receiverName.ilike(s),
+        Enquiry.receiverCountry.ilike(s),
+        Enquiry.destinationLocation.ilike(s),
+        Enquiry.senderPhone.ilike(s),
+        Enquiry.receiverTelephone.ilike(s),
+        Customer.name.ilike(s),
+        Customer.organizationName.ilike(s),
+        Customer.phone.ilike(s),
+        Customer.email.ilike(s),
+        MAWB.mawbNumber.ilike(s),
+        ForwardingCompany.name.ilike(s)
+    ]
+    if token.isdigit():
+        try:
+            val_int = int(token)
+            filters.append(Shipment.id == val_int)
+            filters.append(Shipment.agentShipmentNumber == val_int)
+        except ValueError:
+            pass
+    return filters
+
 @router.get("")
 @router.get("/")
 def get_all_shipments(
@@ -382,30 +421,22 @@ def get_all_shipments(
             query = query.filter(func.upper(Shipment.customManifestHub) == chub)
 
     if search:
-        term = search.strip()
-        s = f"%{term}%"
-        search_filters = [
-            Shipment.hawbno.ilike(s),
-            Shipment.forwardingNumber.ilike(s),
-            Shipment.agent.ilike(s),
-            Shipment.note.ilike(s),
-            Shipment.customManifestHub.ilike(s),
-            Enquiry.trackingNumber.ilike(s),
-            Enquiry.senderName.ilike(s),
-            Enquiry.receiverName.ilike(s),
-            Enquiry.receiverCountry.ilike(s),
-            Enquiry.senderPhone.ilike(s),
-            Enquiry.receiverTelephone.ilike(s),
-            Customer.name.ilike(s),
-            Customer.organizationName.ilike(s),
-            Customer.phone.ilike(s),
-            Customer.email.ilike(s),
-            MAWB.mawbNumber.ilike(s)
-        ]
-        if term.isdigit():
-            search_filters.append(Shipment.id == int(term))
-            search_filters.append(Shipment.agentShipmentNumber == int(term))
-        query = query.outerjoin(Shipment.enquiry).outerjoin(Shipment.customer).outerjoin(Shipment.mawb).filter(or_(*search_filters))
+        tokens = parse_multi_search_terms(search)
+        if tokens:
+            query = query.outerjoin(Shipment.enquiry).outerjoin(Shipment.customer).outerjoin(Shipment.mawb).outerjoin(Shipment.forwardingCompany)
+            if len(tokens) == 1:
+                token_filters = build_shipment_token_filters(tokens[0])
+                query = query.filter(or_(*token_filters)).distinct()
+            else:
+                and_conds = [or_(*build_shipment_token_filters(t)) for t in tokens]
+                or_conds = [or_(*build_shipment_token_filters(t)) for t in tokens]
+
+                # Check if a single record satisfies ALL tokens (same row match e.g. sendername, tracking)
+                has_and_match = query.filter(and_(*and_conds)).first() is not None
+                if has_and_match:
+                    query = query.filter(and_(*and_conds)).distinct()
+                else:
+                    query = query.filter(or_(*or_conds)).distinct()
 
     total_records = query.count()
     total_pages = (total_records + limit - 1) // limit if limit > 0 else 1

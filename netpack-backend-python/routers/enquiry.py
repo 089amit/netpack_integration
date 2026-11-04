@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Header, Body
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_
 from typing import List, Optional, Any, Dict
 import math
 from datetime import datetime
@@ -157,6 +158,45 @@ def format_enquiry_response(e: Enquiry) -> Dict[str, Any]:
     }
 
 @router.get("")
+def parse_multi_search_terms(search: Optional[str]) -> List[str]:
+    if not search:
+        return []
+    cleaned = search.strip()
+    raw_tokens = [t.strip().strip("()[]\"'") for t in cleaned.split(",")]
+    return [t for t in raw_tokens if t]
+
+def build_enquiry_token_filters(token: str):
+    s = f"%{token}%"
+    filters = [
+        Enquiry.trackingNumber.ilike(s),
+        Enquiry.senderName.ilike(s),
+        Enquiry.receiverName.ilike(s),
+        Enquiry.receiverTelephone.ilike(s),
+        Enquiry.senderPhone.ilike(s),
+        Enquiry.receiverCountry.ilike(s),
+        Enquiry.destinationLocation.ilike(s),
+        Enquiry.status.ilike(s),
+        Customer.name.ilike(s),
+        Customer.organizationName.ilike(s),
+        Shipment.hawbno.ilike(s),
+        Shipment.forwardingNumber.ilike(s),
+        Shipment.status.ilike(s),
+    ]
+    if token.isdigit():
+        try:
+            val_int = int(token)
+            filters.append(Enquiry.id == val_int)
+            filters.append(Enquiry.noOfBox == val_int)
+        except ValueError:
+            pass
+    try:
+        val_float = float(token)
+        filters.append(Enquiry.weight == val_float)
+        filters.append(Enquiry.chargeableWeight == val_float)
+    except ValueError:
+        pass
+    return filters
+
 @router.get("/")
 def get_all_enquiries(
     page: int = Query(1, ge=1),
@@ -178,15 +218,22 @@ def get_all_enquiries(
     if destinationCountry:
         query = query.filter(Enquiry.destinationCountry == destinationCountry)
     if search:
-        s = f"%{search}%"
-        query = query.outerjoin(Enquiry.shipments).filter(
-            (Enquiry.trackingNumber.ilike(s)) |
-            (Enquiry.senderName.ilike(s)) |
-            (Enquiry.receiverName.ilike(s)) |
-            (Enquiry.receiverTelephone.ilike(s)) |
-            (Shipment.hawbno.ilike(s)) |
-            (Shipment.forwardingNumber.ilike(s))
-        ).distinct()
+        tokens = parse_multi_search_terms(search)
+        if tokens:
+            query = query.outerjoin(Enquiry.shipments).outerjoin(Enquiry.customer)
+            if len(tokens) == 1:
+                token_filters = build_enquiry_token_filters(tokens[0])
+                query = query.filter(or_(*token_filters)).distinct()
+            else:
+                and_conds = [or_(*build_enquiry_token_filters(t)) for t in tokens]
+                or_conds = [or_(*build_enquiry_token_filters(t)) for t in tokens]
+                
+                # Check if a single record satisfies ALL tokens (same row match e.g. sendername, tracking)
+                has_and_match = query.filter(and_(*and_conds)).first() is not None
+                if has_and_match:
+                    query = query.filter(and_(*and_conds)).distinct()
+                else:
+                    query = query.filter(or_(*or_conds)).distinct()
 
     total_records = query.count()
     total_pages = (total_records + limit - 1) // limit

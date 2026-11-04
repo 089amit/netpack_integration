@@ -1,6 +1,4 @@
-import { useState } from 'react'
 import { CheckIcon, Cross2Icon, PlusCircledIcon } from '@radix-ui/react-icons'
-import { Radio } from 'lucide-react'
 import { Table } from '@tanstack/react-table'
 import { cn } from '@/lib/utils'
 import { useCheckRole } from '@/utils/role-utils'
@@ -23,7 +21,6 @@ import {
 } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 import { DataTableViewOptions } from '../components/data-table-view-options'
-import { TrackingMoreSettingsDialog } from './trackingmore-settings-dialog'
 import { STATUS_OPTIONS } from '../data/data'
 
 interface DataTableToolbarProps<TData> {
@@ -41,7 +38,6 @@ export function DataTableToolbar<TData>({
   statusFilter = [],
   onStatusChange,
 }: DataTableToolbarProps<TData>) {
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const isFiltered =
     table.getState().columnFilters.length > 0 ||
     !!searchQuery ||
@@ -175,27 +171,8 @@ export function DataTableToolbar<TData>({
         )}
       </div>
       <div className='flex items-center gap-2'>
-        {useCheckRole('ADMIN') && (
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => setSettingsOpen(true)}
-            className='h-8 gap-1.5 border-dashed text-xs text-primary border-primary/30 hover:bg-primary/5'
-            title='Configure TrackingMore API Key & Test Webhooks'
-          >
-            <Radio className='h-3.5 w-3.5' />
-            Tracking & Webhooks
-          </Button>
-        )}
         <DataTableViewOptions table={table} />
       </div>
-
-      {useCheckRole('ADMIN') && (
-        <TrackingMoreSettingsDialog
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-        />
-      )}
     </div>
   )
 }

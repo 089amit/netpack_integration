@@ -32,31 +32,6 @@ export const columns: ColumnDef<ShipmentItem>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: 'id',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='ID' />
-    ),
-    cell: ({ row }) => <div className='w-[80px]'>{row.getValue('id')}</div>,
-  },
-  // {
-  //   accessorKey: 'customerName',
-  //   header: ({ column }) => (
-  //     <DataTableColumnHeader column={column} title='Customer' />
-  //   ),
-  //   cell: ({ row }) => (
-  //     <div className='truncate'>{row.getValue('customerName') || 'N/A'}</div>
-  //   ),
-  // },
-  // {
-  //   accessorKey: 'customerPhone',
-  //   header: ({ column }) => (
-  //     <DataTableColumnHeader column={column} title='Phone' />
-  //   ),
-  //   cell: ({ row }) => (
-  //     <div className='truncate'>{row.getValue('customerPhone') || 'N/A'}</div>
-  //   ),
-  // },
-  {
     accessorKey: 'senderName',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Sender Name' />
@@ -65,7 +40,7 @@ export const columns: ColumnDef<ShipmentItem>[] = [
       const shipment = row.original
       const senderName = shipment.senderName || '—'
       return (
-        <div className='w-[200px]'>
+        <div className='w-[180px]'>
           <div className='truncate font-medium'>{senderName}</div>
         </div>
       )
@@ -74,15 +49,14 @@ export const columns: ColumnDef<ShipmentItem>[] = [
   {
     accessorKey: 'reciverName',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Reciver Name' />
+      <DataTableColumnHeader column={column} title='Receiver Name' />
     ),
     cell: ({ row }) => {
       const value = row.getValue('reciverName') as string
       if (!value) return <div className='truncate'>N/A</div>
-      // If value is long and contains '/', split and show each part on a new line
       if (value.length > 15 && value.includes('/')) {
         return (
-          <div>
+          <div className='w-[180px]'>
             {value.split('/').map((part, idx) => (
               <div key={idx} className='truncate'>
                 {part.trim()}
@@ -91,7 +65,7 @@ export const columns: ColumnDef<ShipmentItem>[] = [
           </div>
         )
       }
-      return <div className='truncate'>{value}</div>
+      return <div className='w-[180px] truncate'>{value}</div>
     },
   },
   {
@@ -127,7 +101,7 @@ export const columns: ColumnDef<ShipmentItem>[] = [
         }
       }
 
-      return <div className='truncate font-medium'>{value || 'N/A'}</div>
+      return <div className='w-[140px] truncate font-medium'>{value || 'N/A'}</div>
     },
     filterFn: (row, id, value) => {
       const orig = row.original as any
@@ -136,37 +110,9 @@ export const columns: ColumnDef<ShipmentItem>[] = [
     },
   },
   {
-    accessorKey: 'customManifestHub',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Custom Manifest' />
-    ),
-    cell: ({ row }) => {
-      const hub = (row.original as any)?.customManifestHub
-      return hub ? (
-        <Badge
-          variant='outline'
-          className='bg-amber-50 text-amber-900 border-amber-300 font-bold dark:bg-amber-950 dark:text-amber-200'
-        >
-          {hub}
-        </Badge>
-      ) : (
-        <span className='text-muted-foreground text-xs'>—</span>
-      )
-    },
-  },
-  {
-    accessorKey: 'mawbNumber',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='MAWB ' />
-    ),
-    cell: ({ row }) => (
-      <div className='truncate'>{row.getValue('mawbNumber') || 'N/A'}</div>
-    ),
-  },
-  {
     accessorKey: 'hawbno',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='HAWB ' />
+      <DataTableColumnHeader column={column} title='HAWB' />
     ),
     cell: ({ row }) => {
       const hawb = (row.getValue('hawbno') as string) || (row.original as any)?.hawbNumber || 'N/A'
@@ -174,7 +120,7 @@ export const columns: ColumnDef<ShipmentItem>[] = [
       const isSplit = (row.original as any)?.isSplitHawb || (row.original as any)?.siblingShipments?.length > 1
 
       return (
-        <div className='flex items-center gap-1.5 flex-wrap'>
+        <div className='flex items-center gap-1.5 flex-wrap w-[140px]'>
           <span className='font-mono font-medium'>{hawb}</span>
           {isSplit && partBadge && (
             <Badge variant='outline' className='text-[10px] px-1.5 py-0 h-4 bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300 border-sky-300 font-sans font-bold'>
@@ -186,35 +132,35 @@ export const columns: ColumnDef<ShipmentItem>[] = [
     },
   },
   {
+    accessorKey: 'mawbNumber',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='MAWB' />
+    ),
+    cell: ({ row }) => (
+      <div className='w-[130px] truncate font-mono font-medium'>{row.getValue('mawbNumber') || '—'}</div>
+    ),
+  },
+  {
     accessorKey: 'forwardingCompanyName',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Forwarding Details' />
     ),
     cell: ({ row }) => {
       const shipment = row.original
-
-      const companyName = shipment.forwardingCompanyName || 'N/A'
-
-      const forwardingNumber = shipment.forwardingNumber || 'N/A'
+      const companyName = shipment.forwardingCompanyName || '—'
+      const forwardingNumber = shipment.forwardingNumber || ''
 
       return (
-        <div className='w-[200px]'>
+        <div className='w-[180px]'>
           <div className='truncate font-medium'>{companyName}</div>
-          <div className='text-muted-foreground truncate text-sm'>
-            {forwardingNumber}
-          </div>
+          {forwardingNumber && forwardingNumber !== '—' && (
+            <div className='text-muted-foreground truncate text-xs font-mono select-all'>
+              {forwardingNumber}
+            </div>
+          )}
         </div>
       )
     },
-  },
-  {
-    accessorKey: 'agentCode',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Agent' />
-    ),
-    cell: ({ row }) => (
-      <div className='truncate'>{row.getValue('agentCode') || 'N/A'}</div>
-    ),
   },
   {
     accessorKey: 'status',
