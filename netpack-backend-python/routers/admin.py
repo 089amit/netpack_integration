@@ -418,28 +418,31 @@ def sign_up(
     db.commit()
     db.refresh(user)
 
-    # Automatically ensure user is also registered as a Customer with complete address
-    from models.customer import Customer
-    cust = db.query(Customer).filter(Customer.userId == user.id).first()
-    if not cust and user.email:
-        cust = db.query(Customer).filter(Customer.email == user.email).first()
-    if not cust:
-        c = Customer(
-            name=user.fullName or user.email.split("@")[0],
-            phone=user.phoneNumber or "+977-00000000",
-            email=user.email,
-            address1=payload.address1,
-            address2=payload.address2,
-            city=payload.city,
-            state=payload.state,
-            postcode=payload.postcode,
-            countryId=country_id,
-            isOrganization=payload.isOrganization or False,
-            organizationName=payload.organizationName,
-            userId=user.id
-        )
-        db.add(c)
-        db.commit()
+    # Automatically ensure user is registered as a Customer ONLY for customer/client roles (NOT internal staff like PICKUP, RIDER, ADMIN, CSD, OPERATION)
+    role_name = (user_role.name if user_role else "").upper()
+    is_internal_staff = role_name in ("PICKUP", "RIDER", "ADMIN", "SUPER_ADMIN", "OPERATION", "CSD")
+    if not is_internal_staff:
+        from models.customer import Customer
+        cust = db.query(Customer).filter(Customer.userId == user.id).first()
+        if not cust and user.email:
+            cust = db.query(Customer).filter(Customer.email == user.email).first()
+        if not cust:
+            c = Customer(
+                name=user.fullName or user.email.split("@")[0],
+                phone=user.phoneNumber or "+977-00000000",
+                email=user.email,
+                address1=payload.address1,
+                address2=payload.address2,
+                city=payload.city,
+                state=payload.state,
+                postcode=payload.postcode,
+                countryId=country_id,
+                isOrganization=payload.isOrganization or False,
+                organizationName=payload.organizationName,
+                userId=user.id
+            )
+            db.add(c)
+            db.commit()
     else:
         # Update existing customer record with provided signup address
         if payload.address1:
@@ -682,28 +685,30 @@ def create_admin_user(
     db.commit()
     db.refresh(u)
 
-    # Automatically ensure user is also represented in customers table
-    try:
-        first_c = db.query(Country).first()
-        target_country_id = u.countryId or (first_c.id if first_c else 1)
-        cust = Customer(
-            name=u.fullName or u.email.split("@")[0],
-            phone=u.phoneNumber or "+977-00000000",
-            email=u.email,
-            isOrganization=u.isOrganization or False,
-            organizationName=u.organizationName,
-            address1=u.address1,
-            city=u.city,
-            state=u.state,
-            countryId=target_country_id,
-            postcode=u.postcode,
-            userId=u.id
-        )
-        db.add(cust)
-        db.commit()
-    except Exception as err:
-        print(f"[Warning] Failed syncing user to customer: {err}")
-        db.rollback()
+    # Automatically ensure user is represented in customers table ONLY if user is a customer/courier (NOT staff/pickup)
+    role_check_str = (payload.role or (u.role.name if u.role else "STAFF")).upper()
+    if role_check_str not in ("PICKUP", "RIDER", "ADMIN", "SUPER_ADMIN", "OPERATION", "CSD"):
+        try:
+            first_c = db.query(Country).first()
+            target_country_id = u.countryId or (first_c.id if first_c else 1)
+            cust = Customer(
+                name=u.fullName or u.email.split("@")[0],
+                phone=u.phoneNumber or "+977-00000000",
+                email=u.email,
+                isOrganization=u.isOrganization or False,
+                organizationName=u.organizationName,
+                address1=u.address1,
+                city=u.city,
+                state=u.state,
+                countryId=target_country_id,
+                postcode=u.postcode,
+                userId=u.id
+            )
+            db.add(cust)
+            db.commit()
+        except Exception as err:
+            print(f"[Warning] Failed syncing user to customer: {err}")
+            db.rollback()
 
     # Dispatch welcome email with login credentials
     role_str = payload.role or (u.role.name if u.role else "STAFF")

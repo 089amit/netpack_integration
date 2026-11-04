@@ -26,7 +26,14 @@ def get_all_customers(
     db: Session = Depends(get_db)
 ):
     requester = get_requester_identity(authorization, db)
-    q = db.query(Customer)
+    from models.user import User, Role
+    from sqlalchemy import func
+
+    # Exclude internal operations/staff roles (PICKUP, RIDER, ADMIN, SUPER_ADMIN, OPERATION, CSD) from the customers directory
+    q = db.query(Customer).outerjoin(Customer.linkedUser).outerjoin(User.role).filter(
+        (Customer.userId == None) |
+        (~func.upper(Role.name).in_(["PICKUP", "RIDER", "ADMIN", "SUPER_ADMIN", "OPERATION", "CSD"]))
+    )
 
     # Scoping: If caller is a Customer or User (Cargo Courier), only return their own Customer record
     if requester.is_authenticated and requester.is_user_or_customer:

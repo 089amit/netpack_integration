@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Header, Body
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from typing import List, Optional, Any, Dict
 import math
 from datetime import datetime
@@ -157,7 +157,6 @@ def format_enquiry_response(e: Enquiry) -> Dict[str, Any]:
         ]
     }
 
-@router.get("")
 def parse_multi_search_terms(search: Optional[str]) -> List[str]:
     if not search:
         return []
@@ -197,6 +196,7 @@ def build_enquiry_token_filters(token: str):
         pass
     return filters
 
+@router.get("")
 @router.get("/")
 def get_all_enquiries(
     page: int = Query(1, ge=1),
@@ -214,7 +214,11 @@ def get_all_enquiries(
         query = query.filter(get_user_enquiry_filter(requester))
 
     if status:
-        query = query.filter(Enquiry.status == status)
+        status_list = [st.strip().upper() for st in status.split(",") if st.strip()]
+        if len(status_list) == 1:
+            query = query.filter(func.upper(Enquiry.status) == status_list[0])
+        elif len(status_list) > 1:
+            query = query.filter(func.upper(Enquiry.status).in_(status_list))
     if destinationCountry:
         query = query.filter(Enquiry.destinationCountry == destinationCountry)
     if search:
