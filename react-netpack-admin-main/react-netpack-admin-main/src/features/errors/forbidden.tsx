@@ -4,6 +4,30 @@ import { Button } from '@/components/ui/button'
 export default function ForbiddenError() {
   const navigate = useNavigate()
   const { history } = useRouter()
+
+  const isCustomerApp = typeof window !== 'undefined' && window.location.pathname.startsWith('/pwa')
+  const isRiderApp = typeof window !== 'undefined' && window.location.pathname.startsWith('/pickup-pwa')
+
+  const handleHomeClick = () => {
+    if (isCustomerApp) {
+      window.location.href = '/pwa'
+      return
+    }
+    if (isRiderApp) {
+      window.location.href = '/pickup-pwa'
+      return
+    }
+    navigate({ to: '/' })
+  }
+
+  const handleBackClick = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      history.go(-1)
+    } else {
+      handleHomeClick()
+    }
+  }
+
   return (
     <div className='h-svh'>
       <div className='m-auto flex h-full w-full flex-col items-center justify-center gap-2'>
@@ -14,10 +38,12 @@ export default function ForbiddenError() {
           to view this resource.
         </p>
         <div className='mt-6 flex gap-4'>
-          <Button variant='outline' onClick={() => history.go(-1)}>
+          <Button variant='outline' onClick={handleBackClick}>
             Go Back
           </Button>
-          <Button onClick={() => navigate({ to: '/' })}>Back to Home</Button>
+          <Button onClick={handleHomeClick}>
+            {isCustomerApp || isRiderApp ? 'Reload App' : 'Back to Home'}
+          </Button>
         </div>
       </div>
     </div>

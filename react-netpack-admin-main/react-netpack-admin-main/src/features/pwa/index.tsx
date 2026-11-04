@@ -5350,6 +5350,14 @@ export default function CustomerPWA() {
   // Modern Floating Alert Banner State
   const [activeBannerNotification, setActiveBannerNotification] = useState<ModernNotificationData | null>(null)
   const [backendNotifs, setBackendNotifs] = useState<NotificationItem[]>([])
+  const [readNotifIds, setReadNotifIds] = useState<string[]>(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('netpack_read_notif_ids') : null
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
 
   const handleProfileUpdated = (updatedUser: any) => {
     setCustomerUser(updatedUser)
@@ -5481,16 +5489,7 @@ export default function CustomerPWA() {
       if (aRead && !bRead) return 1
       return (b.timestamp || 0) - (a.timestamp || 0)
     })
-  }, [shipments, backendNotifs])
-
-  const [readNotifIds, setReadNotifIds] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('netpack_read_notif_ids')
-      return saved ? JSON.parse(saved) : []
-    } catch {
-      return []
-    }
-  })
+  }, [shipments, backendNotifs, readNotifIds])
 
   const handleMarkAllRead = () => {
     const allIds = notifications.map(n => n.id)

@@ -2,9 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import CustomerPWA from '@/features/pwa'
 
-function CustomerPWARoute() {
+function CustomerAppRoute() {
   useEffect(() => {
-    document.title = 'Netpack Customer Portal'
+    document.title = 'Netpack Customer App'
     return () => {
       document.title = 'Netpack Admin'
     }
@@ -15,5 +15,5 @@ function CustomerPWARoute() {
 
 // @ts-ignore
 export const Route = createFileRoute('/pwa')({
-  component: CustomerPWARoute,
+  component: CustomerAppRoute,
 })

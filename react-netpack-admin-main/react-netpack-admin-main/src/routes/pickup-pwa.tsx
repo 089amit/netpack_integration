@@ -4,7 +4,7 @@ import PickupRiderPWA from '@/features/pickup-pwa'
 
 function PickupRiderRoute() {
   useEffect(() => {
-    document.title = 'Netpack Rider Dispatch'
+    document.title = 'Netpack Rider App'
     return () => {
       document.title = 'Netpack Admin'
     }
