@@ -311,13 +311,13 @@ def export_database_snapshot(admin: User = Depends(get_current_admin)):
 @app.get("/api/version", tags=["App"])
 def get_app_version():
     return {
-        "version": "1.0.1",
-        "versionCode": 12,
-        "releaseDate": "2026-11-03",
-        "minRequiredVersionCode": 11,
+        "version": "1.0.2",
+        "versionCode": 13,
+        "releaseDate": "2026-11-04",
+        "minRequiredVersionCode": 12,
         "customerApkUrl": "/download/customer.apk",
         "riderApkUrl": "/download/rider.apk",
-        "releaseNotes": "Production release v1.0.1 (Build 12): in-app update popup, serverless OTP DB persistence, UX responsiveness enhancements, and website ticker display."
+        "releaseNotes": "Production release v1.0.2 (Build 13): resolved customer app launch 500 error, improved in-app error boundaries, and native app optimizations."
     }
 
 # Custom hook router for future Python project integrations

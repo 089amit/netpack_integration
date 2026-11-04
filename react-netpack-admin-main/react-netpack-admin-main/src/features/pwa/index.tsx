@@ -5308,7 +5308,7 @@ export default function CustomerPWA() {
         const res = await fetch(`${API_BASE}/api/app/version`)
         if (res.ok) {
           const data = await res.json()
-          const currentLoadedVersion = '1.0.1'
+          const currentLoadedVersion = '1.0.2'
           if (data.version && data.version !== currentLoadedVersion) {
             setUpdateAvailable(data.version)
           }
