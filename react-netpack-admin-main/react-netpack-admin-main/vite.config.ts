@@ -24,6 +24,15 @@ export default defineConfig({
   },
   build: {
     sourcemap: false,
+    chunkSizeWarningLimit: 1600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          tanstack: ['@tanstack/react-router', '@tanstack/react-query', '@tanstack/react-table'],
+        },
+      },
+    },
   },
   server: {
     allowedHosts: ['.ngrok-free.app'], // ✅ Allow all ngrok subdomains
