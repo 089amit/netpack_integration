@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Header, status, UploadFile, File, BackgroundTasks, Request
 from services.rate_limiter import rate_limiter
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 import config
@@ -565,11 +565,12 @@ def customer_signup(
 ):
     rate_limiter.check(request, category="customer_signup", max_requests=5, window_seconds=60)
     clean_email = payload.email.strip().lower()
-    existing = db.query(Customer).filter(Customer.email.ilike(clean_email)).first()
-    if existing:
+    existing_cust = db.query(Customer).filter(func.lower(Customer.email) == clean_email).first()
+    existing_user = db.query(User).filter(func.lower(User.email) == clean_email).first()
+    if existing_cust or existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="An account with this email already exists"
+            detail="An account with this email already exists. Please sign in instead."
         )
 
     country_id = resolve_country(db, payload.countryId, payload.country)

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, BackgroundTasks, Request
 from services.rate_limiter import rate_limiter
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional, Any, Dict, Tuple
 from database import get_db
 from models.user import User, Role
@@ -375,9 +376,14 @@ def sign_up(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    existing = db.query(User).filter(User.email.ilike(payload.email.strip())).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    clean_email = payload.email.strip().lower()
+    existing_user = db.query(User).filter(func.lower(User.email) == clean_email).first()
+    existing_cust = db.query(Customer).filter(func.lower(Customer.email) == clean_email).first()
+    if existing_user or existing_cust:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email already exists. Please sign in instead."
+        )
 
     # Portal signup is strictly for Users (Cargo Couriers). Never allow public elevation to ADMIN.
     user_role = db.query(Role).filter(Role.name == "USER").first()
@@ -618,9 +624,14 @@ def create_admin_user(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    existing = db.query(User).filter(User.email.ilike(payload.email.strip())).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already exists")
+    clean_email = payload.email.strip().lower()
+    existing_user = db.query(User).filter(func.lower(User.email) == clean_email).first()
+    existing_cust = db.query(Customer).filter(func.lower(Customer.email) == clean_email).first()
+    if existing_user or existing_cust:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email already exists"
+        )
 
     # Resolve role
     role_id = None

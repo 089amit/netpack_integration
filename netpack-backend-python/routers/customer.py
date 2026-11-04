@@ -1,6 +1,7 @@
 import math
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from database import get_db
 from models.customer import Customer
@@ -107,9 +108,9 @@ def get_all_customers(
 @router.post("")
 @router.post("/")
 def create_customer(payload: CustomerCreateRequest, db: Session = Depends(get_db)):
-    clean_email = payload.email.strip() if payload.email and payload.email.strip() else None
+    clean_email = payload.email.strip().lower() if payload.email and payload.email.strip() else None
     if clean_email:
-        existing = db.query(Customer).filter(Customer.email == clean_email).first()
+        existing = db.query(Customer).filter(func.lower(Customer.email) == clean_email).first()
         if existing:
             raise HTTPException(status_code=400, detail="Customer with this email already exists")
 
