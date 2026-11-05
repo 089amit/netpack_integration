@@ -232,7 +232,9 @@ async def trackingmore_webhook(request: Request, db: Session = Depends(get_db)):
                 mapped_status = latest_cp["status"]
 
         for shipment in target_shipments:
-            if mapped_status:
+            # External carrier webhook can ONLY advance a consignment forward
+            # It must NEVER downgrade an operational consignment back to PENDING or NOTFOUND!
+            if mapped_status and mapped_status in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED", "EXCEPTION", "CANCELLED"):
                 shipment.status = mapped_status
                 if shipment.enquiry:
                     shipment.enquiry.status = mapped_status
