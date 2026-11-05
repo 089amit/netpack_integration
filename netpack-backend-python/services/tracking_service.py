@@ -10,7 +10,7 @@ from models.shipment import Shipment, TransitPoint, TrackingEvent
 from models.enquiry import Enquiry, Box
 from models.mawb import MAWB
 from models.location import Country
-from models.user import User
+from models.user import User, Role
 from services.trackingmore_service import trackingmore_service
 
 
@@ -757,7 +757,12 @@ class TrackingRegistry:
                         cand_name = m.group(2).strip()
                         r_user = db.query(User).filter(User.fullName.ilike(f"%{cand_name}%")).first()
                 if not r_user:
-                    r_user = db.query(User).filter(User.role.in_(["PICKUP", "RIDER"])).order_by(User.id.asc()).first()
+                    try:
+                        r_user = db.query(User).join(Role).filter(Role.name.in_(["PICKUP", "RIDER"])).order_by(User.id.asc()).first()
+                    except Exception:
+                        pass
+                if not r_user:
+                    r_user = db.query(User).filter(User.fullName.ilike("%Pawan%")).first()
 
                 r_name = (r_user.fullName or r_user.username or "Pawan Pandey") if r_user else "Pawan Pandey"
                 r_phone = (r_user.phoneNumber or "+977 9869233939") if r_user else "+977 9869233939"
