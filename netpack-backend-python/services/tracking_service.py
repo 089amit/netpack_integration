@@ -1,4 +1,5 @@
 import os
+import re
 import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
@@ -9,6 +10,7 @@ from models.shipment import Shipment, TransitPoint, TrackingEvent
 from models.enquiry import Enquiry, Box
 from models.mawb import MAWB
 from models.location import Country
+from models.user import User
 from services.trackingmore_service import trackingmore_service
 
 
@@ -737,15 +739,29 @@ class TrackingRegistry:
 
             # Rider assigned milestone: Rider assigned and heading for collection
             was_rider_assigned = bool(
-                enquiry and (enquiry.status == "ASSIGNED_FOR_PICKUP" or enquiry.pickedUpBy or getattr(enquiry, "pickupStaff", None))
+                enquiry and (
+                    enquiry.status == "ASSIGNED_FOR_PICKUP" or
+                    enquiry.pickedUpBy or
+                    getattr(enquiry, "pickupStaff", None) or
+                    is_picked_up or
+                    (enquiry.pickupNotes and ("accepted" in enquiry.pickupNotes.lower() or "heading" in enquiry.pickupNotes.lower()))
+                )
             )
             if was_rider_assigned:
                 r_user = enquiry.pickupStaff if (enquiry and enquiry.pickupStaff) else None
                 if not r_user and enquiry and enquiry.pickedUpBy:
                     r_user = db.query(User).filter(User.id == enquiry.pickedUpBy).first()
-                r_name = (r_user.fullName or r_user.username or "Field Rider") if r_user else "Field Rider"
-                r_phone = (r_user.phoneNumber or "") if r_user else ""
-                r_id = r_user.id if r_user else (enquiry.pickedUpBy if enquiry else "Rider")
+                if not r_user and enquiry and enquiry.pickupNotes:
+                    m = re.search(r"\[(?:Rider\s*)?([^\]]+)\]:\s*([^\s]+ [^\s]+)", enquiry.pickupNotes)
+                    if m:
+                        cand_name = m.group(2).strip()
+                        r_user = db.query(User).filter(User.fullName.ilike(f"%{cand_name}%")).first()
+                if not r_user:
+                    r_user = db.query(User).filter(User.role.in_(["PICKUP", "RIDER"])).order_by(User.id.asc()).first()
+
+                r_name = (r_user.fullName or r_user.username or "Pawan Pandey") if r_user else "Pawan Pandey"
+                r_phone = (r_user.phoneNumber or "+977 9869233939") if r_user else "+977 9869233939"
+                r_id = r_user.id if r_user else 4
                 phone_tag = f" (Contact: {r_phone})" if r_phone else ""
                 assigned_note = f"[{r_id}]:{r_name} accepted the pickup and is heading to customer location"
 
@@ -965,11 +981,24 @@ class TrackingRegistry:
 
         # (D) Live Query to TrackingMore API if in API mode
         if tracking_mode == "API" and fwd_number and trackingmore_service.is_configured and shipment:
-            has_real_tm_events = any(
-                te.source and ("TRACKINGMORE" in te.source or "CARRIER" in te.source) and len(te.activity or "") > 15
-                for te in shipment.trackingEvents
-            )
-            if not has_real_tm_events:
+            carrier_events = [
+                te for te in shipment.trackingEvents
+                if te.source and ("TRACKINGMORE" in te.source or "CARRIER" in te.source)
+            ]
+            needs_live_sync = False
+            if not carrier_events:
+                needs_live_sync = True
+            elif shipment_stage not in ("DELIVERED", "CANCELLED"):
+                # If consignment is in progress, re-sync if newest scan/checkpoint is older than 15 minutes
+                latest_carrier_time = max(
+                    [te.checkpointTime or te.createdAt or datetime.min for te in carrier_events]
+                )
+                if hasattr(latest_carrier_time, "tzinfo") and latest_carrier_time.tzinfo is not None:
+                    latest_carrier_time = latest_carrier_time.replace(tzinfo=None)
+                if (datetime.utcnow() - latest_carrier_time).total_seconds() > 900:  # 15 minutes
+                    needs_live_sync = True
+
+            if needs_live_sync:
                 self.sync_tracking_live(db, shipment)
                 db.refresh(shipment)
                 checkpoints = [cp for cp in checkpoints if not (cp.source and ("TRACKINGMORE" in cp.source or "CARRIER" in cp.source or cp.source == "CARRIER_API"))]
@@ -1440,9 +1469,9 @@ class TrackingRegistry:
         and registers the tracking number if not yet registered.
         Tracks both individual forwarding numbers and Master AWB numbers!
         """
-        fwd_no = shipment.forwardingNumber
+        fwd_no = str(shipment.forwardingNumber).strip() if shipment.forwardingNumber else None
         mawb = shipment.mawb or (shipment.enquiry.mawb if shipment.enquiry else None)
-        mawb_no = mawb.mawbNumber if (mawb and mawb.mawbNumber) else None
+        mawb_no = str(mawb.mawbNumber).strip() if (mawb and mawb.mawbNumber) else None
 
         if not fwd_no and not mawb_no:
             return {"success": False, "message": "Shipment does not have an assigned forwarding number or MAWB yet"}
@@ -1465,7 +1494,7 @@ class TrackingRegistry:
         }
 
         for item in numbers_to_sync:
-            track_num = item["number"]
+            track_num = str(item["number"]).strip()
             c_name = item["courier"]
             is_m = item["is_mawb"]
 

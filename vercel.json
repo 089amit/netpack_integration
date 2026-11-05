@@ -31,6 +31,18 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/tasks",
+      "destination": "/enquiries",
+      "permanent": true
+    },
+    {
+      "source": "/tasks/(.*)",
+      "destination": "/enquiries",
+      "permanent": true
+    }
+  ],
   "services": {
     "react-netpack-admin-main": {
       "root": "react-netpack-admin-main/react-netpack-admin-main",

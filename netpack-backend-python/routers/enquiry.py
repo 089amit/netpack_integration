@@ -364,6 +364,10 @@ def create_enquiry(
             db.commit()
             db.refresh(cust)
         customer_id = cust.id
+    elif not customer_id and sender_name and sender_name.strip():
+        cust = db.query(Customer).filter(Customer.name.ilike(sender_name.strip())).first()
+        if cust:
+            customer_id = cust.id
 
     # Compute total weight & box count from items/boxes if not provided
     items_list = payload.items or []

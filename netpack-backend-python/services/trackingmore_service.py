@@ -29,6 +29,10 @@ class TrackingMoreService:
         "aramex": "aramex",
         "usps": "usps",
         "skynet": "skynetworldwide",
+        "sky net": "skynetworldwide",
+        "skynet worldwide": "skynetworldwide",
+        "skynet-worldwide": "skynetworldwide",
+        "skynetworldwide": "skynetworldwide",
         "tnt": "tnt",
         "ems": "ems",
         "royal mail": "royal-mail",
@@ -146,9 +150,14 @@ class TrackingMoreService:
         # 1. Exact match
         if clean in self.COURIER_MAP:
             return self.COURIER_MAP[clean]
-        # 2. Substring match
+        # 2. Compressed match (e.g. "sky net" -> "skynet")
+        compressed = clean.replace(" ", "").replace("-", "").replace("_", "")
+        if compressed in self.COURIER_MAP:
+            return self.COURIER_MAP[compressed]
+        # 3. Substring match
         for key, slug in self.COURIER_MAP.items():
-            if key in clean or clean in key:
+            key_clean = key.replace(" ", "").replace("-", "").replace("_", "")
+            if key_clean == compressed or key_clean in compressed or compressed in key_clean:
                 return slug
         return clean.replace(" ", "-")
 

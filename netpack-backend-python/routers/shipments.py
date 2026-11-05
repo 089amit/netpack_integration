@@ -482,6 +482,13 @@ def resolve_valid_customer_id(db: Session, enquiry: Enquiry) -> int:
             if c:
                 return c.id
 
+    # 2.5. Check if senderName matches an existing Customer (e.g. CSD created enquiry for app customer)
+    name = (enquiry.senderName or "").strip()
+    if name:
+        c = db.query(Customer).filter(Customer.name.ilike(name)).first()
+        if c:
+            return c.id
+
     # 3. Check customer with id=1
     c1 = db.query(Customer).filter(Customer.id == 1).first()
     if c1:
@@ -566,6 +573,9 @@ def create_shipment_from_enquiry(
 
     cust_id = resolve_valid_customer_id(db, enquiry)
     cntry_id = resolve_valid_country_id(db, enquiry)
+
+    if not enquiry.customerId and cust_id:
+        enquiry.customerId = cust_id
 
     try:
         shipment = Shipment(
@@ -805,7 +815,8 @@ def update_shipment(
             pass
 
     if payload.forwardingNumber is not None:
-        s.forwardingNumber = payload.forwardingNumber
+        clean_fwd = payload.forwardingNumber.strip()
+        s.forwardingNumber = clean_fwd if clean_fwd else None
 
     if payload.note is not None:
         clean_note = payload.note.strip()
@@ -1002,6 +1013,15 @@ def update_shipment_status(
         db.add(te)
 
     db.commit()
+
+    # Automatically query and sync carrier API scans if forwarding number exists and status is progressed
+    if s.forwardingNumber and str(s.forwardingNumber).strip() and trackingmore_service.is_configured:
+        try:
+            tracking_registry.sync_tracking_live(db, s)
+            db.refresh(s)
+        except Exception as sync_err:
+            logger.warning(f"Status update carrier sync warning for shipment {s.id}: {sync_err}")
+
     return {"message": "Status updated successfully", "status": s.status, "note": getattr(s, "note", None)}
 
 @router.post("/bulk-status-change")

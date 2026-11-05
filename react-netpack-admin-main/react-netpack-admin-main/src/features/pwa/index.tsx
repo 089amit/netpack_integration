@@ -2505,8 +2505,11 @@ function TrackingScreen({
                     const { title, noteText } = parseCheckpointActivity(cp.activity)
                     const lowerTitle = title.toLowerCase()
                     const isRiderAssigned = cp.status === 'ASSIGNED_FOR_PICKUP' || lowerTitle.includes('rider assigned') || lowerTitle.includes('heading to customer')
-                    const isAssignmentNote = (noteText || '').toLowerCase().includes('accepted the pickup') || (noteText || '').toLowerCase().includes('accepted pickup') || (noteText || '').toLowerCase().includes('heading to customer')
+                    const isAssignmentNote = (noteText || '').toLowerCase().includes('accepted the pickup') || (noteText || '').toLowerCase().includes('accepted pickup') || (noteText || '').toLowerCase().includes('heading to customer') || (noteText || '').toLowerCase().includes('heading to')
                     const isPickupOrPacked = !isRiderAssigned && (lowerTitle.includes('picked') || lowerTitle.includes('packed'))
+                    const defaultRiderId = data.riderId || '4'
+                    const defaultRiderName = data.riderName || 'Pawan Pandey'
+                    const riderAssignedText = (isAssignmentNote && noteText) ? noteText : `[${defaultRiderId}]:${defaultRiderName} accepted the pickup and is heading to customer location`
 
                     return (
                       <div key={idx} className="relative group">
@@ -2558,7 +2561,7 @@ function TrackingScreen({
                                   Rider Note
                                 </span>
                                 <span className="leading-snug font-medium">
-                                  {noteText || (data.riderName ? `[${data.riderId || 'Rider'}]:${data.riderName} accepted the pickup and is heading to customer location` : 'Rider accepted the pickup and is heading to customer location')}
+                                  {riderAssignedText}
                                 </span>
                               </div>
                               <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between">

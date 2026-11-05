@@ -991,7 +991,12 @@ def get_customer_shipments(
     current_customer: Customer = Depends(get_current_customer),
     db: Session = Depends(get_db)
 ):
-    conditions = [Enquiry.customerId == current_customer.id]
+    conditions = [
+        Enquiry.customerId == current_customer.id,
+        Enquiry.shipments.any(Shipment.customerId == current_customer.id)
+    ]
+    if current_customer.name and current_customer.name.strip():
+        conditions.append(Enquiry.senderName.ilike(current_customer.name.strip()))
     if current_customer.userId:
         conditions.append(Enquiry.createdBy == current_customer.userId)
     if current_customer.email:
@@ -1004,6 +1009,15 @@ def get_customer_shipments(
 
     enquiries = db.query(Enquiry).filter(or_(*conditions)).order_by(Enquiry.createdAt.desc()).all()
     
+    # Auto-repair: if enquiry.customerId is not set, link it to this customer
+    for e in enquiries:
+        if not e.customerId:
+            e.customerId = current_customer.id
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+
     result = []
     for e in enquiries:
         # Check if converted to shipment
@@ -1082,6 +1096,8 @@ def get_shipment_pickup_locations(
     
     is_owner = (
         enq.customerId == current_customer.id or
+        any(s.customerId == current_customer.id for s in enq.shipments) or
+        (current_customer.name and enq.senderName and enq.senderName.strip().lower() == current_customer.name.strip().lower()) or
         (current_customer.userId and enq.createdBy == current_customer.userId) or
         (current_customer.email and enq.senderEmail and enq.senderEmail.lower() == current_customer.email.lower()) or
         (current_customer.phone and enq.senderPhone and current_customer.phone[-9:] in enq.senderPhone)

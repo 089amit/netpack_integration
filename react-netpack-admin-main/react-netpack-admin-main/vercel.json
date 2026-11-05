@@ -1,3 +1,15 @@
 {
+  "redirects": [
+    {
+      "source": "/tasks",
+      "destination": "/enquiries",
+      "permanent": true
+    },
+    {
+      "source": "/tasks/(.*)",
+      "destination": "/enquiries",
+      "permanent": true
+    }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
