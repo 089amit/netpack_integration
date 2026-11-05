@@ -19,6 +19,8 @@ import {
   MapPin,
   X,
   RefreshCw,
+  Edit2,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import {
@@ -57,6 +59,22 @@ interface CheckpointItem {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const API_BASE = SERVER_URL
+
+export const COMMON_COURIERS = [
+  { code: 'dpd-uk', name: 'DPD UK' },
+  { code: 'skynetworldwide', name: 'Sky Net Worldwide' },
+  { code: 'aramex', name: 'Aramex' },
+  { code: 'dhl', name: 'DHL Express' },
+  { code: 'fedex', name: 'FedEx' },
+  { code: 'ups', name: 'UPS' },
+  { code: 'australia-post', name: 'Australia Post' },
+  { code: 'royal-mail', name: 'Royal Mail' },
+  { code: 'tnt', name: 'TNT' },
+  { code: 'usps', name: 'USPS' },
+  { code: 'ems', name: 'EMS' },
+  { code: 'star-track', name: 'StarTrack' },
+  { code: 'custom', name: 'Other / Custom Carrier Slug...' },
+]
 
 
 function formatDateTime(isoStr?: string | null): string {
@@ -257,6 +275,12 @@ export function ShipmentTrackingDialog({
   const [isPackageDetailsOpen, setIsPackageDetailsOpen] = useState<boolean>(false)
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null)
   const [copied, setCopied] = useState<boolean>(false)
+  const [showCarrierOverride, setShowCarrierOverride] = useState<boolean>(false)
+  const [selectedCourier, setSelectedCourier] = useState<string>('dpd-uk')
+  const [customCourierCode, setCustomCourierCode] = useState<string>('')
+  const [isOverriding, setIsOverriding] = useState<boolean>(false)
+  const [overrideError, setOverrideError] = useState<string | null>(null)
+  const [overrideSuccess, setOverrideSuccess] = useState<string | null>(null)
 
   const initialTarget = hawbNumber || trackingNumber || (enquiryId !== undefined ? String(enquiryId) : null)
 
@@ -380,6 +404,78 @@ export function ShipmentTrackingDialog({
   const carrierUrl =
     liveData?.carrierTrackingUrl ||
     (displayForwardingNumber ? `https://www.ups.com/track?tracknum=${displayForwardingNumber}` : null)
+
+  useEffect(() => {
+    if (displayForwardingCompany) {
+      const match = COMMON_COURIERS.find(
+        (c) =>
+          c.name.toLowerCase() === displayForwardingCompany.toLowerCase() ||
+          c.code.toLowerCase() === displayForwardingCompany.toLowerCase() ||
+          displayForwardingCompany.toLowerCase().includes(c.code)
+      )
+      if (match) {
+        setSelectedCourier(match.code)
+      }
+    }
+  }, [displayForwardingCompany])
+
+  const handleOverrideCarrier = async () => {
+    const codeToUse = selectedCourier === 'custom' ? customCourierCode.trim() : selectedCourier
+    if (!codeToUse) {
+      setOverrideError('Please select or enter a valid courier code.')
+      return
+    }
+    const idTarget =
+      liveData?.hawbNumber ||
+      liveData?.forwardingNumber ||
+      liveData?.shipmentId ||
+      hawbNumber ||
+      forwardingNumber ||
+      activeTarget ||
+      initialTarget
+    if (!idTarget) {
+      setOverrideError('Could not identify shipment to override.')
+      return
+    }
+
+    setIsOverriding(true)
+    setOverrideError(null)
+    setOverrideSuccess(null)
+
+    const selectedObj = COMMON_COURIERS.find((c) => c.code === selectedCourier)
+    const companyName = selectedCourier === 'custom' ? codeToUse.toUpperCase() : selectedObj?.name
+
+    try {
+      const res = await fetch(`${API_BASE}/api/tracking/override-carrier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: String(idTarget),
+          courierCode: codeToUse,
+          forwardingCompany: companyName,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setOverrideSuccess(`Carrier updated to ${data.forwardingCompany || codeToUse}!`)
+        if (data.tracking) {
+          setLiveData(data.tracking)
+        } else {
+          fetchTracking(idTarget)
+        }
+        setTimeout(() => {
+          setShowCarrierOverride(false)
+          setOverrideSuccess(null)
+        }, 1500)
+      } else {
+        setOverrideError(data.detail || data.message || 'Failed to override courier.')
+      }
+    } catch (err: any) {
+      setOverrideError(err.message || 'Failed connecting to server.')
+    } finally {
+      setIsOverriding(false)
+    }
+  }
 
   // Subtitle / arrival info
   const latestCheckpoint = checkpoints[0]
@@ -570,14 +666,33 @@ export function ShipmentTrackingDialog({
             {/* Forwarding Courier Chip */}
             <div className='p-2.5 rounded-2xl bg-muted/40 border border-border/80 flex items-center justify-between'>
               <div className='min-w-0'>
-                <span className='text-[10px] uppercase font-bold text-muted-foreground block tracking-wider'>
-                  Courier Forwarding
-                </span>
+                <div className='flex items-center gap-1.5'>
+                  <span className='text-[10px] uppercase font-bold text-muted-foreground block tracking-wider'>
+                    Courier Forwarding
+                  </span>
+                  <button
+                    type='button'
+                    onClick={() => setShowCarrierOverride((v) => !v)}
+                    className='text-[10px] font-semibold text-primary hover:underline inline-flex items-center gap-0.5'
+                    title='Override or correct carrier in TrackingMore'
+                  >
+                    <Edit2 className='h-2.5 w-2.5' />
+                    <span>Change</span>
+                  </button>
+                </div>
                 <span className='text-xs font-mono font-bold text-foreground truncate block mt-0.5'>
                   {displayForwardingCompany}: {displayForwardingNumber || 'Assigned'}
                 </span>
               </div>
               <div className='flex items-center gap-1 shrink-0 ml-1.5'>
+                <button
+                  type='button'
+                  onClick={() => setShowCarrierOverride((v) => !v)}
+                  className='p-1 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground transition'
+                  title='Change or override courier provider'
+                >
+                  <SlidersHorizontal className='h-3 w-3' />
+                </button>
                 {displayForwardingNumber && (
                   <button
                     type='button'
@@ -627,6 +742,113 @@ export function ShipmentTrackingDialog({
               )}
             </div>
           </div>
+
+          {/* ── CARRIER OVERRIDE DRAWER/PANEL ─────── */}
+          {showCarrierOverride && (
+            <div className='p-3.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/60 space-y-2.5 animate-in fade-in slide-in-from-top-1'>
+              <div className='flex items-center justify-between pb-1.5 border-b border-blue-200/60 dark:border-blue-900/50'>
+                <div className='flex items-center gap-1.5'>
+                  <SlidersHorizontal className='h-3.5 w-3.5 text-blue-600 dark:text-blue-400' />
+                  <span className='text-xs font-bold text-foreground'>
+                    Carrier Override & Courier Correction
+                  </span>
+                </div>
+                <button
+                  type='button'
+                  onClick={() => setShowCarrierOverride(false)}
+                  className='p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition'
+                >
+                  <X className='h-3.5 w-3.5' />
+                </button>
+              </div>
+
+              <p className='text-[11px] text-muted-foreground leading-relaxed'>
+                If the TrackingMore API auto-detected the wrong courier or you need to switch the slug for forwarding number{' '}
+                <span className='font-mono font-bold text-foreground'>{displayForwardingNumber || 'this shipment'}</span>:
+              </p>
+
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1'>
+                <div>
+                  <label className='text-[10px] uppercase font-bold text-muted-foreground block mb-1'>
+                    Target Courier
+                  </label>
+                  <select
+                    value={selectedCourier}
+                    onChange={(e) => setSelectedCourier(e.target.value)}
+                    className='w-full text-xs rounded-xl border border-border bg-background px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium'
+                  >
+                    {COMMON_COURIERS.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.name} ({c.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedCourier === 'custom' ? (
+                  <div>
+                    <label className='text-[10px] uppercase font-bold text-muted-foreground block mb-1'>
+                      Custom Courier Code
+                    </label>
+                    <input
+                      type='text'
+                      value={customCourierCode}
+                      onChange={(e) => setCustomCourierCode(e.target.value)}
+                      placeholder='e.g. dpd-uk, skynetworldwide'
+                      className='w-full text-xs rounded-xl border border-border bg-background px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono'
+                    />
+                  </div>
+                ) : (
+                  <div className='flex items-end'>
+                    <div className='text-[11px] text-muted-foreground py-1.5'>
+                      Active Carrier: <span className='font-bold text-foreground'>{displayForwardingCompany}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {overrideError && (
+                <p className='text-[11px] text-destructive font-medium bg-destructive/10 p-2 rounded-lg'>
+                  {overrideError}
+                </p>
+              )}
+
+              {overrideSuccess && (
+                <p className='text-[11px] text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-500/10 p-2 rounded-lg'>
+                  {overrideSuccess}
+                </p>
+              )}
+
+              <div className='flex items-center justify-end gap-2 pt-1'>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='sm'
+                  className='h-7 text-xs px-2.5'
+                  onClick={() => setShowCarrierOverride(false)}
+                  disabled={isOverriding}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type='button'
+                  size='sm'
+                  className='h-7 text-xs px-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-1.5'
+                  onClick={handleOverrideCarrier}
+                  disabled={isOverriding}
+                >
+                  {isOverriding ? (
+                    <>
+                      <RefreshCw className='h-3 w-3 animate-spin' />
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <span>Apply & Re-sync Carrier</span>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* ── CONSIGNMENT HAWBS OVERVIEW (For Partitioned Shipments) ── */}
           {liveData?.hawbs && liveData.hawbs.length > 1 && (
@@ -1187,6 +1409,14 @@ export function ShipmentTrackingDialog({
               <span className='font-medium text-muted-foreground'>Carrier</span>
               <div className='flex items-center gap-1.5 font-bold text-foreground'>
                 <span>{displayForwardingCompany}</span>
+                <button
+                  type='button'
+                  onClick={() => setShowCarrierOverride(true)}
+                  className='text-[10px] font-semibold text-primary hover:underline px-1.5 py-0.5 rounded border border-border/80 bg-muted/30 ml-1'
+                  title='Change or override courier provider'
+                >
+                  Change Carrier
+                </button>
                 {carrierUrl && (
                   <a
                     href={carrierUrl}

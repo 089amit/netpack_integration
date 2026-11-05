@@ -788,6 +788,9 @@ def update_shipment(
     if not s:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
+    old_fc_name = s.forwardingCompany.name if s.forwardingCompany else None
+    old_fwd_no = s.forwardingNumber
+
     if payload.status is not None:
         s.status = payload.status
         if s.enquiry:
@@ -892,6 +895,18 @@ def update_shipment(
             fwd_clean = str(s.forwardingNumber).strip()
             c_name = s.forwardingCompany.name if s.forwardingCompany else None
             cust_name = s.customer.name if s.customer else (s.enquiry.senderName if s.enquiry else None)
+
+            # If carrier company changed or was specified, update in TrackingMore
+            if c_name:
+                new_slug = trackingmore_service.normalize_courier_code(c_name)
+                old_slug = trackingmore_service.normalize_courier_code(old_fc_name) if old_fc_name else None
+                if new_slug and new_slug != old_slug:
+                    trackingmore_service.modify_courier(
+                        tracking_number=fwd_clean,
+                        new_courier_code=new_slug,
+                        current_courier_code=old_slug
+                    )
+
             trackingmore_service.create_tracking(
                 tracking_number=fwd_clean,
                 courier_code=c_name,
@@ -1449,5 +1464,15 @@ def break_hawb_shipment(
         "message": f"Successfully broke shipment into {len(created_shipments)} HAWBs",
         "shipments": [format_shipment_response(s, db) for s in created_shipments]
     }
+
+@router.post("/{id}/override-carrier")
+def override_shipment_carrier_endpoint(
+    id: int,
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    from routers.tracking import override_tracking_carrier
+    return override_tracking_carrier(identifier=str(id), payload=payload, db=db)
+
 
 

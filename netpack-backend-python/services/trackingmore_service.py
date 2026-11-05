@@ -236,6 +236,52 @@ class TrackingMoreService:
         except Exception as e:
             return {"success": False, "message": str(e)}
 
+    def modify_courier(
+        self,
+        tracking_number: str,
+        new_courier_code: str,
+        current_courier_code: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Modifies / overrides the assigned courier for a tracking number in TrackingMore.
+        Endpoint: POST /v4/trackings/modify-courier
+        """
+        clean_num = tracking_number.strip()
+        new_slug = self.normalize_courier_code(new_courier_code) or new_courier_code.strip().lower()
+        curr_slug = self.normalize_courier_code(current_courier_code) if current_courier_code else None
+
+        if not self.is_configured:
+            return {"success": False, "configured": False, "message": "TrackingMore API key not configured"}
+
+        if not new_slug:
+            return {"success": False, "message": "A valid target courier code is required"}
+
+        url = f"{self.BASE_URL}/trackings/modify-courier"
+        body = {
+            "tracking_number": clean_num,
+            "new_courier_code": new_slug
+        }
+        if curr_slug:
+            body["courier_code"] = curr_slug
+
+        try:
+            resp = requests.post(url, json=body, headers=self._get_headers(), timeout=12)
+            res_data = resp.json() if resp.text else {}
+            code = res_data.get("meta", {}).get("code") or res_data.get("code")
+
+            if resp.status_code in (200, 201) or code in (200, 201):
+                return {
+                    "success": True,
+                    "tracking_number": clean_num,
+                    "new_courier_code": new_slug,
+                    "data": res_data.get("data", [])
+                }
+            # Fallback: if modify-courier returns error, attempt re-registration with create_tracking
+            reg = self.create_tracking(tracking_number=clean_num, courier_code=new_slug)
+            return reg
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
     def create_awb(self, awb_number: str) -> Dict[str, Any]:
         """
         Registers an Air Waybill (MAWB) with TrackingMore AWB tracking API.

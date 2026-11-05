@@ -1557,9 +1557,12 @@ class TrackingRegistry:
                         new_events_count += 1
 
                 mapped = tm_res.get("overall_status") or trackingmore_service.map_status(tm_res.get("delivery_status"), courier_code=courier_slug)
-                overall_status = mapped
+                # Carrier status can ONLY advance a consignment forward (e.g. CARRIER_SCANNED, OUT_FOR_DELIVERY, DELIVERED)
+                # It must NEVER downgrade an in-transit or arrived-at-hub consignment back to PENDING/NOTFOUND!
+                if mapped and mapped in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED", "EXCEPTION", "CANCELLED"):
+                    overall_status = mapped
 
-        if overall_status:
+        if overall_status and overall_status in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED", "EXCEPTION", "CANCELLED"):
             shipment.status = overall_status
             if shipment.enquiry:
                 shipment.enquiry.status = overall_status

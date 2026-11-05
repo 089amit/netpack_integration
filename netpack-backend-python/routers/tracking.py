@@ -8,7 +8,7 @@ import logging
 
 from database import get_db
 from models.shipment import Shipment, TrackingEvent
-from models.mawb import MAWB
+from models.mawb import MAWB, ForwardingCompany
 from models.enquiry import Enquiry
 from models.user import User
 from services.tracking_service import tracking_registry
@@ -355,6 +355,143 @@ def sync_shipment_tracking(identifier: str, db: Session = Depends(get_db)):
     return {
         "message": "Tracking synchronized successfully",
         "shipmentId": shipment.id,
+        "syncResult": sync_result,
+        "tracking": refreshed_cargo
+    }
+
+@router.post("/override-carrier")
+@router.post("/{identifier}/override-carrier")
+def override_tracking_carrier(
+    identifier: Optional[str] = None,
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Overrides / modifies the courier assigned to a shipment's tracking or forwarding number.
+    Calls TrackingMore POST /v4/trackings/modify-courier, updates ForwardingCompany in database,
+    purges outdated carrier events, and triggers an immediate live sync.
+    """
+    target_id = identifier or payload.get("identifier") or payload.get("shipmentId") or payload.get("trackingNumber") or payload.get("hawbNumber")
+    if not target_id:
+        raise HTTPException(status_code=400, detail="Shipment identifier or tracking number is required")
+
+    clean_id = urllib.parse.unquote(str(target_id)).strip()
+
+    shipment = None
+    try:
+        num_id = int(clean_id)
+        shipment = db.query(Shipment).filter(Shipment.id == num_id).first()
+    except ValueError:
+        pass
+
+    if not shipment:
+        shipment = (
+            db.query(Shipment).filter(Shipment.hawbno == clean_id).first() or
+            db.query(Shipment).filter(Shipment.forwardingNumber == clean_id).first()
+        )
+
+    if not shipment:
+        enq = None
+        try:
+            enq = db.query(Enquiry).filter(Enquiry.id == int(clean_id)).first()
+        except ValueError:
+            pass
+        if not enq:
+            enq = db.query(Enquiry).filter(Enquiry.trackingNumber == clean_id).first()
+        if enq and enq.shipments:
+            shipment = enq.shipments[0]
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail=f"Shipment not found for identifier '{clean_id}'")
+
+    fwd_number = (shipment.forwardingNumber or payload.get("trackingNumber") or shipment.hawbno or "").strip()
+    if not fwd_number:
+        raise HTTPException(status_code=400, detail="Shipment does not have a forwarding tracking number to assign courier to")
+
+    new_courier = (payload.get("courierCode") or payload.get("newCourierCode") or payload.get("carrierCode") or "").strip()
+    forwarding_name = (payload.get("forwardingCompany") or payload.get("forwardingCompanyName") or "").strip()
+
+    if not new_courier and not forwarding_name:
+        raise HTTPException(status_code=400, detail="courierCode or forwardingCompany is required")
+
+    # Normalize courier slug
+    new_slug = trackingmore_service.normalize_courier_code(new_courier or forwarding_name)
+    if not new_slug:
+        new_slug = (new_courier or forwarding_name).lower().replace(" ", "-")
+
+    # Current courier slug
+    curr_courier = (
+        payload.get("currentCourierCode") or
+        payload.get("oldCourierCode") or
+        (shipment.forwardingCompany.name if shipment.forwardingCompany else None)
+    )
+    curr_slug = trackingmore_service.normalize_courier_code(curr_courier) if curr_courier else None
+
+    # Call TrackingMore modify-courier
+    tm_modify_res = trackingmore_service.modify_courier(
+        tracking_number=fwd_number,
+        new_courier_code=new_slug,
+        current_courier_code=curr_slug
+    )
+
+    # Resolve or create ForwardingCompany in database
+    display_carrier_name = forwarding_name or new_slug.replace("-", " ").title()
+    fc = db.query(ForwardingCompany).filter(
+        (ForwardingCompany.name.ilike(display_carrier_name)) |
+        (ForwardingCompany.name.ilike(new_slug))
+    ).first()
+
+    if not fc:
+        canonical_names = {
+            "dpd-uk": "DPD UK",
+            "dpd": "DPD",
+            "skynetworldwide": "Sky Net Worldwide",
+            "aramex": "Aramex",
+            "dhl": "DHL Express",
+            "fedex": "FedEx",
+            "ups": "UPS",
+            "australia-post": "Australia Post",
+            "royal-mail": "Royal Mail",
+            "tnt": "TNT",
+            "usps": "USPS",
+            "ems": "EMS"
+        }
+        name_to_use = canonical_names.get(new_slug, display_carrier_name)
+        fc = db.query(ForwardingCompany).filter(ForwardingCompany.name.ilike(name_to_use)).first()
+        if not fc:
+            fc = ForwardingCompany(name=name_to_use)
+            db.add(fc)
+            db.flush()
+
+    shipment.forwardingCompanyId = fc.id
+    if not shipment.forwardingNumber and fwd_number:
+        shipment.forwardingNumber = fwd_number
+
+    # Remove old carrier checkpoints from previous courier so they don't corrupt the timeline
+    db.query(TrackingEvent).filter(
+        TrackingEvent.shipmentId == shipment.id,
+        TrackingEvent.source.like("TRACKINGMORE%")
+    ).delete(synchronize_session=False)
+
+    db.commit()
+    db.refresh(shipment)
+
+    # Run immediate live sync with new courier
+    sync_result = tracking_registry.sync_tracking_live(db, shipment)
+    db.refresh(shipment)
+
+    track_id = shipment.forwardingNumber or shipment.hawbno or str(shipment.id)
+    refreshed_cargo = tracking_registry.track_cargo(db, track_id)
+
+    return {
+        "success": True,
+        "message": f"Carrier successfully overridden to {fc.name} ({new_slug})",
+        "shipmentId": shipment.id,
+        "hawbno": shipment.hawbno,
+        "forwardingNumber": shipment.forwardingNumber,
+        "courierCode": new_slug,
+        "forwardingCompany": fc.name,
+        "trackingMoreResult": tm_modify_res,
         "syncResult": sync_result,
         "tracking": refreshed_cargo
     }
