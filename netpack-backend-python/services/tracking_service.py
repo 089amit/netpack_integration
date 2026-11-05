@@ -580,6 +580,8 @@ class TrackingRegistry:
             (linked_mawb.destination.strip() if (linked_mawb and linked_mawb.destination) else "International")
         )
 
+        shipment_stage = (shipment.status if shipment else None) or (enquiry.status if enquiry else "PENDING")
+
         # Rider note: strictly from enquiry.pickupNotes (written by field rider at doorstep pickup)
         raw_rider_note = (getattr(enquiry, "pickupNotes", None) if enquiry else None) or ""
         clean_rider_note = raw_rider_note.strip() if (raw_rider_note and not raw_rider_note.lower().startswith("split from")) else ""
