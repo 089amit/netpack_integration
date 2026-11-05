@@ -40,6 +40,7 @@ import { Route as AuthenticatedPickupsIndexImport } from './routes/_authenticate
 import { Route as AuthenticatedMawbIndexImport } from './routes/_authenticated/mawb/index'
 import { Route as AuthenticatedHelpCenterIndexImport } from './routes/_authenticated/help-center/index'
 import { Route as AuthenticatedForwardingcompanyIndexImport } from './routes/_authenticated/forwardingcompany/index'
+import { Route as AuthenticatedEnquiriesIndexImport } from './routes/_authenticated/enquiries/index'
 import { Route as AuthenticatedCustomersIndexImport } from './routes/_authenticated/customers/index'
 import { Route as AuthenticatedCustomManifestIndexImport } from './routes/_authenticated/custom-manifest/index'
 import { Route as AuthenticatedCountryIndexImport } from './routes/_authenticated/country/index'
@@ -236,6 +237,13 @@ const AuthenticatedForwardingcompanyIndexRoute =
   AuthenticatedForwardingcompanyIndexImport.update({
     id: '/forwardingcompany/',
     path: '/forwardingcompany/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+
+const AuthenticatedEnquiriesIndexRoute =
+  AuthenticatedEnquiriesIndexImport.update({
+    id: '/enquiries/',
+    path: '/enquiries/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
@@ -498,6 +506,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIndexImport
       parentRoute: typeof AuthenticatedRouteImport
     }
+    '/_authenticated/enquiries/': {
+      id: '/_authenticated/enquiries/'
+      path: '/enquiries'
+      fullPath: '/enquiries'
+      preLoaderRoute: typeof AuthenticatedEnquiriesIndexImport
+      parentRoute: typeof AuthenticatedRouteImport
+    }
     '/_authenticated/forwardingcompany/': {
       id: '/_authenticated/forwardingcompany/'
       path: '/forwardingcompany'
@@ -619,6 +634,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCountryIndexRoute: typeof AuthenticatedCountryIndexRoute
   AuthenticatedCustomManifestIndexRoute: typeof AuthenticatedCustomManifestIndexRoute
   AuthenticatedCustomersIndexRoute: typeof AuthenticatedCustomersIndexRoute
+  AuthenticatedEnquiriesIndexRoute: typeof AuthenticatedEnquiriesIndexRoute
   AuthenticatedForwardingcompanyIndexRoute: typeof AuthenticatedForwardingcompanyIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
   AuthenticatedMawbIndexRoute: typeof AuthenticatedMawbIndexRoute
@@ -641,6 +657,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCountryIndexRoute: AuthenticatedCountryIndexRoute,
   AuthenticatedCustomManifestIndexRoute: AuthenticatedCustomManifestIndexRoute,
   AuthenticatedCustomersIndexRoute: AuthenticatedCustomersIndexRoute,
+  AuthenticatedEnquiriesIndexRoute: AuthenticatedEnquiriesIndexRoute,
   AuthenticatedForwardingcompanyIndexRoute:
     AuthenticatedForwardingcompanyIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
@@ -687,6 +704,7 @@ export interface FileRoutesByFullPath {
   '/country': typeof AuthenticatedCountryIndexRoute
   '/custom-manifest': typeof AuthenticatedCustomManifestIndexRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
+  '/enquiries': typeof AuthenticatedEnquiriesIndexRoute
   '/forwardingcompany': typeof AuthenticatedForwardingcompanyIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/mawb': typeof AuthenticatedMawbIndexRoute
@@ -728,6 +746,7 @@ export interface FileRoutesByTo {
   '/country': typeof AuthenticatedCountryIndexRoute
   '/custom-manifest': typeof AuthenticatedCustomManifestIndexRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
+  '/enquiries': typeof AuthenticatedEnquiriesIndexRoute
   '/forwardingcompany': typeof AuthenticatedForwardingcompanyIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/mawb': typeof AuthenticatedMawbIndexRoute
@@ -771,6 +790,7 @@ export interface FileRoutesById {
   '/_authenticated/country/': typeof AuthenticatedCountryIndexRoute
   '/_authenticated/custom-manifest/': typeof AuthenticatedCustomManifestIndexRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/_authenticated/enquiries/': typeof AuthenticatedEnquiriesIndexRoute
   '/_authenticated/forwardingcompany/': typeof AuthenticatedForwardingcompanyIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/mawb/': typeof AuthenticatedMawbIndexRoute
@@ -815,6 +835,7 @@ export interface FileRouteTypes {
     | '/country'
     | '/custom-manifest'
     | '/customers'
+    | '/enquiries'
     | '/forwardingcompany'
     | '/help-center'
     | '/mawb'
@@ -855,6 +876,7 @@ export interface FileRouteTypes {
     | '/country'
     | '/custom-manifest'
     | '/customers'
+    | '/enquiries'
     | '/forwardingcompany'
     | '/help-center'
     | '/mawb'
@@ -896,6 +918,7 @@ export interface FileRouteTypes {
     | '/_authenticated/country/'
     | '/_authenticated/custom-manifest/'
     | '/_authenticated/customers/'
+    | '/_authenticated/enquiries/'
     | '/_authenticated/forwardingcompany/'
     | '/_authenticated/help-center/'
     | '/_authenticated/mawb/'
@@ -988,6 +1011,7 @@ export const routeTree = rootRoute
         "/_authenticated/country/",
         "/_authenticated/custom-manifest/",
         "/_authenticated/customers/",
+        "/_authenticated/enquiries/",
         "/_authenticated/forwardingcompany/",
         "/_authenticated/help-center/",
         "/_authenticated/mawb/",
@@ -1093,6 +1117,10 @@ export const routeTree = rootRoute
     },
     "/_authenticated/customers/": {
       "filePath": "_authenticated/customers/index.tsx",
+      "parent": "/_authenticated"
+    },
+    "/_authenticated/enquiries/": {
+      "filePath": "_authenticated/enquiries/index.tsx",
       "parent": "/_authenticated"
     },
     "/_authenticated/forwardingcompany/": {

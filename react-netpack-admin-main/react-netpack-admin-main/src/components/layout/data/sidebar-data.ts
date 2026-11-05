@@ -39,7 +39,7 @@ export const sidebarData: SidebarData = {
         },
         {
           title: 'Enquiry',
-          url: '/tasks',
+          url: '/enquiries',
           icon: IconChecklist,
         },
         {

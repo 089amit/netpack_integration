@@ -472,7 +472,7 @@ export default function PickupRiderPWA() {
           riderName: riderDisplayName,
           riderPhone: riderPhone,
           riderId: riderId,
-          riderNotes: `Rider ${riderDisplayName} accepted pickup and is heading to customer location.`,
+          riderNotes: `[${riderId || 'Rider'}]:${riderDisplayName} accepted the pickup and is heading to customer location`,
         }),
       }).then((r) => r.json())
 
@@ -497,7 +497,8 @@ export default function PickupRiderPWA() {
 
     setSelectedPickup(pickup)
     setActualWeight(pickup.weight ? String(pickup.weight) : '')
-    setRiderNotes(pickup.pickupNotes || '')
+    // User requirement: by default rider notes / warehouse memo should be empty
+    setRiderNotes('')
     setSelectedPhotos([])
     setPhotoPreviews([])
 

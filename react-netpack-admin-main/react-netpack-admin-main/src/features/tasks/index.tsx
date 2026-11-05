@@ -8,10 +8,10 @@ import http from '@/utils/http'
 import { useCheckRole } from '@/utils/role-utils'
 import { ENQUIRY_ENDPOINTS, SHIPMENT_ENDPOINT } from '@/constants/endpoint'
 import { Button } from '@/components/ui/button'
-// import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { Search } from '@/components/search'
+import ErrorBoundary from '@/components/error-boundary'
 import { CustomerMutateDrawer } from '../customer/components/tasks-mutate-drawer'
 import CustomerTasksProvider from '../customer/context/tasks-context'
 import { EnquiryTableRow } from './components/columns'
@@ -109,23 +109,33 @@ export default function Enquiries() {
           data: Enquiry[]
           pagination: Pagination
         }>(`${ENQUIRY_ENDPOINTS.ALL_ENQUIRY}?${params.toString()}`)
-        if (result?.data && result?.pagination) {
+        if (result && Array.isArray(result.data)) {
           const mappedData = result.data.map((enquiry: Enquiry) =>
             mapEnquiryToTableRow(enquiry)
           )
           setData(mappedData)
-          setPagination({
-            page: result.pagination.page,
-            limit: result.pagination.limit,
-            totalItems: result.pagination.totalItems ?? (result.pagination as any).totalRecords ?? 0,
-            totalPages: result.pagination.totalPages,
-            hasNextPage: Boolean(result.pagination.hasNextPage ?? (result.pagination as any).hasNext ?? (result.pagination.page < result.pagination.totalPages)),
-            hasPreviousPage: Boolean(result.pagination.hasPreviousPage ?? (result.pagination as any).hasPrev ?? (result.pagination.page > 1)),
-          })
+          if (result.pagination) {
+            setPagination({
+              page: result.pagination.page || 1,
+              limit: result.pagination.limit || 10,
+              totalItems: result.pagination.totalItems ?? (result.pagination as any).totalRecords ?? 0,
+              totalPages: result.pagination.totalPages || 1,
+              hasNextPage: Boolean(result.pagination.hasNextPage ?? (result.pagination as any).hasNext ?? (result.pagination.page < result.pagination.totalPages)),
+              hasPreviousPage: Boolean(result.pagination.hasPreviousPage ?? (result.pagination as any).hasPrev ?? (result.pagination.page > 1)),
+            })
+          }
+          setError(null)
+        } else {
+          setData([])
         }
-      } catch (err) {
-        setError('Failed to load enquiries')
-        console.error(err)
+      } catch (err: any) {
+        console.error('Failed to load enquiries:', err)
+        const msg = err?.message || 'Failed to load enquiries'
+        setError(msg)
+        toast.error('Unable to fetch enquiries. Please check connection or retry.', {
+          duration: 3500,
+        })
+        setData([])
       } finally {
         setLoading(false)
       }
@@ -188,9 +198,6 @@ export default function Enquiries() {
     setIsModalOpen(true)
   }
 
-  // if (loading) return <div>Loading...</div>
-  if (error) return <div>{error}</div>
-
   return (
     <TasksProvider onRefresh={handleEnquiryCreated}>
       <Header fixed>
@@ -206,6 +213,23 @@ export default function Enquiries() {
           </div>
           <EnquiryPrimaryButton onClick={handleCreateManifest} />
         </div>
+
+        {error && (
+          <div className='mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 shadow-xs'>
+            <div className='flex items-center gap-2'>
+              <span className='font-bold text-amber-800'>Notice:</span>
+              <span className='text-xs text-amber-800'>{error}</span>
+            </div>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => handleEnquiryCreated()}
+              className='h-7 px-3 text-xs border-amber-300 bg-white text-amber-800 hover:bg-amber-100 font-semibold cursor-pointer'
+            >
+              Retry
+            </Button>
+          </div>
+        )}
 
         {useCheckRole('ADMIN', 'OPERATION', 'OPERATIONS') &&
           selectedEnquiries.length > 0 && (
@@ -264,18 +288,20 @@ export default function Enquiries() {
           )}
 
         <div className='-mx-4 flex-1 overflow-auto px-4 py-1 lg:flex-row lg:space-y-0 lg:space-x-12'>
-          <DataTable
-            data={data}
-            columns={columns}
-            onRowSelectionChange={handleRowSelectionChange}
-            pagination={pagination}
-            onPaginationChange={handlePaginationChange}
-            loading={loading}
-            searchQuery={searchQuery}
-            onSearchChange={handleSearchChange}
-            statusFilter={statusFilter}
-            onStatusChange={handleStatusChange}
-          />
+          <ErrorBoundary onReset={handleEnquiryCreated}>
+            <DataTable
+              data={data}
+              columns={columns}
+              onRowSelectionChange={handleRowSelectionChange}
+              pagination={pagination}
+              onPaginationChange={handlePaginationChange}
+              loading={loading}
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              statusFilter={statusFilter}
+              onStatusChange={handleStatusChange}
+            />
+          </ErrorBoundary>
         </div>
       </Main>
       <TasksDialogs />

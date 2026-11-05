@@ -170,6 +170,7 @@ interface Shipment {
   weightProofImageUrl?: string
   riderName?: string
   riderPhone?: string
+  riderId?: string | number
   pickupLocations?: Array<{ id?: number; location: string; phoneNumber?: string; note?: string }>
 }
 
@@ -189,6 +190,8 @@ interface CheckpointItem {
   location: string
   time: string
   source?: string
+  status?: string
+  phone?: string
 }
 
 interface TrackingDetails {
@@ -231,6 +234,7 @@ interface TrackingDetails {
   checkpoints: CheckpointItem[]
   riderName?: string
   riderPhone?: string
+  riderId?: string | number
   weightProofImageUrl?: string
   weightProofImages?: string[]
   pickupLocations?: Array<{ id?: number; location: string; phoneNumber?: string; note?: string; isPickedUp?: boolean; pickedUpAt?: string }>
@@ -486,6 +490,12 @@ const IconTruck = ({ size = 16, className = '' }: { size?: number; className?: s
     <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
     <circle cx="5.5" cy="18.5" r="2.5"/>
     <circle cx="18.5" cy="18.5" r="2.5"/>
+  </svg>
+)
+
+const IconPhone = ({ size = 14, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
   </svg>
 )
 
@@ -1851,6 +1861,7 @@ function TrackingScreen({
             commodity: liveRes.commodity || 'General Goods',
             riderName: riderName || undefined,
             riderPhone: riderPhone || undefined,
+            riderId: liveRes.riderId || liveRes.pickedUpBy || liveRes.pickupStaffId || undefined,
             boxes: liveRes.boxes && liveRes.boxes.length > 0
               ? liveRes.boxes.map((b: any, i: number) => {
                   const bCw = b.chargeableWeight
@@ -1879,6 +1890,8 @@ function TrackingScreen({
                   location: cp.location || '',
                   time: formatDateTime(cp.timestamp || cp.created_at) || 'Recently',
                   source: cp.source || 'NetPack Operations',
+                  status: cp.status || '',
+                  phone: cp.phone || '',
                 }))
               : [
                   {
@@ -2490,7 +2503,10 @@ function TrackingScreen({
                     const isTop = idx === 0
                     const isDelivered = (data.status || '').toLowerCase() === 'delivered'
                     const { title, noteText } = parseCheckpointActivity(cp.activity)
-                    const isPickupOrPacked = (title.toLowerCase().includes('picked') || title.toLowerCase().includes('packed'))
+                    const lowerTitle = title.toLowerCase()
+                    const isRiderAssigned = cp.status === 'ASSIGNED_FOR_PICKUP' || lowerTitle.includes('rider assigned') || lowerTitle.includes('heading to customer')
+                    const isAssignmentNote = (noteText || '').toLowerCase().includes('accepted the pickup') || (noteText || '').toLowerCase().includes('accepted pickup') || (noteText || '').toLowerCase().includes('heading to customer')
+                    const isPickupOrPacked = !isRiderAssigned && (lowerTitle.includes('picked') || lowerTitle.includes('packed'))
 
                     return (
                       <div key={idx} className="relative group">
@@ -2534,8 +2550,32 @@ function TrackingScreen({
                           </div>
                           {cp.location ? <p className="text-[11px] text-gray-500">{cp.location}</p> : null}
 
-                          {/* Clean Rider Note Callout (Amber Badge) */}
-                          {noteText && isPickupOrPacked && (
+                          {/* 1. Pickup Rider Assigned Note with Contact Rider Button */}
+                          {isRiderAssigned && (
+                            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/90 text-[11px] text-amber-900 mt-1.5 space-y-2">
+                              <div className="flex items-start gap-1.5">
+                                <span className="font-bold uppercase tracking-wider text-[9px] bg-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded shrink-0">
+                                  Rider Note
+                                </span>
+                                <span className="leading-snug font-medium">
+                                  {noteText || (data.riderName ? `[${data.riderId || 'Rider'}]:${data.riderName} accepted the pickup and is heading to customer location` : 'Rider accepted the pickup and is heading to customer location')}
+                                </span>
+                              </div>
+                              <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between">
+                                <span className="text-[10px] text-amber-800 font-semibold">Field Courier Assigned</span>
+                                <a
+                                  href={`tel:${cp.phone || data.riderPhone || '+9779869233939'}`}
+                                  className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold px-3 py-1 rounded-lg text-[10px] shadow-xs transition-all cursor-pointer"
+                                >
+                                  <IconPhone size={11} />
+                                  <span>Contact Rider</span>
+                                </a>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 2. Genuine Rider Note on Picked Up / Packed (Only if actual memo was entered) */}
+                          {noteText && isPickupOrPacked && !isAssignmentNote && (
                             <div className="p-2 rounded-xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-800 flex items-center gap-1.5 mt-1">
                               <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-200/70 px-1.5 py-0.5 rounded shrink-0">
                                 Rider Note
@@ -3736,7 +3776,7 @@ function BookScreen({
                   <TextInput placeholder="e.g., London, New York" value={destCity} onChange={setDestCity} />
                 </div>
                 <div>
-                  <FieldLabel>State / Province</FieldLabel>
+                  <FieldLabel required>State / Province</FieldLabel>
                   <TextInput placeholder="e.g., NY, Ontario, NSW" value={destState} onChange={setDestState} />
                 </div>
               </div>
@@ -3781,7 +3821,7 @@ function BookScreen({
                 <TextInput placeholder="Street, Building, Apartment / Suite number" value={streetAddress} onChange={setStreetAddress} />
               </div>
               <div>
-                <FieldLabel>Postal / Zip Code</FieldLabel>
+                <FieldLabel required>Postal / Zip Code</FieldLabel>
                 <TextInput placeholder="e.g., SW1A 1AA / 10001" value={postalCode} onChange={setPostalCode} />
               </div>
             </div>
@@ -3796,7 +3836,7 @@ function BookScreen({
             </button>
             <button
               onClick={() => setStep(3)}
-              disabled={!recipientName || !destCountry || !destCity || !streetAddress}
+              disabled={!recipientName || !destCountry || !destCity || !streetAddress || !destState.trim() || !postalCode.trim()}
               style={{ fontFamily: 'Jost, sans-serif' }}
               className="flex-[2] bg-[#2563EB] disabled:bg-gray-300 disabled:shadow-none text-white font-600 text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 active:opacity-90 shadow-md shadow-blue-200 cursor-pointer"
             >

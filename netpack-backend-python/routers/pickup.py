@@ -408,8 +408,12 @@ def update_pickup_status(
             r_user.phoneNumber = payload.riderPhone
 
     if payload.riderNotes:
-        tag = f"[Rider {payload.riderName or 'Staff'}]: {payload.riderNotes}"
-        e.pickupNotes = f"{e.pickupNotes}\n{tag}".strip() if e.pickupNotes else tag
+        clean_msg = payload.riderNotes.strip()
+        if clean_msg.startswith("["):
+            tag = clean_msg
+        else:
+            tag = f"[{payload.riderId or 'Rider'}]:{payload.riderName or 'Staff'} {clean_msg}"
+        e.pickupNotes = tag
 
     try:
         db.commit()
@@ -880,7 +884,8 @@ async def pickup_and_weigh(
     if scale_image_urls_str:
         e.weightProofImageUrl = scale_image_urls_str
     if pickupNotes is not None:
-        e.pickupNotes = pickupNotes
+        clean_memo = pickupNotes.strip()
+        e.pickupNotes = clean_memo if clean_memo else None
     e.pickedUpAt = datetime.utcnow()
 
     # 4. Only update linked Shipment status if not already created / progressed

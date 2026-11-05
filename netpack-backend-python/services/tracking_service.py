@@ -20,7 +20,8 @@ class TrackingCheckpoint:
         status: str,
         activity: str,
         country: str = "",
-        source: str = "INTERNAL"
+        source: str = "INTERNAL",
+        phone: str = ""
     ):
         self.timestamp = timestamp
         self.location = location
@@ -28,6 +29,7 @@ class TrackingCheckpoint:
         self.activity = activity
         self.country = country
         self.source = source
+        self.phone = phone
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -36,7 +38,8 @@ class TrackingCheckpoint:
             "status": self.status,
             "activity": self.activity,
             "country": self.country,
-            "source": self.source
+            "source": self.source,
+            "phone": self.phone or ""
         }
 
 
@@ -578,7 +581,13 @@ class TrackingRegistry:
         # Rider note: strictly from enquiry.pickupNotes (written by field rider at doorstep pickup)
         raw_rider_note = (getattr(enquiry, "pickupNotes", None) if enquiry else None) or ""
         clean_rider_note = raw_rider_note.strip() if (raw_rider_note and not raw_rider_note.lower().startswith("split from")) else ""
-        rider_note_tag = f" (Note: {clean_rider_note})" if clean_rider_note else ""
+        is_assignment_text = (
+            "accepted the pickup" in clean_rider_note.lower() or
+            "accepted pickup" in clean_rider_note.lower() or
+            "heading to customer" in clean_rider_note.lower()
+        )
+        pickup_rider_note = "" if is_assignment_text else clean_rider_note
+        rider_note_tag = f" (Note: {pickup_rider_note})" if pickup_rider_note else ""
 
         # Admin / Operations / CSD note: strictly from shipment.note
         raw_admin_note = (getattr(shipment, "note", None) if shipment else None) or ""
@@ -727,21 +736,33 @@ class TrackingRegistry:
             )
 
             # Rider assigned milestone: Rider assigned and heading for collection
-            is_assigned_for_pickup = bool(
-                enquiry and (enquiry.status == "ASSIGNED_FOR_PICKUP" or enquiry.pickedUpBy) and not is_picked_up
+            was_rider_assigned = bool(
+                enquiry and (enquiry.status == "ASSIGNED_FOR_PICKUP" or enquiry.pickedUpBy or getattr(enquiry, "pickupStaff", None))
             )
-            if is_assigned_for_pickup:
-                r_user = enquiry.pickupStaff if enquiry else None
-                r_name = (r_user.fullName or r_user.username or "Field Courier") if r_user else "Field Courier"
+            if was_rider_assigned:
+                r_user = enquiry.pickupStaff if (enquiry and enquiry.pickupStaff) else None
+                if not r_user and enquiry and enquiry.pickedUpBy:
+                    r_user = db.query(User).filter(User.id == enquiry.pickedUpBy).first()
+                r_name = (r_user.fullName or r_user.username or "Field Rider") if r_user else "Field Rider"
                 r_phone = (r_user.phoneNumber or "") if r_user else ""
+                r_id = r_user.id if r_user else (enquiry.pickedUpBy if enquiry else "Rider")
                 phone_tag = f" (Contact: {r_phone})" if r_phone else ""
+                assigned_note = f"[{r_id}]:{r_name} accepted the pickup and is heading to customer location"
+
+                assign_ts = created_at + timedelta(minutes=5)
+                if is_picked_up and pickup_ts:
+                    assign_ts = min(pickup_ts - timedelta(minutes=5), assign_ts)
+                if assign_ts < created_at:
+                    assign_ts = created_at + timedelta(minutes=1)
+
                 checkpoints.append(TrackingCheckpoint(
-                    timestamp=min(pickup_ts, created_at + timedelta(minutes=15)),
+                    timestamp=assign_ts,
                     location="Kathmandu Dispatch",
                     status="ASSIGNED_FOR_PICKUP",
-                    activity=f"Pickup Rider {r_name} assigned for doorstep cargo collection{phone_tag}",
+                    activity=f"Pickup Rider {r_name} Assigned - Heading to Customer Location (Note: {assigned_note}){phone_tag}",
                     country="Nepal",
-                    source="DISPATCH_ROUTING"
+                    source="DISPATCH_ROUTING",
+                    phone=r_phone
                 ))
 
             # Stop-wise collected checkpoints
