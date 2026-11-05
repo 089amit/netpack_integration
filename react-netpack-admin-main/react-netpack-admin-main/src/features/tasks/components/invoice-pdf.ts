@@ -199,52 +199,37 @@ export function generateInvoicePDF({
   const right = 196
   const currency = (details.currency || 'USD').toUpperCase()
 
-  // 1. Company Letterhead Header
-  doc.setFillColor(13, 27, 42) // Dark Navy
-  doc.rect(left, 12, right - left, 26, 'F')
-
-  doc.setTextColor(255, 255, 255)
+  // 1. Clean Document Header
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text('NETPACK LOGISTICS PVT. LTD.', left + 6, 21)
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(220, 225, 235)
-  doc.text('International Express Courier & Air Cargo Services', left + 6, 26)
-  doc.text('Teku, Kathmandu, Nepal | info@netpackcargo.com | www.netpackcargo.com | Tel: +977-1-4245678', left + 6, 31)
-
-  // Document Badge on Right
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(14)
-  doc.setTextColor(245, 158, 11) // Amber
-  doc.text('COMMERCIAL INVOICE', right - 6, 22, { align: 'right' })
+  doc.setFontSize(20)
+  doc.setTextColor(17, 24, 39)
+  doc.text('COMMERCIAL INVOICE', left, 20)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8.5)
-  doc.setTextColor(255, 255, 255)
-  doc.text(`Invoice No: ${details.invoiceNumber || 'N/A'}`, right - 6, 27, { align: 'right' })
-  doc.text(`Date: ${details.date || new Date().toLocaleDateString()}`, right - 6, 32, { align: 'right' })
+  doc.setTextColor(107, 114, 128)
+  doc.text(`Invoice No: ${details.invoiceNumber || 'N/A'}`, right, 16, { align: 'right' })
+  doc.text(`Date: ${details.date || new Date().toLocaleDateString()}`, right, 21, { align: 'right' })
 
   // 2. Metadata Strip
-  let y = 43
+  let y = 28
   doc.setFillColor(243, 244, 246)
-  doc.roundedRect(left, y, right - left, 10, 1.5, 1.5, 'F')
+  doc.roundedRect(left, y, right - left, 9, 1.5, 1.5, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8.5)
   doc.setTextColor(31, 41, 55)
 
-  doc.text(`Tracking / AWB: ${details.trackingNumber || 'N/A'}`, left + 4, y + 6.5)
-  doc.text(`Currency: ${currency}`, left + 80, y + 6.5)
+  doc.text(`Tracking / AWB: ${details.trackingNumber || 'N/A'}`, left + 4, y + 6)
+  doc.text(`Currency: ${currency}`, left + 80, y + 6)
   if (details.noOfBox) {
-    doc.text(`Total Boxes: ${details.noOfBox}`, left + 120, y + 6.5)
+    doc.text(`Total Boxes: ${details.noOfBox}`, left + 120, y + 6)
   }
   if (details.weight) {
-    doc.text(`Weight: ${details.weight} KG`, right - 4, y + 6.5, { align: 'right' })
+    doc.text(`Weight: ${details.weight} KG`, right - 4, y + 6, { align: 'right' })
   }
 
   // 3. Sender and Consignee Cards Side by Side
-  y = 57
+  y = 42
   const cardWidth = (right - left - 4) / 2
   const senderLeft = left
   const receiverLeft = left + cardWidth + 4
@@ -470,7 +455,7 @@ export function generateInvoicePDF({
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(107, 114, 128)
-  doc.text('For NetPack Logistics Pvt. Ltd.', right - 60, y + 14)
+  doc.text('Authorized Signatory', right - 60, y + 14)
 
   const safeTracking = (details.trackingNumber || details.invoiceNumber || 'NetPack').replace(/[^\w-]/g, '_')
   doc.save(`Invoice-${safeTracking}.pdf`)
@@ -497,50 +482,35 @@ export function generatePackingListPDF({
   const right = 196
   const pageHeight = doc.internal.pageSize.getHeight()
 
-  // 1. Company Letterhead Header
-  doc.setFillColor(13, 27, 42) // Dark Navy
-  doc.rect(left, 12, right - left, 26, 'F')
-
-  doc.setTextColor(255, 255, 255)
+  // 1. Clean Document Header
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text('NETPACK LOGISTICS PVT. LTD.', left + 6, 21)
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(220, 225, 235)
-  doc.text('International Express Courier & Air Cargo Services', left + 6, 26)
-  doc.text('Teku, Kathmandu, Nepal | info@netpackcargo.com | www.netpackcargo.com | Tel: +977-1-4245678', left + 6, 31)
-
-  // Document Badge on Right
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(14)
-  doc.setTextColor(16, 185, 129) // Emerald
-  doc.text('PACKING LIST', right - 6, 22, { align: 'right' })
+  doc.setFontSize(20)
+  doc.setTextColor(17, 24, 39)
+  doc.text('PACKING LIST', left, 20)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8.5)
-  doc.setTextColor(255, 255, 255)
-  doc.text(`Ref / No: ${details.invoiceNumber || 'N/A'}`, right - 6, 27, { align: 'right' })
-  doc.text(`Date: ${details.date || new Date().toLocaleDateString()}`, right - 6, 32, { align: 'right' })
+  doc.setTextColor(107, 114, 128)
+  doc.text(`Ref / No: ${details.invoiceNumber || 'N/A'}`, right, 16, { align: 'right' })
+  doc.text(`Date: ${details.date || new Date().toLocaleDateString()}`, right, 21, { align: 'right' })
 
   // 2. Metadata Strip
-  let y = 43
+  let y = 28
   doc.setFillColor(243, 244, 246)
-  doc.roundedRect(left, y, right - left, 10, 1.5, 1.5, 'F')
+  doc.roundedRect(left, y, right - left, 9, 1.5, 1.5, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8.5)
   doc.setTextColor(31, 41, 55)
 
-  doc.text(`Tracking / AWB: ${details.trackingNumber || 'N/A'}`, left + 4, y + 6.5)
-  doc.text(`Total Packages: ${details.noOfBox || (boxes && boxes.length) || 1} Box(es)`, left + 75, y + 6.5)
-  doc.text(`Gross Wt: ${details.weight || '0'} KG`, left + 130, y + 6.5)
+  doc.text(`Tracking / AWB: ${details.trackingNumber || 'N/A'}`, left + 4, y + 6)
+  doc.text(`Total Packages: ${details.noOfBox || (boxes && boxes.length) || 1} Box(es)`, left + 75, y + 6)
+  doc.text(`Gross Wt: ${details.weight || '0'} KG`, left + 130, y + 6)
   if (details.dimWeight) {
-    doc.text(`Vol Wt: ${details.dimWeight} KG`, right - 4, y + 6.5, { align: 'right' })
+    doc.text(`Vol Wt: ${details.dimWeight} KG`, right - 4, y + 6, { align: 'right' })
   }
 
   // 3. Sender and Consignee Cards
-  y = 57
+  y = 42
   const cardWidth = (right - left - 4) / 2
   const senderLeft = left
   const receiverLeft = left + cardWidth + 4
@@ -813,7 +783,7 @@ export function generatePackingListPDF({
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(107, 114, 128)
-  doc.text('For NetPack Logistics Pvt. Ltd.', right - 60, y + 14)
+  doc.text('Authorized Signatory', right - 60, y + 14)
 
   const safeTracking = (details.trackingNumber || details.invoiceNumber || 'NetPack').replace(/[^\w-]/g, '_')
   doc.save(`PackingList-${safeTracking}.pdf`)
