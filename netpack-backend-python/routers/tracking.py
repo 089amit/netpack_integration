@@ -288,7 +288,7 @@ def get_tracking_providers():
             "key": code,
             "name": prov.name,
             "code": prov.code,
-            "isLiveConfigured": prov.is_live_configured
+            "isLiveConfigured": prov.is_live_configured or (trackingmore_service.is_configured and (code in trackingmore_service.COURIER_MAP or prov.name.lower() in trackingmore_service.COURIER_MAP))
         })
     return {
         "providers": providers_info,

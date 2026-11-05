@@ -48,32 +48,36 @@ class TrackingMoreService:
     }
 
     def __init__(self):
-        self.api_key = config.TRACKINGMORE_API_KEY
-        self.webhook_secret = config.TRACKINGMORE_WEBHOOK_SECRET
+        self.api_key = config.TRACKINGMORE_API_KEY or os.getenv("TRACKINGMORE_API_KEY", "")
+        self.webhook_secret = config.TRACKINGMORE_WEBHOOK_SECRET or os.getenv("TRACKINGMORE_WEBHOOK_SECRET", "")
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.api_key and self.api_key.strip())
+        active_key = self.api_key or config.TRACKINGMORE_API_KEY or os.getenv("TRACKINGMORE_API_KEY", "")
+        return bool(active_key and active_key.strip())
 
     def get_masked_key(self) -> str:
-        if not self.is_configured:
+        active_key = self.api_key or config.TRACKINGMORE_API_KEY or os.getenv("TRACKINGMORE_API_KEY", "")
+        if not active_key or not active_key.strip():
             return ""
-        key = self.api_key.strip()
+        key = active_key.strip()
         if len(key) <= 8:
             return "****"
         return f"{key[:4]}...{key[-4:]}"
 
     @property
     def has_secret(self) -> bool:
-        return bool(self.webhook_secret and self.webhook_secret.strip())
+        sec = self.webhook_secret or config.TRACKINGMORE_WEBHOOK_SECRET or os.getenv("TRACKINGMORE_WEBHOOK_SECRET", "")
+        return bool(sec and sec.strip())
 
     def get_masked_secret(self) -> str:
-        if not self.has_secret:
+        sec = self.webhook_secret or config.TRACKINGMORE_WEBHOOK_SECRET or os.getenv("TRACKINGMORE_WEBHOOK_SECRET", "")
+        if not sec or not sec.strip():
             return ""
-        sec = self.webhook_secret.strip()
-        if len(sec) <= 8:
+        s = sec.strip()
+        if len(s) <= 8:
             return "****"
-        return f"{sec[:4]}...{sec[-4:]}"
+        return f"{s[:4]}...{s[-4:]}"
 
     def update_credentials(self, api_key: str, webhook_secret: Optional[str] = None) -> bool:
         """
@@ -128,8 +132,9 @@ class TrackingMoreService:
             return False
 
     def _get_headers(self) -> Dict[str, str]:
+        active_key = (self.api_key or config.TRACKINGMORE_API_KEY or os.getenv("TRACKINGMORE_API_KEY", "")).strip()
         return {
-            "Tracking-Api-Key": self.api_key.strip(),
+            "Tracking-Api-Key": active_key,
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
@@ -138,6 +143,10 @@ class TrackingMoreService:
         if not carrier_name_or_code:
             return None
         clean = carrier_name_or_code.strip().lower()
+        # 1. Exact match
+        if clean in self.COURIER_MAP:
+            return self.COURIER_MAP[clean]
+        # 2. Substring match
         for key, slug in self.COURIER_MAP.items():
             if key in clean or clean in key:
                 return slug
@@ -350,7 +359,7 @@ class TrackingMoreService:
                         "found": True,
                         "configured": True,
                         "tracking_number": clean_num,
-                        "courier_code": raw_info.get("courier_code"),
+                        "courier_code": raw_info.get("courier_code") or slug,
                         "delivery_status": del_status,
                         "overall_status": mapped_overall,
                         "latest_event": latest_event,
@@ -359,6 +368,95 @@ class TrackingMoreService:
                         "raw_info": raw_info,
                         "checkpoints": checkpoints
                     }
+
+            # If not yet registered with TrackingMore (e.g. 4102 or empty), auto-create tracking now
+            reg_res = self.create_tracking(tracking_number=clean_num, courier_code=slug)
+            if reg_res.get("success") and reg_res.get("data"):
+                raw_info = reg_res["data"]
+                checkpoints = self.extract_checkpoints_from_data(raw_info)
+                if checkpoints or raw_info.get("delivery_status") or raw_info.get("latest_event"):
+                    del_status = raw_info.get("delivery_status")
+                    latest_substatus = raw_info.get("substatus") or raw_info.get("latest_substatus") or ""
+                    milestone_date = raw_info.get("milestone_date") or {}
+                    estimated_delivery = (
+                        raw_info.get("estimated_delivery_date")
+                        or raw_info.get("expected_delivery")
+                        or raw_info.get("predicted_delivery_date")
+                        or (milestone_date.get("estimated_delivery") if isinstance(milestone_date, dict) else None)
+                        or (milestone_date.get("delivery") if isinstance(milestone_date, dict) else None)
+                    )
+                    latest_event = raw_info.get("latest_event") or ""
+                    c_code = raw_info.get("courier_code") or slug or courier_code
+                    mapped_overall = self.map_status(
+                        tm_status=del_status,
+                        substatus=latest_substatus,
+                        activity=latest_event,
+                        courier_code=c_code
+                    )
+                    if checkpoints:
+                        latest_cp = checkpoints[0]
+                        if mapped_overall in ("IN_TRANSIT", "ARRIVED_AT_HUB") and latest_cp.get("status") in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"):
+                            mapped_overall = latest_cp["status"]
+
+                    return {
+                        "found": True,
+                        "configured": True,
+                        "tracking_number": clean_num,
+                        "courier_code": raw_info.get("courier_code") or slug,
+                        "delivery_status": del_status,
+                        "overall_status": mapped_overall,
+                        "latest_event": latest_event,
+                        "latest_checkpoint_time": raw_info.get("latest_checkpoint_time"),
+                        "estimated_delivery_date": estimated_delivery,
+                        "raw_info": raw_info,
+                        "checkpoints": checkpoints
+                    }
+
+            # Retry GET once after registration
+            if reg_res.get("success") or reg_res.get("already_existed"):
+                retry_resp = requests.get(url, params=params, headers=self._get_headers(), timeout=12)
+                if retry_resp.status_code == 200:
+                    retry_data = retry_resp.json()
+                    items = retry_data.get("data", [])
+                    if items and isinstance(items, list) and len(items) > 0:
+                        raw_info = items[0]
+                        checkpoints = self.extract_checkpoints_from_data(raw_info)
+                        del_status = raw_info.get("delivery_status")
+                        latest_substatus = raw_info.get("substatus") or raw_info.get("latest_substatus") or ""
+                        milestone_date = raw_info.get("milestone_date") or {}
+                        estimated_delivery = (
+                            raw_info.get("estimated_delivery_date")
+                            or raw_info.get("expected_delivery")
+                            or raw_info.get("predicted_delivery_date")
+                            or (milestone_date.get("estimated_delivery") if isinstance(milestone_date, dict) else None)
+                            or (milestone_date.get("delivery") if isinstance(milestone_date, dict) else None)
+                        )
+                        latest_event = raw_info.get("latest_event") or ""
+                        c_code = raw_info.get("courier_code") or slug or courier_code
+                        mapped_overall = self.map_status(
+                            tm_status=del_status,
+                            substatus=latest_substatus,
+                            activity=latest_event,
+                            courier_code=c_code
+                        )
+                        if checkpoints:
+                            latest_cp = checkpoints[0]
+                            if mapped_overall in ("IN_TRANSIT", "ARRIVED_AT_HUB") and latest_cp.get("status") in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED"):
+                                mapped_overall = latest_cp["status"]
+
+                        return {
+                            "found": True,
+                            "configured": True,
+                            "tracking_number": clean_num,
+                            "courier_code": raw_info.get("courier_code") or slug,
+                            "delivery_status": del_status,
+                            "overall_status": mapped_overall,
+                            "latest_event": latest_event,
+                            "latest_checkpoint_time": raw_info.get("latest_checkpoint_time"),
+                            "estimated_delivery_date": estimated_delivery,
+                            "raw_info": raw_info,
+                            "checkpoints": checkpoints
+                        }
         except Exception as e:
             logger.error(f"Error querying TrackingMore: {e}")
 
@@ -393,7 +491,16 @@ class TrackingMoreService:
         is_airline = any(ac in courier for ac in self.AIRLINE_COURIER_CODES)
 
         # 1. DELIVERED
-        if s == "delivered" or "delivered" in sub or "delivered" in act:
+        is_future_or_scheduled = any(kw in act for kw in (
+            "will be delivered", "will now be delivered", "to be delivered",
+            "scheduled for delivery", "scheduled to be delivered", "estimated delivery",
+            "attempted delivery", "delivery attempted"
+        ))
+        if not is_future_or_scheduled and (
+            s == "delivered" or "delivered" in sub or "delivered to" in act or 
+            "has been delivered" in act or "successfully delivered" in act or 
+            act == "delivered" or act.startswith("delivered ")
+        ):
             return "DELIVERED"
 
         # 2. OUT FOR DELIVERY

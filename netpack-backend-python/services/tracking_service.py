@@ -934,11 +934,20 @@ class TrackingRegistry:
                     src_label = te_source
 
                 act_lower = (te.activity or "").lower()
-                if "delivered" in act_lower:
+                is_future_or_scheduled = any(kw in act_lower for kw in (
+                    "will be delivered", "will now be delivered", "to be delivered",
+                    "scheduled for delivery", "scheduled to be delivered", "estimated delivery",
+                    "attempted delivery", "delivery attempted"
+                ))
+                if not is_future_or_scheduled and (
+                    "delivered to" in act_lower or "has been delivered" in act_lower or 
+                    "successfully delivered" in act_lower or act_lower == "delivered" or 
+                    act_lower.startswith("delivered ") or (te.status and te.status.upper() == "DELIVERED")
+                ):
                     te_status = "DELIVERED"
                 elif any(ofd_kw in act_lower for ofd_kw in ("onboard for delivery", "on board for delivery", "out for delivery", "with delivery courier", "with courier", "with driver", "scheduled for delivery")):
                     te_status = "OUT_FOR_DELIVERY"
-                elif te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB") and ("CARRIER" in te_source or "TRACKINGMORE" in te_source):
+                elif te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "DELIVERED") and ("CARRIER" in te_source or "TRACKINGMORE" in te_source):
                     te_status = "CARRIER_SCANNED"
 
                 te_ts = te.checkpointTime or te.createdAt
@@ -975,11 +984,20 @@ class TrackingRegistry:
                     src_label = f"CARRIER:{te.courierCode.upper()}" if te.courierCode else ("CARRIER_API" if ("CARRIER" in te_source or "TRACKINGMORE" in te_source) else te_source)
                     
                     act_lower = (te.activity or "").lower()
-                    if "delivered" in act_lower:
+                    is_future_or_scheduled = any(kw in act_lower for kw in (
+                        "will be delivered", "will now be delivered", "to be delivered",
+                        "scheduled for delivery", "scheduled to be delivered", "estimated delivery",
+                        "attempted delivery", "delivery attempted"
+                    ))
+                    if not is_future_or_scheduled and (
+                        "delivered to" in act_lower or "has been delivered" in act_lower or 
+                        "successfully delivered" in act_lower or act_lower == "delivered" or 
+                        act_lower.startswith("delivered ") or (te.status and te.status.upper() == "DELIVERED")
+                    ):
                         te_status = "DELIVERED"
                     elif any(ofd_kw in act_lower for ofd_kw in ("onboard for delivery", "on board for delivery", "out for delivery", "with delivery courier", "with courier", "with driver", "scheduled for delivery")):
                         te_status = "OUT_FOR_DELIVERY"
-                    elif te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB") and ("CARRIER" in (te.source or "") or "TRACKINGMORE" in (te.source or "")):
+                    elif te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "DELIVERED") and ("CARRIER" in (te.source or "") or "TRACKINGMORE" in (te.source or "")):
                         te_status = "CARRIER_SCANNED"
 
                     te_ts = te.checkpointTime or te.createdAt
@@ -1403,7 +1421,7 @@ class TrackingRegistry:
             "forwardingNumber": fwd_number,
             "carrierCode": carrier_provider.code,
             "carrierTrackingUrl": carrier_tracking_url,
-            "carrierApiConfigured": carrier_provider.is_live_configured,
+            "carrierApiConfigured": carrier_provider.is_live_configured or (trackingmore_service.is_configured and bool(fwd_number)),
             # Airline freight details (Internal flight routing - MAWB stripped for customer privacy)
             "mawbNumber": None,
             "airlineName": airline_name,
