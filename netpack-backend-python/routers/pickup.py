@@ -371,6 +371,18 @@ def update_pickup_status(
 
     e.status = payload.status
     now = datetime.utcnow()
+    if payload.status == "ASSIGNED_FOR_PICKUP":
+        if e.customerId:
+            r_name = payload.riderName or "Rider"
+            r_id = payload.riderId or e.pickedUpBy or "4"
+            db.add(Notification(
+                title="Pickup Rider Assigned 🛵",
+                body=f"[{r_id}]:{r_name} accepted the pickup and is heading to customer location.",
+                customerId=e.customerId,
+                scope="SPECIFIC_CUSTOMER",
+                isRead=False
+            ))
+
     if payload.status == "PICKED_UP":
         if not e.pickedUpAt:
             e.pickedUpAt = now
@@ -514,6 +526,18 @@ def batch_update_pickup_status(
     now = datetime.utcnow()
     for e in enquiries:
         e.status = payload.status
+        if payload.status == "ASSIGNED_FOR_PICKUP":
+            if e.customerId:
+                r_name = payload.riderName or "Rider"
+                r_id = payload.riderId or e.pickedUpBy or "4"
+                db.add(Notification(
+                    title="Pickup Rider Assigned 🛵",
+                    body=f"[{r_id}]:{r_name} accepted the pickup and is heading to customer location.",
+                    customerId=e.customerId,
+                    scope="SPECIFIC_CUSTOMER",
+                    isRead=False
+                ))
+
         if payload.status == "PICKED_UP":
             if not e.pickedUpAt:
                 e.pickedUpAt = now

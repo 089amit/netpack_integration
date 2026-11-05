@@ -11,6 +11,7 @@ from models.enquiry import Enquiry, Box
 from models.mawb import MAWB
 from models.location import Country
 from models.user import User, Role
+from models.customer import Notification
 from services.trackingmore_service import trackingmore_service
 
 
@@ -1563,9 +1564,33 @@ class TrackingRegistry:
                     overall_status = mapped
 
         if overall_status and overall_status in ("CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED", "EXCEPTION", "CANCELLED"):
+            old_status = shipment.status
             shipment.status = overall_status
             if shipment.enquiry:
                 shipment.enquiry.status = overall_status
+            if old_status != overall_status:
+                cust_id = shipment.customerId or (shipment.enquiry.customerId if shipment.enquiry else None)
+                if cust_id:
+                    tr_no = shipment.hawbno or (shipment.enquiry.trackingNumber if shipment.enquiry else None) or shipment.forwardingNumber or f"NET-{shipment.id}"
+                    if overall_status == "OUT_FOR_DELIVERY":
+                        n_title = "Out for Delivery 🚚"
+                        n_body = f"Your parcel ({tr_no}) is out for delivery with our courier driver and will arrive today."
+                    elif overall_status == "DELIVERED":
+                        n_title = "Shipment Delivered 🎉"
+                        n_body = f"Your parcel ({tr_no}) has been successfully delivered."
+                    else:
+                        n_title = f"Shipment Update: {overall_status.replace('_', ' ').title()}"
+                        n_body = f"Your consignment {tr_no} status is now {overall_status.replace('_', ' ').title()}."
+                    try:
+                        db.add(Notification(
+                            title=n_title,
+                            body=n_body,
+                            customerId=cust_id,
+                            scope="SPECIFIC_CUSTOMER",
+                            isRead=False
+                        ))
+                    except Exception:
+                        pass
             db.commit()
 
         return {

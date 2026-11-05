@@ -173,16 +173,33 @@ public class NotificationAlarmReceiver extends BroadcastReceiver {
                     if (lastId == 0) {
                         // First run baseline: save newestId
                         prefs.edit().putInt(KEY_LAST_NOTIF_ID, newestId).apply();
-                    } else if (newestId > lastId) {
-                        // Found new notification!
-                        String title = newest.optString("title", "NetPack Logistic Update");
-                        String body = newest.optString("body", "");
-                        if (body.isEmpty()) {
-                            body = newest.optString("description", "You have a new shipment update.");
+                        // If the newest notification is still unread, alert the customer immediately
+                        boolean isRead = newest.optBoolean("isRead", false);
+                        if (!isRead && newestId > 0) {
+                            String title = newest.optString("title", "NetPack Logistic Update");
+                            String body = newest.optString("body", "");
+                            if (body.isEmpty()) {
+                                body = newest.optString("description", "You have a new shipment update.");
+                            }
+                            fireNotification(context, newestId, title, body);
                         }
-
+                    } else if (newestId > lastId) {
+                        // Deliver new notifications in chronological order (up to 3 newest)
+                        int firedCount = 0;
+                        for (int i = Math.min(array.length() - 1, 4); i >= 0; i--) {
+                            JSONObject item = array.getJSONObject(i);
+                            int notifId = item.optInt("id", 0);
+                            if (notifId > lastId) {
+                                String title = item.optString("title", "NetPack Logistic Update");
+                                String body = item.optString("body", "");
+                                if (body.isEmpty()) {
+                                    body = item.optString("description", "You have a new shipment update.");
+                                }
+                                fireNotification(context, notifId, title, body);
+                                firedCount++;
+                            }
+                        }
                         prefs.edit().putInt(KEY_LAST_NOTIF_ID, newestId).apply();
-                        fireNotification(context, newestId, title, body);
                     }
                 }
             } else if (responseCode == 401) {

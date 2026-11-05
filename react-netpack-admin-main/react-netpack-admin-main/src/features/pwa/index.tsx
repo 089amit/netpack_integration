@@ -5715,15 +5715,11 @@ export default function CustomerPWA() {
     return () => clearInterval(pollInterval)
   }, [customerToken])
 
-  // Sync login / logout state to Android native wrapper if running in APK WebView
+  // Sync login state to Android native wrapper if running in APK WebView
   useEffect(() => {
-    if (customerToken && customerUser) {
+    if (customerToken) {
       try {
-        (window as any).NetPackNative?.onLogin(customerToken, JSON.stringify(customerUser))
-      } catch {}
-    } else {
-      try {
-        (window as any).NetPackNative?.onLogout()
+        (window as any).NetPackNative?.onLogin(customerToken, JSON.stringify(customerUser || {}))
       } catch {}
     }
   }, [customerToken, customerUser])

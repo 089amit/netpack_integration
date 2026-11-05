@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { Row } from '@tanstack/react-table'
-import { IconTrash } from '@tabler/icons-react'
+import { IconTrash, IconFileText, IconPackage, IconFileSpreadsheet } from '@tabler/icons-react'
 import { saveAs } from 'file-saver'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { useTasks } from '../context/tasks-context'
-import { generateInvoicePDF } from './invoice-pdf'
+import { generateInvoicePDF, generatePackingListPDF } from './invoice-pdf'
 import { ShippingLabelDialog } from './shipping-label-dialog'
 
 interface DataTableRowActionsProps<
@@ -114,12 +114,46 @@ export function DataTableRowActions<
       })),
       details: {
         invoiceNumber: String(enquiryData.id || ''),
+        trackingNumber: enquiryData.trackingNumber || '',
         date: enquiryData.createdAt
           ? new Date(enquiryData.createdAt).toLocaleDateString()
           : '',
         dueDate: enquiryData.dueDate
           ? new Date(enquiryData.dueDate).toLocaleDateString()
           : '',
+        currency: enquiryData.currency || 'USD',
+        noOfBox: enquiryData.noOfBox || (enquiryData.boxes?.length || 1),
+        weight: enquiryData.weight || '',
+        dimWeight: enquiryData.dimWeight || '',
+      },
+    })
+  }
+
+  const handleGeneratePackingListPDF = () => {
+    if (!enquiryData) return
+    generatePackingListPDF({
+      sender,
+      receiver,
+      boxes: enquiryData.boxes || [],
+      items: items.map((item: any) => ({
+        description: item.description,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        hsCode: item.hsCode,
+      })),
+      details: {
+        invoiceNumber: String(enquiryData.id || ''),
+        trackingNumber: enquiryData.trackingNumber || '',
+        date: enquiryData.createdAt
+          ? new Date(enquiryData.createdAt).toLocaleDateString()
+          : '',
+        dueDate: enquiryData.dueDate
+          ? new Date(enquiryData.dueDate).toLocaleDateString()
+          : '',
+        currency: enquiryData.currency || 'USD',
+        noOfBox: enquiryData.noOfBox || (enquiryData.boxes?.length || 1),
+        weight: enquiryData.weight || '',
+        dimWeight: enquiryData.dimWeight || '',
       },
     })
   }
@@ -871,18 +905,27 @@ export function DataTableRowActions<
                   </table>
                 </div>
               </div>
-              <div className='mt-6 flex justify-end'>
+              <div className='mt-6 flex flex-wrap items-center justify-end gap-3'>
                 <Button
                   onClick={handleGenerateInvoicePDF}
-                  className='bg-primary hover:bg-primary/90 rounded px-6 py-2 text-white shadow transition'
+                  className='bg-primary hover:bg-primary/90 flex items-center gap-1.5 rounded px-4 py-2 text-xs font-semibold text-white shadow transition'
                 >
-                  Generate Invoice PDF
+                  <IconFileText size={16} />
+                  Export Invoice (PDF)
+                </Button>
+                <Button
+                  onClick={handleGeneratePackingListPDF}
+                  className='bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 rounded px-4 py-2 text-xs font-semibold text-white shadow transition'
+                >
+                  <IconPackage size={16} />
+                  Export Packing List (PDF)
                 </Button>
                 <Button
                   onClick={handleGenerateInvoiceExcel}
-                  className='rounded bg-green-600 px-6 py-2 text-white shadow transition hover:bg-green-700'
+                  className='rounded bg-green-700 hover:bg-green-800 flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white shadow transition'
                 >
-                  Generate Invoice Excel
+                  <IconFileSpreadsheet size={16} />
+                  Export Excel (Invoice & Packing List)
                 </Button>
               </div>
             </div>
