@@ -151,9 +151,37 @@ def get_requester_identity(
 
     from models.customer import Customer
 
-    user_id = decoded.get("userId") or decoded.get("id") or decoded.get("adminId")
+    user_id = decoded.get("userId") or decoded.get("adminId")
+    cust_id = decoded.get("customerId")
     email = decoded.get("email")
     role_claim = (decoded.get("role") or "").upper().strip()
+
+    # If the token is explicitly for a customer
+    if role_claim == "CUSTOMER" or (cust_id and not user_id):
+        customer = None
+        target_cust_id = cust_id or decoded.get("id")
+        if target_cust_id:
+            try:
+                customer = db.query(Customer).filter(Customer.id == int(target_cust_id)).first()
+            except Exception:
+                customer = None
+        if not customer and email:
+            customer = db.query(Customer).filter(Customer.email.ilike(email.strip())).first()
+
+        user = None
+        if customer and customer.userId:
+            user = db.query(User).filter(User.id == customer.userId).first()
+
+        return RequesterIdentity(
+            user=user,
+            customer=customer,
+            role="CUSTOMER",
+            is_authenticated=True
+        )
+
+    # Otherwise, it's an admin/staff/rider user
+    if not user_id:
+        user_id = decoded.get("id")
 
     user = None
     if user_id:
@@ -173,15 +201,7 @@ def get_requester_identity(
         if not customer and user.phoneNumber:
             customer = db.query(Customer).filter(Customer.phone == user.phoneNumber.strip()).first()
     else:
-        cust_id = decoded.get("customerId") or decoded.get("id")
-        if cust_id:
-            try:
-                customer = db.query(Customer).filter(Customer.id == int(cust_id)).first()
-            except Exception:
-                customer = None
-        if not customer and email:
-            customer = db.query(Customer).filter(Customer.email.ilike(email.strip())).first()
-        role_name = "CUSTOMER" if customer else (role_claim or "ANONYMOUS")
+        role_name = role_claim or "ANONYMOUS"
 
     return RequesterIdentity(
         user=user,
