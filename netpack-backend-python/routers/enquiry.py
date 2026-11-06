@@ -101,7 +101,17 @@ def format_enquiry_response(e: Enquiry) -> Dict[str, Any]:
         "pickupRequired": bool(getattr(e, "pickupRequired", True)),
         "pickupStaffName": e.pickupStaff.fullName if e.pickupStaff else (e.pickupStaff.email if e.pickupStaff else None),
         "country": {"id": e.country.id, "name": e.country.name} if e.country else None,
-        "customer": {"id": e.customer.id, "name": e.customer.name, "phone": e.customer.phone, "email": e.customer.email} if e.customer else None,
+        "customer": {
+            "id": e.customer.id,
+            "name": e.customer.name,
+            "phone": e.customer.phone,
+            "email": e.customer.email,
+            "isOrganization": bool(getattr(e.customer, "isOrganization", False)),
+            "organizationName": getattr(e.customer, "organizationName", None)
+        } if e.customer else None,
+        "isOrganization": bool(getattr(e.customer, "isOrganization", False) or (getattr(e.creator, "isOrganization", False) if e.creator else False)) if (e.customer or e.creator) else False,
+        "organizationName": getattr(e.customer, "organizationName", None) or (getattr(e.creator, "organizationName", None) if e.creator else None),
+        "customerName": e.customer.name if e.customer else (e.creator.fullName if e.creator else None),
         "items": [
             {
                 "id": i.id,
@@ -600,11 +610,40 @@ def update_enquiry(
 ):
     requester = get_requester_identity(authorization, db)
     query = db.query(Enquiry).filter(Enquiry.id == id)
-    if requester.is_user_or_customer:
+    is_company_staff = requester.is_staff or requester.is_admin or any(
+        r in (requester.role or "") for r in ("ADMIN", "OPERAT", "CSD", "STAFF", "SUPER")
+    )
+    if not is_company_staff and requester.is_user_or_customer:
         query = query.filter(get_user_enquiry_filter(requester))
     e = query.first()
     if not e:
-        raise HTTPException(status_code=404, detail="Enquiry not found")
+        raise HTTPException(status_code=404, detail="Enquiry not found or access denied")
+
+    # Enforce role-based edit permission rules:
+    # 1. Company roles (Admin/CSD/Operation): can update until status reaches SHIPMENT_CREATED
+    # 2. Customer: can modify shipment until it is PACKED
+    curr_status = (e.status or "").upper().strip()
+    if is_company_staff:
+        staff_blocked = [
+            "SHIPMENT_CREATED", "IN_TRANSIT", "ARRIVED_AT_HUB", 
+            "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"
+        ]
+        if curr_status in staff_blocked:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Company staff can only modify enquiry before shipment is created. Current status is {curr_status}."
+            )
+    else:
+        customer_blocked = [
+            "PACKED", "WT_DIMENSION_VERIFIED", "SHIPMENT_CREATED", 
+            "IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", 
+            "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"
+        ]
+        if curr_status in customer_blocked:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Customer can only modify enquiry before it is packed. Current status is {curr_status}."
+            )
 
     sender = payload.sender or {}
     receiver = payload.receiver or {}
@@ -682,10 +721,16 @@ def update_enquiry(
         for s in e.shipments:
             s.status = payload.status
 
+    # Foreign Key-Safe Cascade: Clean up existing box items first to satisfy constraints
+    existing_box_ids = [b.id for b in db.query(Box.id).filter(Box.enquiryId == e.id).all()]
+    if existing_box_ids:
+        db.query(BoxItem).filter(BoxItem.boxId.in_(existing_box_ids)).delete(synchronize_session=False)
+        db.flush()
+
     # 1. Update Items if provided
     created_items = []
     if payload.items is not None and len(payload.items) > 0:
-        db.query(EnquiryItem).filter(EnquiryItem.enquiryId == e.id).delete()
+        db.query(EnquiryItem).filter(EnquiryItem.enquiryId == e.id).delete(synchronize_session=False)
         db.flush()
 
         for itm in payload.items:
@@ -710,11 +755,9 @@ def update_enquiry(
 
     # 2. Update Boxes if provided
     if payload.boxes is not None and len(payload.boxes) > 0:
-        existing_box_ids = [b.id for b in db.query(Box.id).filter(Box.enquiryId == e.id).all()]
         if existing_box_ids:
-            db.query(BoxItem).filter(BoxItem.boxId.in_(existing_box_ids)).delete(synchronize_session=False)
-        db.query(Box).filter(Box.enquiryId == e.id).delete(synchronize_session=False)
-        db.flush()
+            db.query(Box).filter(Box.id.in_(existing_box_ids)).delete(synchronize_session=False)
+            db.flush()
 
         total_actual_wt = 0.0
         total_vol_wt = 0.0

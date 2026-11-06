@@ -366,13 +366,21 @@ def sync_shipment_tracking(identifier: str, db: Session = Depends(get_db)):
 def override_tracking_carrier(
     identifier: Optional[str] = None,
     payload: Dict[str, Any] = Body(...),
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
     Overrides / modifies the courier assigned to a shipment's tracking or forwarding number.
-    Calls TrackingMore POST /v4/trackings/modify-courier, updates ForwardingCompany in database,
-    purges outdated carrier events, and triggers an immediate live sync.
+    Strictly restricted to Admin, CSD, and Operations staff.
     """
+    auth_header = request.headers.get("authorization") if request else None
+    requester = get_requester_identity(auth_header, db)
+    is_staff = requester.is_staff or requester.is_admin or any(
+        r in (requester.role or "") for r in ("ADMIN", "OPERAT", "CSD", "STAFF", "SUPER")
+    )
+    if requester.is_authenticated and not is_staff:
+        raise HTTPException(status_code=403, detail="Permission denied: Only Admin, CSD, and Operations can override carrier.")
+
     target_id = identifier or payload.get("identifier") or payload.get("shipmentId") or payload.get("trackingNumber") or payload.get("hawbNumber")
     if not target_id:
         raise HTTPException(status_code=400, detail="Shipment identifier or tracking number is required")

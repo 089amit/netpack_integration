@@ -47,17 +47,19 @@ export function DataTableRowActions<
 
   const { setOpen, setCurrentRow, onRefresh } = useTasks()
 
-  const isEditableStatus = [
-    'ENQUIRY_GENERATED',
-    'PENDING',
-    'PICKED_UP',
-  ].includes((task?.status || '').toUpperCase())
-
-  const role = getUserRole()
-  const isAdmin = ['ADMIN', 'OPERATIONS', 'CSD'].includes(
-    (role || '').toUpperCase()
+  const role = (getUserRole() || '').toUpperCase()
+  const isAdmin = ['ADMIN', 'SUPER_ADMIN', 'OPERATIONS', 'OPERATION', 'CSD', 'STAFF'].includes(
+    role
   )
-  const isPickup = (role || '').toUpperCase() === 'PICKUP'
+  const isPickup = role === 'PICKUP'
+
+  // Edit Rules:
+  // - Admin/CSD/Operation can update enquiry until status is SHIPMENT_CREATED
+  // - Customer can modify enquiry until status is PACKED
+  const statusUpper = (task?.status || '').toUpperCase()
+  const isEditableStatus = isAdmin
+    ? !['SHIPMENT_CREATED', 'IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'].includes(statusUpper)
+    : !['PACKED', 'WT_DIMENSION_VERIFIED', 'SHIPMENT_CREATED', 'IN_TRANSIT', 'ARRIVED_AT_HUB', 'CARRIER_SCANNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'].includes(statusUpper)
 
   // Fetch full enquiry data when opening the invoice modal
   useEffect(() => {
@@ -692,6 +694,18 @@ export function DataTableRowActions<
                   Push to Shipment
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                onClick={() => {
+                  if (!task) return
+                  const trkCode = (task as any).hawbNumber || (task as any).trackingNumber || task.id
+                  const shareUrl = `${window.location.origin}/track/${trkCode}`
+                  navigator.clipboard.writeText(shareUrl)
+                  toast.success(`Direct tracking link copied: ${shareUrl}`, { duration: 3500 })
+                }}
+              >
+                Copy Tracking Link
+              </DropdownMenuItem>
+
               <DropdownMenuItem onClick={() => setShowInvoiceModal(true)}>
                 Generate Invoice
               </DropdownMenuItem>

@@ -421,29 +421,39 @@ def sign_up(
     # Automatically ensure user is registered as a Customer ONLY for customer/client roles (NOT internal staff like PICKUP, RIDER, ADMIN, CSD, OPERATION)
     role_name = (user_role.name if user_role else "").upper()
     is_internal_staff = role_name in ("PICKUP", "RIDER", "ADMIN", "SUPER_ADMIN", "OPERATION", "CSD")
+    from models.customer import Customer
+
+    cust = db.query(Customer).filter(Customer.userId == user.id).first()
+    if not cust and user.email:
+        cust = db.query(Customer).filter(Customer.email == user.email).first()
+
     if not is_internal_staff:
-        from models.customer import Customer
-        cust = db.query(Customer).filter(Customer.userId == user.id).first()
-        if not cust and user.email:
-            cust = db.query(Customer).filter(Customer.email == user.email).first()
         if not cust:
             c = Customer(
                 name=user.fullName or user.email.split("@")[0],
                 phone=user.phoneNumber or "+977-00000000",
                 email=user.email,
+                password=hashed_pw,
                 address1=payload.address1,
                 address2=payload.address2,
                 city=payload.city,
                 state=payload.state,
                 postcode=payload.postcode,
                 countryId=country_id,
-                isOrganization=payload.isOrganization or False,
+                isOrganization=bool(payload.isOrganization or payload.organizationName),
                 organizationName=payload.organizationName,
                 userId=user.id
             )
             db.add(c)
             db.commit()
-    else:
+        else:
+            cust.userId = user.id
+            cust.password = hashed_pw
+            if payload.isOrganization or payload.organizationName:
+                cust.isOrganization = True
+                cust.organizationName = payload.organizationName
+            db.commit()
+    elif cust:
         # Update existing customer record with provided signup address
         if payload.address1:
             cust.address1 = payload.address1
@@ -464,14 +474,17 @@ def sign_up(
         cust.userId = user.id
         db.commit()
 
-    # Dispatch welcome & account confirmation email
-    send_user_welcome_email(
-        to_email=user.email,
-        full_name=user.fullName,
-        role_name="CUSTOMER",
-        password=payload.password,
-        background_tasks=background_tasks
-    )
+    # Dispatch welcome & account confirmation email (safely in background, resilient against network timeouts)
+    try:
+        send_user_welcome_email(
+            to_email=user.email,
+            full_name=user.fullName,
+            role_name="CUSTOMER",
+            password=payload.password,
+            background_tasks=background_tasks
+        )
+    except Exception as e_mail:
+        print(f"[Warning] Failed sending welcome email on signup: {e_mail}")
 
     return {"message": "User created successfully", "userId": user.id}
 

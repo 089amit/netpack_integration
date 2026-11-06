@@ -81,6 +81,19 @@ export default function LandingPage() {
     }
   }, [])
 
+  useEffect(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search)
+      const trackParam = searchParams.get('track') || searchParams.get('q') || searchParams.get('hawb')
+      if (trackParam) {
+        setActiveTrackingPrefill(trackParam.trim())
+        setTimeout(() => scrollTo('tracking'), 400)
+      } else if (window.location.hash === '#tracking') {
+        setTimeout(() => scrollTo('tracking'), 400)
+      }
+    } catch {}
+  }, [])
+
   // Smooth scroll handler using Lenis
   const scrollTo = (id: string) => {
     setMobileMenuOpen(false)

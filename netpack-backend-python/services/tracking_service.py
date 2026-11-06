@@ -950,6 +950,18 @@ class TrackingRegistry:
                 te_source = te.source or "CARRIER"
                 if "MANUAL" in te_source:
                     src_label = "MANUAL_NOTE"
+                    # Anchor manual note to the exact milestone
+                    te_act_lower = act_lower
+                    if any(kw in te_act_lower for kw in ("customs", "booking", "airline", "flight", "awating", "awaiting", "confirm", "route", "in transit")):
+                        te_status = "IN_TRANSIT"
+                    elif any(kw in te_act_lower for kw in ("hub", "port", "terminal", "landed", "cleared through", "arrived at hub")):
+                        te_status = "ARRIVED_AT_HUB"
+                    elif any(kw in te_act_lower for kw in ("warehouse", "pickup", "picked up", "weigh", "dimension")):
+                        te_status = "PICKED_UP"
+                    elif te.status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "PICKED_UP", "PACKED", "SHIPMENT_CREATED"):
+                        te_status = te.status
+                    elif not any(dkw in te_act_lower for dkw in ("delivered", "received by", "signed by", "consignee")):
+                        te_status = "IN_TRANSIT"
                 elif te.courierCode:
                     src_label = f"CARRIER:{te.courierCode.upper()}"
                 elif "TRACKINGMORE" in te_source or "CARRIER" in te_source:
@@ -957,22 +969,22 @@ class TrackingRegistry:
                 else:
                     src_label = te_source
 
-                act_lower = (te.activity or "").lower()
-                is_future_or_scheduled = any(kw in act_lower for kw in (
-                    "will be delivered", "will now be delivered", "to be delivered",
-                    "scheduled for delivery", "scheduled to be delivered", "estimated delivery",
-                    "attempted delivery", "delivery attempted"
-                ))
-                if not is_future_or_scheduled and (
-                    "delivered to" in act_lower or "has been delivered" in act_lower or 
-                    "successfully delivered" in act_lower or act_lower == "delivered" or 
-                    act_lower.startswith("delivered ") or (te.status and te.status.upper() == "DELIVERED")
-                ):
-                    te_status = "DELIVERED"
-                elif any(ofd_kw in act_lower for ofd_kw in ("onboard for delivery", "on board for delivery", "out for delivery", "with delivery courier", "with courier", "with driver", "scheduled for delivery")):
-                    te_status = "OUT_FOR_DELIVERY"
-                elif te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "DELIVERED") and ("CARRIER" in te_source or "TRACKINGMORE" in te_source):
-                    te_status = "CARRIER_SCANNED"
+                if src_label != "MANUAL_NOTE":
+                    is_future_or_scheduled = any(kw in act_lower for kw in (
+                        "will be delivered", "will now be delivered", "to be delivered",
+                        "scheduled for delivery", "scheduled to be delivered", "estimated delivery",
+                        "attempted delivery", "delivery attempted"
+                    ))
+                    if not is_future_or_scheduled and (
+                        "delivered to" in act_lower or "has been delivered" in act_lower or 
+                        "successfully delivered" in act_lower or act_lower == "delivered" or 
+                        act_lower.startswith("delivered ") or (te.status and te.status.upper() == "DELIVERED")
+                    ):
+                        te_status = "DELIVERED"
+                    elif any(ofd_kw in act_lower for ofd_kw in ("onboard for delivery", "on board for delivery", "out for delivery", "with delivery courier", "with courier", "with driver", "scheduled for delivery")):
+                        te_status = "OUT_FOR_DELIVERY"
+                    elif te_status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "DELIVERED") and ("CARRIER" in te_source or "TRACKINGMORE" in te_source):
+                        te_status = "CARRIER_SCANNED"
 
                 te_ts = te.checkpointTime or te.createdAt
                 if hasattr(te_ts, "tzinfo") and te_ts.tzinfo is not None:
@@ -1165,22 +1177,48 @@ class TrackingRegistry:
                     source="DELIVERY_COMPLETE"
                 ))
 
-        # 6. Admin / Operations Note from shipment.note (appears at top under the current active status)
+        # 6. Admin / Operations Note from shipment.note or TrackingEvent
+        # Rule: A manual note must appear EXACTLY BELOW the milestone/status where it was entered/updated!
         if clean_admin_note:
             has_matching_event = any(
                 clean_admin_note.lower() in (cp.activity or "").lower()
                 for cp in checkpoints
             )
             if not has_matching_event:
-                op_ts = (shipment.updatedAt if shipment and shipment.updatedAt else None) or datetime.utcnow()
-                if hasattr(op_ts, "tzinfo") and op_ts.tzinfo is not None:
-                    op_ts = op_ts.replace(tzinfo=None)
-                curr_loc = f"{dest_name} Hub / Transit" if current_status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") else "Kathmandu Central Operations"
-                curr_country = dest_name if current_status in ("ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") else "Nepal"
+                note_status = current_status
+                note_ts = (shipment.updatedAt if shipment and shipment.updatedAt else None) or datetime.utcnow()
+                if hasattr(note_ts, "tzinfo") and note_ts.tzinfo is not None:
+                    note_ts = note_ts.replace(tzinfo=None)
+
+                # Look up TrackingEvent for this note if recorded in database
+                if shipment and shipment.trackingEvents:
+                    for te in shipment.trackingEvents:
+                        if te.source == "MANUAL_NOTE" and te.activity and clean_admin_note.lower() in te.activity.lower():
+                            if te.status:
+                                note_status = te.status
+                            if te.checkpointTime:
+                                note_ts = te.checkpointTime
+                                if hasattr(note_ts, "tzinfo") and note_ts.tzinfo is not None:
+                                    note_ts = note_ts.replace(tzinfo=None)
+                            break
+
+                # Context-aware fallback if note was entered during in-transit or hub
+                lower_note = clean_admin_note.lower()
+                if note_status in ("DELIVERED", "OUT_FOR_DELIVERY", "CARRIER_SCANNED") or note_status == current_status:
+                    if any(kw in lower_note for kw in ("customs", "booking", "airline", "flight", "awating", "awaiting", "confirm", "route")):
+                        note_status = "IN_TRANSIT"
+                    elif any(kw in lower_note for kw in ("hub", "port", "terminal", "landed", "cleared through")):
+                        note_status = "ARRIVED_AT_HUB"
+                    elif any(kw in lower_note for kw in ("warehouse", "pickup", "picked up", "weigh", "dimension")):
+                        note_status = "PICKED_UP"
+
+                curr_loc = f"{dest_name} Hub / Transit" if note_status in ("IN_TRANSIT", "ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") else "Kathmandu Central Operations"
+                curr_country = dest_name if note_status in ("ARRIVED_AT_HUB", "CARRIER_SCANNED", "OUT_FOR_DELIVERY", "DELIVERED") else "Nepal"
+
                 checkpoints.append(TrackingCheckpoint(
-                    timestamp=op_ts,
+                    timestamp=note_ts,
                     location=curr_loc,
-                    status=current_status,
+                    status=note_status,
                     activity=clean_admin_note,
                     country=curr_country,
                     source="OPERATIONS_NOTE"
@@ -1212,9 +1250,12 @@ class TrackingRegistry:
         }
 
         def get_checkpoint_sort_key(cp: TrackingCheckpoint):
-            stage_w = STAGE_ORDER.get(cp.status, 35)
+            stage_w = float(STAGE_ORDER.get(cp.status, 35))
+            # Critical Rule: When sorting in descending order (newest/highest stage first),
+            # an operations note must appear EXACTLY BELOW the milestone it was added at!
+            # Subtracting 0.2 places it immediately below its parent milestone (e.g. IN_TRANSIT 30 -> Note 29.8).
             if cp.source in ("OPERATIONS_NOTE", "MANUAL_NOTE"):
-                stage_w += 0.5
+                stage_w -= 0.2
             ts_val = cp.timestamp.timestamp() if cp.timestamp else 0.0
             return (stage_w, ts_val)
 

@@ -16,6 +16,8 @@ import { Route as PickupPwaImport } from './routes/pickup-pwa'
 import { Route as LandingImport } from './routes/landing'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated/route'
 import { Route as IndexImport } from './routes/index'
+import { Route as TrackIndexImport } from './routes/track.index'
+import { Route as TrackTrackingNumberImport } from './routes/track.$trackingNumber'
 import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
 import { Route as errors503Import } from './routes/(errors)/503'
 import { Route as errors500Import } from './routes/(errors)/500'
@@ -80,6 +82,18 @@ const AuthenticatedRouteRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const TrackIndexRoute = TrackIndexImport.update({
+  id: '/track/',
+  path: '/track/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const TrackTrackingNumberRoute = TrackTrackingNumberImport.update({
+  id: '/track/$trackingNumber',
+  path: '/track/$trackingNumber',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -436,6 +450,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardImport
       parentRoute: typeof AuthenticatedRouteImport
     }
+    '/track/$trackingNumber': {
+      id: '/track/$trackingNumber'
+      path: '/track/$trackingNumber'
+      fullPath: '/track/$trackingNumber'
+      preLoaderRoute: typeof TrackTrackingNumberImport
+      parentRoute: typeof rootRoute
+    }
+    '/track/': {
+      id: '/track/'
+      path: '/track'
+      fullPath: '/track'
+      preLoaderRoute: typeof TrackIndexImport
+      parentRoute: typeof rootRoute
+    }
     '/_authenticated/settings/account': {
       id: '/_authenticated/settings/account'
       path: '/account'
@@ -694,6 +722,8 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/track/$trackingNumber': typeof TrackTrackingNumberRoute
+  '/track': typeof TrackIndexRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
@@ -736,6 +766,8 @@ export interface FileRoutesByTo {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/track/$trackingNumber': typeof TrackTrackingNumberRoute
+  '/track': typeof TrackIndexRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
@@ -780,6 +812,8 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/track/$trackingNumber': typeof TrackTrackingNumberRoute
+  '/track/': typeof TrackIndexRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
@@ -825,6 +859,8 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/dashboard'
+    | '/track/$trackingNumber'
+    | '/track'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
@@ -866,6 +902,8 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/dashboard'
+    | '/track/$trackingNumber'
+    | '/track'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
@@ -908,6 +946,8 @@ export interface FileRouteTypes {
     | '/(errors)/500'
     | '/(errors)/503'
     | '/_authenticated/dashboard'
+    | '/track/$trackingNumber'
+    | '/track/'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/display'
@@ -950,6 +990,8 @@ export interface RootRouteChildren {
   errors404Route: typeof errors404Route
   errors500Route: typeof errors500Route
   errors503Route: typeof errors503Route
+  TrackTrackingNumberRoute: typeof TrackTrackingNumberRoute
+  TrackIndexRoute: typeof TrackIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -968,6 +1010,8 @@ const rootRouteChildren: RootRouteChildren = {
   errors404Route: errors404Route,
   errors500Route: errors500Route,
   errors503Route: errors503Route,
+  TrackTrackingNumberRoute: TrackTrackingNumberRoute,
+  TrackIndexRoute: TrackIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -994,7 +1038,9 @@ export const routeTree = rootRoute
         "/(errors)/403",
         "/(errors)/404",
         "/(errors)/500",
-        "/(errors)/503"
+        "/(errors)/503",
+        "/track/$trackingNumber",
+        "/track/"
       ]
     },
     "/": {
@@ -1078,6 +1124,12 @@ export const routeTree = rootRoute
     "/_authenticated/dashboard": {
       "filePath": "_authenticated/dashboard.tsx",
       "parent": "/_authenticated"
+    },
+    "/track/$trackingNumber": {
+      "filePath": "track.$trackingNumber.tsx"
+    },
+    "/track/": {
+      "filePath": "track.index.tsx"
     },
     "/_authenticated/settings/account": {
       "filePath": "_authenticated/settings/account.tsx",

@@ -118,19 +118,27 @@ const baseColumns: ColumnDef<EnquiryTableRow>[] = [
       }
 
       // Admin / CSD / Operation panels:
-      // Show Customer Account name as primary so NetPack operations knows which client booked it.
-      // If entered sender differs from customer account (e.g. booked for sub-client), show shipper below.
-      const primaryName = customerAccount || enteredSender || '—'
-      const showShipperSub = enteredSender && customerAccount && enteredSender.toLowerCase().trim() !== customerAccount.toLowerCase().trim()
+      // Show Organization Name first if it's an organization, with account name beneath it.
+      // NetPack operations knows the parcel is given by the company (e.g. Thanapati Exports - Ajit),
+      // and does not need the sub-shipper shown here.
+      const orgName = (enquiry as any).organizationName || (enquiry as any).customer?.organizationName
+      const isOrg = Boolean((enquiry as any).isOrganization || orgName)
+      const contactPerson = customerAccount || enteredSender || '—'
+
+      if (isOrg && orgName) {
+        return (
+          <div className='w-[200px]'>
+            <div className='truncate font-semibold text-foreground' title={orgName}>{orgName}</div>
+            <div className='truncate text-[11px] text-muted-foreground font-normal' title={contactPerson}>
+              {contactPerson}
+            </div>
+          </div>
+        )
+      }
 
       return (
         <div className='w-[200px]'>
-          <div className='truncate font-medium text-foreground'>{primaryName}</div>
-          {showShipperSub && (
-            <div className='truncate text-[11px] text-muted-foreground font-normal'>
-              Shipper: <span className='font-medium text-foreground/85'>{enteredSender}</span>
-            </div>
-          )}
+          <div className='truncate font-medium text-foreground'>{contactPerson}</div>
         </div>
       )
     },

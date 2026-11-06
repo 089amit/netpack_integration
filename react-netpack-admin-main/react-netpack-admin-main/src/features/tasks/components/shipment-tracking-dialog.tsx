@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Edit2,
   SlidersHorizontal,
+  Share2,
 } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import {
@@ -29,6 +30,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
+import { getUserRole } from '@/lib/auth'
 import { SERVER_URL } from '@/constants/endpoint'
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
@@ -283,6 +286,8 @@ export function ShipmentTrackingDialog({
   const [overrideSuccess, setOverrideSuccess] = useState<string | null>(null)
 
   const initialTarget = hawbNumber || trackingNumber || (enquiryId !== undefined ? String(enquiryId) : null)
+  const userRole = (getUserRole() || '').toUpperCase()
+  const canOverrideCarrier = ['ADMIN', 'SUPER_ADMIN', 'OPERATION', 'OPERATIONS', 'CSD'].includes(userRole)
 
   const fetchTracking = (targetOverride?: string) => {
     const idToUse = targetOverride || activeTarget || initialTarget
@@ -587,6 +592,20 @@ export function ShipmentTrackingDialog({
             )}
           </div>
           <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              onClick={() => {
+                const trkCode = liveData?.trackingNumber || activeTarget || trackingNumber || hawbNumber || String(enquiryId || '')
+                const shareUrl = `${window.location.origin}/track/${trkCode}`
+                navigator.clipboard.writeText(shareUrl)
+                toast.success(`Direct tracking link copied: ${shareUrl}`)
+              }}
+              className='inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition cursor-pointer'
+              title='Copy direct link for customer (WhatsApp/Email)'
+            >
+              <Share2 className='h-3.5 w-3.5' />
+              <span>Copy Link</span>
+            </button>
             <Badge variant='outline' className={`text-xs font-semibold px-2.5 py-0.5 border ${statusCfg.badgeClass}`}>
               {statusCfg.label}
             </Badge>
@@ -670,29 +689,33 @@ export function ShipmentTrackingDialog({
                   <span className='text-[10px] uppercase font-bold text-muted-foreground block tracking-wider'>
                     Courier Forwarding
                   </span>
-                  <button
-                    type='button'
-                    onClick={() => setShowCarrierOverride((v) => !v)}
-                    className='text-[10px] font-semibold text-primary hover:underline inline-flex items-center gap-0.5'
-                    title='Override or correct carrier in TrackingMore'
-                  >
-                    <Edit2 className='h-2.5 w-2.5' />
-                    <span>Change</span>
-                  </button>
+                  {canOverrideCarrier && (
+                    <button
+                      type='button'
+                      onClick={() => setShowCarrierOverride((v) => !v)}
+                      className='text-[10px] font-semibold text-primary hover:underline inline-flex items-center gap-0.5'
+                      title='Override or correct carrier in TrackingMore'
+                    >
+                      <Edit2 className='h-2.5 w-2.5' />
+                      <span>Change</span>
+                    </button>
+                  )}
                 </div>
                 <span className='text-xs font-mono font-bold text-foreground truncate block mt-0.5'>
                   {displayForwardingCompany}: {displayForwardingNumber || 'Assigned'}
                 </span>
               </div>
               <div className='flex items-center gap-1 shrink-0 ml-1.5'>
-                <button
-                  type='button'
-                  onClick={() => setShowCarrierOverride((v) => !v)}
-                  className='p-1 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground transition'
-                  title='Change or override courier provider'
-                >
-                  <SlidersHorizontal className='h-3 w-3' />
-                </button>
+                {canOverrideCarrier && (
+                  <button
+                    type='button'
+                    onClick={() => setShowCarrierOverride((v) => !v)}
+                    className='p-1 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground transition'
+                    title='Change or override courier provider'
+                  >
+                    <SlidersHorizontal className='h-3 w-3' />
+                  </button>
+                )}
                 {displayForwardingNumber && (
                   <button
                     type='button'
@@ -744,7 +767,7 @@ export function ShipmentTrackingDialog({
           </div>
 
           {/* ── CARRIER OVERRIDE DRAWER/PANEL ─────── */}
-          {showCarrierOverride && (
+          {showCarrierOverride && canOverrideCarrier && (
             <div className='p-3.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/60 space-y-2.5 animate-in fade-in slide-in-from-top-1'>
               <div className='flex items-center justify-between pb-1.5 border-b border-blue-200/60 dark:border-blue-900/50'>
                 <div className='flex items-center gap-1.5'>
@@ -1024,7 +1047,7 @@ export function ShipmentTrackingDialog({
                             <span className={`text-xs font-bold leading-snug ${isTopItem ? 'text-foreground' : 'text-foreground/90'}`}>
                               {title}
                             </span>
-                            {cp.source === 'OPERATIONS_NOTE' && (
+                            {(cp.source === 'OPERATIONS_NOTE' || cp.source === 'MANUAL_NOTE') && (
                               <Badge variant='outline' className='text-[9px] font-bold px-1.5 py-0 h-4 bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300 border-sky-300'>
                                 Operations Note
                               </Badge>

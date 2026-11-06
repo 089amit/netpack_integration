@@ -833,12 +833,23 @@ def update_shipment(
 
             if not last_te or last_te.activity != clean_note:
                 dest_country = (s.enquiry.receiverCountry if (s.enquiry and s.enquiry.receiverCountry) else (s.country.name if s.country else "Destination Hub"))
-                loc = "Kathmandu, Nepal" if s.status in ("ENQUIRY_GENERATED", "PICKED_UP", "SHIPMENT_CREATED") else f"{dest_country} Hub / Transit"
                 tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or s.forwardingNumber or f"NET-{s.id}"
+
+                # Anchor manual note to the exact milestone status
+                note_status = s.status or "IN_TRANSIT"
+                lower_note = clean_note.lower()
+                if any(kw in lower_note for kw in ("customs", "booking", "airline", "flight", "awating", "awaiting", "confirm", "route", "in transit")):
+                    note_status = "IN_TRANSIT"
+                elif any(kw in lower_note for kw in ("hub", "port", "terminal", "landed", "cleared through", "arrived at hub")):
+                    note_status = "ARRIVED_AT_HUB"
+                elif any(kw in lower_note for kw in ("warehouse", "pickup", "picked up", "weigh", "dimension")):
+                    note_status = "PICKED_UP"
+
+                loc = "" if note_status == "IN_TRANSIT" else ("Kathmandu, Nepal" if note_status in ("ENQUIRY_GENERATED", "PICKED_UP", "SHIPMENT_CREATED") else f"{dest_country} Hub / Transit")
                 te = TrackingEvent(
                     shipmentId=s.id,
                     trackingNumber=tr_no,
-                    status=s.status,
+                    status=note_status,
                     activity=clean_note,
                     location=loc,
                     checkpointTime=datetime.utcnow(),
@@ -1175,7 +1186,34 @@ def batch_add_note(payload: BatchAddNoteRequest, db: Session = Depends(get_db)):
             continue
         s = db.query(Shipment).filter(Shipment.id == sid).first()
         if s:
-            s.note = payload.note
+            clean_note = (payload.note or "").strip()
+            s.note = clean_note
+            if clean_note:
+                dest_country = (s.enquiry.receiverCountry if (s.enquiry and s.enquiry.receiverCountry) else (s.country.name if s.country else "Destination Hub"))
+                tr_no = s.hawbno or (s.enquiry.trackingNumber if s.enquiry else None) or s.forwardingNumber or f"NET-{s.id}"
+
+                # Context-aware milestone anchor
+                note_status = s.status or "IN_TRANSIT"
+                lower_note = clean_note.lower()
+                if any(kw in lower_note for kw in ("customs", "booking", "airline", "flight", "awating", "awaiting", "confirm", "route", "in transit")):
+                    note_status = "IN_TRANSIT"
+                elif any(kw in lower_note for kw in ("hub", "port", "terminal", "landed", "cleared through", "arrived at hub")):
+                    note_status = "ARRIVED_AT_HUB"
+                elif any(kw in lower_note for kw in ("warehouse", "pickup", "picked up", "weigh", "dimension")):
+                    note_status = "PICKED_UP"
+
+                loc = "" if note_status == "IN_TRANSIT" else (f"{dest_country} Hub / Transit" if note_status in ("ARRIVED_AT_HUB", "CARRIER_SCANNED", "DELIVERED") else "Kathmandu Central Operations")
+
+                te = TrackingEvent(
+                    shipmentId=s.id,
+                    trackingNumber=tr_no,
+                    status=note_status,
+                    activity=clean_note,
+                    location=loc,
+                    checkpointTime=datetime.utcnow(),
+                    source="MANUAL_NOTE"
+                )
+                db.add(te)
             updated_count += 1
     db.commit()
     return {"message": f"Note added to {updated_count} shipments successfully"}
