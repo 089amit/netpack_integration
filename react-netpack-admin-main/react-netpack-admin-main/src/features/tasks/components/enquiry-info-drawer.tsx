@@ -157,9 +157,19 @@ export function GetEnquiryInfoDrawer({
                 <Label className='text-muted-foreground mb-2 block'>
                   Sender Information
                 </Label>
+                {((enquiryData as any).organizationName || (enquiryData as any).customer?.organizationName) && (
+                  <p>
+                    <strong>Organization:</strong> {(enquiryData as any).organizationName || (enquiryData as any).customer?.organizationName}
+                  </p>
+                )}
                 <p>
-                  <strong>Name:</strong> {enquiryData.senderName}
+                  <strong>Account / Shipper:</strong> {enquiryData.customerName || (enquiryData as any).customer?.name || enquiryData.senderName}
                 </p>
+                {enquiryData.senderName && enquiryData.senderName !== (enquiryData.customerName || (enquiryData as any).customer?.name) && (
+                  <p className='text-xs text-muted-foreground'>
+                    <strong>Sub-Shipper / Client:</strong> {enquiryData.senderName}
+                  </p>
+                )}
                 <p>
                   <strong>Phone:</strong> {enquiryData.senderPhone}
                 </p>

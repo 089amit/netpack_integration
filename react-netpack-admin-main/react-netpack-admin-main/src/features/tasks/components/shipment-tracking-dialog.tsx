@@ -285,7 +285,7 @@ export function ShipmentTrackingDialog({
   const [overrideError, setOverrideError] = useState<string | null>(null)
   const [overrideSuccess, setOverrideSuccess] = useState<string | null>(null)
 
-  const initialTarget = hawbNumber || trackingNumber || (enquiryId !== undefined ? String(enquiryId) : null)
+  const initialTarget = trackingNumber || hawbNumber || (enquiryId !== undefined ? String(enquiryId) : null)
   const userRole = (getUserRole() || '').toUpperCase()
   const canOverrideCarrier = ['ADMIN', 'SUPER_ADMIN', 'OPERATION', 'OPERATIONS', 'CSD'].includes(userRole)
 
@@ -298,7 +298,9 @@ export function ShipmentTrackingDialog({
       .then((data) => {
         if (data && data.found) {
           setLiveData(data)
-          if (data.hawbNumber) {
+          if (data.trackingNumber) {
+            setActiveTarget(data.trackingNumber)
+          } else if (data.hawbNumber) {
             setActiveTarget(data.hawbNumber)
           }
         } else {
@@ -595,7 +597,7 @@ export function ShipmentTrackingDialog({
             <button
               type='button'
               onClick={() => {
-                const trkCode = liveData?.trackingNumber || activeTarget || trackingNumber || hawbNumber || String(enquiryId || '')
+                const trkCode = trackingNumber || liveData?.trackingNumber || liveData?.masterTrackingNumber || activeTarget || hawbNumber || String(enquiryId || '')
                 const shareUrl = `${window.location.origin}/track/${trkCode}`
                 navigator.clipboard.writeText(shareUrl)
                 toast.success(`Direct tracking link copied: ${shareUrl}`)

@@ -95,23 +95,38 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
     customer_obj = s.customer or (s.enquiry.customer if s.enquiry else None)
     sender_name = (s.enquiry.senderName if (s.enquiry and s.enquiry.senderName) else "") or ""
 
-    # Decouple disparate corporate accounts:
-    # If customer_obj belongs to a different entity from sender_name, do not cross-pollinate its organization
-    is_mismatched_customer = False
-    if customer_obj and sender_name:
-        c_low = (customer_obj.name or "").lower().strip()
-        s_low = sender_name.lower().strip()
-        if c_low and s_low and (c_low not in s_low and s_low not in c_low):
-            is_mismatched_customer = True
-
-    if customer_obj and not is_mismatched_customer:
+    if customer_obj:
         cust_name = customer_obj.name or ""
         cust_phone = customer_obj.phone or ""
         cust_email = customer_obj.email or ""
         cust_org = getattr(customer_obj, 'organizationName', '') or ""
-    else:
-        cust_name = sender_name
-        cust_org = getattr(s.enquiry, 'senderOrganization', '') if s.enquiry else ""
+        if not cust_org and getattr(customer_obj, 'userId', None) and db:
+            u = db.query(User).filter(User.id == customer_obj.userId).first()
+            if u and u.organizationName:
+                cust_org = u.organizationName
+                if not cust_name:
+                    cust_name = u.fullName or u.name
+
+    if s.enquiry and db:
+        if not cust_org and getattr(s.enquiry, 'createdBy', None):
+            u = db.query(User).filter(User.id == s.enquiry.createdBy).first()
+            if u and u.organizationName:
+                cust_org = u.organizationName
+                if not cust_name:
+                    cust_name = u.fullName or u.name
+        target_email = (s.enquiry.senderEmail or cust_email or "").strip()
+        if target_email and not cust_org:
+            u = db.query(User).filter(User.email.ilike(target_email), User.organizationName.isnot(None)).first()
+            if u and u.organizationName:
+                cust_org = u.organizationName
+                if not cust_name:
+                    cust_name = u.fullName or u.name
+            if not cust_org:
+                c = db.query(Customer).filter(Customer.email.ilike(target_email), Customer.organizationName.isnot(None)).first()
+                if c and c.organizationName:
+                    cust_org = c.organizationName
+                    if not cust_name:
+                        cust_name = c.name
 
     if not sender_name:
         sender_name = cust_name
@@ -119,15 +134,7 @@ def format_shipment_response(s: Shipment, db: Session = None) -> Dict[str, Any]:
     sender_phone = (s.enquiry.senderPhone if (s.enquiry and s.enquiry.senderPhone) else cust_phone) or ""
     customer_phone = cust_phone or sender_phone or ""
     sender_org = cust_org or (getattr(s.enquiry, 'senderOrganization', '') if s.enquiry else "") or ""
-
-    # Clean separation: If customer name is identical to organization name,
-    # prevent repeating the organization name as customerName unless a distinct individual is given.
     distinct_customer_name = cust_name
-    if sender_org and cust_name and cust_name.strip().lower() == sender_org.strip().lower():
-        if s.enquiry and s.enquiry.senderName and s.enquiry.senderName.strip().lower() != sender_org.strip().lower():
-            distinct_customer_name = s.enquiry.senderName
-        else:
-            distinct_customer_name = ""
 
     # 3. Receiver Information
     receiver_name = (s.enquiry.receiverName if (s.enquiry and s.enquiry.receiverName) else "") or ""

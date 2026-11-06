@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Header, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 from sqlalchemy import or_, and_, func
 from typing import List, Optional, Any, Dict
 import math
@@ -37,6 +37,41 @@ def format_enquiry_response(e: Enquiry) -> Dict[str, Any]:
     agent = shipment.agent if shipment else None
     shipment_id = shipment.id if shipment else None
     shipment_status = shipment.status if shipment else None
+
+    # Resolve corporate organization and account user comprehensively
+    db = object_session(e)
+    org_name = getattr(e.customer, "organizationName", None) if e.customer else None
+    account_name = getattr(e.customer, "name", None) if e.customer else None
+
+    if db:
+        if not org_name and e.customer and getattr(e.customer, "userId", None):
+            u = db.query(User).filter(User.id == e.customer.userId).first()
+            if u:
+                if u.organizationName:
+                    org_name = u.organizationName
+                if not account_name:
+                    account_name = u.fullName or u.name
+        if not org_name and getattr(e, "createdBy", None):
+            u = db.query(User).filter(User.id == e.createdBy).first()
+            if u:
+                if u.organizationName:
+                    org_name = u.organizationName
+                if not account_name:
+                    account_name = u.fullName or u.name
+        target_email = (e.senderEmail or (e.customer.email if e.customer else None) or "").strip()
+        if target_email:
+            if not org_name:
+                u = db.query(User).filter(User.email.ilike(target_email), User.organizationName.isnot(None)).first()
+                if u and u.organizationName:
+                    org_name = u.organizationName
+                    if not account_name:
+                        account_name = u.fullName or u.name
+            if not org_name:
+                c = db.query(Customer).filter(Customer.email.ilike(target_email), Customer.organizationName.isnot(None)).first()
+                if c and c.organizationName:
+                    org_name = c.organizationName
+                    if not account_name:
+                        account_name = c.name
 
     return {
         "id": e.id,
@@ -106,12 +141,13 @@ def format_enquiry_response(e: Enquiry) -> Dict[str, Any]:
             "name": e.customer.name,
             "phone": e.customer.phone,
             "email": e.customer.email,
-            "isOrganization": bool(getattr(e.customer, "isOrganization", False)),
-            "organizationName": getattr(e.customer, "organizationName", None)
+            "isOrganization": bool(org_name or getattr(e.customer, "isOrganization", False)),
+            "organizationName": org_name or getattr(e.customer, "organizationName", None)
         } if e.customer else None,
-        "isOrganization": bool(getattr(e.customer, "isOrganization", False) or (getattr(e.creator, "isOrganization", False) if e.creator else False)) if (e.customer or e.creator) else False,
-        "organizationName": getattr(e.customer, "organizationName", None) or (getattr(e.creator, "organizationName", None) if e.creator else None),
-        "customerName": e.customer.name if e.customer else (e.creator.fullName if e.creator else None),
+        "isOrganization": bool(org_name or getattr(e.customer, "isOrganization", False) or (getattr(e.creator, "isOrganization", False) if e.creator else False)),
+        "organizationName": org_name or getattr(e.customer, "organizationName", None) or (getattr(e.creator, "organizationName", None) if e.creator else None),
+        "senderOrganization": org_name,
+        "customerName": account_name or (e.customer.name if e.customer else (e.creator.fullName if e.creator else None)),
         "items": [
             {
                 "id": i.id,

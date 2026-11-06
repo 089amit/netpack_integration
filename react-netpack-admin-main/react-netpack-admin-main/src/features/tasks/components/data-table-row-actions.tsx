@@ -77,16 +77,23 @@ export function DataTableRowActions<
     }
   }, [showInvoiceModal, task?.id])
 
-  // Use flat fields from EnquiryTableRow for sender/receiver
+  // Priority for corporate accounts: Use Organization Name as primary Shipper/Sender
+  const orgName = (enquiryData as any)?.organizationName || (enquiryData as any)?.customer?.organizationName
+  const contactPerson = enquiryData?.customerName || (enquiryData as any)?.customer?.name || ''
+  const effectiveSenderName = orgName || contactPerson || enquiryData?.senderName || 'Sender'
+  const effectiveSenderCompany = orgName || ''
+
   const sender = enquiryData
     ? {
-        name: enquiryData.senderName || '',
+        name: effectiveSenderName,
+        company: effectiveSenderCompany,
+        contactPerson: contactPerson,
         addressLine1: enquiryData.senderAddressLine1 || '',
         addressLine2: enquiryData.senderAddressLine2 || '',
         postcodeCity: enquiryData.senderPostcodeCity || [enquiryData.senderPostcode, enquiryData.senderCity].filter(Boolean).join(', ') || enquiryData.senderPostcode || (enquiryData as any).customer?.postcode || '',
         country: enquiryData.senderCountry || '',
-        telephone: enquiryData.senderPhone || '',
-        email: enquiryData.senderEmail || '',
+        telephone: enquiryData.senderPhone || (enquiryData as any).customer?.phone || '',
+        email: enquiryData.senderEmail || (enquiryData as any).customer?.email || '',
       }
     : { name: '' }
   const receiver = enquiryData
@@ -697,7 +704,7 @@ export function DataTableRowActions<
               <DropdownMenuItem
                 onClick={() => {
                   if (!task) return
-                  const trkCode = (task as any).hawbNumber || (task as any).trackingNumber || task.id
+                  const trkCode = (task as any).trackingNumber || (task as any).hawbNumber || task.id
                   const shareUrl = `${window.location.origin}/track/${trkCode}`
                   navigator.clipboard.writeText(shareUrl)
                   toast.success(`Direct tracking link copied: ${shareUrl}`, { duration: 3500 })

@@ -427,66 +427,99 @@ class TrackingRegistry:
         Unified cargo tracker: searches across Enquiry Tracking Number,
         HAWB Number, Forwarding Number, or MAWB Number.
         """
-        clean_id = identifier.strip()
+        clean_id = (identifier or "").strip()
         targeted_box_tracking = None
-
-        # 1. Search Shipment by hawbno, forwardingNumber, or numeric id
-        shipment = (
-            db.query(Shipment).filter(Shipment.hawbno == clean_id).order_by(Shipment.id.desc()).first() or
-            db.query(Shipment).filter(Shipment.forwardingNumber == clean_id).order_by(Shipment.id.desc()).first()
-        )
-        if not shipment:
-            try:
-                shipment = db.query(Shipment).filter(Shipment.id == int(clean_id)).first()
-            except ValueError:
-                pass
-
-        # 2. Search Box by piece trackingNumber (box-wise tracking)
-        if not shipment:
-            box_match = db.query(Box).filter(Box.trackingNumber == clean_id).first()
-            if box_match:
-                targeted_box_tracking = box_match.trackingNumber
-                if box_match.shipment:
-                    shipment = box_match.shipment
-                    enquiry = shipment.enquiry
-                elif box_match.enquiry:
-                    enquiry = box_match.enquiry
-                    if enquiry.shipments:
-                        shipment = enquiry.shipments[0]
-            elif "-" in clean_id:
-                parts = clean_id.rsplit("-", 1)
-                prefix_candidate = parts[0].strip()
-                suffix_candidate = parts[1].strip()
-                if suffix_candidate.isdigit():
-                    shipment_candidate = db.query(Shipment).filter(Shipment.hawbno == prefix_candidate).order_by(Shipment.id.desc()).first()
-                    if shipment_candidate:
-                        shipment = shipment_candidate
-                        enquiry = shipment_candidate.enquiry
-                        targeted_box_tracking = clean_id
-                    else:
-                        enq_candidate = db.query(Enquiry).filter(Enquiry.trackingNumber == prefix_candidate).first()
-                        if enq_candidate:
-                            enquiry = enq_candidate
-                            if enquiry.shipments:
-                                shipment = enquiry.shipments[-1]
-                            targeted_box_tracking = clean_id
-
-        # 3. Search Enquiry by master trackingNumber or id (in-house master tracking)
+        shipment = None
         enquiry = None
-        if not shipment:
+        mawb = None
+
+        candidate_ids = [
+            clean_id,
+            clean_id.replace(" ", "-"),
+            clean_id.replace("-", " "),
+            clean_id.replace("%20", "-"),
+            clean_id.replace("%20", " "),
+            clean_id.replace(" ", "").replace("-", "")
+        ]
+        seen_cand = set()
+        unique_candidates = []
+        for c in candidate_ids:
+            if c and c.lower() not in seen_cand:
+                seen_cand.add(c.lower())
+                unique_candidates.append(c)
+
+        # 1. Primary: Search Enquiry by master trackingNumber (e.g. NP-2026-002 / NP-50D2-8DL5)
+        for cid in unique_candidates:
+            enquiry = db.query(Enquiry).filter(Enquiry.trackingNumber.ilike(cid)).first()
+            if enquiry:
+                if enquiry.shipments:
+                    shipment = enquiry.shipments[-1]
+                break
+
+        # 2. Search Shipment by hawbno, forwardingNumber, or numeric id
+        if not shipment and not enquiry:
+            for cid in unique_candidates:
+                shipment = (
+                    db.query(Shipment).filter(Shipment.hawbno.ilike(cid)).order_by(Shipment.id.desc()).first() or
+                    db.query(Shipment).filter(Shipment.forwardingNumber.ilike(cid)).order_by(Shipment.id.desc()).first()
+                )
+                if shipment:
+                    enquiry = shipment.enquiry
+                    break
+
+        if not shipment and not enquiry:
             try:
-                enquiry = db.query(Enquiry).filter(Enquiry.id == int(clean_id)).first()
+                num_id = int(clean_id)
+                shipment = db.query(Shipment).filter(Shipment.id == num_id).first()
+                if shipment:
+                    enquiry = shipment.enquiry
+                else:
+                    enquiry = db.query(Enquiry).filter(Enquiry.id == num_id).first()
+                    if enquiry and enquiry.shipments:
+                        shipment = enquiry.shipments[-1]
             except ValueError:
                 pass
-            if not enquiry:
-                enquiry = db.query(Enquiry).filter(Enquiry.trackingNumber == clean_id).first()
-            if enquiry and enquiry.shipments:
-                shipment = enquiry.shipments[-1]
+
+        # 3. Search Box by piece trackingNumber (box-wise tracking)
+        if not shipment and not enquiry:
+            for cid in unique_candidates:
+                box_match = db.query(Box).filter(Box.trackingNumber.ilike(cid)).first()
+                if box_match:
+                    targeted_box_tracking = box_match.trackingNumber
+                    if box_match.shipment:
+                        shipment = box_match.shipment
+                        enquiry = shipment.enquiry
+                    elif box_match.enquiry:
+                        enquiry = box_match.enquiry
+                        if enquiry.shipments:
+                            shipment = enquiry.shipments[0]
+                    break
+                elif "-" in cid:
+                    parts = cid.rsplit("-", 1)
+                    prefix_candidate = parts[0].strip()
+                    suffix_candidate = parts[1].strip()
+                    if suffix_candidate.isdigit():
+                        shipment_candidate = db.query(Shipment).filter(Shipment.hawbno.ilike(prefix_candidate)).order_by(Shipment.id.desc()).first()
+                        if shipment_candidate:
+                            shipment = shipment_candidate
+                            enquiry = shipment_candidate.enquiry
+                            targeted_box_tracking = cid
+                            break
+                        else:
+                            enq_candidate = db.query(Enquiry).filter(Enquiry.trackingNumber.ilike(prefix_candidate)).first()
+                            if enq_candidate:
+                                enquiry = enq_candidate
+                                if enquiry.shipments:
+                                    shipment = enquiry.shipments[-1]
+                                targeted_box_tracking = cid
+                                break
 
         # 4. Search MAWB
-        mawb = None
         if not shipment and not enquiry:
-            mawb = db.query(MAWB).filter(MAWB.mawbNumber == clean_id).first()
+            for cid in unique_candidates:
+                mawb = db.query(MAWB).filter(MAWB.mawbNumber.ilike(cid)).first()
+                if mawb:
+                    break
 
         if shipment and not enquiry:
             enquiry = shipment.enquiry
@@ -946,6 +979,7 @@ class TrackingRegistry:
                 reverse=True
             )
             for te in sorted_carrier_events:
+                act_lower = (te.activity or "").lower()
                 te_status = te.status or "CARRIER_SCANNED"
                 te_source = te.source or "CARRIER"
                 if "MANUAL" in te_source:

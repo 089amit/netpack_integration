@@ -3,6 +3,7 @@ import { ColumnDef } from '@tanstack/react-table'
 import { ShipmentItem } from '@/type/shipment'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { getUserRole } from '@/lib/auth'
 import { DataTableColumnHeader } from './data-table-column-header'
 import { DataTableRowActions } from './data-table-row-actions'
 
@@ -38,10 +39,41 @@ export const columns: ColumnDef<ShipmentItem>[] = [
     ),
     cell: ({ row }) => {
       const shipment = row.original
-      const senderName = shipment.senderName || '—'
+      const role = (getUserRole() || '').toUpperCase()
+      const isCustomerView = role === 'CUSTOMER' || role === 'USER'
+
+      const enteredSender = shipment.senderName && shipment.senderName !== 'N/A' ? shipment.senderName : ''
+      const customerAccount = (shipment as any).customerName && (shipment as any).customerName !== 'N/A' ? (shipment as any).customerName : ''
+
+      // Customer web dashboard: show entered sender name
+      if (isCustomerView) {
+        return (
+          <div className='w-[180px]'>
+            <div className='truncate font-medium text-foreground'>{enteredSender || customerAccount || '—'}</div>
+          </div>
+        )
+      }
+
+      // Staff view (Admin, CSD, Operations):
+      // Primary display is Organization Name if available, with contact/account user beneath it.
+      const orgName = (shipment as any).organizationName || (shipment as any).customer?.organizationName
+      const isOrg = Boolean((shipment as any).isOrganization || orgName)
+      const contactPerson = customerAccount || enteredSender || '—'
+
+      if (isOrg && orgName) {
+        return (
+          <div className='w-[180px]'>
+            <div className='truncate font-semibold text-foreground' title={orgName}>{orgName}</div>
+            <div className='truncate text-[11px] text-muted-foreground font-normal' title={contactPerson}>
+              {contactPerson}
+            </div>
+          </div>
+        )
+      }
+
       return (
         <div className='w-[180px]'>
-          <div className='truncate font-medium'>{senderName}</div>
+          <div className='truncate font-medium text-foreground'>{contactPerson}</div>
         </div>
       )
     },

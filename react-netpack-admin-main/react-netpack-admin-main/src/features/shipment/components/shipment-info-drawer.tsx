@@ -201,10 +201,17 @@ export function GetShipmentInfoDrawer({
                   <div className='mb-4 grid grid-cols-2 gap-x-8 gap-y-3'>
                     <div>
                       <Label className='text-muted-foreground'>
-                        Sender Name
+                        {((shipmentData as any).organizationName || (shipmentData.enquiryDetails as any).customer?.organizationName) ? 'Organization / Shipper' : 'Sender Name'}
                       </Label>
                       <div className='font-medium'>
-                        {shipmentData.enquiryDetails.senderName}
+                        {((shipmentData as any).organizationName || (shipmentData.enquiryDetails as any).customer?.organizationName) ? (
+                          <>
+                            <div className='font-semibold text-foreground'>{((shipmentData as any).organizationName || (shipmentData.enquiryDetails as any).customer?.organizationName)}</div>
+                            <div className='text-xs text-muted-foreground'>{(shipmentData as any).customerName || shipmentData.enquiryDetails.senderName}</div>
+                          </>
+                        ) : (
+                          shipmentData.enquiryDetails.senderName
+                        )}
                       </div>
                     </div>
                     <div>
