@@ -5,18 +5,20 @@ from sqlalchemy.pool import NullPool
 from config import DATABASE_URL
 
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+if "mysql" in DATABASE_URL:
+    connect_args.setdefault("charset", "utf8mb4")
 
 # Production engine configuration:
 # For Vercel Serverless: use NullPool to avoid stale connections across frozen Lambda invocations
-# For Standard Server: use connection pool with pre-ping
+# For Standard Server: use connection pool with pre-ping and recycle (essential for MySQL)
 engine_kwargs = {"echo": False, "connect_args": connect_args}
-if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
+if "mysql" in DATABASE_URL or "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
     if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
         engine_kwargs["poolclass"] = NullPool
     else:
         engine_kwargs.update({
             "pool_pre_ping": True,
-            "pool_recycle": 300,
+            "pool_recycle": 280,  # Prevents MySQL wait_timeout connection drops
             "pool_size": 10,
             "max_overflow": 20
         })
@@ -37,7 +39,7 @@ def get_db():
 def run_auto_migrations(target_engine):
     """
     Safely ensures schema changes, roles, and user-customer linkages
-    exist in the database (supports both SQLite and PostgreSQL) on application startup.
+    exist in the database (supports MySQL, PostgreSQL, and SQLite) on application startup.
     """
     import sqlalchemy as sa
     from datetime import datetime
@@ -45,6 +47,10 @@ def run_auto_migrations(target_engine):
     inspector = sa.inspect(target_engine)
     table_names = set(inspector.get_table_names())
     now_dt = datetime.utcnow()
+    dialect_name = target_engine.dialect.name
+    is_mysql = "mysql" in dialect_name
+    is_pg = "postgresql" in dialect_name or "postgres" in dialect_name
+    is_sqlite = "sqlite" in dialect_name
 
     with target_engine.connect() as conn:
         # 1. Add missing columns to enquiries table if needed
@@ -53,7 +59,7 @@ def run_auto_migrations(target_engine):
                 existing_cols = {col["name"] for col in inspector.get_columns("enquiries")}
                 new_columns = [
                     ("weightProofImageUrl", "VARCHAR(500)"),
-                    ("pickedUpAt", "TIMESTAMP"),
+                    ("pickedUpAt", "TIMESTAMP NULL"),
                     ("pickedUpBy", "INTEGER"),
                     ("pickupNotes", "VARCHAR(500)"),
                     ("volumetricWeight", "FLOAT"),
@@ -61,7 +67,7 @@ def run_auto_migrations(target_engine):
                     ("trackingMode", "VARCHAR(20) DEFAULT 'MANUAL'"),
                     ("isFromCustomer", "BOOLEAN DEFAULT FALSE"),
                     ("isPacked", "BOOLEAN DEFAULT FALSE"),
-                    ("packedAt", "TIMESTAMP"),
+                    ("packedAt", "TIMESTAMP NULL"),
                     ("pickupRequired", "BOOLEAN DEFAULT TRUE"),
                 ]
                 for col_name, col_type in new_columns:
@@ -78,7 +84,7 @@ def run_auto_migrations(target_engine):
         # 1b. Add trackingMode and customManifestHub to shipments table if needed
         if "shipments" in table_names:
             try:
-                is_pg = "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL
+                existing_ship_cols = {col["name"] for col in inspector.get_columns("shipments")}
                 if "trackingMode" not in existing_ship_cols:
                     col_sql = 'ALTER TABLE shipments ADD COLUMN "trackingMode" VARCHAR(20) DEFAULT \'MANUAL\'' if is_pg else 'ALTER TABLE shipments ADD COLUMN trackingMode VARCHAR(20) DEFAULT \'MANUAL\''
                     conn.execute(sa.text(col_sql))
@@ -95,7 +101,6 @@ def run_auto_migrations(target_engine):
 
         # 1bb. Ensure custom_manifest_hubs table exists and is seeded
         try:
-            is_sqlite = "sqlite" in DATABASE_URL
             if "custom_manifest_hubs" not in table_names:
                 if is_sqlite:
                     conn.execute(sa.text("""
@@ -106,6 +111,17 @@ def run_auto_migrations(target_engine):
                             isActive BOOLEAN DEFAULT 1,
                             createdAt TIMESTAMP,
                             updatedAt TIMESTAMP
+                        )
+                    """))
+                elif is_mysql:
+                    conn.execute(sa.text("""
+                        CREATE TABLE IF NOT EXISTS custom_manifest_hubs (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            code VARCHAR(50) UNIQUE NOT NULL,
+                            name VARCHAR(100),
+                            isActive BOOLEAN DEFAULT TRUE,
+                            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                         )
                     """))
                 else:
@@ -162,7 +178,7 @@ def run_auto_migrations(target_engine):
                     pass
                 print(f"[Migration Warning] Customers column check: {e}")
 
-        # 1d. Reconcile surcharge_rules columns (case-safe for PostgreSQL)
+        # 1d. Reconcile surcharge_rules columns (case-safe across dialects)
         if "surcharge_rules" in table_names:
             try:
                 raw_cols = {col["name"]: col for col in inspector.get_columns("surcharge_rules")}
@@ -172,55 +188,70 @@ def run_auto_migrations(target_engine):
                 if "surchargeType" not in raw_col_names:
                     if "surchargetype" in raw_col_names:
                         try:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN surchargetype TO "surchargeType"'))
+                            rename_sql = 'ALTER TABLE surcharge_rules RENAME COLUMN surchargetype TO "surchargeType"' if is_pg else 'ALTER TABLE surcharge_rules RENAME COLUMN surchargetype TO surchargeType'
+                            conn.execute(sa.text(rename_sql))
                         except Exception:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "surchargeType" VARCHAR(50) DEFAULT \'RES\''))
+                            add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "surchargeType" VARCHAR(50) DEFAULT \'RES\'' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN surchargeType VARCHAR(50) DEFAULT \'RES\''
+                            conn.execute(sa.text(add_sql))
                     else:
-                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "surchargeType" VARCHAR(50) DEFAULT \'RES\''))
+                        add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "surchargeType" VARCHAR(50) DEFAULT \'RES\'' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN surchargeType VARCHAR(50) DEFAULT \'RES\''
+                        conn.execute(sa.text(add_sql))
                     conn.commit()
 
                 # Check zipCode / zipcode
                 if "zipCode" not in raw_col_names:
                     if "zipcode" in raw_col_names:
                         try:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN zipcode TO "zipCode"'))
+                            rename_sql = 'ALTER TABLE surcharge_rules RENAME COLUMN zipcode TO "zipCode"' if is_pg else 'ALTER TABLE surcharge_rules RENAME COLUMN zipcode TO zipCode'
+                            conn.execute(sa.text(rename_sql))
                         except Exception:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "zipCode" VARCHAR(50)'))
+                            add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "zipCode" VARCHAR(50)' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN zipCode VARCHAR(50)'
+                            conn.execute(sa.text(add_sql))
                     else:
-                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "zipCode" VARCHAR(50)'))
+                        add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "zipCode" VARCHAR(50)' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN zipCode VARCHAR(50)'
+                        conn.execute(sa.text(add_sql))
                     conn.commit()
 
                 # Check isActive / isactive
                 if "isActive" not in raw_col_names:
                     if "isactive" in raw_col_names:
                         try:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN isactive TO "isActive"'))
+                            rename_sql = 'ALTER TABLE surcharge_rules RENAME COLUMN isactive TO "isActive"' if is_pg else 'ALTER TABLE surcharge_rules RENAME COLUMN isactive TO isActive'
+                            conn.execute(sa.text(rename_sql))
                         except Exception:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "isActive" BOOLEAN DEFAULT TRUE'))
+                            add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "isActive" BOOLEAN DEFAULT TRUE' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN isActive BOOLEAN DEFAULT TRUE'
+                            conn.execute(sa.text(add_sql))
                     else:
-                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "isActive" BOOLEAN DEFAULT TRUE'))
+                        add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "isActive" BOOLEAN DEFAULT TRUE' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN isActive BOOLEAN DEFAULT TRUE'
+                        conn.execute(sa.text(add_sql))
                     conn.commit()
 
                 # Check createdAt / createdat
                 if "createdAt" not in raw_col_names:
                     if "createdat" in raw_col_names:
                         try:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN createdat TO "createdAt"'))
+                            rename_sql = 'ALTER TABLE surcharge_rules RENAME COLUMN createdat TO "createdAt"' if is_pg else 'ALTER TABLE surcharge_rules RENAME COLUMN createdat TO createdAt'
+                            conn.execute(sa.text(rename_sql))
                         except Exception:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                            add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+                            conn.execute(sa.text(add_sql))
                     else:
-                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                        add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+                        conn.execute(sa.text(add_sql))
                     conn.commit()
 
                 # Check updatedAt / updatedat
                 if "updatedAt" not in raw_col_names:
                     if "updatedat" in raw_col_names:
                         try:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules RENAME COLUMN updatedat TO "updatedAt"'))
+                            rename_sql = 'ALTER TABLE surcharge_rules RENAME COLUMN updatedat TO "updatedAt"' if is_pg else 'ALTER TABLE surcharge_rules RENAME COLUMN updatedat TO updatedAt'
+                            conn.execute(sa.text(rename_sql))
                         except Exception:
-                            conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                            add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+                            conn.execute(sa.text(add_sql))
                     else:
-                        conn.execute(sa.text('ALTER TABLE surcharge_rules ADD COLUMN "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                        add_sql = 'ALTER TABLE surcharge_rules ADD COLUMN "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+                        conn.execute(sa.text(add_sql))
                     conn.commit()
             except Exception as e:
                 try:
@@ -232,7 +263,6 @@ def run_auto_migrations(target_engine):
         # 1e. Add festiveTheme, festiveGreeting, appFreightMarkupPercent, googleMapsUrl, mapCoordinates, tickerItems to website_contents table if needed
         if "website_contents" in table_names:
             try:
-                is_pg = "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL
                 existing_wc_cols = {col["name"].lower() for col in inspector.get_columns("website_contents")}
                 if "festivetheme" not in existing_wc_cols:
                     col_sql = 'ALTER TABLE website_contents ADD COLUMN "festiveTheme" VARCHAR(50) DEFAULT \'auto\'' if is_pg else 'ALTER TABLE website_contents ADD COLUMN festiveTheme VARCHAR(50) DEFAULT \'auto\''
@@ -309,19 +339,32 @@ def run_auto_migrations(target_engine):
                 if admin_role and user_role:
                     admin_role_id = admin_role[0]
                     user_role_id = user_role[0]
-                    conn.execute(sa.text("""
-                        UPDATE users 
-                        SET "roleId" = :user_role_id
-                        WHERE "roleId" = :admin_role_id
-                          AND LOWER(email) NOT IN ('admin@example.com', 'admin@netpack.com', 'admin@netpacklogistic.com', 'app.netpack@gmail.com', 'kiran.netpack@gmail.com')
-                          AND LOWER(email) NOT LIKE '%superadmin%'
-                    """), {"user_role_id": user_role_id, "admin_role_id": admin_role_id})
-                    # Ensure official NetPack administrators maintain ADMIN role
-                    conn.execute(sa.text("""
-                        UPDATE users
-                        SET "roleId" = :admin_role_id
-                        WHERE LOWER(email) IN ('app.netpack@gmail.com', 'kiran.netpack@gmail.com')
-                    """), {"admin_role_id": admin_role_id})
+                    if is_pg:
+                        conn.execute(sa.text("""
+                            UPDATE users 
+                            SET "roleId" = :user_role_id
+                            WHERE "roleId" = :admin_role_id
+                              AND LOWER(email) NOT IN ('admin@example.com', 'admin@netpack.com', 'admin@netpacklogistic.com', 'app.netpack@gmail.com', 'kiran.netpack@gmail.com')
+                              AND LOWER(email) NOT LIKE '%superadmin%'
+                        """), {"user_role_id": user_role_id, "admin_role_id": admin_role_id})
+                        conn.execute(sa.text("""
+                            UPDATE users
+                            SET "roleId" = :admin_role_id
+                            WHERE LOWER(email) IN ('app.netpack@gmail.com', 'kiran.netpack@gmail.com')
+                        """), {"admin_role_id": admin_role_id})
+                    else:
+                        conn.execute(sa.text("""
+                            UPDATE users 
+                            SET roleId = :user_role_id
+                            WHERE roleId = :admin_role_id
+                              AND LOWER(email) NOT IN ('admin@example.com', 'admin@netpack.com', 'admin@netpacklogistic.com', 'app.netpack@gmail.com', 'kiran.netpack@gmail.com')
+                              AND LOWER(email) NOT LIKE '%superadmin%'
+                        """), {"user_role_id": user_role_id, "admin_role_id": admin_role_id})
+                        conn.execute(sa.text("""
+                            UPDATE users
+                            SET roleId = :admin_role_id
+                            WHERE LOWER(email) IN ('app.netpack@gmail.com', 'kiran.netpack@gmail.com')
+                        """), {"admin_role_id": admin_role_id})
                     conn.commit()
             except Exception as e:
                 try:
@@ -333,10 +376,12 @@ def run_auto_migrations(target_engine):
         # 3. Ensure all Users are also present in Customers table
         if "users" in table_names and "customers" in table_names:
             try:
-                users = conn.execute(sa.text('SELECT "id", "fullName", "email", "phoneNumber", "isOrganization", "organizationName", "address1", "city", "state", "postcode", "countryId" FROM users')).fetchall()
+                user_query = 'SELECT "id", "fullName", "email", "phoneNumber", "isOrganization", "organizationName", "address1", "city", "state", "postcode", "countryId" FROM users' if is_pg else 'SELECT id, fullName, email, phoneNumber, isOrganization, organizationName, address1, city, state, postcode, countryId FROM users'
+                cust_query = 'SELECT "id" FROM customers WHERE "userId" = :uid OR "email" = :email' if is_pg else 'SELECT id FROM customers WHERE userId = :uid OR email = :email'
+                users = conn.execute(sa.text(user_query)).fetchall()
                 for u in users:
                     u_id, u_name, u_email, u_phone, u_is_org, u_org_name, u_addr, u_city, u_state, u_postcode, u_country_id = u
-                    c = conn.execute(sa.text('SELECT "id" FROM customers WHERE "userId" = :uid OR "email" = :email'), {"uid": u_id, "email": u_email}).fetchone()
+                    c = conn.execute(sa.text(cust_query), {"uid": u_id, "email": u_email}).fetchone()
                     if not c:
                         # Get a default country if user has no countryId
                         target_country = u_country_id
@@ -344,7 +389,7 @@ def run_auto_migrations(target_engine):
                             first_country = conn.execute(sa.text("SELECT id FROM countries LIMIT 1")).fetchone()
                             target_country = first_country[0] if first_country else 1
 
-                        conn.execute(sa.text("""
+                        ins_cust_sql = """
                             INSERT INTO customers (
                                 "name", "phone", "email", "isOrganization", "organizationName",
                                 "address1", "city", "state", "countryId", "postcode", "userId",
@@ -354,7 +399,18 @@ def run_auto_migrations(target_engine):
                                 :address1, :city, :state, :countryId, :postcode, :userId,
                                 :now, :now
                             )
-                        """), {
+                        """ if is_pg else """
+                            INSERT INTO customers (
+                                name, phone, email, isOrganization, organizationName,
+                                address1, city, state, countryId, postcode, userId,
+                                createdAt, updatedAt
+                            ) VALUES (
+                                :name, :phone, :email, :isOrg, :orgName,
+                                :address1, :city, :state, :countryId, :postcode, :userId,
+                                :now, :now
+                            )
+                        """
+                        conn.execute(sa.text(ins_cust_sql), {
                             "name": u_name or (u_email.split("@")[0] if u_email else "User"),
                             "phone": u_phone or "+977-00000000",
                             "email": u_email,
@@ -414,17 +470,28 @@ def run_auto_migrations(target_engine):
                 nepal_country = conn.execute(sa.text("SELECT id FROM countries WHERE LOWER(name) = 'nepal'")).fetchone()
                 nepal_id = nepal_country[0] if nepal_country else 1
 
+                user_ins_sql = """
+                    INSERT INTO users (email, username, password, "fullName", "phoneNumber", "roleId", "isActive", "countryId", city, address1, "createdAt", "updatedAt")
+                    VALUES (:email, :username, :pw, :fullName, :phone, :roleId, true, :countryId, :city, :addr, :now, :now)
+                """ if is_pg else """
+                    INSERT INTO users (email, username, password, fullName, phoneNumber, roleId, isActive, countryId, city, address1, createdAt, updatedAt)
+                    VALUES (:email, :username, :pw, :fullName, :phone, :roleId, 1, :countryId, :city, :addr, :now, :now)
+                """
+
                 # 5a. Admin Account
                 if admin_role:
                     adm = conn.execute(sa.text("SELECT id FROM users WHERE LOWER(email) = 'admin@example.com'")).fetchone()
                     if not adm:
-                        conn.execute(sa.text("""
-                            INSERT INTO users (email, username, password, "fullName", "phoneNumber", "roleId", "isActive", "countryId", city, address1, "createdAt", "updatedAt")
-                            VALUES ('admin@example.com', 'admin', :pw, 'System Administrator', '+977-9800000000', :roleId, true, :countryId, 'Kathmandu', 'Thamel', :now, :now)
-                        """), {
+                        conn.execute(sa.text(user_ins_sql), {
+                            "email": "admin@example.com",
+                            "username": "admin",
                             "pw": get_password_hash("Admin@123"),
+                            "fullName": "System Administrator",
+                            "phone": "+977-9800000000",
                             "roleId": admin_role[0],
                             "countryId": nepal_id,
+                            "city": "Kathmandu",
+                            "addr": "Thamel",
                             "now": now_dt
                         })
                         conn.commit()
@@ -434,13 +501,16 @@ def run_auto_migrations(target_engine):
                 if pickup_role:
                     drv = conn.execute(sa.text("SELECT id FROM users WHERE LOWER(email) = 'driver@netpack.com'")).fetchone()
                     if not drv:
-                        conn.execute(sa.text("""
-                            INSERT INTO users (email, username, password, "fullName", "phoneNumber", "roleId", "isActive", "countryId", city, address1, "createdAt", "updatedAt")
-                            VALUES ('driver@netpack.com', 'rider-01', :pw, 'Ram Shrestha (Field Rider)', '+977-9841234567', :roleId, true, :countryId, 'Kathmandu', 'New Road', :now, :now)
-                        """), {
+                        conn.execute(sa.text(user_ins_sql), {
+                            "email": "driver@netpack.com",
+                            "username": "rider-01",
                             "pw": get_password_hash("Driver@123"),
+                            "fullName": "Ram Shrestha (Field Rider)",
+                            "phone": "+977-9841234567",
                             "roleId": pickup_role[0],
                             "countryId": nepal_id,
+                            "city": "Kathmandu",
+                            "addr": "New Road",
                             "now": now_dt
                         })
                         conn.commit()
@@ -450,13 +520,16 @@ def run_auto_migrations(target_engine):
                 if user_role:
                     courier = conn.execute(sa.text("SELECT id FROM users WHERE LOWER(email) = 'courier@netpack.com'")).fetchone()
                     if not courier:
-                        conn.execute(sa.text("""
-                            INSERT INTO users (email, username, password, "fullName", "phoneNumber", "roleId", "isActive", "countryId", city, address1, "createdAt", "updatedAt")
-                            VALUES ('courier@netpack.com', 'courier-01', :pw, 'Sita Sharma (Express Cargo)', '+977-9851000000', :roleId, true, :countryId, 'Kathmandu', 'Dillibazar', :now, :now)
-                        """), {
+                        conn.execute(sa.text(user_ins_sql), {
+                            "email": "courier@netpack.com",
+                            "username": "courier-01",
                             "pw": get_password_hash("Courier@123"),
+                            "fullName": "Sita Sharma (Express Cargo)",
+                            "phone": "+977-9851000000",
                             "roleId": user_role[0],
                             "countryId": nepal_id,
+                            "city": "Kathmandu",
+                            "addr": "Dillibazar",
                             "now": now_dt
                         })
                         conn.commit()
@@ -465,10 +538,14 @@ def run_auto_migrations(target_engine):
                 # 5d. Customer Account with fully completed profile
                 cust = conn.execute(sa.text("SELECT id FROM customers WHERE LOWER(email) = 'customer@netpack.com'")).fetchone()
                 if not cust:
-                    conn.execute(sa.text("""
+                    cust_ins_sql = """
                         INSERT INTO customers (name, email, phone, password, address1, address2, city, state, "countryId", postcode, "createdAt", "updatedAt")
                         VALUES ('NetPack Loyal Customer', 'customer@netpack.com', '+977-9812345678', :pw, 'Baluwatar Road, Ward 4', 'Near Embassy', 'Kathmandu', 'Bagmati', :countryId, '44600', :now, :now)
-                    """), {
+                    """ if is_pg else """
+                        INSERT INTO customers (name, email, phone, password, address1, address2, city, state, countryId, postcode, createdAt, updatedAt)
+                        VALUES ('NetPack Loyal Customer', 'customer@netpack.com', '+977-9812345678', :pw, 'Baluwatar Road, Ward 4', 'Near Embassy', 'Kathmandu', 'Bagmati', :countryId, '44600', :now, :now)
+                    """
+                    conn.execute(sa.text(cust_ins_sql), {
                         "pw": get_password_hash("Customer@123"),
                         "countryId": nepal_id,
                         "now": now_dt
@@ -496,7 +573,6 @@ def run_auto_migrations(target_engine):
                 print(f"[Migration Warning] Baseline accounts check: {e}")
 
         # 6. Synchronize all PostgreSQL table sequences to prevent UniqueViolation on newly inserted records
-        is_pg = "postgresql" in str(target_engine.url).lower() or "postgres" in str(target_engine.url).lower()
         if is_pg:
             try:
                 conn.execute(sa.text("""
@@ -549,6 +625,21 @@ def run_auto_migrations(target_engine):
                     conn.commit()
                     if link_res.rowcount > 0:
                         print(f"[Migration] Linked {link_res.rowcount} orphan boxes to their shipments.")
+                elif is_mysql:
+                    link_res = conn.execute(sa.text("""
+                        UPDATE boxes b
+                        INNER JOIN shipments s ON b.enquiryId = s.enquiryId
+                        SET b.shipmentId = s.id
+                        WHERE b.shipmentId IS NULL
+                          AND s.enquiryId IN (
+                              SELECT enquiryId FROM (
+                                  SELECT enquiryId FROM shipments GROUP BY enquiryId HAVING count(*) = 1
+                              ) AS tmp_s
+                          )
+                    """))
+                    conn.commit()
+                    if link_res.rowcount > 0:
+                        print(f"[Migration] Linked {link_res.rowcount} orphan boxes to their shipments.")
                 else:
                     conn.execute(sa.text("""
                         UPDATE boxes
@@ -595,6 +686,26 @@ def run_auto_migrations(target_engine):
                           AND (s."countryId" IS NULL OR s."countryId" <> e."destinationCountry")
                     """))
                     conn.commit()
+                elif is_mysql:
+                    conn.execute(sa.text("""
+                        UPDATE enquiries e
+                        INNER JOIN countries c ON LOWER(TRIM(e.receiverCountry)) = LOWER(TRIM(c.name))
+                        SET e.destinationCountry = c.id
+                        WHERE e.receiverCountry IS NOT NULL
+                          AND TRIM(e.receiverCountry) <> ''
+                          AND (
+                            e.destinationCountry IS NULL 
+                            OR e.destinationCountry <> c.id
+                          )
+                    """))
+                    conn.execute(sa.text("""
+                        UPDATE shipments s
+                        INNER JOIN enquiries e ON s.enquiryId = e.id
+                        SET s.countryId = e.destinationCountry
+                        WHERE e.destinationCountry IS NOT NULL
+                          AND (s.countryId IS NULL OR s.countryId <> e.destinationCountry)
+                    """))
+                    conn.commit()
                 else:
                     conn.execute(sa.text("""
                         UPDATE enquiries
@@ -630,4 +741,5 @@ def run_auto_migrations(target_engine):
                 except Exception:
                     pass
                 print(f"[Migration Warning] Destination country sync: {e}")
+
 

@@ -44,16 +44,31 @@ HOST = os.getenv("HOST", "0.0.0.0")
 NODE_ENV = os.getenv("NODE_ENV", "development")
 
 # Persistent Database URL:
-# 1. Cloud PostgreSQL (Railway / Supabase / Neon / Render) takes highest priority when set
-# Checks DATABASE_URL, DATABASE_PRIVATE_URL, POSTGRES_URL, or discrete POSTGRES_* environment variables
+# 1. MySQL (Primary): checks MYSQL_URL, DATABASE_URL, or discrete MYSQL_* environment variables
+# 2. Cloud PostgreSQL / SQLite (fallback compatibility)
 raw_db_url = (
-    os.getenv("DATABASE_URL")
+    os.getenv("MYSQL_URL")
+    or os.getenv("MYSQL_PRIVATE_URL")
+    or os.getenv("MYSQL_PUBLIC_URL")
+    or os.getenv("DATABASE_URL")
     or os.getenv("DATABASE_PRIVATE_URL")
     or os.getenv("DATABASE_PUBLIC_URL")
     or os.getenv("POSTGRES_URL")
     or os.getenv("POSTGRESQL_URL")
 )
 
+# Check discrete MySQL environment variables (standard across local dev, cPanel, Docker, Railway, AWS RDS)
+mysql_host = os.getenv("MYSQL_HOST") or os.getenv("MYSQLHOST")
+mysql_user = os.getenv("MYSQL_USER") or os.getenv("MYSQLUSER") or "root"
+mysql_pass = os.getenv("MYSQL_PASSWORD") or os.getenv("MYSQL_PASS") or os.getenv("MYSQLPASSWORD") or ""
+mysql_port = os.getenv("MYSQL_PORT") or os.getenv("MYSQLPORT") or "3306"
+mysql_db = os.getenv("MYSQL_DATABASE") or os.getenv("MYSQL_DB") or os.getenv("MYSQLDATABASE") or "netpack"
+
+if not raw_db_url and (mysql_host or os.getenv("MYSQL_PASSWORD") is not None or os.getenv("MYSQL_DATABASE")):
+    host = mysql_host or "localhost"
+    raw_db_url = f"mysql+pymysql://{mysql_user}:{mysql_pass}@{host}:{mysql_port}/{mysql_db}?charset=utf8mb4"
+
+# PostgreSQL discrete variables fallback
 if not raw_db_url and os.getenv("POSTGRES_HOST") and os.getenv("POSTGRES_PASSWORD"):
     pg_user = os.getenv("POSTGRES_USER", "postgres")
     pg_pass = os.getenv("POSTGRES_PASSWORD", "")
@@ -62,21 +77,46 @@ if not raw_db_url and os.getenv("POSTGRES_HOST") and os.getenv("POSTGRES_PASSWOR
     pg_db = os.getenv("POSTGRES_DB", "railway")
     raw_db_url = f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
 
+# Default database when none is explicitly provided:
+# Default to MySQL (e.g. mysql+pymysql://root:@localhost:3306/netpack?charset=utf8mb4),
+# or SQLite if USE_SQLITE is explicitly enabled.
+if not raw_db_url:
+    if os.getenv("USE_SQLITE", "false").lower() in ("1", "true", "yes"):
+        DEFAULT_SQLITE_PATH = DATA_DIR / "netpack.db"
+        raw_db_url = f"sqlite:///{DEFAULT_SQLITE_PATH}"
+    else:
+        raw_db_url = f"mysql+pymysql://{mysql_user}:{mysql_pass}@localhost:{mysql_port}/{mysql_db}?charset=utf8mb4"
+
 import secrets
 
 if raw_db_url:
     DATABASE_URL = raw_db_url.strip()
-    if DATABASE_URL.startswith("postgres://"):
+    if DATABASE_URL.startswith("mysql://"):
+        DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
+    elif DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
     elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+"):
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-    
+
+    # Ensure charset=utf8mb4 for MySQL connections
+    if "mysql" in DATABASE_URL and "charset=" not in DATABASE_URL:
+        separator = "&" if "?" in DATABASE_URL else "?"
+        DATABASE_URL = f"{DATABASE_URL}{separator}charset=utf8mb4"
+
     # Ensure SSL is enforced for remote cloud PostgreSQL connections
-    if "sslmode=" not in DATABASE_URL and not any(h in DATABASE_URL for h in ("localhost", "127.0.0.1")):
+    if ("postgresql" in DATABASE_URL or "postgres" in DATABASE_URL) and "sslmode=" not in DATABASE_URL and not any(h in DATABASE_URL for h in ("localhost", "127.0.0.1")):
         separator = "&" if "?" in DATABASE_URL else "?"
         DATABASE_URL = f"{DATABASE_URL}{separator}sslmode=require"
 
-    print(f"[Database] Configured PostgreSQL database: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'connected'}")
+    if "mysql" in DATABASE_URL:
+        db_type = "MySQL"
+    elif "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
+        db_type = "PostgreSQL"
+    else:
+        db_type = "SQLite"
+
+    masked_target = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL
+    print(f"[Database] Configured {db_type} database: {masked_target}")
 else:
     DEFAULT_SQLITE_PATH = DATA_DIR / "netpack.db"
     DATABASE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"

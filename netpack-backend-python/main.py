@@ -46,13 +46,74 @@ import os
 def ensure_essential_schema(target_engine):
     """
     Sub-second idempotent check ensuring critical tables and columns exist
-    across both PostgreSQL (production) and SQLite (dev) on cold starts.
+    across MySQL, PostgreSQL, and SQLite on cold starts.
     """
     try:
         from sqlalchemy import text
         with target_engine.connect() as conn:
-            is_pg = "postgresql" in str(target_engine.url) or "postgres" in str(target_engine.url)
-            if is_pg:
+            db_url_str = str(target_engine.url).lower()
+            is_mysql = "mysql" in db_url_str
+            is_pg = "postgresql" in db_url_str or "postgres" in db_url_str
+
+            if is_mysql:
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS custom_manifest_hubs (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        code VARCHAR(50) UNIQUE NOT NULL,
+                        name VARCHAR(100),
+                        isActive BOOLEAN DEFAULT TRUE,
+                        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('''
+                    INSERT IGNORE INTO custom_manifest_hubs (code, name)
+                    VALUES 
+                        ('AUS', 'Australia Gateway'),
+                        ('LHR', 'London Heathrow Hub'),
+                        ('DXB', 'Dubai Hub');
+                '''))
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS password_reset_codes (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        email VARCHAR(255) NOT NULL,
+                        code VARCHAR(10) NOT NULL,
+                        expiresAt DATETIME NOT NULL,
+                        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_password_reset_codes_email (email)
+                    );
+                '''))
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS website_contents (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        heroTitle VARCHAR(255) DEFAULT 'Fast & Reliable Courier Services in Teku, Kathmandu',
+                        heroSubtitle TEXT,
+                        heroBadge VARCHAR(100) DEFAULT 'Teku, Kathmandu Headquarters',
+                        contactPhone VARCHAR(50) DEFAULT '015339942',
+                        contactEmail VARCHAR(100) DEFAULT 'admin@netpacklogistic.com',
+                        contactAddress VARCHAR(255) DEFAULT 'Teku Road, Ward No. 15, Kathmandu, Nepal',
+                        businessHours VARCHAR(100) DEFAULT '10:00 am - 5:00 pm (Sun - Fri)',
+                        googleMapsUrl TEXT,
+                        mapCoordinates VARCHAR(100) DEFAULT '27.6975, 85.3090',
+                        tickerItems TEXT,
+                        festiveTheme VARCHAR(50) DEFAULT 'auto',
+                        festiveGreeting VARCHAR(255),
+                        appFreightMarkupPercent FLOAT DEFAULT 10.0,
+                        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('''
+                    INSERT INTO website_contents (id, heroTitle)
+                    VALUES (1, 'Fast & Reliable Courier Services in Teku, Kathmandu')
+                    ON DUPLICATE KEY UPDATE id=id;
+                '''))
+                conn.commit()
+                try:
+                    Base.metadata.create_all(bind=target_engine)
+                    run_auto_migrations(target_engine)
+                except Exception as _ca_err:
+                    print(f"[Metadata create_all note] {_ca_err}")
+            elif is_pg:
                 conn.execute(text('ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "customManifestHub" VARCHAR(50);'))
                 conn.execute(text('ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "trackingMode" VARCHAR(20) DEFAULT \'MANUAL\';'))
                 conn.execute(text('''
@@ -123,13 +184,15 @@ else:
 
 app = FastAPI(
     title="NetPack Logistic API (Python)",
-    description="Enterprise Logistics & Airway Bill Integration API built with FastAPI and SQLite",
+    description="Enterprise Logistics & Airway Bill Integration API built with FastAPI and MySQL",
     version="1.0.0"
 )
 
 # ─── Strict CORS Configuration ────────────────────────────────────────────────
 # Restrict origins strictly to production domains, Vercel deployments, and local dev
 ALLOWED_ORIGINS = [
+    "https://amit.netpacklogistic.com",
+    "http://amit.netpacklogistic.com",
     "https://netpackintegration.vercel.app",
     "https://netpacklogistic.com",
     "https://www.netpacklogistic.com",
@@ -177,7 +240,7 @@ async def add_security_headers(request, call_next):
 def health_check():
     import sys
     from config import DATABASE_URL
-    db_masked = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else ("sqlite" if "sqlite" in DATABASE_URL else "configured")
+    db_masked = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else ("mysql" if "mysql" in DATABASE_URL else ("sqlite" if "sqlite" in DATABASE_URL else "configured"))
     db_status = "ok"
     try:
         from database import SessionLocal

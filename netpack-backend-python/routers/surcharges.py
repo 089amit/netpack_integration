@@ -12,11 +12,13 @@ from sqlalchemy import or_, text
 from database import get_db, Base, engine
 from models.location import SurchargeRule
 
-# Ensure table and surchargeType column exist in database with exact quotes
-Base.metadata.create_all(bind=engine, tables=[SurchargeRule.__table__])
+# Ensure table and surchargeType column exist in database with graceful error handling
 try:
+    Base.metadata.create_all(bind=engine, tables=[SurchargeRule.__table__])
     with engine.connect() as conn:
-        conn.execute(text('ALTER TABLE surcharge_rules ADD COLUMN IF NOT EXISTS "surchargeType" VARCHAR(50) DEFAULT \'RES\''))
+        is_pg = "postgresql" in str(engine.url) or "postgres" in str(engine.url)
+        col_sql = 'ALTER TABLE surcharge_rules ADD COLUMN IF NOT EXISTS "surchargeType" VARCHAR(50) DEFAULT \'RES\'' if is_pg else 'ALTER TABLE surcharge_rules ADD COLUMN surchargeType VARCHAR(50) DEFAULT \'RES\''
+        conn.execute(text(col_sql))
         conn.commit()
 except Exception:
     pass
