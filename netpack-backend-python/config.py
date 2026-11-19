@@ -43,6 +43,21 @@ PORT = int(os.getenv("PORT", 8000))
 HOST = os.getenv("HOST", "0.0.0.0")
 NODE_ENV = os.getenv("NODE_ENV", "development")
 
+import urllib.parse
+
+def sanitize_db_url(url_str: str) -> str:
+    """Safely URL-encodes passwords with special characters (like @, #, :, /, %) for SQLAlchemy make_url."""
+    if not url_str or "://" not in url_str:
+        return url_str
+    prefix, rest = url_str.split("://", 1)
+    if "@" in rest:
+        creds, host_db = rest.rsplit("@", 1)
+        if ":" in creds:
+            user, pw = creds.split(":", 1)
+            pw_clean = urllib.parse.quote_plus(urllib.parse.unquote_plus(pw))
+            return f"{prefix}://{user}:{pw_clean}@{host_db}"
+    return url_str
+
 # Persistent Database URL:
 # 1. MySQL (Primary): checks MYSQL_URL, DATABASE_URL, or discrete MYSQL_* environment variables
 # 2. Cloud PostgreSQL / SQLite (fallback compatibility)
@@ -64,9 +79,11 @@ mysql_pass = os.getenv("MYSQL_PASSWORD") or os.getenv("MYSQL_PASS") or os.getenv
 mysql_port = os.getenv("MYSQL_PORT") or os.getenv("MYSQLPORT") or "3306"
 mysql_db = os.getenv("MYSQL_DATABASE") or os.getenv("MYSQL_DB") or os.getenv("MYSQLDATABASE") or "netpack"
 
+mysql_pass_quoted = urllib.parse.quote_plus(mysql_pass) if mysql_pass else ""
+
 if not raw_db_url and (mysql_host or os.getenv("MYSQL_PASSWORD") is not None or os.getenv("MYSQL_DATABASE")):
     host = mysql_host or "localhost"
-    raw_db_url = f"mysql+pymysql://{mysql_user}:{mysql_pass}@{host}:{mysql_port}/{mysql_db}?charset=utf8mb4"
+    raw_db_url = f"mysql+pymysql://{mysql_user}:{mysql_pass_quoted}@{host}:{mysql_port}/{mysql_db}?charset=utf8mb4"
 
 # PostgreSQL discrete variables fallback
 if not raw_db_url and os.getenv("POSTGRES_HOST") and os.getenv("POSTGRES_PASSWORD"):
@@ -75,7 +92,8 @@ if not raw_db_url and os.getenv("POSTGRES_HOST") and os.getenv("POSTGRES_PASSWOR
     pg_host = os.getenv("POSTGRES_HOST", "localhost")
     pg_port = os.getenv("POSTGRES_PORT", "5432")
     pg_db = os.getenv("POSTGRES_DB", "railway")
-    raw_db_url = f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
+    pg_pass_quoted = urllib.parse.quote_plus(pg_pass) if pg_pass else ""
+    raw_db_url = f"postgresql://{pg_user}:{pg_pass_quoted}@{pg_host}:{pg_port}/{pg_db}"
 
 # Default database when none is explicitly provided:
 # Default to MySQL (e.g. mysql+pymysql://root:@localhost:3306/netpack?charset=utf8mb4),
@@ -85,7 +103,7 @@ if not raw_db_url:
         DEFAULT_SQLITE_PATH = DATA_DIR / "netpack.db"
         raw_db_url = f"sqlite:///{DEFAULT_SQLITE_PATH}"
     else:
-        raw_db_url = f"mysql+pymysql://{mysql_user}:{mysql_pass}@localhost:{mysql_port}/{mysql_db}?charset=utf8mb4"
+        raw_db_url = f"mysql+pymysql://{mysql_user}:{mysql_pass_quoted}@localhost:{mysql_port}/{mysql_db}?charset=utf8mb4"
 
 import secrets
 
@@ -97,6 +115,9 @@ if raw_db_url:
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
     elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+"):
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    # Sanitize password encoding for SQLAlchemy URL parser (handles @, #, %, :, /)
+    DATABASE_URL = sanitize_db_url(DATABASE_URL)
 
     # Ensure charset=utf8mb4 for MySQL connections
     if "mysql" in DATABASE_URL and "charset=" not in DATABASE_URL:
