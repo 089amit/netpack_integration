@@ -1,0 +1,17 @@
+{
+  "name": "netpack-mobile-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "customer:start": "cd apps/customer && npm run start",
+    "customer:android": "cd apps/customer && npm run android",
+    "customer:ios": "cd apps/customer && npm run ios",
+    "rider:start": "cd apps/rider && npm run start",
+    "rider:android": "cd apps/rider && npm run android",
+    "rider:ios": "cd apps/rider && npm run ios"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "NetPack Express",
+    "slug": "netpack-customer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D1B2A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.netpacklogistic.customer",
+      "infoPlist": {
+        "NSCameraUsageDescription": "NetPack requires camera access to scan parcel barcodes and take cargo photos.",
+        "NSPhotoLibraryUsageDescription": "NetPack requires photo library access to upload package proofs."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D1B2A"
+      },
+      "package": "com.netpacklogistic.customer",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow NetPack to access your camera to scan cargo barcodes."
+        }
+      ]
+    ]
+  }
+}
