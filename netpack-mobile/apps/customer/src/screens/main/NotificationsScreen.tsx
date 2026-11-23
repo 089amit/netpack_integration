@@ -99,7 +99,7 @@ export const NotificationsScreen = ({ navigation }: any) => {
       ) : (
         <FlatList
           data={notifications}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item: any) => String(item.id)}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}

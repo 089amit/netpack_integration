@@ -157,7 +157,7 @@ export const BookingsScreen = ({ navigation }: any) => {
       ) : (
         <FlatList
           data={filteredBookings}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item: EnquiryBooking) => String(item.id)}
           renderItem={renderBookingItem}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
